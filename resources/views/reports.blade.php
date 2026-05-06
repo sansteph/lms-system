@@ -7,40 +7,45 @@
 
         @include('layouts.sidebar')
 
-        <div class="col-md-9 col-lg-10 p-4">
+        <div class="col-md-10 col-lg-10 p-4">
 
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Reports</h2>
+            <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                <div>
+                    <h2 class="mb-1">Reports</h2>
+                    <p class="text-muted mb-0">
+                        Generate, view, and export LMS performance reports.
+                    </p>
+                </div>
 
-                <button class="btn btn-primary">
+                <button class="btn btn-primary btn-sm">
                     Export Report
                 </button>
             </div>
 
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>Student Reports</h6>
                         <h2>120</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>Teacher Reports</h6>
                         <h2>25</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>Class Reports</h6>
                         <h2>10</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>MIS Reports</h6>
                         <h2>8</h2>
                     </div>
@@ -49,7 +54,8 @@
 
             <div class="card shadow border-0 mb-4">
                 <div class="card-body">
-                    <h5 class="mb-3">Generate Report</h5>
+                    <h5 class="mb-1">Generate Report</h5>
+                    <p class="text-muted mb-3">Filter reports by type, institute, class, and date.</p>
 
                     <div class="row g-3">
                         <div class="col-md-3">
@@ -93,7 +99,11 @@
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    <input type="text" class="form-control mb-3" placeholder="Search reports...">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" placeholder="Search reports">
+                        </div>
+                    </div>
 
                     <table class="table table-bordered table-hover align-middle">
                         <thead class="table-dark">
@@ -118,7 +128,7 @@
                                 <td>05-05-2026</td>
                                 <td>
                                     <div class="dropdown">
-                                        <button class="btn btn-sm btn-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
                                             Actions
                                         </button>
                                         <ul class="dropdown-menu">
@@ -142,7 +152,7 @@
                                 <td>05-05-2026</td>
                                 <td>
                                     <div class="dropdown">
-                                        <button class="btn btn-sm btn-secondary dropdown-toggle" data-bs-toggle="dropdown"> 
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"> 
                                             Actions
                                         </button>
                                         <ul class="dropdown-menu">

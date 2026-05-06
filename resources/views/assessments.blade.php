@@ -7,40 +7,47 @@
 
         @include('layouts.sidebar')
 
-        <div class="col-md-9 col-lg-10 p-4">
+        <div class="col-md-10 col-lg-10 p-4">
 
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Assessment Management</h2>
+            <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                <div>
+                    <h2 class="mb-1">Assessment Management</h2>
+                    <p class="text-muted mb-0">
+                        Create student and teacher assessments, generate links, and manage status.
+                    </p>
+                </div>
 
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAssessmentModal">
+                <button class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#createAssessmentModal">
                     Create Assessment
                 </button>
             </div>
 
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>Total Assessments</h6>
                         <h2>18</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>Student Assessments</h6>
                         <h2>12</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>Teacher Assessments</h6>
                         <h2>4</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>Active Links</h6>
                         <h2>9</h2>
                     </div>
@@ -50,7 +57,11 @@
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    <input type="text" class="form-control mb-3" placeholder="Search assessment...">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" placeholder="Search by title or class">
+                        </div>
+                    </div>
 
                     <table class="table table-bordered table-hover align-middle">
                         <thead class="table-dark">
@@ -74,7 +85,7 @@
                                 <td>VIII - A</td>
                                 <td>50</td>
                                 <td>45 mins</td>
-                                <td><button class="btn btn-sm btn-success">Active</button></td>
+                                <td><span class="badge bg-success">Active</span></td>
                                 <td>
                                     <button class="btn btn-sm btn-info" onclick="copyAssessmentLink()">Generate Link</button>
                                     <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editAssessmentModal">Edit</button>
@@ -89,7 +100,7 @@
                                 <td>All Teachers</td>
                                 <td>100</td>
                                 <td>60 mins</td>
-                                <td><button class="btn btn-sm btn-success">Active</button></td>
+                                <td><span class="badge bg-success">Active</span></td>
                                 <td>
                                     <button class="btn btn-sm btn-info" onclick="copyAssessmentLink()">Generate Link</button>
                                     <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editAssessmentModal">Edit</button>
@@ -113,7 +124,7 @@
 
 <!-- Create Assessment Modal -->
 <div class="modal fade" id="createAssessmentModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
 
             <div class="modal-header">
@@ -123,42 +134,68 @@
 
             <div class="modal-body">
                 <form>
-                    <input type="text" class="form-control mb-2" placeholder="Assessment Title">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Assessment Title</label>
+                            <input type="text" class="form-control" placeholder="Enter assessment title">
+                        </div>
 
-                    <select class="form-control mb-2">
-                        <option>Select Assessment Type</option>
-                        <option>Student Assessment</option>
-                        <option>Teacher Assessment</option>
-                    </select>
+                        <div class="col-md-6">
+                            <label class="form-label">Assessment Type</label>
+                            <select class="form-control">
+                                <option>Select Assessment Type</option>
+                                <option>Student Assessment</option>
+                                <option>Teacher Assessment</option>
+                            </select>
+                        </div>
 
-                    <select class="form-control mb-2">
-                        <option>Select Class</option>
-                        <option>VIII - A</option>
-                        <option>IX - B</option>
-                        <option>X - A</option>
-                        <option>All Teachers</option>
-                    </select>
+                        <div class="col-md-6">
+                            <label class="form-label">Class / Group</label>
+                            <select class="form-control">
+                                <option>Select Class</option>
+                                <option>VIII - A</option>
+                                <option>IX - B</option>
+                                <option>X - A</option>
+                                <option>All Teachers</option>
+                            </select>
+                        </div>
 
-                    <input type="number" class="form-control mb-2" placeholder="Total Marks">
-                    <input type="text" class="form-control mb-2" placeholder="Duration e.g. 45 mins">
+                        <div class="col-md-3">
+                            <label class="form-label">Total Marks</label>
+                            <input type="number" class="form-control" placeholder="50">
+                        </div>
 
-                    <select class="form-control mb-2">
-                        <option>Question Paper Type</option>
-                        <option>Upload Question Paper</option>
-                        <option>Create Questions Later</option>
-                    </select>
+                        <div class="col-md-3">
+                            <label class="form-label">Duration</label>
+                            <input type="text" class="form-control" placeholder="45 mins">
+                        </div>
 
-                    <input type="file" class="form-control mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Question Paper Type</label>
+                            <select class="form-control">
+                                <option>Upload Question Paper</option>
+                                <option>Create Questions Later</option>
+                            </select>
+                        </div>
 
-                    <select class="form-control mb-2">
-                        <option>Status</option>
-                        <option>Active</option>
-                        <option>Inactive</option>
-                    </select>
+                        <div class="col-md-6">
+                            <label class="form-label">Question Paper File</label>
+                            <input type="file" class="form-control">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <select class="form-control">
+                                <option>Active</option>
+                                <option>Inactive</option>
+                            </select>
+                        </div>
+                    </div>
                 </form>
             </div>
 
             <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                 <button class="btn btn-success">Save Assessment</button>
             </div>
 
@@ -168,7 +205,7 @@
 
 <!-- Edit Assessment Modal -->
 <div class="modal fade" id="editAssessmentModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
 
             <div class="modal-header">
@@ -203,6 +240,7 @@
             </div>
 
             <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                 <button class="btn btn-success">Update Assessment</button>
             </div>
 

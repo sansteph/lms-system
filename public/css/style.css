@@ -30,3 +30,67 @@ body {
 .sidebar-link:hover {
     background-color: rgba(255, 255, 255, 0.12);
 }
+
+.admin-sidebar {
+    background: linear-gradient(180deg, #111827, #1E293B);
+    color: white;
+}
+
+.sidebar-title h4 {
+    margin-bottom: 22px;
+    font-weight: 700;
+}
+
+.sidebar-title small {
+    color: #CBD5E1;
+}
+
+.sidebar-link {
+    display: block;
+    color: #CBD5E1;
+    text-decoration: none;
+    padding: 9px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 14px;
+    transition: 0.2s;
+}
+
+.sidebar-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.sidebar-link.active {
+    background-color: #2563EB;
+    color: white;
+    font-weight: 600;
+}
+
+.page-header h2 {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.page-header p {
+    color: #6B7280;
+    margin-bottom: 0;
+}
+
+.dashboard-card {
+    background: white;
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.dashboard-card p {
+    color: #6B7280;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.dashboard-card h2 {
+    font-weight: 700;
+    margin-bottom: 0;
+}

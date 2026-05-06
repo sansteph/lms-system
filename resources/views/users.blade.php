@@ -7,40 +7,47 @@
 
         @include('layouts.sidebar')
 
-        <div class="col-md-9 col-lg-10 p-4">
+        <div class="col-md-10 col-lg-10 p-4">
 
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>User Management</h2>
+            <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                <div>
+                    <h2 class="mb-1">User Management</h2>
+                    <p class="text-muted mb-0">
+                        Manage admins, teachers, roles, and account status.
+                    </p>
+                </div>
 
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                <button class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#addUserModal">
                     Add User
                 </button>
             </div>
 
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>Total Users</h6>
                         <h2>45</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>Admins</h6>
                         <h2>3</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>Teachers</h6>
                         <h2>25</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card shadow border-0 p-3">
+                    <div class="dashboard-card">
                         <h6>Active Users</h6>
                         <h2>42</h2>
                     </div>
@@ -50,7 +57,11 @@
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    <input type="text" class="form-control mb-3" placeholder="Search user...">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" placeholder="Search by name or email">
+                        </div>
+                    </div>
 
                     <table class="table table-bordered table-hover align-middle">
                         <thead class="table-dark">
@@ -72,7 +83,7 @@
                                 <td>Admin User</td>
                                 <td>admin@example.com</td>
                                 <td><span class="badge bg-danger">Admin</span></td>
-                                <td><button class="btn btn-sm btn-success">Active</button></td>
+                                <td><span class="badge bg-success">Active</span></td>
                                 <td>
                                     <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editUserModal">Edit</button>
                                     <button class="btn btn-sm btn-danger" onclick="confirmDelete()">Delete</button>
@@ -85,7 +96,7 @@
                                 <td>Priya Nair</td>
                                 <td>priya@example.com</td>
                                 <td><span class="badge bg-primary">Teacher</span></td>
-                                <td><button class="btn btn-sm btn-success">Active</button></td>
+                                <td><span class="badge bg-success">Active</span></td>
                                 <td>
                                     <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editUserModal">Edit</button>
                                     <button class="btn btn-sm btn-danger" onclick="confirmDelete()">Delete</button>
@@ -103,7 +114,7 @@
 
 <!-- Add User Modal -->
 <div class="modal fade" id="addUserModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
 
             <div class="modal-header">
@@ -113,26 +124,44 @@
 
             <div class="modal-body">
                 <form>
-                    <input type="text" class="form-control mb-2" placeholder="Full Name">
-                    <input type="email" class="form-control mb-2" placeholder="Email Address">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" class="form-control" placeholder="Enter full name">
+                        </div>
 
-                    <select class="form-control mb-2">
-                        <option>Select Role</option>
-                        <option>Admin</option>
-                        <option>Teacher</option>
-                    </select>
+                        <div class="col-md-6">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" class="form-control" placeholder="Enter email address">
+                        </div>
 
-                    <input type="password" class="form-control mb-2" placeholder="Password">
+                        <div class="col-md-6">
+                            <label class="form-label">Role</label>
+                            <select class="form-control">
+                                <option>Select Role</option>
+                                <option>Admin</option>
+                                <option>Teacher</option>
+                            </select>
+                        </div>
 
-                    <select class="form-control mb-2">
-                        <option>Status</option>
-                        <option>Active</option>
-                        <option>Inactive</option>
-                    </select>
+                        <div class="col-md-6">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" placeholder="Enter password">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <select class="form-control">
+                                <option>Active</option>
+                                <option>Inactive</option>
+                            </select>
+                        </div>
+                    </div>
                 </form>
             </div>
 
             <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                 <button class="btn btn-success">Save User</button>
             </div>
 
@@ -142,7 +171,7 @@
 
 <!-- Edit User Modal -->
 <div class="modal fade" id="editUserModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
 
             <div class="modal-header">
@@ -168,6 +197,7 @@
             </div>
 
             <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                 <button class="btn btn-success">Update User</button>
             </div>
 

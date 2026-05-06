@@ -1,49 +1,41 @@
-<div class="col-md-3 col-lg-2 bg-dark text-white min-vh-100 p-3">
-    <h4 class="mb-4">Admin Panel</h4>
+<div class="admin-sidebar col-md-2 col-lg-2 min-vh-100 p-3">
+    <div class="sidebar-title mb-4">
+        <h4>Admin Panel</h4>
+    </div>
 
-    <a href="{{ route('admin.dashboard') }}" 
-       class="d-block {{ request()->routeIs('admin.dashboard') ? 'text-warning' : 'text-white' }} text-decoration-none mb-3">
+    <a href="{{ route('admin.dashboard') }}" class="sidebar-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
         Dashboard
     </a>
 
-    <a href="{{ route('users') }}" 
-        class="d-block {{ request()->routeIs('users') ? 'text-warning' : 'text-white' }} text-decoration-none mb-3">
+    <a href="{{ route('users') }}" class="sidebar-link {{ request()->routeIs('users') ? 'active' : '' }}">
         User Management
     </a>
 
-    <a href="{{ route('institutes') }}" 
-        class="d-block {{ request()->routeIs('institutes') ? 'text-warning' : 'text-white' }} text-decoration-none mb-3">
+    <a href="{{ route('institutes') }}" class="sidebar-link {{ request()->routeIs('institutes') ? 'active' : '' }}">
         Institute Management
     </a>
 
-    <a href="{{ route('classes') }}" 
-       class="d-block {{ request()->routeIs('classes') ? 'text-warning' : 'text-white' }} text-decoration-none mb-3">
+    <a href="{{ route('classes') }}" class="sidebar-link {{ request()->routeIs('classes') ? 'active' : '' }}">
         Class Management
     </a>
 
-    <a href="{{ route('students') }}" 
-       class="d-block {{ request()->routeIs('students') ? 'text-warning' : 'text-white' }} text-decoration-none mb-3">
+    <a href="{{ route('students') }}" class="sidebar-link {{ request()->routeIs('students') ? 'active' : '' }}">
         Student Management
     </a>
 
-    <a href="{{ route('content') }}" 
-       class="d-block {{ request()->routeIs('content') ? 'text-warning' : 'text-white' }} text-decoration-none mb-3">
+    <a href="{{ route('content') }}" class="sidebar-link {{ request()->routeIs('content') ? 'active' : '' }}">
         Content Management
     </a>
 
-    <a href="{{ route('assessments') }}" 
-       class="d-block {{ request()->routeIs('assessments') ? 'text-warning' : 'text-white' }} text-decoration-none mb-3">
+    <a href="{{ route('assessments') }}" class="sidebar-link {{ request()->routeIs('assessments') ? 'active' : '' }}">
         Assessment Management
     </a>
 
-    <a href="{{ route('reports') }}" 
-        class="d-block {{ request()->routeIs('reports') ? 'text-warning' : 'text-white' }} text-decoration-none mb-3">
+    <a href="{{ route('reports') }}" class="sidebar-link {{ request()->routeIs('reports') ? 'active' : '' }}">
         Reports
     </a>
 
-    <a href="{{ route('notifications') }}" 
-        class="d-block {{ request()->routeIs('notifications') ? 'text-warning' : 'text-white' }} text-decoration-none mb-3">
+    <a href="{{ route('notifications') }}" class="sidebar-link {{ request()->routeIs('notifications') ? 'active' : '' }}">
         Notifications
-    </a>    
+    </a>
 </div>
-

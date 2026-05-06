@@ -9,15 +9,27 @@
 
         <div class="col-md-9 col-lg-10 p-4">
 
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Student Management</h2>
+            <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
 
                 <div>
-                    <button class="btn btn-success me-2">Import Excel</button>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStudentModal">
+                    <h2 class="mb-1">Student Management</h2>
+                    <p class="text-muted mb-0">
+                        Manage student records, sections, and status.
+                    </p>
+                </div>
+
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-success btn-sm">
+                        Import Excel
+                    </button>
+
+                    <button class="btn btn-primary btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#addStudentModal">
                         Add Student
                     </button>
                 </div>
+
             </div>
 
             <div class="card shadow border-0">
@@ -29,8 +41,12 @@
                         </div>
                     @endif
 
-                    <div class="mb-3">
-                        <input type="text" class="form-control" placeholder="Search student...">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <input type="text"
+                                class="form-control"
+                                placeholder="Search by name or ID">
+                        </div>
                     </div>
 
                     <table class="table table-bordered table-hover align-middle">
@@ -82,7 +98,7 @@
 
                                 <!-- Edit Student Modal -->
                                 <div class="modal fade" id="editStudentModal{{ $student->id }}" tabindex="-1">
-                                    <div class="modal-dialog">
+                                    <div class="modal-dialog modal-lg modal-dialog-centered">
                                         <div class="modal-content">
 
                                             <form method="POST" action="{{ route('students.update', $student->id) }}">
@@ -94,23 +110,50 @@
                                                 </div>
 
                                                 <div class="modal-body">
-                                                    <input type="text" name="student_id" class="form-control mb-2" value="{{ $student->student_id }}" required>
-                                                    <input type="text" name="name" class="form-control mb-2" value="{{ $student->name }}" required>
-                                                    <input type="text" name="institute" class="form-control mb-2" value="{{ $student->institute }}" required>
-                                                    <input type="text" name="class" class="form-control mb-2" value="{{ $student->class }}" required>
-                                                    <input type="text" name="section" class="form-control mb-2" value="{{ $student->section }}" required>
-                                                    <input type="text" name="contact" class="form-control mb-2" value="{{ $student->contact }}" required>
+                                                    <div class="row g-3">
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Student ID</label>
+                                                            <input type="text" name="student_id" class="form-control" value="{{ $student->student_id }}" required>
+                                                        </div>
 
-                                                    <select name="status" class="form-control mb-2">
-                                                        <option value="1" {{ $student->status == 1 ? 'selected' : '' }}>Active</option>
-                                                        <option value="0" {{ $student->status == 0 ? 'selected' : '' }}>Inactive</option>
-                                                    </select>
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Student Name</label>
+                                                            <input type="text" name="name" class="form-control" value="{{ $student->name }}" required>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Institute</label>
+                                                            <input type="text" name="institute" class="form-control" value="{{ $student->institute }}" required>
+                                                        </div>
+
+                                                        <div class="col-md-3">
+                                                            <label class="form-label">Class</label>
+                                                            <input type="text" name="class" class="form-control" value="{{ $student->class }}" required>
+                                                        </div>
+
+                                                        <div class="col-md-3">
+                                                            <label class="form-label">Section</label>
+                                                            <input type="text" name="section" class="form-control" value="{{ $student->section }}" required>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Contact</label>
+                                                            <input type="text" name="contact" class="form-control" value="{{ $student->contact }}" required>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Status</label>
+                                                            <select name="status" class="form-control">
+                                                                <option value="1" {{ $student->status == 1 ? 'selected' : '' }}>Active</option>
+                                                                <option value="0" {{ $student->status == 0 ? 'selected' : '' }}>Inactive</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
                                                 </div>
 
                                                 <div class="modal-footer">
-                                                    <button type="submit" class="btn btn-success">
-                                                        Update Student
-                                                    </button>
+                                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                                                    <button type="submit" class="btn btn-success">Update Student</button>
                                                 </div>
                                             </form>
 
@@ -137,7 +180,7 @@
 
 <!-- Add Student Modal -->
 <div class="modal fade" id="addStudentModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
 
             <form method="POST" action="{{ route('students.store') }}">
@@ -149,21 +192,44 @@
                 </div>
 
                 <div class="modal-body">
-                    <input type="text" name="student_id" class="form-control mb-2" placeholder="Student ID" required>
-                    <input type="text" name="name" class="form-control mb-2" placeholder="Name" required>
-                    <input type="text" name="institute" class="form-control mb-2" placeholder="Institute" required>
-                    <input type="text" name="class" class="form-control mb-2" placeholder="Class" required>
-                    <input type="text" name="section" class="form-control mb-2" placeholder="Section" required>
-                    <input type="text" name="contact" class="form-control mb-2" placeholder="Contact" required>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Student ID</label>
+                            <input type="text" name="student_id" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Student Name</label>
+                            <input type="text" name="name" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Institute</label>
+                            <input type="text" name="institute" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Class</label>
+                            <input type="text" name="class" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Section</label>
+                            <input type="text" name="section" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Contact</label>
+                            <input type="text" name="contact" class="form-control" required>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-success">
-                        Save Student
-                    </button>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Save Student</button>
                 </div>
             </form>
-
         </div>
     </div>
 </div>

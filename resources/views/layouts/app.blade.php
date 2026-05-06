@@ -12,7 +12,7 @@
 
 <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
     <a class="navbar-brand fw-bold text-primary" href="{{ route('admin.dashboard') }}">
-        LMS Admin Panel
+        LMS Panel
     </a>
 
     <div class="ms-auto">
