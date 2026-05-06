@@ -1,0 +1,32 @@
+body {
+    background-color: #F5F7FB;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #1F2937;
+}
+
+.card {
+    border-radius: 14px;
+}
+
+.table {
+    background-color: white;
+}
+
+.table thead th {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.btn {
+    border-radius: 8px;
+}
+
+.sidebar-link {
+    padding: 10px 12px;
+    border-radius: 8px;
+    transition: 0.2s;
+}
+
+.sidebar-link:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+}
