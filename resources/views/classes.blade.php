@@ -8,6 +8,7 @@
         @include('layouts.sidebar')
 
         <div class="col-md-10 col-lg-10 p-4">
+
             <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                 <div>
                     <h2 class="mb-1">Class Management</h2>
@@ -23,32 +24,43 @@
                 </button>
             </div>
 
+            @if(session('success'))
+                <div class="alert alert-success">
+                    {{ session('success') }}
+                </div>
+            @endif
+            @if($errors->any())
+                <div class="alert alert-danger">
+                    Please fill all required fields correctly.
+                </div>
+            @endif
+
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Total Classes</h6>
-                        <h2>10</h2>
+                        <h2>{{ $classes->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Total Sections</h6>
-                        <h2>24</h2>
+                        <h2>{{ $classes->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Assigned Teachers</h6>
-                        <h2>18</h2>
+                        <h2>{{ $classes->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Academic Year</h6>
-                        <h2>2026</h2>
+                        <h2>{{ date('Y') }}</h2>
                     </div>
                 </div>
             </div>
@@ -63,56 +75,175 @@
                     </div>
 
                     <table class="table table-bordered table-hover align-middle">
-                        <thead class="table-dark">
+                        <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
                                 <th>Class</th>
                                 <th>Section</th>
                                 <th>Class Teacher</th>
-                                <th>Total Students</th>
+                                <th>Academic Year</th>
                                 <th>Status</th>
                                 <th width="180">Actions</th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>VIII</td>
-                                <td>A</td>
-                                <td>Priya Nair</td>
-                                <td>32</td>
-                                <td><span class="badge bg-success">Active</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editClassModal">Edit</button>
-                                    <button class="btn btn-sm btn-info">View</button>
-                                    <button class="btn btn-sm btn-danger" onclick="confirmDelete()">Delete</button>
-                                </td>
-                            </tr>
+                            @forelse($classes as $index => $class)
 
-                            <tr>
-                                <td>2</td>
-                                <td>IX</td>
-                                <td>B</td>
-                                <td>Arun Kumar</td>
-                                <td>29</td>
-                                <td><span class="badge bg-success">Active</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editClassModal">Edit</button>
-                                    <button class="btn btn-sm btn-info">View</button>
-                                    <button class="btn btn-sm btn-danger" onclick="confirmDelete()">Delete</button>
-                                </td>
-                            </tr>
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>{{ $class->class_name }}</td>
+                                    <td>{{ $class->section }}</td>
+                                    <td>{{ $class->class_teacher }}</td>
+                                    <td>{{ $class->academic_year }}</td>
+
+                                    <td>
+                                        @if($class->status == 1)
+                                            <span class="badge bg-success">Active</span>
+                                        @else
+                                            <span class="badge bg-danger">Inactive</span>
+                                        @endif
+                                    </td>
+
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-warning"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editClassModal{{ $class->id }}">
+                                            Edit
+                                        </button>
+
+                                        <a href="{{ route('classes.delete', $class->id) }}"
+                                        class="btn btn-sm btn-outline-danger"
+                                        onclick="return confirm('Are you sure you want to delete this class?')">
+                                            Delete
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <!-- Edit Class Modal -->
+                                <div class="modal fade" id="editClassModal{{ $class->id }}" tabindex="-1">
+                                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                                        <div class="modal-content">
+
+                                            <form method="POST" action="{{ route('classes.update', $class->id) }}">
+                                                @csrf
+
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Edit Class</h5>
+
+                                                    <button type="button"
+                                                            class="btn-close"
+                                                            data-bs-dismiss="modal">
+                                                    </button>
+                                                </div>
+
+                                                <div class="modal-body">
+
+                                                    <div class="row g-3">
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Class Name</label>
+
+                                                            <input type="text"
+                                                                name="class_name"
+                                                                class="form-control"
+                                                                value="{{ $class->class_name }}"
+                                                                required>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Section</label>
+
+                                                            <input type="text"
+                                                                name="section"
+                                                                class="form-control"
+                                                                value="{{ $class->section }}"
+                                                                required>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Class Teacher</label>
+
+                                                            <input type="text"
+                                                                name="class_teacher"
+                                                                class="form-control"
+                                                                value="{{ $class->class_teacher }}"
+                                                                required>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Academic Year</label>
+
+                                                            <input type="text"
+                                                                name="academic_year"
+                                                                class="form-control"
+                                                                value="{{ $class->academic_year }}"
+                                                                required>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Status</label>
+
+                                                            <select name="status"
+                                                                    class="form-control"
+                                                                    required>
+
+                                                                <option value="1"
+                                                                    {{ $class->status == 1 ? 'selected' : '' }}>
+                                                                    Active
+                                                                </option>
+
+                                                                <option value="0"
+                                                                    {{ $class->status == 0 ? 'selected' : '' }}>
+                                                                    Inactive
+                                                                </option>
+
+                                                            </select>
+                                                        </div>
+
+                                                    </div>
+
+                                                </div>
+
+                                                <div class="modal-footer">
+                                                    <button type="button"
+                                                            class="btn btn-light"
+                                                            data-bs-dismiss="modal">
+                                                        Cancel
+                                                    </button>
+
+                                                    <button type="submit"
+                                                            class="btn btn-success">
+                                                        Update Class
+                                                    </button>
+                                                </div>
+
+                                            </form>
+
+                                        </div>
+                                    </div>
+                                </div>
+
+                            @empty
+
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">
+                                        No classes found
+                                    </td>
+                                </tr>
+
+                            @endforelse
                         </tbody>
                     </table>
 
                     <div class="mt-4 d-flex gap-2 flex-wrap">
-                        <button class="btn btn-primary">Promote Classes</button>
-                        <button class="btn btn-danger">Archive Class X</button>
+                        <button class="btn btn-outline-primary">Promote Classes</button>
+                        <button class="btn btn-outline-danger">Archive Class X</button>
                     </div>
 
                 </div>
             </div>
+
         </div>
     </div>
 </div>
@@ -122,80 +253,55 @@
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
 
-            <div class="modal-header">
-                <h5 class="modal-title">Add Class</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
+            <form method="POST" action="{{ route('classes.store') }}">
+                @csrf
 
-            <div class="modal-body">
-                <form>
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Class</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
                     <div class="row g-3">
+
                         <div class="col-md-6">
                             <label class="form-label">Class Name</label>
-                            <input type="text" class="form-control" placeholder="Example: VIII">
+                            <input type="text" name="class_name" class="form-control" placeholder="Example: VIII" required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Section</label>
-                            <input type="text" class="form-control" placeholder="Example: A">
+                            <input type="text" name="section" class="form-control" placeholder="Example: A" required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Class Teacher</label>
-                            <input type="text" class="form-control" placeholder="Teacher name">
+                            <input type="text" name="class_teacher" class="form-control" placeholder="Teacher name" required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Academic Year</label>
-                            <input type="text" class="form-control" placeholder="2026">
+                            <input type="text" name="academic_year" class="form-control" placeholder="2026" required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Status</label>
-                            <select class="form-control">
-                                <option>Active</option>
-                                <option>Inactive</option>
+                            <select name="status" class="form-control" required>
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
                             </select>
                         </div>
+
                     </div>
-                </form>
-            </div>
+                </div>
 
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                <button class="btn btn-success">Save Class</button>
-            </div>
-        </div>
-    </div>
-</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Save Class</button>
+                </div>
 
-<!-- Edit Class Modal -->
-<div class="modal fade" id="editClassModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
+            </form>
 
-            <div class="modal-header">
-                <h5 class="modal-title">Edit Class</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body">
-                <form>
-                    <input type="text" class="form-control mb-2" value="VIII">
-                    <input type="text" class="form-control mb-2" value="A">
-                    <input type="text" class="form-control mb-2" value="Priya Nair">
-                    <input type="text" class="form-control mb-2" value="2026">
-                    <select class="form-control mb-2">
-                        <option>Active</option>
-                        <option>Inactive</option>
-                    </select>
-                </form>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                <button class="btn btn-success">Update Class</button>
-            </div>
         </div>
     </div>
 </div>
@@ -203,7 +309,7 @@
 <script>
 function confirmDelete() {
     if(confirm("Are you sure you want to delete this class?")) {
-        alert("Deleted (UI only)");
+        alert("Delete logic will be connected next");
     }
 }
 </script>

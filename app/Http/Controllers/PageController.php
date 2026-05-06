@@ -63,48 +63,15 @@ class PageController extends Controller
     {
         return view('notifications');
     }
-    public function updateStudent(Request $request, $id)
-{
-    $student = Student::findOrFail($id);
-
-    $request->validate([
-        'student_id' => 'required|unique:students,student_id,' . $id,
-        'name' => 'required',
-        'institute' => 'required',
-        'class' => 'required',
-        'section' => 'required',
-        'contact' => 'required',
-    ]);
-
-    $student->update([
-        'student_id' => $request->student_id,
-        'name' => $request->name,
-        'institute' => $request->institute,
-        'class' => $request->class,
-        'section' => $request->section,
-        'contact' => $request->contact,
-        'status' => $request->status,
-    ]);
-
-    return redirect()->route('students')->with('success', 'Student updated successfully!');
-}
-
-public function deleteStudent($id)
-{
-    $student = Student::findOrFail($id);
-    $student->delete();
-
-    return redirect()->route('students')->with('success', 'Student deleted successfully!');
-}
     public function storeStudent(Request $request)
     {
         $request->validate([
-            'student_id' => 'required|unique:students,student_id',
-            'name' => 'required',
-            'institute' => 'required',
-            'class' => 'required',
-            'section' => 'required',
-            'contact' => 'required',
+            'student_id' => 'required|string|max:50',
+            'name' => 'required|string|max:100',
+            'institute' => 'required|string|max:100',
+            'class' => 'required|string|max:50',
+            'section' => 'required|string|max:20',
+            'contact' => 'required|string|max:20',
         ]);
 
         Student::create([
@@ -117,6 +84,41 @@ public function deleteStudent($id)
             'status' => 1,
         ]);
 
-        return redirect()->route('students')->with('success', 'Student added successfully!');
+        return redirect()->back()->with('success', 'Student added successfully');
     }
+    public function updateStudent(Request $request, $id)
+    {
+        $request->validate([
+            'student_id' => 'required|string|max:50',
+            'name' => 'required|string|max:100',
+            'institute' => 'required|string|max:100',
+            'class' => 'required|string|max:50',
+            'section' => 'required|string|max:20',
+            'contact' => 'required|string|max:20',
+            'status' => 'required|boolean',
+        ]);
+
+        $student = Student::findOrFail($id);
+
+        $student->update([
+            'student_id' => $request->student_id,
+            'name' => $request->name,
+            'institute' => $request->institute,
+            'class' => $request->class,
+            'section' => $request->section,
+            'contact' => $request->contact,
+            'status' => $request->status,
+        ]);
+
+        return redirect()->back()->with('success', 'Student updated successfully');
+    }
+
+    public function deleteStudent($id)
+    {
+        $student = Student::findOrFail($id);
+        $student->delete();
+
+        return redirect()->route('students')->with('success', 'Student deleted successfully!');
+    }
+
 }

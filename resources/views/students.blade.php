@@ -7,10 +7,9 @@
 
         @include('layouts.sidebar')
 
-        <div class="col-md-9 col-lg-10 p-4">
+        <div class="col-md-10 col-lg-10 p-4">
 
             <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-
                 <div>
                     <h2 class="mb-1">Student Management</h2>
                     <p class="text-muted mb-0">
@@ -19,7 +18,7 @@
                 </div>
 
                 <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-success btn-sm">
+                    <button class="btn btn-outline-success btn-sm">
                         Import Excel
                     </button>
 
@@ -29,7 +28,6 @@
                         Add Student
                     </button>
                 </div>
-
             </div>
 
             <div class="card shadow border-0">
@@ -41,16 +39,22 @@
                         </div>
                     @endif
 
+                    @if($errors->any())
+                        <div class="alert alert-danger">
+                            Please fill all required fields correctly.
+                        </div>
+                    @endif
+
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <input type="text"
-                                class="form-control"
-                                placeholder="Search by name or ID">
+                                   class="form-control"
+                                   placeholder="Search by name or ID">
                         </div>
                     </div>
 
                     <table class="table table-bordered table-hover align-middle">
-                        <thead class="table-dark">
+                        <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
                                 <th>Student ID</th>
@@ -82,21 +86,20 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-warning"
+                                        <button class="btn btn-sm btn-outline-warning"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#editStudentModal{{ $student->id }}">
                                             Edit
                                         </button>
 
                                         <a href="{{ route('students.delete', $student->id) }}"
-                                           class="btn btn-sm btn-danger"
+                                           class="btn btn-sm btn-outline-danger"
                                            onclick="return confirm('Are you sure you want to delete this student?')">
                                             Delete
                                         </a>
                                     </td>
                                 </tr>
 
-                                <!-- Edit Student Modal -->
                                 <div class="modal fade" id="editStudentModal{{ $student->id }}" tabindex="-1">
                                     <div class="modal-dialog modal-lg modal-dialog-centered">
                                         <div class="modal-content">
@@ -143,7 +146,7 @@
 
                                                         <div class="col-md-6">
                                                             <label class="form-label">Status</label>
-                                                            <select name="status" class="form-control">
+                                                            <select name="status" class="form-control" required>
                                                                 <option value="1" {{ $student->status == 1 ? 'selected' : '' }}>Active</option>
                                                                 <option value="0" {{ $student->status == 0 ? 'selected' : '' }}>Inactive</option>
                                                             </select>
@@ -178,7 +181,6 @@
     </div>
 </div>
 
-<!-- Add Student Modal -->
 <div class="modal fade" id="addStudentModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -230,6 +232,7 @@
                     <button type="submit" class="btn btn-success">Save Student</button>
                 </div>
             </form>
+
         </div>
     </div>
 </div>

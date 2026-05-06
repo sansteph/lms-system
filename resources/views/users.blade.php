@@ -24,32 +24,44 @@
                 </button>
             </div>
 
+            @if(session('success'))
+                <div class="alert alert-success">
+                    {{ session('success') }}
+                </div>
+            @endif
+
+            @if($errors->any())
+                <div class="alert alert-danger">
+                    Please fill all required fields correctly.
+                </div>
+            @endif
+
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Total Users</h6>
-                        <h2>45</h2>
+                        <h2>{{ $users->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Admins</h6>
-                        <h2>3</h2>
+                        <h2>{{ $users->where('role', 'Admin')->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Teachers</h6>
-                        <h2>25</h2>
+                        <h2>{{ $users->where('role', 'Teacher')->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Active Users</h6>
-                        <h2>42</h2>
+                        <h2>{{ $users->where('status', 1)->count() }}</h2>
                     </div>
                 </div>
             </div>
@@ -59,12 +71,14 @@
 
                     <div class="row mb-3">
                         <div class="col-md-4">
-                            <input type="text" class="form-control" placeholder="Search by name or email">
+                            <input type="text"
+                                   class="form-control"
+                                   placeholder="Search by name or email">
                         </div>
                     </div>
 
                     <table class="table table-bordered table-hover align-middle">
-                        <thead class="table-dark">
+                        <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
                                 <th>User ID</th>
@@ -77,31 +91,50 @@
                         </thead>
 
                         <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>USR001</td>
-                                <td>Admin User</td>
-                                <td>admin@example.com</td>
-                                <td><span class="badge bg-danger">Admin</span></td>
-                                <td><span class="badge bg-success">Active</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editUserModal">Edit</button>
-                                    <button class="btn btn-sm btn-danger" onclick="confirmDelete()">Delete</button>
-                                </td>
-                            </tr>
+                            @forelse($users as $index => $user)
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>{{ $user->user_id }}</td>
+                                    <td>{{ $user->name }}</td>
+                                    <td>{{ $user->email }}</td>
 
-                            <tr>
-                                <td>2</td>
-                                <td>USR002</td>
-                                <td>Priya Nair</td>
-                                <td>priya@example.com</td>
-                                <td><span class="badge bg-primary">Teacher</span></td>
-                                <td><span class="badge bg-success">Active</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editUserModal">Edit</button>
-                                    <button class="btn btn-sm btn-danger" onclick="confirmDelete()">Delete</button>
-                                </td>
-                            </tr>
+                                    <td>
+                                        @if($user->role == 'Admin')
+                                            <span class="badge bg-danger">Admin</span>
+                                        @else
+                                            <span class="badge bg-primary">Teacher</span>
+                                        @endif
+                                    </td>
+
+                                    <td>
+                                        @if($user->status == 1)
+                                            <span class="badge bg-success">Active</span>
+                                        @else
+                                            <span class="badge bg-danger">Inactive</span>
+                                        @endif
+                                    </td>
+
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-warning"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editUserModal{{ $user->id }}">
+                                            Edit
+                                        </button>
+
+                                        <a href="{{ route('users.delete', $user->id) }}"
+                                            class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('Are you sure you want to delete this user?')">
+                                            Delete
+                                        </a>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">
+                                        No users found
+                                    </td>
+                                </tr>
+                            @endforelse
                         </tbody>
                     </table>
 
@@ -117,100 +150,185 @@
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
 
-            <div class="modal-header">
-                <h5 class="modal-title">Add User</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
+            <form method="POST" action="{{ route('users.store') }}">
+                @csrf
 
-            <div class="modal-body">
-                <form>
+                <div class="modal-header">
+                    <h5 class="modal-title">Add User</h5>
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+                    </button>
+                </div>
+
+                <div class="modal-body">
                     <div class="row g-3">
+
+                        <div class="col-md-6">
+                            <label class="form-label">User ID</label>
+                            <input type="text"
+                                   name="user_id"
+                                   class="form-control"
+                                   placeholder="Example: USR001"
+                                   required>
+                        </div>
+
                         <div class="col-md-6">
                             <label class="form-label">Full Name</label>
-                            <input type="text" class="form-control" placeholder="Enter full name">
+                            <input type="text"
+                                   name="name"
+                                   class="form-control"
+                                   placeholder="Enter full name"
+                                   required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Email Address</label>
-                            <input type="email" class="form-control" placeholder="Enter email address">
+                            <input type="email"
+                                   name="email"
+                                   class="form-control"
+                                   placeholder="Enter email address"
+                                   required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Role</label>
-                            <select class="form-control">
-                                <option>Select Role</option>
-                                <option>Admin</option>
-                                <option>Teacher</option>
+                            <select name="role" class="form-control" required>
+                                <option value="">Select Role</option>
+                                <option value="Admin">Admin</option>
+                                <option value="Teacher">Teacher</option>
                             </select>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Password</label>
-                            <input type="password" class="form-control" placeholder="Enter password">
+                            <input type="password"
+                                   name="password"
+                                   class="form-control"
+                                   placeholder="Enter password"
+                                   required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Status</label>
-                            <select class="form-control">
-                                <option>Active</option>
-                                <option>Inactive</option>
+                            <select name="status" class="form-control" required>
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
                             </select>
                         </div>
+
                     </div>
-                </form>
-            </div>
+                </div>
 
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                <button class="btn btn-success">Save User</button>
-            </div>
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn btn-light"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
 
-        </div>
-    </div>
-</div>
+                    <button type="submit" class="btn btn-success">
+                        Save User
+                    </button>
+                </div>
 
-<!-- Edit User Modal -->
-<div class="modal fade" id="editUserModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-
-            <div class="modal-header">
-                <h5 class="modal-title">Edit User</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body">
-                <form>
-                    <input type="text" class="form-control mb-2" value="Priya Nair">
-                    <input type="email" class="form-control mb-2" value="priya@example.com">
-
-                    <select class="form-control mb-2">
-                        <option>Teacher</option>
-                        <option>Admin</option>
-                    </select>
-
-                    <select class="form-control mb-2">
-                        <option>Active</option>
-                        <option>Inactive</option>
-                    </select>
-                </form>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                <button class="btn btn-success">Update User</button>
-            </div>
+            </form>
 
         </div>
     </div>
 </div>
 
-<script>
-function confirmDelete() {
-    if(confirm("Are you sure you want to delete this user?")) {
-        alert("Deleted (UI only)");
-    }
-}
-</script>
+<!-- Edit User Modals -->
+@foreach($users as $user)
+    <div class="modal fade" id="editUserModal{{ $user->id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+
+                <form method="POST" action="{{ route('users.update', $user->id) }}">
+                    @csrf
+
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit User</h5>
+                        <button type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal">
+                        </button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="row g-3">
+
+                            <div class="col-md-6">
+                                <label class="form-label">User ID</label>
+                                <input type="text"
+                                       name="user_id"
+                                       class="form-control"
+                                       value="{{ $user->user_id }}"
+                                       required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Full Name</label>
+                                <input type="text"
+                                       name="name"
+                                       class="form-control"
+                                       value="{{ $user->name }}"
+                                       required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Email Address</label>
+                                <input type="email"
+                                       name="email"
+                                       class="form-control"
+                                       value="{{ $user->email }}"
+                                       required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Role</label>
+                                <select name="role" class="form-control" required>
+                                    <option value="Admin" {{ $user->role == 'Admin' ? 'selected' : '' }}>
+                                        Admin
+                                    </option>
+                                    <option value="Teacher" {{ $user->role == 'Teacher' ? 'selected' : '' }}>
+                                        Teacher
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Status</label>
+                                <select name="status" class="form-control" required>
+                                    <option value="1" {{ $user->status == 1 ? 'selected' : '' }}>
+                                        Active
+                                    </option>
+                                    <option value="0" {{ $user->status == 0 ? 'selected' : '' }}>
+                                        Inactive
+                                    </option>
+                                </select>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button"
+                                class="btn btn-light"
+                                data-bs-dismiss="modal">
+                            Cancel
+                        </button>
+
+                        <button type="submit" class="btn btn-success">
+                            Update User
+                        </button>
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+    </div>
+@endforeach
 
 @endsection
