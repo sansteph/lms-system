@@ -8,9 +8,16 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function index()
-    {
-        $users = User::all();
+   public function index(Request $request)
+   {
+        $search = $request->search;
+
+        $users = User::when($search, function ($query, $search) {
+            return $query->where('user_id', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('role', 'like', "%{$search}%");
+        })->get();
 
         return view('users', compact('users'));
     }

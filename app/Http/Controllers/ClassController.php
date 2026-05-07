@@ -7,9 +7,16 @@ use App\Models\SchoolClass;
 
 class ClassController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $classes = SchoolClass::all();
+        $search = $request->search;
+
+        $classes = SchoolClass::when($search, function ($query, $search) {
+            return $query->where('class_name', 'like', "%{$search}%")
+                        ->orWhere('section', 'like', "%{$search}%")
+                        ->orWhere('class_teacher', 'like', "%{$search}%")
+                        ->orWhere('academic_year', 'like', "%{$search}%");
+        })->get();
 
         return view('classes', compact('classes'));
     }

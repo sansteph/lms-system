@@ -7,9 +7,17 @@ use App\Models\Institute;
 
 class InstituteController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $institutes = Institute::all();
+        $search = $request->search;
+
+        $institutes = Institute::when($search, function ($query, $search) {
+            return $query->where('institute_id', 'like', "%{$search}%")
+                        ->orWhere('institute_name', 'like', "%{$search}%")
+                        ->orWhere('location', 'like', "%{$search}%")
+                        ->orWhere('contact_person', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+        })->get();
 
         return view('institutes', compact('institutes'));
     }

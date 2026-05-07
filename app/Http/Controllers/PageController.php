@@ -30,10 +30,19 @@ class PageController extends Controller
     {
         return view('admin-dashboard');
     }
-    public function students()
+    public function students(Request $request)
     {
-    $students = Student::latest()->get();
-    return view('students', compact('students'));
+        $search = $request->search;
+
+        $students = Student::when($search, function ($query, $search) {
+            return $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('student_id', 'like', "%{$search}%")
+                        ->orWhere('institute', 'like', "%{$search}%")
+                        ->orWhere('class', 'like', "%{$search}%")
+                        ->orWhere('section', 'like', "%{$search}%");
+        })->get();
+
+        return view('students', compact('students'));
     }
     public function classes()
     {

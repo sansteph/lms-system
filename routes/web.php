@@ -5,6 +5,10 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\ClassController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\InstituteController;
+use App\Http\Controllers\ContentController;
+use App\Http\Controllers\AssessmentController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ReportController;
 
 // Public pages
 Route::get('/', [PageController::class, 'home'])->name('home');
@@ -39,11 +43,27 @@ Route::post('/institutes/store', [InstituteController::class, 'store'])->name('i
 Route::post('/institutes/update/{id}', [InstituteController::class, 'update'])->name('institutes.update');
 Route::get('/institutes/delete/{id}', [InstituteController::class, 'delete'])->name('institutes.delete');
 
-// UI-only pages for now
-Route::get('/content', [PageController::class, 'content'])->name('content');
-Route::get('/assessments', [PageController::class, 'assessments'])->name('assessments');
-Route::get('/reports', [PageController::class, 'reports'])->name('reports');
-Route::get('/notifications', [PageController::class, 'notifications'])->name('notifications');
+// Content Management
+Route::get('/content', [ContentController::class, 'index'])->name('content');
+Route::post('/content/store', [ContentController::class, 'store'])->name('content.store');
+Route::post('/content/update/{id}', [ContentController::class, 'update'])->name('content.update');
+Route::get('/content/delete/{id}', [ContentController::class, 'delete'])->name('content.delete');
+
+// Assessment Management
+Route::get('/assessments', [AssessmentController::class, 'index'])->name('assessments');
+Route::post('/assessments/store', [AssessmentController::class, 'store'])->name('assessments.store');
+Route::post('/assessments/update/{id}', [AssessmentController::class, 'update'])->name('assessments.update');
+Route::get('/assessments/delete/{id}', [AssessmentController::class, 'delete'])->name('assessments.delete');
+
+// Notification Management
+Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
+Route::post('/notifications/store', [NotificationController::class, 'store'])->name('notifications.store');
+Route::get('/notifications/delete/{id}', [NotificationController::class, 'delete'])->name('notifications.delete');
+Route::post('/notifications/update/{id}', [NotificationController::class, 'update'])->name('notifications.update');
+
+// Reports
+Route::get('/reports', [ReportController::class, 'index'])->name('reports');
+
 
 
 // Teachers module

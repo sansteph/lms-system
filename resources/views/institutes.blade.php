@@ -37,11 +37,21 @@
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    <div class="row mb-3">
+                    <form method="GET" action="{{ route('institutes') }}" class="row mb-3">
                         <div class="col-md-4">
-                            <input type="text" class="form-control" placeholder="Search by institute or location">
+                            <input type="text"
+                                name="search"
+                                class="form-control"
+                                placeholder="Search by institute or location"
+                                value="{{ request('search') }}">
                         </div>
-                    </div>
+
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                Search
+                            </button>
+                        </div>
+                    </form>
 
                     <table class="table table-bordered table-hover align-middle">
                         <thead class="table-light">

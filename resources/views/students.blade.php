@@ -45,13 +45,21 @@
                         </div>
                     @endif
 
-                    <div class="row mb-3">
+                    <form method="GET" action="{{ route('students') }}" class="row mb-3">
                         <div class="col-md-4">
                             <input type="text"
-                                   class="form-control"
-                                   placeholder="Search by name or ID">
+                                name="search"
+                                class="form-control"
+                                placeholder="Search by name or ID"
+                                value="{{ request('search') }}">
                         </div>
-                    </div>
+
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                Search
+                            </button>
+                        </div>
+                    </form>
 
                     <table class="table table-bordered table-hover align-middle">
                         <thead class="table-light">

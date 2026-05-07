@@ -13,41 +13,41 @@
                 <div>
                     <h2 class="mb-1">Reports</h2>
                     <p class="text-muted mb-0">
-                        Generate, view, and export LMS performance reports.
+                        Generate, view, and download LMS performance reports.
                     </p>
                 </div>
 
                 <button class="btn btn-primary btn-sm">
-                    Export Report
+                    Download Summary
                 </button>
             </div>
 
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Student Reports</h6>
-                        <h2>120</h2>
+                        <h6>Students</h6>
+                        <h2>{{ $studentCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Teacher Reports</h6>
-                        <h2>25</h2>
+                        <h6>Teachers</h6>
+                        <h2>{{ $teacherCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Class Reports</h6>
-                        <h2>10</h2>
+                        <h6>Classes</h6>
+                        <h2>{{ $classCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>MIS Reports</h6>
-                        <h2>8</h2>
+                        <h6>Assessments</h6>
+                        <h2>{{ $assessmentCount }}</h2>
                     </div>
                 </div>
             </div>
@@ -55,7 +55,7 @@
             <div class="card shadow border-0 mb-4">
                 <div class="card-body">
                     <h5 class="mb-1">Generate Report</h5>
-                    <p class="text-muted mb-3">Filter reports by type, institute, class, and date.</p>
+                    <p class="text-muted mb-3">Choose report type and filters to view or download.</p>
 
                     <div class="row g-3">
                         <div class="col-md-3">
@@ -99,21 +99,13 @@
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <input type="text" class="form-control" placeholder="Search reports">
-                        </div>
-                    </div>
-
                     <table class="table table-bordered table-hover align-middle">
-                        <thead class="table-dark">
+                        <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
                                 <th>Report Name</th>
                                 <th>Report Type</th>
-                                <th>Institute</th>
-                                <th>Class</th>
-                                <th>Generated Date</th>
+                                <th>Description</th>
                                 <th width="180">Actions</th>
                             </tr>
                         </thead>
@@ -121,65 +113,55 @@
                         <tbody>
                             <tr>
                                 <td>1</td>
-                                <td>VIII-A Student Performance</td>
+                                <td>Student Performance Report</td>
                                 <td><span class="badge bg-primary">Student</span></td>
-                                <td>ABC School</td>
-                                <td>VIII - A</td>
-                                <td>05-05-2026</td>
+                                <td>View student count, class-wise student details, and performance summary.</td>
                                 <td>
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                                            Actions
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item" href="#">View</a></li>
-                                            <li><a class="dropdown-item" href="#">Download</a></li>
-                                            <li><hr class="dropdown-divider"></li>
-                                            <li>
-                                                <a class="dropdown-item text-danger" href="#" onclick="confirmDelete()">Delete</a>
-                                            </li>
-                                        </ul>
-                                    </div>
+                                    <button class="btn btn-sm btn-outline-primary">View</button>
+                                    <button class="btn btn-sm btn-outline-success">Download</button>
                                 </td>
                             </tr>
 
                             <tr>
                                 <td>2</td>
-                                <td>Teacher Monthly Performance</td>
+                                <td>Teacher Performance Report</td>
                                 <td><span class="badge bg-warning text-dark">Teacher</span></td>
-                                <td>ABC School</td>
-                                <td>All</td>
-                                <td>05-05-2026</td>
+                                <td>View teacher count, assigned classes, and assessment participation.</td>
                                 <td>
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"> 
-                                            Actions
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item" href="#">View</a></li>
-                                            <li><a class="dropdown-item" href="#">Download</a></li>
-                                            <li><hr class="dropdown-divider"></li>
-                                            <li>
-                                                <a class="dropdown-item text-danger" href="#" onclick="confirmDelete()">Delete</a>
-                                            </li>
-                                        </ul>
-                                    </div>
+                                    <button class="btn btn-sm btn-outline-primary">View</button>
+                                    <button class="btn btn-sm btn-outline-success">Download</button>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>3</td>
+                                <td>Class-wise Report</td>
+                                <td><span class="badge bg-info">Class</span></td>
+                                <td>View class count, sections, assigned teachers, and student distribution.</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary">View</button>
+                                    <button class="btn btn-sm btn-outline-success">Download</button>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>4</td>
+                                <td>MIS Report</td>
+                                <td><span class="badge bg-success">MIS</span></td>
+                                <td>View overall LMS summary including institutes, content, assessments, and notifications.</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary">View</button>
+                                    <button class="btn btn-sm btn-outline-success">Download</button>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
+
                 </div>
             </div>
+
         </div>
     </div>
 </div>
-
-<script>
-function confirmDelete() {
-    if(confirm("Are you sure you want to delete this report?")) {
-        alert("Deleted (UI only)");
-    }
-}
-</script>
 
 @endsection
