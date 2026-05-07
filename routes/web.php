@@ -44,3 +44,14 @@ Route::get('/content', [PageController::class, 'content'])->name('content');
 Route::get('/assessments', [PageController::class, 'assessments'])->name('assessments');
 Route::get('/reports', [PageController::class, 'reports'])->name('reports');
 Route::get('/notifications', [PageController::class, 'notifications'])->name('notifications');
+
+
+// Teachers module
+Route::get('/teacher-dashboard', [PageController::class, 'teacherDashboard'])->name('teacher.dashboard');
+Route::get('/teacher/my-classes', [PageController::class, 'teacherClasses'])->name('teacher.classes');
+Route::get('/teacher/teacher-contentt', [PageController::class, 'teacherContent'])->name('teacher.content');
+Route::get('/teacher/teacher-assessments', [PageController::class, 'teacherAssessments'])->name('teacher.assessments');
+Route::get('/teacher/teacher-reports', [PageController::class, 'teacherReports'])->name('teacher.reports');
+Route::get('/teacher/teacher-certificates', [PageController::class, 'teacherCertificates'])->name('teacher.certificates');
+Route::get('/teacher/teacher-notifications', [PageController::class, 'teacherNotifications'])->name('teacher.notifications');
+Route::get('/teacher/teacher-profile', [PageController::class, 'teacherProfile'])->name('teacher.profile');

@@ -121,4 +121,36 @@ class PageController extends Controller
         return redirect()->route('students')->with('success', 'Student deleted successfully!');
     }
 
+    public function teacherDashboard()
+    {
+        return view('teacher-dashboard');
+    }
+    public function teacherClasses()
+    {
+        return view('teacher.my-classes');
+    }
+    public function teacherContent()
+    {
+        return view('teacher.teacher-content');
+    }
+    public function teacherAssessments()
+    {
+        return view('teacher.teacher-assessments');
+    }
+    public function teacherReports()
+    {
+        return view('teacher.teacher-reports');
+    }
+    public function teacherCertificates()
+    {
+        return view('teacher.teacher-certificates');
+    }
+    public function teacherNotifications()
+    {
+        return view('teacher.teacher-notifications');
+    }
+    public function teacherProfile()
+    {
+        return view('teacher.teacher-profile');
+    }
 }

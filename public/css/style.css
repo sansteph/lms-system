@@ -94,3 +94,14 @@ body {
     font-weight: 700;
     margin-bottom: 0;
 }
+
+.report-btn{
+    background: #8B5CF6;
+    color: white;
+    border: none;
+}
+
+.report-btn:hover{
+    background: #7C3AED;
+    color: white;
+}

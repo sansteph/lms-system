@@ -16,7 +16,6 @@
     </a>
 
     <div class="ms-auto">
-        <span class="text-muted me-3">Admin</span>
         <a href="{{ route('admin.login') }}" class="btn btn-sm btn-outline-danger">Logout</a>
     </div>
 </nav>
