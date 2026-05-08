@@ -20,28 +20,28 @@
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Total Notifications</h6>
-                        <h2>18</h2>
+                        <h2>{{ $notifications->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Unread</h6>
-                        <h2>4</h2>
+                        <h6>Teacher Notifications</h6>
+                        <h2>{{ $notifications->where('target', 'Teachers')->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Assessments</h6>
-                        <h2>6</h2>
+                        <h6>Class Notifications</h6>
+                        <h2>{{ $notifications->where('target', 'Class')->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>General</h6>
-                        <h2>12</h2>
+                        <h6>General Updates</h6>
+                        <h2>{{ $notifications->count() }}</h2>
                     </div>
                 </div>
             </div>
@@ -49,62 +49,41 @@
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <input type="text"
-                                   class="form-control"
-                                   placeholder="Search notifications">
-                        </div>
-
-                        <div class="col-md-3">
-                            <select class="form-control">
-                                <option>Filter by Type</option>
-                                <option>General</option>
-                                <option>Assessment</option>
-                                <option>Content</option>
-                            </select>
-                        </div>
-                    </div>
-
                     <table class="table table-bordered table-hover align-middle">
-                        <thead class="table-dark">
+                        <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
                                 <th>Title</th>
                                 <th>Message</th>
-                                <th>Type</th>
+                                <th>Target</th>
                                 <th>Date</th>
-                                <th>Status</th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>Assessment Reminder</td>
-                                <td>Please complete assessment review by Friday.</td>
-                                <td><span class="badge bg-warning text-dark">Assessment</span></td>
-                                <td>05-05-2026</td>
-                                <td><span class="badge bg-danger">Unread</span></td>
-                            </tr>
-
-                            <tr>
-                                <td>2</td>
-                                <td>New Content Assigned</td>
-                                <td>New AI content has been assigned to Class VIII.</td>
-                                <td><span class="badge bg-primary">Content</span></td>
-                                <td>05-05-2026</td>
-                                <td><span class="badge bg-success">Read</span></td>
-                            </tr>
-
-                            <tr>
-                                <td>3</td>
-                                <td>Staff Meeting</td>
-                                <td>Teacher meeting scheduled for Monday morning.</td>
-                                <td><span class="badge bg-info">General</span></td>
-                                <td>04-05-2026</td>
-                                <td><span class="badge bg-success">Read</span></td>
-                            </tr>
+                            @forelse($notifications as $index => $notification)
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>{{ $notification->title }}</td>
+                                    <td>{{ $notification->message }}</td>
+                                    <td>
+                                        @if($notification->target == 'Teachers')
+                                            <span class="badge bg-warning text-dark">Teachers</span>
+                                        @elseif($notification->target == 'Students')
+                                            <span class="badge bg-primary">Students</span>
+                                        @else
+                                            <span class="badge bg-info">Class</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $notification->notification_date }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        No notifications found
+                                    </td>
+                                </tr>
+                            @endforelse
                         </tbody>
                     </table>
 

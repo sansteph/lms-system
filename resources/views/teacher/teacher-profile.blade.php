@@ -24,13 +24,17 @@
 
                             <div class="rounded-circle bg-primary text-white mx-auto mb-3 d-flex align-items-center justify-content-center"
                                  style="width: 90px; height: 90px; font-size: 32px; font-weight: 700;">
-                                T
+                                {{ strtoupper(substr($teacher->name, 0, 1)) }}
                             </div>
 
-                            <h4 class="mb-1">Priya Nair</h4>
+                            <h4 class="mb-1">{{ $teacher->name }}</h4>
                             <p class="text-muted mb-2">Teacher</p>
 
-                            <span class="badge bg-success">Active</span>
+                            @if($teacher->status == 1)
+                                <span class="badge bg-success">Active</span>
+                            @else
+                                <span class="badge bg-danger">Inactive</span>
+                            @endif
 
                         </div>
                     </div>
@@ -47,45 +51,40 @@
 
                                     <div class="col-md-6">
                                         <label class="form-label">Teacher ID</label>
-                                        <input type="text" class="form-control" value="TCH001">
+                                        <input type="text" class="form-control" value="{{ $teacher->user_id }}" readonly>
                                     </div>
 
                                     <div class="col-md-6">
                                         <label class="form-label">Full Name</label>
-                                        <input type="text" class="form-control" value="Priya Nair">
+                                        <input type="text" class="form-control" value="{{ $teacher->name }}" readonly>
                                     </div>
 
                                     <div class="col-md-6">
                                         <label class="form-label">Email Address</label>
-                                        <input type="email" class="form-control" value="priya@example.com">
+                                        <input type="email" class="form-control" value="{{ $teacher->email }}" readonly>
                                     </div>
 
                                     <div class="col-md-6">
-                                        <label class="form-label">Phone Number</label>
-                                        <input type="text" class="form-control" value="9876543210">
+                                        <label class="form-label">Role</label>
+                                        <input type="text" class="form-control" value="{{ $teacher->role }}" readonly>
                                     </div>
 
                                     <div class="col-md-6">
-                                        <label class="form-label">Assigned Department</label>
-                                        <input type="text" class="form-control" value="Robotics / AI">
+                                        <label class="form-label">Account Status</label>
+                                        <input type="text"
+                                               class="form-control"
+                                               value="{{ $teacher->status == 1 ? 'Active' : 'Inactive' }}"
+                                               readonly>
                                     </div>
 
                                     <div class="col-md-6">
-                                        <label class="form-label">Assigned Classes</label>
-                                        <input type="text" class="form-control" value="VIII-A, IX-B, X-A">
+                                        <label class="form-label">Joined On</label>
+                                        <input type="text"
+                                               class="form-control"
+                                               value="{{ $teacher->created_at->format('d-m-Y') }}"
+                                               readonly>
                                     </div>
 
-                                    <div class="col-12">
-                                        <label class="form-label">Address</label>
-                                        <textarea class="form-control" rows="3">Bangalore, Karnataka</textarea>
-                                    </div>
-
-                                </div>
-
-                                <div class="mt-4">
-                                    <button type="button" class="btn btn-success">
-                                        Update Profile
-                                    </button>
                                 </div>
                             </form>
 

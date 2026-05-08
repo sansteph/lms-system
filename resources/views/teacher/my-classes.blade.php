@@ -21,28 +21,28 @@
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Total Classes</h6>
-                        <h2>5</h2>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <h6>Total Students</h6>
-                        <h2>180</h2>
+                        <h2>{{ $classes->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Active Classes</h6>
-                        <h2>4</h2>
+                        <h2>{{ $classes->where('status', 1)->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Pending Reviews</h6>
-                        <h2>2</h2>
+                        <h6>Inactive Classes</h6>
+                        <h2>{{ $classes->where('status', 0)->count() }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Academic Year</h6>
+                        <h2>{{ date('Y') }}</h2>
                     </div>
                 </div>
 
@@ -51,63 +51,47 @@
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <input type="text" class="form-control" placeholder="Search class or section">
-                        </div>
-                    </div>
-
                     <table class="table table-bordered table-hover align-middle">
-                        <thead class="table-dark">
+                        <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
                                 <th>Class</th>
                                 <th>Section</th>
-                                <th>Total Students</th>
-                                <th>Content Progress</th>
+                                <th>Class Teacher</th>
+                                <th>Academic Year</th>
                                 <th>Status</th>
-                                <th width="180">Actions</th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>VIII</td>
-                                <td>A</td>
-                                <td>40</td>
-                                <td>75%</td>
-                                <td><span class="badge bg-success">Active</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">View Students</button>
-                                </td>
-                            </tr>
-
-                            <tr>
-                                <td>2</td>
-                                <td>IX</td>
-                                <td>B</td>
-                                <td>38</td>
-                                <td>60%</td>
-                                <td><span class="badge bg-success">Active</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">View Students</button>
-                                </td>
-                            </tr>
-
-                            <tr>
-                                <td>3</td>
-                                <td>X</td>
-                                <td>A</td>
-                                <td>42</td>
-                                <td>40%</td>
-                                <td><span class="badge bg-warning text-dark">Pending</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">View Students</button>
-                                </td>
-                            </tr>
+                            @forelse($classes as $index => $class)
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>{{ $class->class_name }}</td>
+                                    <td>{{ $class->section }}</td>
+                                    <td>{{ $class->class_teacher }}</td>
+                                    <td>{{ $class->academic_year }}</td>
+                                    <td>
+                                        @if($class->status == 1)
+                                            <span class="badge bg-success">Active</span>
+                                        @else
+                                            <span class="badge bg-danger">Inactive</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        No classes assigned yet
+                                    </td>
+                                </tr>
+                            @endforelse
                         </tbody>
                     </table>
+
+                    <div class="alert alert-info mt-3 mb-0">
+                        Classes created by Admin will appear here for teachers.
+                    </div>
 
                 </div>
             </div>

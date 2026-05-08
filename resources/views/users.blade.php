@@ -11,57 +11,53 @@
 
             <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                 <div>
-                    <h2 class="mb-1">User Management</h2>
+                    <h2 class="mb-1">Teacher Management</h2>
                     <p class="text-muted mb-0">
-                        Manage admins, teachers, roles, and account status.
+                        Manage teacher accounts and account status.
                     </p>
                 </div>
 
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#addUserModal">
-                    Add User
+                    Add Teacher
                 </button>
             </div>
 
             @if(session('success'))
-                <div class="alert alert-success">
-                    {{ session('success') }}
-                </div>
+                <div class="alert alert-success">{{ session('success') }}</div>
             @endif
 
             @if($errors->any())
-                <div class="alert alert-danger">
-                    Please fill all required fields correctly.
-                </div>
+                <div class="alert alert-danger">Please fill all required fields correctly.</div>
             @endif
 
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Total Users</h6>
+                        <h6>Total Teachers</h6>
                         <h2>{{ $users->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Admins</h6>
-                        <h2>{{ $users->where('role', 'Admin')->count() }}</h2>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <h6>Teachers</h6>
-                        <h2>{{ $users->where('role', 'Teacher')->count() }}</h2>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <h6>Active Users</h6>
+                        <h6>Active Teachers</h6>
                         <h2>{{ $users->where('status', 1)->count() }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Inactive Teachers</h6>
+                        <h2>{{ $users->where('status', 0)->count() }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Teacher Accounts</h6>
+                        <h2>{{ $users->count() }}</h2>
                     </div>
                 </div>
             </div>
@@ -72,10 +68,10 @@
                     <form method="GET" action="{{ route('users') }}" class="row mb-3">
                         <div class="col-md-4">
                             <input type="text"
-                                name="search"
-                                class="form-control"
-                                placeholder="Search by name or email"
-                                value="{{ request('search') }}">
+                                   name="search"
+                                   class="form-control"
+                                   placeholder="Search by name or email"
+                                   value="{{ request('search') }}">
                         </div>
 
                         <div class="col-md-2">
@@ -89,10 +85,9 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
-                                <th>User ID</th>
+                                <th>Teacher ID</th>
                                 <th>Name</th>
                                 <th>Email</th>
-                                <th>Role</th>
                                 <th>Status</th>
                                 <th width="180">Actions</th>
                             </tr>
@@ -105,14 +100,6 @@
                                     <td>{{ $user->user_id }}</td>
                                     <td>{{ $user->name }}</td>
                                     <td>{{ $user->email }}</td>
-
-                                    <td>
-                                        @if($user->role == 'Admin')
-                                            <span class="badge bg-danger">Admin</span>
-                                        @else
-                                            <span class="badge bg-primary">Teacher</span>
-                                        @endif
-                                    </td>
 
                                     <td>
                                         @if($user->status == 1)
@@ -130,16 +117,16 @@
                                         </button>
 
                                         <a href="{{ route('users.delete', $user->id) }}"
-                                            class="btn btn-sm btn-outline-danger"
-                                            onclick="return confirm('Are you sure you want to delete this user?')">
+                                           class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('Are you sure you want to delete this teacher?')">
                                             Delete
                                         </a>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted">
-                                        No users found
+                                    <td colspan="6" class="text-center text-muted">
+                                        No teachers found
                                     </td>
                                 </tr>
                             @endforelse
@@ -153,7 +140,6 @@
     </div>
 </div>
 
-<!-- Add User Modal -->
 <div class="modal fade" id="addUserModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -162,22 +148,19 @@
                 @csrf
 
                 <div class="modal-header">
-                    <h5 class="modal-title">Add User</h5>
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal">
-                    </button>
+                    <h5 class="modal-title">Add Teacher</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <div class="modal-body">
                     <div class="row g-3">
 
                         <div class="col-md-6">
-                            <label class="form-label">User ID</label>
+                            <label class="form-label">Teacher ID</label>
                             <input type="text"
                                    name="user_id"
                                    class="form-control"
-                                   placeholder="Example: USR001"
+                                   placeholder="Example: TCH001"
                                    required>
                         </div>
 
@@ -197,15 +180,6 @@
                                    class="form-control"
                                    placeholder="Enter email address"
                                    required>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Role</label>
-                            <select name="role" class="form-control" required>
-                                <option value="">Select Role</option>
-                                <option value="Admin">Admin</option>
-                                <option value="Teacher">Teacher</option>
-                            </select>
                         </div>
 
                         <div class="col-md-6">
@@ -229,15 +203,8 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button"
-                            class="btn btn-light"
-                            data-bs-dismiss="modal">
-                        Cancel
-                    </button>
-
-                    <button type="submit" class="btn btn-success">
-                        Save User
-                    </button>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Save Teacher</button>
                 </div>
 
             </form>
@@ -246,7 +213,6 @@
     </div>
 </div>
 
-<!-- Edit User Modals -->
 @foreach($users as $user)
     <div class="modal fade" id="editUserModal{{ $user->id }}" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -256,18 +222,15 @@
                     @csrf
 
                     <div class="modal-header">
-                        <h5 class="modal-title">Edit User</h5>
-                        <button type="button"
-                                class="btn-close"
-                                data-bs-dismiss="modal">
-                        </button>
+                        <h5 class="modal-title">Edit Teacher</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
 
                     <div class="modal-body">
                         <div class="row g-3">
 
                             <div class="col-md-6">
-                                <label class="form-label">User ID</label>
+                                <label class="form-label">Teacher ID</label>
                                 <input type="text"
                                        name="user_id"
                                        class="form-control"
@@ -294,26 +257,10 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label">Role</label>
-                                <select name="role" class="form-control" required>
-                                    <option value="Admin" {{ $user->role == 'Admin' ? 'selected' : '' }}>
-                                        Admin
-                                    </option>
-                                    <option value="Teacher" {{ $user->role == 'Teacher' ? 'selected' : '' }}>
-                                        Teacher
-                                    </option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-6">
                                 <label class="form-label">Status</label>
                                 <select name="status" class="form-control" required>
-                                    <option value="1" {{ $user->status == 1 ? 'selected' : '' }}>
-                                        Active
-                                    </option>
-                                    <option value="0" {{ $user->status == 0 ? 'selected' : '' }}>
-                                        Inactive
-                                    </option>
+                                    <option value="1" {{ $user->status == 1 ? 'selected' : '' }}>Active</option>
+                                    <option value="0" {{ $user->status == 0 ? 'selected' : '' }}>Inactive</option>
                                 </select>
                             </div>
 
@@ -321,15 +268,8 @@
                     </div>
 
                     <div class="modal-footer">
-                        <button type="button"
-                                class="btn btn-light"
-                                data-bs-dismiss="modal">
-                            Cancel
-                        </button>
-
-                        <button type="submit" class="btn btn-success">
-                            Update User
-                        </button>
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">Update Teacher</button>
                     </div>
 
                 </form>

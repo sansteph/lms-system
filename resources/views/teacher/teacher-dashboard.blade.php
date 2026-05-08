@@ -15,8 +15,8 @@
                     <h2 class="mb-1">Teacher Dashboard</h2>
 
                     <p class="text-muted mb-0">
-                        Welcome back! Manage classes, content, and assessments.
-                    </p>
+                        Welcome back, {{ $teacherName }}! Manage your classes, content, and assessments.
+                    </p>                
                 </div>
 
                 <button class="btn btn-primary btn-sm">
@@ -44,14 +44,14 @@
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Pending Assessments</h6>
-                        <h2>3</h2>
+                        <h2><h2>{{ $assessmentCount }}</h2></h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Completed Content</h6>
-                        <h2>24</h2>
+                        <h2><h2>{{ $contentCount }}</h2></h2>
                     </div>
                 </div>
 

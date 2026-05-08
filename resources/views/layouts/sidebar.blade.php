@@ -8,7 +8,7 @@
     </a>
 
     <a href="{{ route('users') }}" class="sidebar-link {{ request()->routeIs('users') ? 'active' : '' }}">
-        User Management
+        Teachers Management
     </a>
 
     <a href="{{ route('institutes') }}" class="sidebar-link {{ request()->routeIs('institutes') ? 'active' : '' }}">

@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 use App\Models\Student;
 use Illuminate\Http\Request;
-
+use App\Models\Content;
+use App\Models\Assessment;
+use App\Models\Notification;
+use App\Models\SchoolClass;
 class PageController extends Controller
 {
     public function home()
@@ -13,11 +16,19 @@ class PageController extends Controller
 
     public function adminLogin()
     {
+        if (session('user_role') == 'Admin') {
+            return redirect()->route('admin.dashboard');
+        }
+
         return view('admin-login');
     }
 
     public function teacherLogin()
     {
+        if (session('user_role') == 'Teacher') {
+            return redirect()->route('teacher.dashboard');
+        }
+
         return view('teacher-login');
     }
 
@@ -132,23 +143,50 @@ class PageController extends Controller
 
     public function teacherDashboard()
     {
-        return view('teacher-dashboard');
+        $teacherName = session('user_name');
+
+        $contentCount = Content::count();
+        $assessmentCount = Assessment::count();
+        $notificationCount = Notification::count();
+
+        return view('teacher.teacher-dashboard', compact(
+            'teacherName',
+            'contentCount',
+            'assessmentCount',
+            'notificationCount'
+        ));
     }
     public function teacherClasses()
     {
-        return view('teacher.my-classes');
+        $classes = SchoolClass::latest()->get();
+
+        return view('teacher.teacher-classes', compact('classes'));
     }
     public function teacherContent()
     {
-        return view('teacher.teacher-content');
+        $contents = Content::latest()->get();
+
+        return view('teacher.teacher-content', compact('contents'));
     }
     public function teacherAssessments()
     {
-        return view('teacher.teacher-assessments');
+        $assessments = Assessment::latest()->get();
+
+        return view('teacher.teacher-assessments', compact('assessments'));
     }
     public function teacherReports()
     {
-        return view('teacher.teacher-reports');
+        $studentCount = Student::count();
+        $classCount = SchoolClass::count();
+        $contentCount = Content::count();
+        $assessmentCount = Assessment::count();
+
+        return view('teacher.teacher-reports', compact(
+            'studentCount',
+            'classCount',
+            'contentCount',
+            'assessmentCount'
+        ));
     }
     public function teacherCertificates()
     {
@@ -156,10 +194,14 @@ class PageController extends Controller
     }
     public function teacherNotifications()
     {
-        return view('teacher.teacher-notifications');
+        $notifications = Notification::latest()->get();
+
+        return view('teacher.teacher-notifications', compact('notifications'));
     }
-    public function teacherProfile()
+   public function teacherProfile()
     {
-        return view('teacher.teacher-profile');
+        $teacher = \App\Models\User::find(session('user_id'));
+
+        return view('teacher.teacher-profile', compact('teacher'));
     }
 }
