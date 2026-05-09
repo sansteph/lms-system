@@ -204,4 +204,29 @@ class PageController extends Controller
 
         return view('teacher.teacher-profile', compact('teacher'));
     }
+
+    public function studentDashboard()
+    {
+        return view('student.student-dashboard');
+    }
+    public function studentTakeAssessment()
+    {
+        return view('student.student-assessment');
+    }
+    public function studentHistory()
+    {
+        return view('student.student-history');
+    }
+    public function studentBadges()
+    {
+        return view('student.student-badges');
+    }
+    public function studentNotifications()
+    {
+        return view('student.student-notifications');
+    }
+    public function studentProfile()
+    {
+        return view('student.student-profile');
+    }
 }

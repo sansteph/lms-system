@@ -19,7 +19,7 @@ Route::post('/admin-login', [UserController::class, 'adminLogin'])->name('admin.
 Route::get('/teacher-login', [PageController::class, 'teacherLogin'])->name('teacher.login');
 Route::post('/teacher-login', [UserController::class, 'teacherLogin'])->name('teacher.login.submit');
 
-Route::get('/student-assessment', [PageController::class, 'studentAssessment'])->name('student.assessment');
+Route::get('/student-assessment', [PageController::class, 'studentAssessment'])->name('student.assessment.public');
 
 Route::get('/logout', [UserController::class, 'logout'])->name('logout');
 
@@ -87,3 +87,12 @@ Route::middleware(['teacher.auth'])->group(function () {
 
     Route::get('/teacher/profile', [PageController::class, 'teacherProfile'])->name('teacher.profile');
 });
+
+
+// Student protected routes
+Route::get('/student-dashboard', [PageController::class, 'studentDashboard'])->name('student.dashboard');
+Route::get('/student/take-assessment', [PageController::class, 'studentTakeAssessment'])->name('student.assessment');
+Route::get('/student/history', [PageController::class, 'studentHistory'])->name('student.history');
+Route::get('/student/badges', [PageController::class, 'studentBadges'])->name('student.badges');
+Route::get('/student/notifications', [PageController::class, 'studentNotifications'])->name('student.notifications');
+Route::get('/student/profile', [PageController::class, 'studentProfile'])->name('student.profile');
