@@ -16,7 +16,17 @@
 <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
 
     <a class="navbar-brand fw-bold text-primary"
-       href="{{ session('user_role') == 'Teacher' ? route('teacher.dashboard') : route('admin.dashboard') }}">
+       href="
+        @if(session('user_role') == 'Admin')
+            {{ route('admin.dashboard') }}
+        @elseif(session('user_role') == 'Teacher')
+            {{ route('teacher.dashboard') }}
+        @elseif(session('student_id'))
+            {{ route('student.dashboard') }}
+        @else
+           {{ route('home') }}
+        @endif
+        ">
 
         LMS Panel
 
@@ -24,22 +34,25 @@
 
     <div class="ms-auto d-flex align-items-center gap-3">
 
-        @if(session('user_name'))
+        @if(session('user_name') || session('student_name'))
 
             <span class="text-muted fw-semibold">
-                {{ session('user_name') }}
-                ({{ session('user_role') }})
+                {{ session('user_name') ?? session('student_name') }}
+
+                @if(session('user_role'))
+                    ({{ session('user_role') }})
+                @elseif(session('student_id'))
+                    (Student)
+                @endif
             </span>
 
         @endif
 
-        @if(session()->has('user_id'))
+        @if(session()->has('user_id') || session()->has('student_id'))
 
             <a href="{{ route('logout') }}"
-               class="btn btn-sm btn-outline-danger">
-
+            class="btn btn-sm btn-outline-danger">
                 Logout
-
             </a>
 
         @endif

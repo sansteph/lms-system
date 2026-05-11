@@ -2,100 +2,61 @@
 
 @section('content')
 
-<div class="container-fluid">
-    <div class="row">
+<div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
 
-        @include('layouts.student-sidebar')
+    <div class="card p-4 shadow" style="width: 400px;">
 
-        <div class="col-md-10 col-lg-10 p-4">
+        <h3 class="text-center mb-3">
+            Student Assessment Verification
+        </h3>
 
-            <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-                <div>
-                    <h2 class="mb-1">Take Assessment</h2>
-                    <p class="text-muted mb-0">
-                        Complete your assigned assessment and submit your answers.
-                    </p>
-                </div>
+        <p class="text-muted text-center mb-4">
+            Enter your details to access the assessment.
+        </p>
 
-                <span class="badge bg-warning text-dark p-2">
-                    Time Left: 45 mins
-                </span>
+        <form method="GET" action="{{ route('student.assessment') }}">
+
+            <div class="mb-3">
+                <label class="form-label">Institute ID</label>
+
+                <input type="text"
+                       class="form-control"
+                       name="institute_id"
+                       placeholder="Enter Institute ID"
+                       required>
             </div>
 
-            <div class="card shadow border-0 mb-4">
-                <div class="card-body">
-                    <h5 class="mb-2">AI Fundamentals Test</h5>
-                    <p class="text-muted mb-0">
-                        Total Marks: 50 | Duration: 45 mins | Questions: 5
-                    </p>
-                </div>
+            <div class="mb-3">
+                <label class="form-label">Student ID</label>
+
+                <input type="text"
+                       class="form-control"
+                       name="student_id"
+                       placeholder="Enter Student ID"
+                       required>
             </div>
 
-            <form>
-                <div class="card shadow border-0 mb-3">
-                    <div class="card-body">
-                        <h6>1. What does AI stand for?</h6>
+            <div class="mb-4">
+                <label class="form-label">Assessment ID</label>
 
-                        <div class="form-check mt-3">
-                            <input class="form-check-input" type="radio" name="q1">
-                            <label class="form-check-label">Artificial Intelligence</label>
-                        </div>
+                <input type="text"
+                       class="form-control"
+                       name="assessment_id"
+                       placeholder="Enter Assessment ID"
+                       required>
+            </div>
 
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="q1">
-                            <label class="form-check-label">Automatic Internet</label>
-                        </div>
+            <button type="submit"
+                    class="btn btn-success w-100">
 
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="q1">
-                            <label class="form-check-label">Advanced Input</label>
-                        </div>
-                    </div>
-                </div>
+                Start Assessment
 
-                <div class="card shadow border-0 mb-3">
-                    <div class="card-body">
-                        <h6>2. Which of the following is an example of AI?</h6>
+            </button>
 
-                        <div class="form-check mt-3">
-                            <input class="form-check-input" type="radio" name="q2">
-                            <label class="form-check-label">Voice Assistant</label>
-                        </div>
-
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="q2">
-                            <label class="form-check-label">Wooden Chair</label>
-                        </div>
-
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="q2">
-                            <label class="form-check-label">Plain Notebook</label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card shadow border-0 mb-3">
-                    <div class="card-body">
-                        <h6>3. Write one use of AI in daily life.</h6>
-
-                        <textarea class="form-control mt-3" rows="4" placeholder="Write your answer here"></textarea>
-                    </div>
-                </div>
-
-                <div class="d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-light">
-                        Save Draft
-                    </button>
-
-                    <button type="submit" class="btn btn-success">
-                        Submit Assessment
-                    </button>
-                </div>
-            </form>
-
-        </div>
+        </form>
 
     </div>
+
 </div>
 
 @endsection

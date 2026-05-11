@@ -13,6 +13,7 @@ class Student extends Model
         'class',
         'section',
         'contact',
+        'password',
         'status'
     ];
 }

@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin.auth' => \App\Http\Middleware\AdminAuth::class,
             'teacher.auth' => \App\Http\Middleware\TeacherAuth::class,
+            'student.auth' => \App\Http\Middleware\StudentAuth::class,
         ]);
 
     })

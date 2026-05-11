@@ -9,7 +9,7 @@
     </a>
 
     <a href="{{ route('student.assessment') }}"
-    class="sidebar-link {{ request()->routeIs('student.assessment') ? 'active' : '' }}">
+        class="sidebar-link {{ request()->routeIs('student.assessment') ? 'active' : '' }}">
         Take Assessment
     </a>
 
@@ -32,4 +32,5 @@
     class="sidebar-link {{ request()->routeIs('student.profile') ? 'active' : '' }}">
         Profile
     </a>
+
 </div>

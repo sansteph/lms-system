@@ -151,6 +151,11 @@
                                                             <label class="form-label">Contact</label>
                                                             <input type="text" name="contact" class="form-control" value="{{ $student->contact }}" required>
                                                         </div>
+                                                        
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Passwor</label>
+                                                            <input type="password" name="password" class="form-control" placeholder="Leave blank to keep existing password">
+                                                        </div>
 
                                                         <div class="col-md-6">
                                                             <label class="form-label">Status</label>
@@ -231,6 +236,10 @@
                         <div class="col-md-6">
                             <label class="form-label">Contact</label>
                             <input type="text" name="contact" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Password</label>
+                            <input type="password" name="password" class="form-control" placeholder="Enter Password" required>
                         </div>
                     </div>
                 </div>

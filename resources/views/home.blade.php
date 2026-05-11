@@ -14,7 +14,7 @@
             <a href="{{ route('teacher.login') }}" class="btn btn-primary">Teacher</a>
         </div>
         <div class="col-md-4">
-            <a href="{{ route('student.assessment') }}" class="btn btn-primary">Student</a>
+            <a href="{{ route('student.login') }}" class="btn btn-primary">Student</a>
         </div>
     </div>
 </div>

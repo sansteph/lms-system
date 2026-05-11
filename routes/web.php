@@ -9,6 +9,7 @@ use App\Http\Controllers\ContentController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\AssessmentResultController;
 
 // Public pages
 Route::get('/', [PageController::class, 'home'])->name('home');
@@ -90,9 +91,14 @@ Route::middleware(['teacher.auth'])->group(function () {
 
 
 // Student protected routes
-Route::get('/student-dashboard', [PageController::class, 'studentDashboard'])->name('student.dashboard');
-Route::get('/student/take-assessment', [PageController::class, 'studentTakeAssessment'])->name('student.assessment');
-Route::get('/student/history', [PageController::class, 'studentHistory'])->name('student.history');
-Route::get('/student/badges', [PageController::class, 'studentBadges'])->name('student.badges');
-Route::get('/student/notifications', [PageController::class, 'studentNotifications'])->name('student.notifications');
-Route::get('/student/profile', [PageController::class, 'studentProfile'])->name('student.profile');
+Route::middleware(['student.auth'])->group(function () {
+    Route::get('/student-dashboard', [PageController::class, 'studentDashboard'])->name('student.dashboard');
+    Route::get('/student/take-assessment', [PageController::class, 'studentTakeAssessment'])->name('student.assessment');
+    Route::get('/student/history', [PageController::class, 'studentHistory'])->name('student.history');
+    Route::get('/student/badges', [PageController::class, 'studentBadges'])->name('student.badges');
+    Route::get('/student/notifications', [PageController::class, 'studentNotifications'])->name('student.notifications');
+    Route::get('/student/profile', [PageController::class, 'studentProfile'])->name('student.profile');
+    Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
+});
+Route::get('/student-login', [PageController::class, 'studentLogin'])->name('student.login');
+Route::post('/student-login', [PageController::class, 'studentLoginSubmit'])->name('student.login.submit');

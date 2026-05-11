@@ -17,70 +17,141 @@
             </div>
 
             <div class="row g-4">
+
                 <div class="col-lg-4">
                     <div class="card shadow border-0">
+
                         <div class="card-body text-center p-4">
 
                             <div class="rounded-circle bg-primary text-white mx-auto mb-3 d-flex align-items-center justify-content-center"
                                  style="width: 90px; height: 90px; font-size: 32px; font-weight: 700;">
-                                S
+
+                                {{ strtoupper(substr($student->name, 0, 1)) }}
+
                             </div>
 
-                            <h4 class="mb-1">Student Name</h4>
-                            <p class="text-muted mb-2">Class VIII - A</p>
+                            <h4 class="mb-1">
+                                {{ $student->name }}
+                            </h4>
 
-                            <span class="badge bg-success">Active</span>
+                            <p class="text-muted mb-2">
+                                Class {{ $student->class }} - {{ $student->section }}
+                            </p>
+
+                            @if($student->status == 1)
+
+                                <span class="badge bg-success">
+                                    Active
+                                </span>
+
+                            @else
+
+                                <span class="badge bg-danger">
+                                    Inactive
+                                </span>
+
+                            @endif
 
                         </div>
+
                     </div>
                 </div>
 
                 <div class="col-lg-8">
                     <div class="card shadow border-0">
+
                         <div class="card-body p-4">
 
-                            <h5 class="mb-3">Profile Details</h5>
+                            <h5 class="mb-3">
+                                Profile Details
+                            </h5>
 
                             <div class="row g-3">
+
                                 <div class="col-md-6">
-                                    <label class="form-label">Student ID</label>
-                                    <input type="text" class="form-control" value="STU001" readonly>
+                                    <label class="form-label">
+                                        Student ID
+                                    </label>
+
+                                    <input type="text"
+                                           class="form-control"
+                                           value="{{ $student->student_id }}"
+                                           readonly>
                                 </div>
 
                                 <div class="col-md-6">
-                                    <label class="form-label">Full Name</label>
-                                    <input type="text" class="form-control" value="Student Name" readonly>
+                                    <label class="form-label">
+                                        Full Name
+                                    </label>
+
+                                    <input type="text"
+                                           class="form-control"
+                                           value="{{ $student->name }}"
+                                           readonly>
                                 </div>
 
                                 <div class="col-md-6">
-                                    <label class="form-label">Institute</label>
-                                    <input type="text" class="form-control" value="ABC School" readonly>
+                                    <label class="form-label">
+                                        Institute
+                                    </label>
+
+                                    <input type="text"
+                                           class="form-control"
+                                           value="{{ $student->institute }}"
+                                           readonly>
                                 </div>
 
                                 <div class="col-md-3">
-                                    <label class="form-label">Class</label>
-                                    <input type="text" class="form-control" value="VIII" readonly>
+                                    <label class="form-label">
+                                        Class
+                                    </label>
+
+                                    <input type="text"
+                                           class="form-control"
+                                           value="{{ $student->class }}"
+                                           readonly>
                                 </div>
 
                                 <div class="col-md-3">
-                                    <label class="form-label">Section</label>
-                                    <input type="text" class="form-control" value="A" readonly>
+                                    <label class="form-label">
+                                        Section
+                                    </label>
+
+                                    <input type="text"
+                                           class="form-control"
+                                           value="{{ $student->section }}"
+                                           readonly>
                                 </div>
 
                                 <div class="col-md-6">
-                                    <label class="form-label">Contact</label>
-                                    <input type="text" class="form-control" value="9876543210" readonly>
+                                    <label class="form-label">
+                                        Contact
+                                    </label>
+
+                                    <input type="text"
+                                           class="form-control"
+                                           value="{{ $student->contact }}"
+                                           readonly>
                                 </div>
 
                                 <div class="col-md-6">
-                                    <label class="form-label">Badge Count</label>
-                                    <input type="text" class="form-control" value="12 Badges" readonly>
+                                    <label class="form-label">
+                                        Badge Count
+                                    </label>
+
+                                    <input type="text"
+                                           class="form-control"
+                                           value="12 Badges"
+                                           readonly>
                                 </div>
+
                             </div>
 
                         </div>
+
                     </div>
                 </div>
+
             </div>
 
         </div>

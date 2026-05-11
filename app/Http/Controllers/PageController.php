@@ -7,6 +7,7 @@ use App\Models\Content;
 use App\Models\Assessment;
 use App\Models\Notification;
 use App\Models\SchoolClass;
+use Illuminate\Support\Facades\Hash;
 class PageController extends Controller
 {
     public function home()
@@ -92,6 +93,7 @@ class PageController extends Controller
             'class' => 'required|string|max:50',
             'section' => 'required|string|max:20',
             'contact' => 'required|string|max:20',
+            'password' => 'required|min:6',
         ]);
 
         Student::create([
@@ -101,6 +103,7 @@ class PageController extends Controller
             'class' => $request->class,
             'section' => $request->section,
             'contact' => $request->contact,
+            'password' => Hash::make($request->password),
             'status' => 1,
         ]);
 
@@ -115,12 +118,13 @@ class PageController extends Controller
             'class' => 'required|string|max:50',
             'section' => 'required|string|max:20',
             'contact' => 'required|string|max:20',
+            'password' => 'nullable|min:6',
             'status' => 'required|boolean',
         ]);
 
         $student = Student::findOrFail($id);
 
-        $student->update([
+        $studentData = [
             'student_id' => $request->student_id,
             'name' => $request->name,
             'institute' => $request->institute,
@@ -128,11 +132,16 @@ class PageController extends Controller
             'section' => $request->section,
             'contact' => $request->contact,
             'status' => $request->status,
-        ]);
+        ];
+
+        if ($request->filled('password')) {
+            $studentData['password'] = Hash::make($request->password);
+        }
+
+        $student->update($studentData);
 
         return redirect()->back()->with('success', 'Student updated successfully');
     }
-
     public function deleteStudent($id)
     {
         $student = Student::findOrFail($id);
@@ -205,9 +214,43 @@ class PageController extends Controller
         return view('teacher.teacher-profile', compact('teacher'));
     }
 
+    public function studentLogin()
+    {
+        return view('student-login');
+    }
+    public function studentLoginSubmit(Request $request)
+    {
+        $request->validate([
+            'student_id' => 'required|string',
+            'password' => 'required|string',
+        ]);
+
+        $student = Student::where('student_id', $request->student_id)
+                        ->where('status', 1)
+                        ->first();
+
+        if ($student && Hash::check($request->password, $student->password)) {
+            session([
+                'student_id' => $student->id,
+                'student_name' => $student->name,
+                'student_code' => $student->student_id,
+            ]);
+
+            return redirect()->route('student.dashboard');
+        }
+
+        return redirect()->back()->with('error', 'Invalid student login details');
+    }
+
     public function studentDashboard()
     {
-        return view('student.student-dashboard');
+        $studentName = session('student_name');
+        $studentCode = session('student_code');
+
+        return view('student.student-dashboard', compact(
+            'studentName',
+            'studentCode'
+        ));
     }
     public function studentTakeAssessment()
     {
@@ -227,6 +270,8 @@ class PageController extends Controller
     }
     public function studentProfile()
     {
-        return view('student.student-profile');
+        $student = Student::find(session('student_id'));
+
+        return view('student.student-profile', compact('student'));
     }
 }
