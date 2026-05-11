@@ -20,28 +20,28 @@
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Total Notifications</h6>
-                        <h2>8</h2>
+                        <h2>{{ $notifications->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Unread</h6>
-                        <h2>3</h2>
+                        <h6>Student Notices</h6>
+                        <h2>{{ $notifications->where('target', 'Students')->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Assessments</h6>
-                        <h2>4</h2>
+                        <h6>Class Notices</h6>
+                        <h2>{{ $notifications->where('target', 'Class')->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Achievements</h6>
-                        <h2>2</h2>
+                        <h6>Latest Updates</h6>
+                        <h2>{{ $notifications->count() }}</h2>
                     </div>
                 </div>
             </div>
@@ -55,44 +55,38 @@
                                 <th>Sl. No</th>
                                 <th>Title</th>
                                 <th>Message</th>
-                                <th>Type</th>
+                                <th>Target</th>
                                 <th>Date</th>
-                                <th>Status</th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>Assessment Reminder</td>
-                                <td>Your AI Fundamentals assessment is pending.</td>
-                                <td><span class="badge bg-warning text-dark">Assessment</span></td>
-                                <td>09-05-2026</td>
-                                <td><span class="badge bg-danger">Unread</span></td>
-                            </tr>
-
-                            <tr>
-                                <td>2</td>
-                                <td>Badge Earned</td>
-                                <td>You earned the Robotics Explorer badge.</td>
-                                <td><span class="badge bg-success">Achievement</span></td>
-                                <td>08-05-2026</td>
-                                <td><span class="badge bg-success">Read</span></td>
-                            </tr>
-
-                            <tr>
-                                <td>3</td>
-                                <td>Certificate Eligibility</td>
-                                <td>You are close to becoming certificate eligible.</td>
-                                <td><span class="badge bg-primary">Certificate</span></td>
-                                <td>07-05-2026</td>
-                                <td><span class="badge bg-success">Read</span></td>
-                            </tr>
+                            @forelse($notifications as $index => $notification)
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>{{ $notification->title }}</td>
+                                    <td>{{ $notification->message }}</td>
+                                    <td>
+                                        @if($notification->target == 'Students')
+                                            <span class="badge bg-primary">Students</span>
+                                        @else
+                                            <span class="badge bg-info">Class</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $notification->notification_date }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        No notifications found.
+                                    </td>
+                                </tr>
+                            @endforelse
                         </tbody>
                     </table>
 
                     <div class="alert alert-info mt-3 mb-0">
-                        Notifications will later be connected to admin announcements and achievement updates.
+                        Notifications sent by Admin to Students or Class will appear here.
                     </div>
 
                 </div>

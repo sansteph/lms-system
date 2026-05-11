@@ -103,6 +103,8 @@
                                 <th>Type</th>
                                 <th>Class</th>
                                 <th>Total Marks</th>
+                                <th>Questions</th>
+                                <th>Readiness</th>
                                 <th>Duration</th>
                                 <th>Status</th>
                                 <th width="230">Actions</th>
@@ -139,7 +141,26 @@
 
                                     <td>{{ $assessment->assigned_class }}</td>
 
-                                    <td>{{ $assessment->total_marks }}</td>
+                                    <td>{{ $assessment->calculated_marks }}</td>
+
+                                    <td>{{ $assessment->questions->count() }}</td>
+                                    <td>
+
+                                        @if($assessment->questions->count() > 0)
+
+                                            <span class="badge bg-success">
+                                                Ready
+                                            </span>
+
+                                        @else
+
+                                            <span class="badge bg-danger">
+                                                Not Ready
+                                            </span>
+
+                                        @endif
+
+                                    </td>
 
                                     <td>{{ $assessment->duration }}</td>
 
@@ -186,7 +207,7 @@
                             @empty
 
                                 <tr>
-                                    <td colspan="8"
+                                    <td colspan="10"
                                         class="text-center text-muted">
                                         No assessments found
                                     </td>

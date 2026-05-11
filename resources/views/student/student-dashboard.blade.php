@@ -19,37 +19,37 @@
                     </p>
                 </div>
 
-                <button class="btn btn-primary btn-sm">
+                <a href="{{ route('student.assessment') }}" class="btn btn-primary btn-sm">
                     Take Assessment
-                </button>
+                </a>
             </div>
 
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Total Assessments</h6>
-                        <h2>6</h2>
+                        <h2>{{ $totalAssessmentCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Completed</h6>
-                        <h2>4</h2>
+                        <h2>{{ $results->where('status', 'Completed')->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Pending</h6>
-                        <h2>2</h2>
+                        <h2>{{ $pendingAssessmentCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Badges Earned</h6>
-                        <h2>12</h2>
+                        <h2>{{ $badgeCount }}</h2>
                     </div>
                 </div>
             </div>
@@ -75,31 +75,26 @@
                                 </thead>
 
                                 <tbody>
-                                    <tr>
-                                        <td>1</td>
-                                        <td>AI Fundamentals Test</td>
-                                        <td>Artificial Intelligence</td>
-                                        <td>45 mins</td>
-                                        <td><span class="badge bg-warning text-dark">Pending</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-primary">
-                                                Start
-                                            </button>
-                                        </td>
-                                    </tr>
-
-                                    <tr>
-                                        <td>2</td>
-                                        <td>Robotics Basics Quiz</td>
-                                        <td>Robotics</td>
-                                        <td>30 mins</td>
-                                        <td><span class="badge bg-success">Completed</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-primary">
-                                                View Result
-                                            </button>
-                                        </td>
-                                    </tr>
+                                    @forelse($results as $index => $result)
+                                        <tr>
+                                            <td>{{ $index + 1 }}</td>
+                                            <td>Assessment #{{ $result->assessment_id }}</td>
+                                            <td>General</td>
+                                            <td>{{ $result->score }}/{{ $result->total_marks }}</td>
+                                            <td><span class="badge bg-success">{{ $result->status }}</span></td>
+                                            <td>
+                                                <a href="{{ route('student.history') }}" class="btn btn-sm btn-primary">
+                                                    View Result
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted">
+                                                No assessments submitted yet.
+                                            </td>
+                                        </tr>
+                                    @endforelse
                                 </tbody>
                             </table>
 
@@ -113,7 +108,9 @@
                             <h5 class="mb-3">Quick Actions</h5>
 
                             <div class="d-grid gap-2">
-                                <button class="btn btn-primary">Take Assessment</button>
+                                <a href="{{ route('student.assessment') }}" class="btn btn-primary">
+                                    Take Assessment
+                                </a>
                                 <button class="btn btn-success">View Results</button>
                                 <a href="{{ route('student.badges') }}" class="btn btn-warning">
                                     View Achievements
@@ -124,20 +121,28 @@
 
                     <div class="card shadow border-0">
                         <div class="card-body">
-                            <h5 class="mb-3">Latest Updates</h5>
+                            <div class="card-body">
+                                <h5 class="mb-3">Latest Updates</h5>
+                                @forelse($notifications as $notification)
 
-                            <div class="border-bottom pb-2 mb-2">
-                                <strong>Assessment Reminder</strong>
-                                <p class="text-muted mb-0 small">
-                                    Complete your pending AI assessment.
-                                </p>
-                            </div>
+                                    <div class="border-bottom pb-2 mb-2">
 
-                            <div>
-                                <strong>Certificate Available</strong>
-                                <p class="text-muted mb-0 small">
-                                    Robotics quiz certificate is ready to download.
-                                </p>
+                                        <strong>{{ $notification->title }}</strong>
+
+                                        <p class="text-muted mb-0 small">
+                                            {{ $notification->message }}
+                                        </p>
+
+                                    </div>
+
+                                @empty
+
+                                    <p class="text-muted mb-0 small">
+                                        No latest updates available.
+                                    </p>
+
+                                @endforelse
+
                             </div>
 
                         </div>

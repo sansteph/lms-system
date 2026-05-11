@@ -30,7 +30,7 @@
                        required>
             </div>
 
-            <<div class="mb-4">
+            <div class="mb-4">
                 <label class="form-label">Password</label>
                 <input  type="password" 
                         name="password"

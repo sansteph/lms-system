@@ -30,6 +30,9 @@
     <a href="{{ route('assessments') }}" class="sidebar-link {{ request()->routeIs('assessments') ? 'active' : '' }}">
         Assessment Management
     </a>
+    <a href="{{ route('assessment-questions') }}" class="sidebar-link {{ request()->routeIs('assessment-questions') ? 'active' : '' }}">
+    Assessment Questions
+    </a>
 
     <a href="{{ route('reports') }}" class="sidebar-link {{ request()->routeIs('reports') ? 'active' : '' }}">
         Reports

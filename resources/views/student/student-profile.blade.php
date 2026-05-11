@@ -135,8 +135,8 @@
                                 </div>
 
                                 <div class="col-md-6">
-                                    <label class="form-label">
-                                        Badge Count
+                                    <label class="form-label" value="{{ $badgeCount }}">
+                                        Badges
                                     </label>
 
                                     <input type="text"

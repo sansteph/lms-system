@@ -8,6 +8,8 @@ use App\Models\Assessment;
 use App\Models\Notification;
 use App\Models\SchoolClass;
 use Illuminate\Support\Facades\Hash;
+use App\Models\AssessmentResult;
+use App\Models\AssessmentQuestion;
 class PageController extends Controller
 {
     public function home()
@@ -246,32 +248,137 @@ class PageController extends Controller
     {
         $studentName = session('student_name');
         $studentCode = session('student_code');
+        $studentId = session('student_id');
+
+        $results = AssessmentResult::where('student_id', $studentId)
+                    ->latest()
+                    ->get();
+
+        $badgeCount = $results->whereNotNull('badge')->count();
+
+        $attemptedAssessmentIds = AssessmentResult::where('student_id', $studentId)
+                    ->pluck('assessment_id');
+
+        $pendingAssessmentCount = Assessment::where('status', 1)
+                    ->whereNotIn('id', $attemptedAssessmentIds)
+                    ->count();
+
+        $totalAssessmentCount = Assessment::where('status', 1)->count();
+
+        $notifications = Notification::whereIn('target', ['Students', 'Class'])
+                    ->latest()
+                    ->take(3)
+                    ->get();
 
         return view('student.student-dashboard', compact(
             'studentName',
-            'studentCode'
+            'studentCode',
+            'results',
+            'badgeCount',
+            'notifications',
+            'pendingAssessmentCount',
+            'totalAssessmentCount'
         ));
     }
-    public function studentTakeAssessment()
+    public function studentTakeAssessment(Request $request)
     {
-        return view('student.student-assessment');
+        $attemptedAssessmentIds = AssessmentResult::where('student_id', session('student_id'))->pluck('assessment_id');
+        $assessments = Assessment::with('questions')
+            ->where('status', 1)
+            ->whereNotIn('id', $attemptedAssessmentIds)
+            ->get()
+            ->filter(function ($assessment) {
+                return $assessment->questions->count() > 0;
+            });
+
+        $selectedAssessment = null;
+        $questions = collect();
+
+        if ($request->assessment_id) {
+            $alreadyAttempted = AssessmentResult::where(
+                    'student_id',
+                    session('student_id')
+                )->where(
+                    'assessment_id',
+                    $request->assessment_id
+                )->exists();
+
+                if ($alreadyAttempted) {
+                    return redirect()->route('student.history')
+                        ->with('error', 'Assessment already completed.');
+                }
+            $selectedAssessment = Assessment::find($request->assessment_id);
+            if (!$selectedAssessment) {
+                return redirect()->route('student.assessment')
+                    ->with('error', 'Assessment not found.');
+            }
+
+            $questions = AssessmentQuestion::where('assessment_id', $request->assessment_id)->get();
+
+            if ($questions->count() == 0) {
+                return redirect()->route('student.assessment')
+                    ->with('error', 'This assessment is not ready yet.');
+            }
+
+            $questions = \App\Models\AssessmentQuestion::where('assessment_id', $request->assessment_id)
+                        ->get();
+        }
+
+        return view('student.student-assessment', compact(
+            'assessments',
+            'selectedAssessment',
+            'questions'
+        ));
     }
     public function studentHistory()
     {
-        return view('student.student-history');
+        $studentId = session('student_id');
+
+        $results = AssessmentResult::where('student_id', $studentId)
+                    ->latest()
+                    ->get();
+
+        return view('student.student-history', compact('results'));
     }
     public function studentBadges()
     {
-        return view('student.student-badges');
+        $studentId = session('student_id');
+
+        $results = AssessmentResult::where('student_id', $studentId)
+                    ->whereNotNull('badge')
+                    ->latest()
+                    ->get();
+
+        $goldCount = $results->where('badge', 'Gold')->count();
+        $silverCount = $results->where('badge', 'Silver')->count();
+        $bronzeCount = $results->where('badge', 'Bronze')->count();
+
+        $certificateEligible = $results->count() >= 5;
+
+        return view('student.student-badges', compact(
+            'results',
+            'goldCount',
+            'silverCount',
+            'bronzeCount',
+            'certificateEligible',
+        ));
     }
-    public function studentNotifications()
+   public function studentNotifications()
     {
-        return view('student.student-notifications');
+        $notifications = Notification::whereIn('target', ['Students', 'Class'])
+                        ->latest()
+                        ->get();
+
+        return view('student.student-notifications', compact('notifications'));
     }
     public function studentProfile()
     {
         $student = Student::find(session('student_id'));
 
-        return view('student.student-profile', compact('student'));
+        $badgeCount = AssessmentResult::where('student_id', session('student_id'))
+            ->whereNotNull('badge')
+            ->count();
+
+        return view('student.student-profile', compact('student', 'badgeCount'));
     }
 }

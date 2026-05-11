@@ -10,6 +10,9 @@ use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\AssessmentResultController;
+use App\Http\Controllers\AssessmentQuestionController;
+
+
 
 // Public pages
 Route::get('/', [PageController::class, 'home'])->name('home');
@@ -66,6 +69,10 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::get('/notifications/delete/{id}', [NotificationController::class, 'delete'])->name('notifications.delete');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports');
+
+    Route::get('/assessment-questions', [AssessmentQuestionController::class, 'index'])->name('assessment-questions');
+
+    Route::post('/assessment-questions/store', [AssessmentQuestionController::class, 'store'])->name('assessment-questions.store');
 });
 
 
@@ -100,5 +107,10 @@ Route::middleware(['student.auth'])->group(function () {
     Route::get('/student/profile', [PageController::class, 'studentProfile'])->name('student.profile');
     Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
 });
+
+
 Route::get('/student-login', [PageController::class, 'studentLogin'])->name('student.login');
 Route::post('/student-login', [PageController::class, 'studentLoginSubmit'])->name('student.login.submit');
+Route::put('/assessment-questions/update/{id}',[AssessmentQuestionController::class, 'update'])->name('assessment-questions.update');
+
+Route::delete('/assessment-questions/delete/{id}',[AssessmentQuestionController::class, 'delete'])->name('assessment-questions.delete');

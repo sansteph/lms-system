@@ -11,7 +11,8 @@ class AssessmentController extends Controller
     {
         $search = $request->search;
 
-        $assessments = Assessment::when($search, function ($query, $search) {
+        $assessments = Assessment::with('questions')
+            ->when($search, function ($query, $search) {
             return $query->where('assessment_title', 'like', "%{$search}%")
                          ->orWhere('assessment_type', 'like', "%{$search}%")
                          ->orWhere('assigned_class', 'like', "%{$search}%");

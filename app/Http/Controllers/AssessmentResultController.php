@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\AssessmentResult;
+use App\Models\AssessmentQuestion;
 
 class AssessmentResultController extends Controller
 {
@@ -12,14 +13,26 @@ class AssessmentResultController extends Controller
         $request->validate([
             'student_id' => 'required',
             'assessment_id' => 'required',
-            'score' => 'required|integer',
             'total_marks' => 'required|integer',
+            'answers' => 'nullable|array',
         ]);
+
+        $score = 0;
+        $answers = $request->answers ?? [];
+
+        foreach ($answers as $questionId => $selectedAnswer) {
+
+            $question = \App\Models\AssessmentQuestion::find($questionId);
+
+            if ($question && $question->correct_answer == $selectedAnswer) {
+                $score += $question->marks;
+            }
+        }
 
         $percentage = 0;
 
         if ($request->total_marks > 0) {
-            $percentage = ($request->score / $request->total_marks) * 100;
+            $percentage = ($score / $request->total_marks) * 100;
         }
 
         $badge = null;
@@ -31,19 +44,26 @@ class AssessmentResultController extends Controller
         } elseif ($percentage >= 50) {
             $badge = 'Bronze';
         }
+        $existingResult = AssessmentResult::where('student_id', $request->student_id)
+            ->where('assessment_id', $request->assessment_id)
+            ->first();
+
+        if ($existingResult) {
+            return redirect()->route('student.history')
+                ->with('error', 'You have already submitted this assessment.');
+        }
 
         AssessmentResult::create([
             'student_id' => $request->student_id,
             'assessment_id' => $request->assessment_id,
-            'score' => $request->score,
+            'score' => $score,
             'total_marks' => $request->total_marks,
             'status' => 'Completed',
             'badge' => $badge,
+            'percentage' => $percentage,
         ]);
 
-        return redirect()->back()->with(
-            'success',
-            'Assessment submitted successfully'
-        );
+        return redirect()->route('student.history')
+            ->with('success', 'Assessment submitted successfully');
     }
 }
