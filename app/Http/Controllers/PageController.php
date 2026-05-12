@@ -147,6 +147,9 @@ class PageController extends Controller
     public function deleteStudent($id)
     {
         $student = Student::findOrFail($id);
+
+        AssessmentResult::where('student_id', $id)->delete();
+
         $student->delete();
 
         return redirect()->route('students')->with('success', 'Student deleted successfully!');
@@ -197,6 +200,82 @@ class PageController extends Controller
             'classCount',
             'contentCount',
             'assessmentCount'
+        ));
+    }
+
+    public function teacherResults(Request $request)
+    {
+        $search = $request->search;
+        $badge = $request->badge;
+        $status = $request->status;
+        $sort = $request->sort;
+
+        $results = AssessmentResult::with(['assessment', 'student'])
+
+            ->when($search, function ($query, $search) {
+
+                $query->whereHas('student', function ($q) use ($search) {
+
+                    $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('student_id', 'like', "%{$search}%");
+
+                })
+
+                ->orWhereHas('assessment', function ($q) use ($search) {
+
+                    $q->where('assessment_title', 'like', "%{$search}%");
+
+                })
+
+                ->orWhere('badge', 'like', "%{$search}%");
+
+            })
+
+            ->when($badge, function ($query, $badge) {
+
+                $query->where('badge', $badge);
+
+            })
+
+            ->when($status, function ($query, $status) {
+
+                $query->where('status', $status);
+
+            })
+
+            ->when($sort == 'highest', function ($query) {
+                $query->orderByDesc('percentage');
+            })
+
+            ->when($sort == 'lowest', function ($query) {
+                $query->orderBy('percentage');
+            })
+
+            ->when($sort == 'latest', function ($query) {
+                $query->latest();
+            })
+
+            ->when($sort == 'oldest', function ($query) {
+                $query->oldest();
+            })
+
+            ->get();
+
+        $topPerformer = $results->sortByDesc('percentage')->first();
+        $lowestPerformer = $results->sortBy('percentage')->first();
+
+        $passPercentage = 0;
+
+        if ($results->count() > 0) {
+            $passedCount = $results->where('percentage', '>=', 50)->count();
+            $passPercentage = ($passedCount / $results->count()) * 100;
+        }
+
+        return view('teacher.teacher-results', compact(
+            'results',
+            'topPerformer',
+            'lowestPerformer',
+            'passPercentage'
         ));
     }
     public function teacherCertificates()
@@ -380,5 +459,13 @@ class PageController extends Controller
             ->count();
 
         return view('student.student-profile', compact('student', 'badgeCount'));
+    }
+    public function disqualifyResult($id)
+    {
+        $result = AssessmentResult::findOrFail($id);
+
+        $result->delete();
+
+        return redirect()->back()->with('success', 'Student result disqualified successfully');
     }
 }

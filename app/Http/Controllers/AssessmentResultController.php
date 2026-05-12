@@ -37,11 +37,11 @@ class AssessmentResultController extends Controller
 
         $badge = null;
 
-        if ($percentage >= 90) {
+        if ($percentage >= 85) {
             $badge = 'Gold';
-        } elseif ($percentage >= 75) {
+        } elseif ($percentage >= 65) {
             $badge = 'Silver';
-        } elseif ($percentage >= 50) {
+        } elseif ($percentage >= 40) {
             $badge = 'Bronze';
         }
         $existingResult = AssessmentResult::where('student_id', $request->student_id)

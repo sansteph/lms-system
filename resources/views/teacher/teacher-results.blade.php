@@ -1,0 +1,456 @@
+@extends('layouts.app')
+
+@section('content')
+
+<div class="container-fluid">
+    <div class="row">
+
+        @include('layouts.teacher-sidebar')
+
+        <div class="col-md-10 col-lg-10 p-4">
+
+            <div class="page-header mb-4">
+
+                <h2 class="mb-1">
+                    Student Results
+                </h2>
+
+                <p class="text-muted mb-0">
+                    View submitted assessments, scores, percentages, badges, and performance analytics.
+                </p>
+
+            </div>
+            
+            @if(session('success'))
+
+                <div class="alert alert-success">
+                    {{ session('success') }}
+                </div>
+
+            @endif
+
+            <div class="row g-4 mb-4">
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Total Results</h6>
+                        <h2>{{ $results->count() }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Completed</h6>
+                        <h2>
+                            {{ $results->where('status', 'Completed')->count() }}
+                        </h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Gold Badges</h6>
+                        <h2>
+                            {{ $results->where('badge', 'Gold')->count() }}
+                        </h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+
+                        <h6>Average Percentage</h6>
+
+                        <h2>
+
+                            @if($results->count() > 0)
+
+                                {{ number_format($results->avg('percentage'), 1) }}%
+
+                            @else
+
+                                0%
+
+                            @endif
+
+                        </h2>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="row g-4 mb-4">
+
+                <div class="col-md-4">
+
+                    <div class="dashboard-card">
+
+                        <h6>Top Performer</h6>
+
+                        <h5>
+
+                            @if($topPerformer && $topPerformer->student)
+
+                                {{ $topPerformer->student->name }}
+
+                            @else
+
+                                N/A
+
+                            @endif
+
+                        </h5>
+
+                        <small class="text-muted">
+
+                            @if($topPerformer)
+
+                                {{ number_format($topPerformer->percentage, 1) }}%
+
+                            @endif
+
+                        </small>
+
+                    </div>
+
+                </div>
+
+                <div class="col-md-4">
+
+                    <div class="dashboard-card">
+
+                        <h6>Lowest Performer</h6>
+
+                        <h5>
+
+                            @if($lowestPerformer && $lowestPerformer->student)
+
+                                {{ $lowestPerformer->student->name }}
+
+                            @else
+
+                                N/A
+
+                            @endif
+
+                        </h5>
+
+                        <small class="text-muted">
+
+                            @if($lowestPerformer)
+
+                                {{ number_format($lowestPerformer->percentage, 1) }}%
+
+                            @endif
+
+                        </small>
+
+                    </div>
+
+                </div>
+
+                <div class="col-md-4">
+
+                    <div class="dashboard-card">
+
+                        <h6>Pass Percentage</h6>
+
+                        <h5>
+                            {{ number_format($passPercentage, 1) }}%
+                        </h5>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="card shadow border-0 mb-4">
+
+                <div class="card-body">
+
+                    <form method="GET"
+                          action="{{ route('teacher.results') }}">
+
+                        <div class="row g-3">
+
+                            <div class="col-md-3">
+
+                                <input type="text"
+                                       name="search"
+                                       class="form-control"
+                                       placeholder="Search student/assessment"
+                                       value="{{ request('search') }}">
+
+                            </div>
+
+                            <div class="col-md-2">
+
+                                <select name="badge" class="form-control">
+
+                                    <option value="">
+                                        All Badges
+                                    </option>
+
+                                    <option value="Gold"
+                                        {{ request('badge') == 'Gold' ? 'selected' : '' }}>
+                                        Gold
+                                    </option>
+
+                                    <option value="Silver"
+                                        {{ request('badge') == 'Silver' ? 'selected' : '' }}>
+                                        Silver
+                                    </option>
+
+                                    <option value="Bronze"
+                                        {{ request('badge') == 'Bronze' ? 'selected' : '' }}>
+                                        Bronze
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+                            <div class="col-md-2">
+
+                                <select name="status" class="form-control">
+
+                                    <option value="">
+                                        All Status
+                                    </option>
+
+                                    <option value="Completed"
+                                        {{ request('status') == 'Completed' ? 'selected' : '' }}>
+                                        Completed
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+                            <div class="col-md-3">
+
+                                <select name="sort" class="form-control">
+
+                                    <option value="">
+                                        Sort By
+                                    </option>
+
+                                    <option value="highest"
+                                        {{ request('sort') == 'highest' ? 'selected' : '' }}>
+                                        Highest Percentage
+                                    </option>
+
+                                    <option value="lowest"
+                                        {{ request('sort') == 'lowest' ? 'selected' : '' }}>
+                                        Lowest Percentage
+                                    </option>
+
+                                    <option value="latest"
+                                        {{ request('sort') == 'latest' ? 'selected' : '' }}>
+                                        Latest Results
+                                    </option>
+
+                                    <option value="oldest"
+                                        {{ request('sort') == 'oldest' ? 'selected' : '' }}>
+                                        Oldest Results
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+                            <div class="col-md-1">
+
+                                <button type="submit"
+                                        class="btn btn-primary w-100">
+                                    Find
+                                </button>
+
+                            </div>
+
+                            <div class="col-md-1">
+
+                                <a href="{{ route('teacher.results') }}"
+                                   class="btn btn-light w-100">
+
+                                    Clear
+
+                                </a>
+
+                            </div>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+            <div class="card shadow border-0">
+
+                <div class="card-body">
+
+                    <table class="table table-bordered table-hover align-middle">
+
+                        <thead class="table-light">
+
+                            <tr>
+
+                                <th>Sl. No</th>
+
+                                <th>Student</th>
+
+                                <th>Assessment</th>
+
+                                <th>Score</th>
+
+                                <th>Percentage</th>
+
+                                <th>Status</th>
+
+                                <th>Badge</th>
+
+                                <th>Date</th>
+
+                                <th>Action</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            @forelse($results as $index => $result)
+
+                                <tr>
+
+                                    <td>
+                                        {{ $index + 1 }}
+                                    </td>
+
+                                    <td>
+
+                                        @if($result->student)
+
+                                            {{ $result->student->name }}
+
+                                        @else
+
+                                            Student Deleted
+
+                                        @endif
+
+                                    </td>
+
+                                    <td>
+
+                                        @if($result->assessment)
+
+                                            {{ $result->assessment->assessment_title }}
+
+                                        @else
+
+                                            Assessment Deleted
+
+                                        @endif
+
+                                    </td>
+
+                                    <td>
+                                        {{ $result->score }}/{{ $result->total_marks }}
+                                    </td>
+
+                                    <td>
+                                        {{ number_format($result->percentage, 1) }}%
+                                    </td>
+
+                                    <td>
+
+                                        <span class="badge bg-success">
+                                            {{ $result->status }}
+                                        </span>
+
+                                    </td>
+
+                                    <td>
+
+                                        @if($result->badge == 'Gold')
+
+                                            <span class="badge bg-warning text-dark">
+                                                Gold
+                                            </span>
+
+                                        @elseif($result->badge == 'Silver')
+
+                                            <span class="badge bg-secondary">
+                                                Silver
+                                            </span>
+
+                                        @elseif($result->badge == 'Bronze')
+
+                                            <span class="badge bg-danger">
+                                                Bronze
+                                            </span>
+
+                                        @else
+
+                                            <span class="badge bg-light text-dark">
+                                                No Badge
+                                            </span>
+
+                                        @endif
+
+                                    </td>
+
+                                    <td>
+                                        {{ $result->created_at->format('d-m-Y') }}
+                                    </td>
+
+                                    <td>
+                                        <form method="POST"
+                                            action="{{ route('teacher.results.disqualify', $result->id) }}"
+                                            onsubmit="return confirm('Disqualify {{ $result->student->name ?? 'Student' }} from {{ $result->assessment->assessment_title ?? 'Assessment' }}? This will remove history, badges, and certificate eligibility.')">
+
+                                            @csrf
+                                            @method('DELETE')
+
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                Disqualify
+                                            </button>
+                                        </form>
+                                    </td>
+
+                                </tr>
+
+                            @empty
+
+                                <tr>
+
+                                    <td colspan="9"
+                                        class="text-center text-muted">
+
+                                        No results found.
+
+                                    </td>
+
+                                </tr>
+
+                            @endforelse
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+@endsection

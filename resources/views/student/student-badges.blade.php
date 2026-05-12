@@ -33,17 +33,39 @@
                     </div>
                 </div>
 
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="dashboard-card">
                         <h6>Silver Badges</h6>
                         <h2>{{ $silverCount }}</h2>
                     </div>
                 </div>
 
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="dashboard-card">
                         <h6>Bronze Badges</h6>
                         <h2>{{ $bronzeCount }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class="dashboard-card">
+
+                        <h6>Certificate</h6>
+
+                        @if($certificateEligible)
+
+                            <h2 class="text-success">
+                                Eligible
+                            </h2>
+
+                        @else
+
+                            <h2 class="text-warning">
+                                Pending
+                            </h2>
+
+                        @endif
+
                     </div>
                 </div>
 
@@ -84,7 +106,11 @@
                                     </div>
 
                                     <h6>
-                                        Assessment #{{ $result->assessment->assessment_title }}
+                                        Assessment #@if($result->assessment)
+                                                        {{ $result->assessment->assessment_title }}
+                                                    @else
+                                                        Assessment Deleted
+                                                    @endif
                                     </h6>
 
                                     <p class="text-muted small mb-2">

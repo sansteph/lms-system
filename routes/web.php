@@ -94,6 +94,8 @@ Route::middleware(['teacher.auth'])->group(function () {
     Route::get('/teacher/notifications', [PageController::class, 'teacherNotifications'])->name('teacher.notifications');
 
     Route::get('/teacher/profile', [PageController::class, 'teacherProfile'])->name('teacher.profile');
+
+    Route::get('/teacher-results', [PageController::class, 'teacherResults'])->name('teacher.results');
 });
 
 
@@ -106,6 +108,7 @@ Route::middleware(['student.auth'])->group(function () {
     Route::get('/student/notifications', [PageController::class, 'studentNotifications'])->name('student.notifications');
     Route::get('/student/profile', [PageController::class, 'studentProfile'])->name('student.profile');
     Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
+    Route::delete('/teacher/results/disqualify/{id}', [PageController::class, 'disqualifyResult'])->name('teacher.results.disqualify');
 });
 
 

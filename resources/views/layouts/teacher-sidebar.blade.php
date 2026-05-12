@@ -28,6 +28,11 @@
         Reports
     </a>
 
+    <a href="{{ route('teacher.results') }}"
+    class="sidebar-link {{ request()->routeIs('teacher.results') ? 'active' : '' }}">
+        Student Results
+    </a>
+
     <a href="{{ route('teacher.certificates') }}"
     class="sidebar-link {{ request()->routeIs('teacher.certificates') ? 'active' : '' }}">
         Certificates

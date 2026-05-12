@@ -102,7 +102,7 @@
 
                                         <a href="{{ route('students.delete', $student->id) }}"
                                            class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Are you sure you want to delete this student?')">
+                                           onclick="return confirm('Are you sure you want to delete this student? This will also remove their assessment history, badges, and certificate eligibility.')">
                                             Delete
                                         </a>
                                     </td>

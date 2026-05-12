@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Assessment;
+use App\Models\AssessmentResult;
+use App\Models\AssessmentQuestion;
 
 class AssessmentController extends Controller
 {
@@ -94,6 +96,9 @@ class AssessmentController extends Controller
     public function delete($id)
     {
         $assessment = Assessment::findOrFail($id);
+
+        AssessmentResult::where('assessment_id', $id)->delete();
+        AssessmentQuestion::where('assessment_id', $id)->delete();
 
         $assessment->delete();
 
