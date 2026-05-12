@@ -13,6 +13,11 @@
 
 <body>
 
+@if(!request()->routeIs('home') &&
+    !request()->routeIs('admin.login') &&
+    !request()->routeIs('teacher.login') &&
+    !request()->routeIs('student.login'))
+
 <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
 
     <a class="navbar-brand fw-bold text-primary"
@@ -24,18 +29,15 @@
         @elseif(session('student_id'))
             {{ route('student.dashboard') }}
         @else
-           {{ route('home') }}
+            {{ route('home') }}
         @endif
         ">
-
         LMS Panel
-
     </a>
 
     <div class="ms-auto d-flex align-items-center gap-3">
 
         @if(session('user_name') || session('student_name'))
-
             <span class="text-muted fw-semibold">
                 {{ session('user_name') ?? session('student_name') }}
 
@@ -45,22 +47,19 @@
                     (Student)
                 @endif
             </span>
-
         @endif
 
         @if(session()->has('user_id') || session()->has('student_id'))
-
-            <a href="{{ route('logout') }}"
-            class="btn btn-sm btn-outline-danger">
+            <a href="{{ route('logout') }}" class="btn btn-sm btn-outline-danger">
                 Logout
             </a>
-
         @endif
 
     </div>
 
 </nav>
 
+@endif
 @yield('content')
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
