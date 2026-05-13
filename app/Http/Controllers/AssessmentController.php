@@ -102,6 +102,6 @@ class AssessmentController extends Controller
 
         $assessment->delete();
 
-        return redirect()->back()->with('success', 'Assessment deleted successfully');
+        return redirect()->back()->with('success', 'Assessment deleted successfully. Related questions, results, badges, and history were also removed.');
     }
 }

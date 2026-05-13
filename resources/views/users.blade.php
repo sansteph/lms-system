@@ -110,14 +110,14 @@
                                     </td>
 
                                     <td>
-                                        <button class="btn btn-sm btn-outline-warning"
+                                        <button class="btn btn-sm btn-warning"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#editUserModal{{ $user->id }}">
                                             Edit
                                         </button>
 
                                         <a href="{{ route('users.delete', $user->id) }}"
-                                           class="btn btn-sm btn-outline-danger"
+                                           class="btn btn-sm btn-danger"
                                            onclick="return confirm('Are you sure you want to delete this teacher?')">
                                             Delete
                                         </a>

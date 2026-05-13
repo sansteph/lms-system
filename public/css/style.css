@@ -95,17 +95,6 @@ body {
     margin-bottom: 0;
 }
 
-.report-btn{
-    background: #8B5CF6;
-    color: white;
-    border: none;
-}
-
-.report-btn:hover{
-    background: #7C3AED;
-    color: white;
-}
-
 .portal-page {
     min-height: 100vh;
     background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 45%, #f8fafc 100%);
@@ -215,11 +204,6 @@ body {
     color: #ffffff;
     transform: translateY(-3px);
     box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
-}
-
-.active-role {
-    background: #1e1b4b;
-    color: #ffffff;
 }
 
 .portal-footer-text {
@@ -365,4 +349,111 @@ body {
 
 .student-btn:hover {
     box-shadow: 0 16px 28px rgba(13, 148, 136, 0.25);
+}
+
+.page-transition {
+    animation: pageFade 0.45s ease;
+}
+
+@keyframes pageFade {
+
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card,
+.dashboard-card,
+.portal-role,
+.btn,
+.sidebar-link {
+    transition: all 0.25s ease;
+}
+
+.dashboard-card:hover,
+.portal-role:hover,
+.card:hover {
+    transform: translateY(-4px);
+}
+
+#particles-js {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.portal-page {
+    position: relative;
+    z-index: 1;
+    background: transparent !important;
+}
+
+.portal-card,
+.login-card {
+    position: relative;
+    z-index: 2;
+}
+
+.page-transition {
+    position: relative;
+    z-index: 1;
+}
+
+.dashboard-card {
+    background: #ffffff;
+    border: 1px solid #e5eaf3;
+    border-radius: 22px;
+    padding: 24px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+    transition: all 0.25s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 24px 50px rgba(15, 23, 42, 0.1);
+}
+
+.dashboard-card h6 {
+    color: #64748b;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.dashboard-card h2,
+.dashboard-card h5 {
+    color: #0f172a;
+    font-weight: 800;
+    margin-bottom: 0;
+}
+
+.earned-badge-card {
+    border-radius: 22px;
+    background: linear-gradient(135deg, #ffffff, #f8fbff);
+    transition: all 0.25s ease;
+    min-height: 235px;
+    overflow: hidden;
+}
+
+.earned-badge-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1) !important;
+}
+
+.earned-badge-title {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+    min-height: 42px;
+    max-height: 42px;
+    overflow: hidden;
+    padding: 0 8px;
+    margin-bottom: 10px;
+    white-space: normal;
 }

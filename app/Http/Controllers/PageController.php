@@ -174,7 +174,7 @@ class PageController extends Controller
     {
         $classes = SchoolClass::latest()->get();
 
-        return view('teacher.teacher-classes', compact('classes'));
+        return view('teacher.my-classes', compact('classes'));
     }
     public function teacherContent()
     {

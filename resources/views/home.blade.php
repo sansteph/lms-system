@@ -29,7 +29,7 @@
 
         <div class="portal-role-grid">
 
-            <a href="{{ route('admin.login') }}" class="portal-role active-role">
+            <a href="{{ route('admin.login') }}" class="portal-role">
                 <i class="fa fa-user-shield"></i>
                 Admin
             </a>

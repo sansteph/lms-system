@@ -117,8 +117,8 @@
                                 <td><span class="badge bg-primary">Student</span></td>
                                 <td>View student count, class-wise student details, and performance summary.</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary">View</button>
-                                    <button class="btn btn-sm btn-outline-success">Download</button>
+                                    <button class="btn btn-sm btn-primary">View</button>
+                                    <button class="btn btn-sm btn-success">Download</button>
                                 </td>
                             </tr>
 
@@ -128,9 +128,9 @@
                                 <td><span class="badge bg-warning text-dark">Teacher</span></td>
                                 <td>View teacher count, assigned classes, and assessment participation.</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary">View</button>
-                                    <button class="btn btn-sm btn-outline-success">Download</button>
-                                </td>
+                                    <button class="btn btn-sm btn-primary">View</button>
+                                    <button class="btn btn-sm btn-success">Download</button>
+                                </td
                             </tr>
 
                             <tr>
@@ -139,8 +139,8 @@
                                 <td><span class="badge bg-info">Class</span></td>
                                 <td>View class count, sections, assigned teachers, and student distribution.</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary">View</button>
-                                    <button class="btn btn-sm btn-outline-success">Download</button>
+                                    <button class="btn btn-sm btn-primary">View</button>
+                                    <button class="btn btn-sm btn-success">Download</button>
                                 </td>
                             </tr>
 
@@ -150,8 +150,8 @@
                                 <td><span class="badge bg-success">MIS</span></td>
                                 <td>View overall LMS summary including institutes, content, assessments, and notifications.</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary">View</button>
-                                    <button class="btn btn-sm btn-outline-success">Download</button>
+                                    <button class="btn btn-sm btn-primary">View</button>
+                                    <button class="btn btn-sm btn-success">Download</button>
                                 </td>
                             </tr>
                         </tbody>

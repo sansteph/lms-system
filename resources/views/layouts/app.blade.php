@@ -12,57 +12,135 @@
 </head>
 
 <body>
+    @if(
+        request()->routeIs('home') ||
+        request()->routeIs('admin.login') ||
+        request()->routeIs('teacher.login') ||
+        request()->routeIs('student.login')
+    )
 
-@if(!request()->routeIs('home') &&
-    !request()->routeIs('admin.login') &&
-    !request()->routeIs('teacher.login') &&
-    !request()->routeIs('student.login'))
+        <div id="particles-js"></div>
 
-<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
+    @endif
 
-    <a class="navbar-brand fw-bold text-primary"
-       href="
-        @if(session('user_role') == 'Admin')
-            {{ route('admin.dashboard') }}
-        @elseif(session('user_role') == 'Teacher')
-            {{ route('teacher.dashboard') }}
-        @elseif(session('student_id'))
-            {{ route('student.dashboard') }}
-        @else
-            {{ route('home') }}
-        @endif
-        ">
-        LMS Panel
-    </a>
+    @if(!request()->routeIs('home') &&
+        !request()->routeIs('admin.login') &&
+        !request()->routeIs('teacher.login') &&
+        !request()->routeIs('student.login'))
 
-    <div class="ms-auto d-flex align-items-center gap-3">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
 
-        @if(session('user_name') || session('student_name'))
-            <span class="text-muted fw-semibold">
-                {{ session('user_name') ?? session('student_name') }}
+        <a class="navbar-brand fw-bold text-primary"
+        href="
+            @if(session('user_role') == 'Admin')
+                {{ route('admin.dashboard') }}
+            @elseif(session('user_role') == 'Teacher')
+                {{ route('teacher.dashboard') }}
+            @elseif(session('student_id'))
+                {{ route('student.dashboard') }}
+            @else
+                {{ route('home') }}
+            @endif
+            ">
+            LMS Panel
+        </a>
 
-                @if(session('user_role'))
-                    ({{ session('user_role') }})
-                @elseif(session('student_id'))
-                    (Student)
-                @endif
-            </span>
-        @endif
+        <div class="ms-auto d-flex align-items-center gap-3">
 
-        @if(session()->has('user_id') || session()->has('student_id'))
-            <a href="{{ route('logout') }}" class="btn btn-sm btn-outline-danger">
-                Logout
-            </a>
-        @endif
+            @if(session('user_name') || session('student_name'))
+                <span class="text-muted fw-semibold">
+                    {{ session('user_name') ?? session('student_name') }}
 
+                    @if(session('user_role'))
+                        ({{ session('user_role') }})
+                    @elseif(session('student_id'))
+                        (Student)
+                    @endif
+                </span>
+            @endif
+
+            @if(session()->has('user_id') || session()->has('student_id'))
+                <a href="{{ route('logout') }}" class="btn btn-sm btn-outline-danger">
+                    Logout
+                </a>
+            @endif
+
+        </div>
+
+    </nav>
+
+    @endif
+    <div class="page-transition">
+        @yield('content')
     </div>
 
-</nav>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
+    @if(
+        request()->routeIs('home') ||
+        request()->routeIs('admin.login') ||
+        request()->routeIs('teacher.login') ||
+        request()->routeIs('student.login')
+    )
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        tsParticles.load("particles-js", {
+            background: { color: "transparent" },
+            fpsLimit: 60,
+            particles: {
+                number: {
+                    value: 55
+                },
 
-@endif
-@yield('content')
+                color: {
+                    value: [
+                        "#2563eb",
+                        "#4f46e5",
+                        "#7c3aed",
+                        "#0ea5e9"
+                    ]
+                },
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+                shape: {
+                    type: "circle"
+                },
+
+                opacity: {
+                    value: 0.38
+                },
+
+                size: {
+                    value: {
+                        min: 2,
+                        max: 5
+                    }
+                },
+
+                links: {
+                    enable: true,
+                    color: "#93c5fd",
+                    distance: 150,
+                    opacity: 0.28,
+                    width: 1.2
+                },
+
+                move: {
+                    enable: true,
+                    speed: 1.3,
+                    direction: "none",
+                    random: false,
+                    straight: false,
+                    outModes: {
+                        default: "bounce"
+                    }
+                }
+
+            },
+            detectRetina: true
+        });
+    });
+    </script>
+    @endif
 
 </body>
 </html>
