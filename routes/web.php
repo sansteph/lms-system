@@ -71,8 +71,14 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::get('/reports', [ReportController::class, 'index'])->name('reports');
 
     Route::get('/assessment-questions', [AssessmentQuestionController::class, 'index'])->name('assessment-questions');
-
     Route::post('/assessment-questions/store', [AssessmentQuestionController::class, 'store'])->name('assessment-questions.store');
+
+    Route::get('/admin/certificates', [PageController::class, 'adminCertificates'])->name('admin.certificates');
+    Route::post('/admin/certificates/revoke/{id}', [PageController::class, 'revokeCertificate'])->name('admin.certificates.revoke');
+    Route::post('/admin/certificates/reissue/{id}', [PageController::class, 'reissueCertificate'])->name('admin.certificates.reissue');
+    Route::get('/results/export', [PageController::class, 'exportResults'])->name('results.export');
+
+    Route::get('/admin/analytics', [PageController::class, 'adminAnalytics'])->name('admin.analytics');
 });
 
 
@@ -98,6 +104,8 @@ Route::middleware(['teacher.auth'])->group(function () {
     Route::get('/teacher-results', [PageController::class, 'teacherResults'])->name('teacher.results');
 
     Route::delete('/teacher/results/disqualify/{id}', [PageController::class, 'disqualifyResult'])->name('teacher.results.disqualify');
+
+    Route::get('/results/export', [PageController::class, 'exportResults'])->name('results.export');
 });
 
 
@@ -110,11 +118,14 @@ Route::middleware(['student.auth'])->group(function () {
     Route::get('/student/notifications', [PageController::class, 'studentNotifications'])->name('student.notifications');
     Route::get('/student/profile', [PageController::class, 'studentProfile'])->name('student.profile');
     Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
+    Route::get('/student/certificate', [PageController::class, 'studentCertificate'])->name('student.certificate');
 });
 
 
 Route::get('/student-login', [PageController::class, 'studentLogin'])->name('student.login');
 Route::post('/student-login', [PageController::class, 'studentLoginSubmit'])->name('student.login.submit');
 Route::put('/assessment-questions/update/{id}',[AssessmentQuestionController::class, 'update'])->name('assessment-questions.update');
-
+Route::get('/verify-certificate', [PageController::class, 'verifyCertificate'])->name('certificate.verify');
+Route::post('/verify-certificate', [PageController::class, 'verifyCertificateSubmit'])->name('certificate.verify.submit');
 Route::delete('/assessment-questions/delete/{id}',[AssessmentQuestionController::class, 'delete'])->name('assessment-questions.delete');
+Route::get('/results/export', [PageController::class, 'exportResults'])->name('results.export');

@@ -86,14 +86,14 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-warning">
+                                        <button class="btn btn-sm btn-warning">
                                             Generate Link
                                         </button>
 
                                         @if($assessment->file_path)
                                             <a href="{{ asset('storage/' . $assessment->file_path) }}"
                                                target="_blank"
-                                               class="btn btn-sm btn-outline-primary">
+                                               class="btn btn-sm btn-primary">
                                                 View Paper
                                             </a>
                                         @endif

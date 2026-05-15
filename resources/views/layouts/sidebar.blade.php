@@ -31,14 +31,22 @@
         Assessment Management
     </a>
     <a href="{{ route('assessment-questions') }}" class="sidebar-link {{ request()->routeIs('assessment-questions') ? 'active' : '' }}">
-    Assessment Questions
+        Assessment Questions
     </a>
 
     <a href="{{ route('reports') }}" class="sidebar-link {{ request()->routeIs('reports') ? 'active' : '' }}">
         Reports
     </a>
 
+    <a href="{{ route('admin.analytics') }}" class="sidebar-link {{ request()->routeIs('admin.analytics') ? 'active' : '' }}">
+        Analytics
+    </a>
+
     <a href="{{ route('notifications') }}" class="sidebar-link {{ request()->routeIs('notifications') ? 'active' : '' }}">
         Notifications
+    </a>
+
+    <a href="{{ route('admin.certificates') }}"class="sidebar-link {{ request()->routeIs('admin.certificates') ? 'active' : '' }}">
+        Certificates
     </a>
 </div>

@@ -46,6 +46,13 @@
 
         </div>
 
+        <div class="mt-4">
+            <a href="{{ route('certificate.verify') }}" class="btn btn-outline-primary">
+                <i class="fa fa-certificate me-2"></i>
+                Verify Certificate
+            </a>
+        </div>
+
         <p class="portal-footer-text">
             Smart learning, assessments, badges, and performance tracking.
         </p>

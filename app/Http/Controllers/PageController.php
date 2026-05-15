@@ -10,6 +10,7 @@ use App\Models\SchoolClass;
 use Illuminate\Support\Facades\Hash;
 use App\Models\AssessmentResult;
 use App\Models\AssessmentQuestion;
+use App\Models\Certificate;
 class PageController extends Controller
 {
     public function home()
@@ -153,6 +154,29 @@ class PageController extends Controller
         $student->delete();
 
         return redirect()->route('students')->with('success', 'Student deleted successfully!');
+    }
+
+    public function adminCertificates()
+    {
+        $certificates = Certificate::with('student')
+            ->latest()
+            ->get();
+
+        return view(
+            'certificates',
+            compact('certificates')
+        );
+    }
+
+    public function revokeCertificate($id)
+    {
+        $certificate = Certificate::findOrFail($id);
+
+        $certificate->update([
+            'status' => 'Revoked'
+        ]);
+
+        return redirect()->back()->with('success', 'Certificate revoked successfully.');
     }
 
     public function teacherDashboard()
@@ -434,12 +458,44 @@ class PageController extends Controller
 
         $certificateEligible = $results->count() >= 5;
 
+        $certificateEligible = $results->count() >= 5;
+
+        if ($certificateEligible) {
+
+            Certificate::firstOrCreate(
+                ['student_id' => $studentId],
+                [
+                    'certificate_code' => 'LMS-' . date('Y') . '-' . strtoupper(substr(md5(uniqid()), 0, 6)),
+                    'badge_count' => $results->count(),
+                    'issued_date' => now(),
+                    'status' => 'Issued',
+                ]
+            );
+
+        }
+
+        $certificate = Certificate::where('student_id', $studentId)->first();
+        if ($certificate && $results->count() < 5) 
+        {
+            $certificate->update([
+                'status' => 'Revoked'
+            ]);
+        }
+        if ($certificate) {
+
+            $certificate->update([
+                'badge_count' => $results->count()
+            ]);
+
+        }
+
         return view('student.student-badges', compact(
             'results',
             'goldCount',
             'silverCount',
             'bronzeCount',
             'certificateEligible',
+            'certificate'
         ));
     }
    public function studentNotifications()
@@ -467,5 +523,193 @@ class PageController extends Controller
         $result->delete();
 
         return redirect()->back()->with('success', 'Student result disqualified successfully');
+    }
+    public function studentCertificate()
+    {
+        $student = Student::find(session('student_id'));
+
+        $certificate = Certificate::where('student_id', session('student_id'))->first();
+
+        if (!$certificate) {
+            return redirect()->route('student.badges')
+                ->with('error', 'Certificate is not available yet.');
+        }
+        if ($certificate->status == 'Revoked') {
+            return redirect()
+                ->route('student.badges')
+                ->with('error', 'Your certificate has been revoked.');
+        }
+
+        return view('student.student-certificate', compact('student', 'certificate'));
+    }
+    public function verifyCertificate()
+    {
+        return view('certificate.verify-certificate');
+    }
+
+    public function verifyCertificateSubmit(Request $request)
+    {
+        $request->validate([
+            'certificate_code' => 'required'
+        ]);
+
+        $certificate = Certificate::where(
+            'certificate_code',
+            $request->certificate_code
+        )->first();
+
+        $revoked = false;
+
+        if ($certificate && $certificate->status == 'Revoked') {
+            $revoked = true;
+        }
+
+        return view('certificate.verify-certificate', compact(
+            'certificate',
+            'revoked'
+        ));
+    }
+
+    public function reissueCertificate($id)
+    {
+        $certificate = Certificate::findOrFail($id);
+
+        $certificate->update([
+            'status' => 'Issued',
+            'issued_date' => now(),
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'Certificate reissued successfully.');
+    }
+
+    public function exportResults(Request $request)
+    {
+        $search = $request->search;
+        $badge = $request->badge;
+        $status = $request->status;
+        $sort = $request->sort;
+
+        $results = AssessmentResult::with(['student', 'assessment'])
+            ->when($search, function ($query, $search) {
+                $query->whereHas('student', function ($q) use ($search) {
+                    $q->where('student_name', 'like', "%{$search}%")
+                    ->orWhere('student_id', 'like', "%{$search}%");
+                })
+                ->orWhereHas('assessment', function ($q) use ($search) {
+                    $q->where('assessment_title', 'like', "%{$search}%");
+                })
+                ->orWhere('badge', 'like', "%{$search}%");
+            })
+            ->when($badge, function ($query, $badge) {
+                $query->where('badge', $badge);
+            })
+            ->when($status, function ($query, $status) {
+                $query->where('status', $status);
+            })
+            ->when($sort == 'highest', function ($query) {
+                $query->orderByDesc('percentage');
+            })
+            ->when($sort == 'lowest', function ($query) {
+                $query->orderBy('percentage');
+            })
+            ->when($sort == 'oldest', function ($query) {
+                $query->oldest();
+            })
+            ->when(!$sort || $sort == 'latest', function ($query) {
+                $query->latest();
+            })
+            ->get();
+
+        $filename = 'assessment_results.csv';
+
+        $headers = [
+            "Content-Type" => "text/csv",
+            "Content-Disposition" => "attachment; filename=$filename",
+        ];
+
+        $callback = function () use ($results) {
+            $file = fopen('php://output', 'w');
+
+            fputcsv($file, [
+                'Student Name',
+                'Student ID',
+                'Assessment',
+                'Score',
+                'Total Marks',
+                'Percentage',
+                'Badge',
+                'Status',
+                'Date',
+            ]);
+
+            foreach ($results as $result) {
+                fputcsv($file, [
+                    $result->student->student_name ?? 'Student Deleted',
+                    $result->student->student_id ?? 'N/A',
+                    $result->assessment->assessment_title ?? 'Assessment Deleted',
+                    $result->score,
+                    $result->total_marks,
+                    $result->percentage . '%',
+                    $result->badge ?? 'No Badge',
+                    $result->status,
+                    $result->created_at->format('d M Y h:i A'),
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+    public function adminAnalytics()
+    {
+        $studentCount = Student::count();
+        $assessmentCount = Assessment::count();
+        $certificateCount = Certificate::count();
+
+        $averageScore = AssessmentResult::avg('percentage') ?? 0;
+
+        $goldCount = AssessmentResult::where('badge', 'Gold')->count();
+        $silverCount = AssessmentResult::where('badge', 'Silver')->count();
+        $bronzeCount = AssessmentResult::where('badge', 'Bronze')->count();
+
+        $recentResults = AssessmentResult::with(['student', 'assessment'])
+            ->latest()
+            ->take(5)
+            ->get();
+
+        $attemptedCount = AssessmentResult::distinct('student_id')->count('student_id');
+        $passedCount = AssessmentResult::where('percentage', '>=', 50)->count();
+        $failedCount = AssessmentResult::where('percentage', '<', 50)->count();
+        $notAttemptedCount = max($studentCount - $attemptedCount, 0);
+
+        $topPerformers = AssessmentResult::with('student')
+            ->orderByDesc('percentage')
+            ->take(5)
+            ->get();
+
+        $assessmentAverages = AssessmentResult::with('assessment')
+            ->selectRaw('assessment_id, AVG(percentage) as average_percentage')
+            ->groupBy('assessment_id')
+            ->take(5)
+            ->get();
+
+        return view('analytics', compact(
+            'studentCount',
+            'assessmentCount',
+            'certificateCount',
+            'averageScore',
+            'goldCount',
+            'silverCount',
+            'bronzeCount',
+            'attemptedCount',
+            'notAttemptedCount',
+            'passedCount',
+            'failedCount',
+            'topPerformers',
+            'recentResults',
+            'assessmentAverages',
+        ));
     }
 }

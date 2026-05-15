@@ -107,7 +107,7 @@
                                 <th>Readiness</th>
                                 <th>Duration</th>
                                 <th>Status</th>
-                                <th width="230">Actions</th>
+                                <th width="320">Actions</th>
                             </tr>
                         </thead>
 
@@ -182,23 +182,29 @@
 
                                     </td>
 
-                                    <td>
+                                    <td class="text-nowrap">
 
-                                        <button class="btn btn-sm btn-outline-info">
-                                            Generate Link
-                                        </button>
+                                        <div class="d-flex align-items-center gap-2">
 
-                                        <button class="btn btn-sm btn-outline-warning"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#editAssessmentModal{{ $assessment->id }}">
-                                            Edit
-                                        </button>
+                                            <button class="btn btn-sm btn-info">
+                                                Link
+                                            </button>
 
-                                        <a href="{{ route('assessments.delete', $assessment->id) }}"
-                                                class="btn btn-sm btn-outline-danger"
-                                                onclick="return confirm('Are you sure you want to delete this assessment?')">
-                                            Delete
-                                        </a>
+                                            <button class="btn btn-sm btn-warning"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#editAssessmentModal{{ $assessment->id }}">
+                                                Edit
+                                            </button>
+
+                                            <a href="{{ route('assessments.delete', $assessment->id) }}"
+                                            class="btn btn-sm btn-danger"
+                                            onclick="return confirm('Are you sure you want to delete this assessment?')">
+
+                                                Delete
+
+                                            </a>
+
+                                        </div>
 
                                     </td>
 

@@ -9,29 +9,30 @@
 
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
-    @if(
-        request()->routeIs('home') ||
-        request()->routeIs('admin.login') ||
-        request()->routeIs('teacher.login') ||
-        request()->routeIs('student.login')
-    )
 
-        <div id="particles-js"></div>
+@if(
+    request()->routeIs('home') ||
+    request()->routeIs('admin.login') ||
+    request()->routeIs('teacher.login') ||
+    request()->routeIs('student.login')
+)
+    <div id="particles-js"></div>
+@endif
 
-    @endif
-
-    @if(!request()->routeIs('home') &&
-        !request()->routeIs('admin.login') &&
-        !request()->routeIs('teacher.login') &&
-        !request()->routeIs('student.login'))
+@if(!request()->routeIs('home') &&
+    !request()->routeIs('admin.login') &&
+    !request()->routeIs('teacher.login') &&
+    !request()->routeIs('student.login'))
 
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
 
         <a class="navbar-brand fw-bold text-primary"
-        href="
+           href="
             @if(session('user_role') == 'Admin')
                 {{ route('admin.dashboard') }}
             @elseif(session('user_role') == 'Teacher')
@@ -69,78 +70,83 @@
 
     </nav>
 
-    @endif
-    <div class="page-transition">
-        @yield('content')
-    </div>
+@endif
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+@yield('content')
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+@if(
+    request()->routeIs('home') ||
+    request()->routeIs('admin.login') ||
+    request()->routeIs('teacher.login') ||
+    request()->routeIs('student.login')
+)
     <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
-    @if(
-        request()->routeIs('home') ||
-        request()->routeIs('admin.login') ||
-        request()->routeIs('teacher.login') ||
-        request()->routeIs('student.login')
-    )
+
     <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        tsParticles.load("particles-js", {
-            background: { color: "transparent" },
-            fpsLimit: 60,
-            particles: {
-                number: {
-                    value: 55
+        document.addEventListener("DOMContentLoaded", function () {
+            tsParticles.load("particles-js", {
+                background: {
+                    color: "transparent"
                 },
 
-                color: {
-                    value: [
-                        "#2563eb",
-                        "#4f46e5",
-                        "#7c3aed",
-                        "#0ea5e9"
-                    ]
-                },
+                fpsLimit: 60,
 
-                shape: {
-                    type: "circle"
-                },
+                particles: {
+                    number: {
+                        value: 55
+                    },
 
-                opacity: {
-                    value: 0.38
-                },
+                    color: {
+                        value: [
+                            "#2563eb",
+                            "#4f46e5",
+                            "#7c3aed",
+                            "#0ea5e9"
+                        ]
+                    },
 
-                size: {
-                    value: {
-                        min: 2,
-                        max: 5
+                    shape: {
+                        type: "circle"
+                    },
+
+                    opacity: {
+                        value: 0.38
+                    },
+
+                    size: {
+                        value: {
+                            min: 2,
+                            max: 5
+                        }
+                    },
+
+                    links: {
+                        enable: true,
+                        color: "#93c5fd",
+                        distance: 150,
+                        opacity: 0.28,
+                        width: 1.2
+                    },
+
+                    move: {
+                        enable: true,
+                        speed: 1.3,
+                        direction: "none",
+                        random: false,
+                        straight: false,
+                        outModes: {
+                            default: "bounce"
+                        }
                     }
                 },
 
-                links: {
-                    enable: true,
-                    color: "#93c5fd",
-                    distance: 150,
-                    opacity: 0.28,
-                    width: 1.2
-                },
-
-                move: {
-                    enable: true,
-                    speed: 1.3,
-                    direction: "none",
-                    random: false,
-                    straight: false,
-                    outModes: {
-                        default: "bounce"
-                    }
-                }
-
-            },
-            detectRetina: true
+                detectRetina: true
+            });
         });
-    });
     </script>
-    @endif
+@endif
 
 </body>
 </html>
