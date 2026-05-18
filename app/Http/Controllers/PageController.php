@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\AssessmentResult;
 use App\Models\AssessmentQuestion;
 use App\Models\Certificate;
+use App\Models\UserSession;
+use App\Models\UserActivityLog;
 class PageController extends Controller
 {
     public function home()
@@ -335,10 +337,23 @@ class PageController extends Controller
                         ->first();
 
         if ($student && Hash::check($request->password, $student->password)) {
+
             session([
                 'student_id' => $student->id,
                 'student_name' => $student->name,
                 'student_code' => $student->student_id,
+            ]);
+
+            $userSession = UserSession::create([
+                'user_type' => 'Student',
+                'user_id' => $student->id,
+                'login_time' => now(),
+                'ip_address' => request()->ip(),
+                'browser' => request()->userAgent(),
+            ]);
+
+            session([
+                'tracking_session_id' => $userSession->id
             ]);
 
             return redirect()->route('student.dashboard');
@@ -423,7 +438,7 @@ class PageController extends Controller
                     ->with('error', 'This assessment is not ready yet.');
             }
 
-            $questions = \App\Models\AssessmentQuestion::where('assessment_id', $request->assessment_id)
+            $questions = AssessmentQuestion::where('assessment_id', $request->assessment_id)
                         ->get();
         }
 
@@ -710,6 +725,73 @@ class PageController extends Controller
             'topPerformers',
             'recentResults',
             'assessmentAverages',
+        ));
+    }
+    public function activityMonitoring(Request $request)
+    {
+        $userType = $request->user_type;
+        $date = $request->date;
+
+        $sessions = UserSession::when($userType, function ($query, $userType) {
+                $query->where('user_type', $userType);
+            })
+            ->latest()
+            ->take(20)
+            ->get();
+
+        $activityLogs = UserActivityLog::when($userType, function ($query, $userType) {
+                $query->where('user_type', $userType);
+            })
+            ->latest()
+            ->take(50)
+            ->get();
+
+        $activeTeachers = UserSession::where('user_type', 'Teacher')
+            ->distinct('user_id')
+            ->count('user_id');
+
+        $activeStudents = UserSession::where('user_type', 'Student')
+            ->distinct('user_id')
+            ->count('user_id');
+
+        $onlineUsers = UserSession::when($userType, function ($query, $userType) {
+                $query->where('user_type', $userType);
+            })
+            ->whereNull('logout_time')
+            ->count();
+
+        $mostVisitedSection = UserActivityLog::when($userType, function ($query, $userType) {
+                $query->where('user_type', $userType);
+            })
+            ->selectRaw('section_name, COUNT(*) as total')
+            ->whereNotNull('section_name')
+            ->groupBy('section_name')
+            ->orderByDesc('total')
+            ->first();
+
+        $averageSessionDuration = UserSession::when($userType, function ($query, $userType) {
+                $query->where('user_type', $userType);
+            })
+            ->avg('total_duration_seconds');
+
+        $sectionDurations = UserActivityLog::when($userType, function ($query, $userType) {
+                $query->where('user_type', $userType);
+            })
+            ->selectRaw('section_name, SUM(duration_seconds) as total_duration')
+            ->whereNotNull('section_name')
+            ->groupBy('section_name')
+            ->orderByDesc('total_duration')
+            ->get();
+
+        return view('activity-monitoring', compact(
+            'sessions',
+            'activityLogs',
+            'activeTeachers',
+            'activeStudents',
+            'onlineUsers',
+            'mostVisitedSection',
+            'averageSessionDuration',
+            'sectionDurations'
         ));
     }
 }
