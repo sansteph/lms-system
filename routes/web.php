@@ -11,6 +11,8 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\AssessmentResultController;
 use App\Http\Controllers\AssessmentQuestionController;
+use App\Http\Controllers\AIController;
+use App\Http\Controllers\StudentAchievementController;
 
 
 
@@ -34,6 +36,8 @@ Route::get('/results/export', [PageController::class, 'exportResults'])->name('r
 
 // Admin protected routes
 Route::middleware(['admin.auth'])->group(function () {
+
+    Route::get('/test-gemini', [AIController::class, 'testGemini']);
 
     Route::get('/admin-dashboard', [PageController::class, 'adminDashboard'])->name('admin.dashboard');
 
@@ -85,6 +89,14 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::get('/admin/analytics', [PageController::class, 'adminAnalytics'])->name('admin.analytics');
 
     Route::get('/admin/activity-monitoring', [PageController::class, 'activityMonitoring'])->name('admin.activity.monitoring');
+
+    Route::get('/admin/export-activity-report',[PageController::class, 'exportActivityReport'])->name('admin.export.activity');
+
+    Route::get('/admin/achievements',[StudentAchievementController::class, 'adminIndex'])->name('admin.achievements');
+
+    Route::post('/admin/achievements/{id}/approve',[StudentAchievementController::class, 'approve'])->name('admin.achievements.approve');
+
+    Route::post('/admin/achievements/{id}/reject',[StudentAchievementController::class, 'reject'])->name('admin.achievements.reject');
 });
 
 
@@ -113,20 +125,23 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
 
     Route::get('/results/export', [PageController::class, 'exportResults'])->name('results.export');
 
+    
 });
 
 
 // Student protected routes
 Route::middleware(['student.auth','track.activity'])->group(function () {
-    Route::get('/student-dashboard', [PageController::class, 'studentDashboard'])->name('student.dashboard');
-    Route::get('/student/take-assessment', [PageController::class, 'studentTakeAssessment'])->name('student.assessment');
-    Route::get('/student/history', [PageController::class, 'studentHistory'])->name('student.history');
-    Route::get('/student/badges', [PageController::class, 'studentBadges'])->name('student.badges');
-    Route::get('/student/notifications', [PageController::class, 'studentNotifications'])->name('student.notifications');
-    Route::get('/student/profile', [PageController::class, 'studentProfile'])->name('student.profile');
-    Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
-    Route::get('/student/certificate', [PageController::class, 'studentCertificate'])->name('student.certificate');
 
+    Route::get('/student-dashboard',[PageController::class, 'studentDashboard'])->name('student.dashboard');
+    Route::get('/student/take-assessment',[PageController::class, 'studentTakeAssessment'])->name('student.assessment');
+    Route::get('/student/history',[PageController::class, 'studentHistory'])->name('student.history');
+    Route::get('/student/badges',[PageController::class, 'studentBadges'])->name('student.badges');
+    Route::get('/student/notifications',[PageController::class, 'studentNotifications'])->name('student.notifications');
+    Route::get('/student/profile',[PageController::class, 'studentProfile'])->name('student.profile');
+    Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
+    Route::get('/student/certificate',[PageController::class, 'studentCertificate'])->name('student.certificate');
+    Route::get('/student/achievements/create',[StudentAchievementController::class, 'create'])->name('student.achievements.create');
+    Route::post('/student/achievements/store',[StudentAchievementController::class, 'store'])->name('student.achievements.store');
 });
 
 

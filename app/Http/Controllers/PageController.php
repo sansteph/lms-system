@@ -13,6 +13,7 @@ use App\Models\AssessmentQuestion;
 use App\Models\Certificate;
 use App\Models\UserSession;
 use App\Models\UserActivityLog;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 class PageController extends Controller
 {
     public function home()
@@ -735,12 +736,18 @@ class PageController extends Controller
         $sessions = UserSession::when($userType, function ($query, $userType) {
                 $query->where('user_type', $userType);
             })
+            ->when($date, function ($query, $date) {
+                $query->whereDate('login_time', $date);
+            })
             ->latest()
             ->take(20)
             ->get();
 
         $activityLogs = UserActivityLog::when($userType, function ($query, $userType) {
                 $query->where('user_type', $userType);
+            })
+            ->when($date, function ($query, $date) {
+                $query->whereDate('started_at', $date);
             })
             ->latest()
             ->take(50)
@@ -757,11 +764,17 @@ class PageController extends Controller
         $onlineUsers = UserSession::when($userType, function ($query, $userType) {
                 $query->where('user_type', $userType);
             })
+            ->when($date, function ($query, $date) {
+                $query->whereDate('login_time', $date);
+            })
             ->whereNull('logout_time')
             ->count();
 
         $mostVisitedSection = UserActivityLog::when($userType, function ($query, $userType) {
                 $query->where('user_type', $userType);
+            })
+            ->when($date, function ($query, $date) {
+                $query->whereDate('started_at', $date);
             })
             ->selectRaw('section_name, COUNT(*) as total')
             ->whereNotNull('section_name')
@@ -772,10 +785,16 @@ class PageController extends Controller
         $averageSessionDuration = UserSession::when($userType, function ($query, $userType) {
                 $query->where('user_type', $userType);
             })
+            ->when($date, function ($query, $date) {
+                $query->whereDate('login_time', $date);
+            })
             ->avg('total_duration_seconds');
 
         $sectionDurations = UserActivityLog::when($userType, function ($query, $userType) {
                 $query->where('user_type', $userType);
+            })
+            ->when($date, function ($query, $date) {
+                $query->whereDate('started_at', $date);
             })
             ->selectRaw('section_name, SUM(duration_seconds) as total_duration')
             ->whereNotNull('section_name')
@@ -793,5 +812,73 @@ class PageController extends Controller
             'averageSessionDuration',
             'sectionDurations'
         ));
+    }
+    public function exportActivityReport(Request $request)
+    {
+        $userType = $request->user_type;
+        $date = $request->date;
+
+        $logs = UserActivityLog::when($userType, function ($query, $userType) {
+                $query->where('user_type', $userType);
+            })
+            ->when($date, function ($query, $date) {
+                $query->whereDate('started_at', $date);
+            })
+            ->latest()
+            ->get();
+
+        $response = new StreamedResponse(function () use ($logs) {
+
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'User Type',
+                'User Name',
+                'Section',
+                'Route',
+                'URL',
+                'Visited At',
+                'Time Spent'
+            ]);
+
+            foreach ($logs as $log) {
+
+                $userName = 'Unknown User';
+
+                if ($log->user_type == 'Teacher') {
+                    $userName = $log->teacher->name ?? 'Teacher Deleted';
+                }
+
+                elseif ($log->user_type == 'Student') {
+                    $userName = $log->student->name ?? 'Student Deleted';
+                }
+
+                fputcsv($handle, [
+                    $log->user_type,
+                    $userName,
+                    $log->section_name,
+                    $log->route_name,
+                    $log->page_url,
+                    $log->started_at,
+                    gmdate('H:i:s', $log->duration_seconds ?? 0),
+                ]);
+            }
+
+            fclose($handle);
+        });
+
+        $fileName = 'activity-report-' . now()->format('Y-m-d-H-i-s') . '.csv';
+
+        $response->headers->set(
+            'Content-Type',
+            'text/csv'
+        );
+
+        $response->headers->set(
+            'Content-Disposition',
+            "attachment; filename={$fileName}"
+        );
+
+        return $response;
     }
 }

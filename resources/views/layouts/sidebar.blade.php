@@ -53,4 +53,9 @@
     <a href="{{ route('admin.certificates') }}"class="sidebar-link {{ request()->routeIs('admin.certificates') ? 'active' : '' }}">
         Certificates
     </a>
+
+    <a href="{{ route('admin.achievements') }}"class="nav-link"><i class="fa fa-trophy"></i>
+        Student Achievements
+    </a>
+
 </div>

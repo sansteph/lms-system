@@ -61,41 +61,82 @@
 
             <form method="GET" class="mb-4">
 
-                <div class="row g-3">
+                <div class="row g-3 align-items-end">
 
                     <div class="col-md-3">
+
+                        <label class="form-label fw-semibold">
+                            User Type
+                        </label>
+
                         <select name="user_type" class="form-control">
+
                             <option value="">All Users</option>
 
-                            <option value="Teacher" {{ request('user_type') == 'Teacher' ? 'selected' : '' }}>
+                            <option value="Teacher"
+                                {{ request('user_type') == 'Teacher' ? 'selected' : '' }}>
                                 Teachers
                             </option>
 
-                            <option value="Student" {{ request('user_type') == 'Student' ? 'selected' : '' }}>
+                            <option value="Student"
+                                {{ request('user_type') == 'Student' ? 'selected' : '' }}>
                                 Students
                             </option>
+
                         </select>
+
                     </div>
 
                     <div class="col-md-3">
-                        <input type="date" name="date" value="{{ request('date') }}" class="form-control">
+
+                        <label class="form-label fw-semibold">
+                            Activity Date
+                        </label>
+
+                        <input type="date"
+                            name="date"
+                            value="{{ request('date') }}"
+                            class="form-control">
+
                     </div>
 
                     <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary w-100">
-                            Filter
+
+                        <button type="submit"
+                                class="btn btn-primary w-100">
+
+                            Apply Filter
+
                         </button>
+
                     </div>
 
                     <div class="col-md-2">
-                        <a href="{{ route('admin.activity.monitoring') }}" class="btn btn-light w-100">
-                            Clear
+
+                        <a href="{{ route('admin.activity.monitoring') }}"
+                        class="btn btn-outline-secondary w-100">
+
+                            Reset
+
                         </a>
+
                     </div>
 
                 </div>
 
             </form>
+
+            <div class="mb-4">
+
+                <a href="{{ route('admin.export.activity', request()->query()) }}"
+                class="btn btn-success">
+
+                    <i class="fa fa-download me-2"></i>
+                    Export Activity Report
+
+                </a>
+
+            </div>
 
             <div class="card shadow border-0 mb-4">
 
