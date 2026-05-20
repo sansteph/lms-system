@@ -54,7 +54,7 @@
         Certificates
     </a>
 
-    <a href="{{ route('admin.achievements') }}"class="nav-link"><i class="fa fa-trophy"></i>
+    <a href="{{ route('admin.achievements') }}"class="sidebar-link">
         Student Achievements
     </a>
 

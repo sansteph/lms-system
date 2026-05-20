@@ -13,6 +13,8 @@ use App\Http\Controllers\AssessmentResultController;
 use App\Http\Controllers\AssessmentQuestionController;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\StudentAchievementController;
+use App\Http\Controllers\LessonProgressController;
+use App\Http\Controllers\CourseController;
 
 
 
@@ -36,6 +38,14 @@ Route::get('/results/export', [PageController::class, 'exportResults'])->name('r
 
 // Admin protected routes
 Route::middleware(['admin.auth'])->group(function () {
+
+    Route::get('/courses', [CourseController::class, 'index'])->name('courses');
+
+    Route::post('/courses/store', [CourseController::class, 'store'])->name('courses.store');
+
+    Route::post('/courses/update/{id}', [CourseController::class, 'update'])->name('courses.update');
+
+    Route::get('/courses/delete/{id}', [CourseController::class, 'delete'])->name('courses.delete');
 
     Route::get('/test-gemini', [AIController::class, 'testGemini']);
 
@@ -142,6 +152,11 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::get('/student/certificate',[PageController::class, 'studentCertificate'])->name('student.certificate');
     Route::get('/student/achievements/create',[StudentAchievementController::class, 'create'])->name('student.achievements.create');
     Route::post('/student/achievements/store',[StudentAchievementController::class, 'store'])->name('student.achievements.store');
+    Route::post('/student/lesson/{contentId}/complete',[LessonProgressController::class, 'markComplete'])->name('student.lesson.complete');
+    Route::get('/student/content',[PageController::class, 'studentContent'])->name('student.content');
+    Route::post('/student/lesson/{id}/complete',[PageController::class, 'completeLesson'])->name('student.lesson.complete');
+
+ 
 });
 
 

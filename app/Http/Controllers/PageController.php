@@ -14,6 +14,9 @@ use App\Models\Certificate;
 use App\Models\UserSession;
 use App\Models\UserActivityLog;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Models\StudentAchievement;
+use App\Models\LessonProgress;  
+
 class PageController extends Controller
 {
     public function home()
@@ -401,9 +404,29 @@ class PageController extends Controller
     }
     public function studentTakeAssessment(Request $request)
     {
-        $attemptedAssessmentIds = AssessmentResult::where('student_id', session('student_id'))->pluck('assessment_id');
+        $studentId = session('student_id');
+
+        $completedLessons = \App\Models\LessonProgress::where(
+            'student_id',
+            $studentId
+        )
+        ->where('is_completed', true)
+        ->pluck('content_id');
+
+        $availableAssessments = Assessment::whereIn(
+            'content_id',
+            $completedLessons
+        )
+        ->where('status', 1)
+        ->pluck('id');
+
+        $attemptedAssessmentIds = AssessmentResult::where(
+            'student_id',
+            $studentId
+        )->pluck('assessment_id');
+
         $assessments = Assessment::with('questions')
-            ->where('status', 1)
+            ->whereIn('id', $availableAssessments)
             ->whereNotIn('id', $attemptedAssessmentIds)
             ->get()
             ->filter(function ($assessment) {
@@ -411,43 +434,84 @@ class PageController extends Controller
             });
 
         $selectedAssessment = null;
+
         $questions = collect();
 
         if ($request->assessment_id) {
-            $alreadyAttempted = AssessmentResult::where(
-                    'student_id',
-                    session('student_id')
-                )->where(
-                    'assessment_id',
-                    $request->assessment_id
-                )->exists();
 
-                if ($alreadyAttempted) {
-                    return redirect()->route('student.history')
-                        ->with('error', 'Assessment already completed.');
-                }
-            $selectedAssessment = Assessment::find($request->assessment_id);
-            if (!$selectedAssessment) {
-                return redirect()->route('student.assessment')
-                    ->with('error', 'Assessment not found.');
+            $alreadyAttempted = AssessmentResult::where(
+                'student_id',
+                $studentId
+            )
+            ->where(
+                'assessment_id',
+                $request->assessment_id
+            )
+            ->exists();
+
+            if ($alreadyAttempted) {
+
+                return redirect()
+                    ->route('student.history')
+                    ->with(
+                        'error',
+                        'Assessment already completed.'
+                    );
             }
 
-            $questions = AssessmentQuestion::where('assessment_id', $request->assessment_id)->get();
+            if (
+                !in_array(
+                    $request->assessment_id,
+                    $availableAssessments->toArray()
+                )
+            ) {
+
+                return redirect()
+                    ->route('student.assessment')
+                    ->with(
+                        'error',
+                        'Complete the lesson before accessing this assessment.'
+                    );
+            }
+
+            $selectedAssessment = Assessment::find(
+                $request->assessment_id
+            );
+
+            if (!$selectedAssessment) {
+
+                return redirect()
+                    ->route('student.assessment')
+                    ->with(
+                        'error',
+                        'Assessment not found.'
+                    );
+            }
+
+            $questions = AssessmentQuestion::where(
+                'assessment_id',
+                $request->assessment_id
+            )->get();
 
             if ($questions->count() == 0) {
-                return redirect()->route('student.assessment')
-                    ->with('error', 'This assessment is not ready yet.');
-            }
 
-            $questions = AssessmentQuestion::where('assessment_id', $request->assessment_id)
-                        ->get();
+                return redirect()
+                    ->route('student.assessment')
+                    ->with(
+                        'error',
+                        'This assessment is not ready yet.'
+                    );
+            }
         }
 
-        return view('student.student-assessment', compact(
-            'assessments',
-            'selectedAssessment',
-            'questions'
-        ));
+        return view(
+            'student.student-assessment',
+            compact(
+                'assessments',
+                'selectedAssessment',
+                'questions'
+            )
+        );
     }
     public function studentHistory()
     {
@@ -464,73 +528,55 @@ class PageController extends Controller
         $studentId = session('student_id');
 
         $results = AssessmentResult::where('student_id', $studentId)
-                    ->whereNotNull('badge')
-                    ->latest()
-                    ->get();
+            ->whereNotNull('badge')
+            ->latest()
+            ->get();
 
         $goldCount = $results->where('badge', 'Gold')->count();
+
         $silverCount = $results->where('badge', 'Silver')->count();
+
         $bronzeCount = $results->where('badge', 'Bronze')->count();
 
         $certificateEligible = $results->count() >= 5;
 
-        $certificateEligible = $results->count() >= 5;
+        $certificate = Certificate::where('student_id', $studentId)
+            ->latest()
+            ->first();
 
-        if ($certificateEligible) {
-
-            Certificate::firstOrCreate(
-                ['student_id' => $studentId],
-                [
-                    'certificate_code' => 'LMS-' . date('Y') . '-' . strtoupper(substr(md5(uniqid()), 0, 6)),
-                    'badge_count' => $results->count(),
-                    'issued_date' => now(),
-                    'status' => 'Issued',
-                ]
-            );
-
-        }
-
-        $certificate = Certificate::where('student_id', $studentId)->first();
-        if ($certificate && $results->count() < 5) 
-        {
-            $certificate->update([
-                'status' => 'Revoked'
-            ]);
-        }
-        if ($certificate) {
-
-            $certificate->update([
-                'badge_count' => $results->count()
-            ]);
-
-        }
+        $uploadedAchievements = StudentAchievement::where(
+            'student_id',
+            $studentId
+        )->latest()->get();
 
         return view('student.student-badges', compact(
+
             'results',
+
             'goldCount',
+
             'silverCount',
+
             'bronzeCount',
+
             'certificateEligible',
-            'certificate'
+
+            'certificate',
+
+            'uploadedAchievements'
+
         ));
     }
-   public function studentNotifications()
+    public function studentNotifications()
     {
-        $notifications = Notification::whereIn('target', ['Students', 'Class'])
-                        ->latest()
-                        ->get();
+        $notifications = Notification::where('target', 'Student')
+            ->latest()
+            ->get();
 
-        return view('student.student-notifications', compact('notifications'));
-    }
-    public function studentProfile()
-    {
-        $student = Student::find(session('student_id'));
-
-        $badgeCount = AssessmentResult::where('student_id', session('student_id'))
-            ->whereNotNull('badge')
-            ->count();
-
-        return view('student.student-profile', compact('student', 'badgeCount'));
+        return view(
+            'student.student-notifications',
+            compact('notifications')
+        );
     }
     public function disqualifyResult($id)
     {
@@ -561,6 +607,39 @@ class PageController extends Controller
     public function verifyCertificate()
     {
         return view('certificate.verify-certificate');
+    }
+
+    public function studentContent()
+    {
+        $contents = Content::orderBy('lesson_order')->get();
+
+        $totalLessons = $contents->count();
+
+        $completedLessons = \App\Models\LessonProgress::where(
+            'student_id',
+            session('student_id')
+        )
+        ->where('is_completed', true)
+        ->count();
+
+        $progressPercentage = 0;
+
+        if ($totalLessons > 0) {
+
+            $progressPercentage = round(
+                ($completedLessons / $totalLessons) * 100
+            );
+        }
+
+        return view(
+            'student.student-content',
+            compact(
+                'contents',
+                'totalLessons',
+                'completedLessons',
+                'progressPercentage'
+            )
+        );
     }
 
     public function verifyCertificateSubmit(Request $request)
@@ -880,5 +959,26 @@ class PageController extends Controller
         );
 
         return $response;
+    }
+    public function completeLesson($id)
+    {
+        $studentId = session('student_id');
+
+        LessonProgress::updateOrCreate(
+
+            [
+                'student_id' => $studentId,
+                'content_id' => $id,
+            ],
+
+            [
+                'is_completed' => true,
+                'completed_at' => now(),
+            ]
+
+        );
+
+        return redirect()->back()
+            ->with('success', 'Lesson marked as completed');
     }
 }

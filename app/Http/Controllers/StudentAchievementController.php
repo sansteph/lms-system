@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\StudentAchievement;
+use App\Models\Notification;
 
 class StudentAchievementController extends Controller
 {
@@ -22,10 +23,22 @@ class StudentAchievementController extends Controller
             'verification_status' => 'Approved'
         ]);
 
+        Notification::create([
+
+            'title' => 'Achievement Approved',
+
+            'message' => 'Your achievement "' . $achievement->title . '" has been approved.',
+
+            'target' => 'Student',
+
+            'notification_date' => now(),
+
+            'status' => 'Active'
+
+        ]);
         return redirect()->back()
             ->with('success', 'Achievement approved successfully');
     }
-
     public function reject($id)
     {
         $achievement = StudentAchievement::findOrFail($id);
@@ -34,10 +47,22 @@ class StudentAchievementController extends Controller
             'verification_status' => 'Rejected'
         ]);
 
+        Notification::create([
+
+            'title' => 'Achievement Rejected',
+
+            'message' => 'Your achievement "' . $achievement->title . '" has been rejected.',
+
+            'target' => 'Student',
+
+            'notification_date' => now(),
+
+            'status' => 'Active'
+
+        ]);
         return redirect()->back()
             ->with('success', 'Achievement rejected successfully');
     }
-
     public function index()
     {
         $studentId = session('student_id');

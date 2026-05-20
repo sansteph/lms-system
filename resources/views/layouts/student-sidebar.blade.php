@@ -8,6 +8,11 @@
         Dashboard
     </a>
 
+    <a href="{{ route('student.content') }}"
+        class="sidebar-link">
+        Learning Content
+    </a>
+
     <a href="{{ route('student.assessment') }}"
         class="sidebar-link {{ request()->routeIs('student.assessment') ? 'active' : '' }}">
         Take Assessment
