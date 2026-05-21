@@ -16,6 +16,7 @@ use App\Models\UserActivityLog;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Models\StudentAchievement;
 use App\Models\LessonProgress;  
+use App\Models\AccessRequest;
 
 class PageController extends Controller
 {
@@ -24,6 +25,51 @@ class PageController extends Controller
         return view('home');
     }
 
+    public function portal()
+    {
+        return view('portal');
+    }
+
+    public function storeAccessRequest(Request $request)
+    {
+        $request->validate([
+
+            'name' => 'required|string|max:255',
+
+            'email' => 'required|email|max:255',
+
+            'phone' => 'required|string|max:20',
+
+            'role' => 'required|string',
+
+            'institute_name' => 'required|string|max:255',
+
+            'message' => 'nullable|string',
+
+        ]);
+
+        AccessRequest::create([
+
+            'name' => $request->name,
+
+            'email' => $request->email,
+
+            'phone' => $request->phone,
+
+            'role' => $request->role,
+
+            'institute_name' => $request->institute_name,
+
+            'message' => $request->message,
+
+            'status' => 'Pending',
+
+        ]);
+
+        return redirect()
+            ->back()
+            ->with('success', 'Access request submitted successfully.');
+    }
     public function adminLogin()
     {
         if (session('user_role') == 'Admin') {
@@ -399,14 +445,14 @@ class PageController extends Controller
             'badgeCount',
             'notifications',
             'pendingAssessmentCount',
-            'totalAssessmentCount'
+            'totalAssessmentCount',
         ));
     }
     public function studentTakeAssessment(Request $request)
     {
         $studentId = session('student_id');
 
-        $completedLessons = \App\Models\LessonProgress::where(
+        $completedLessons = LessonProgress::where(
             'student_id',
             $studentId
         )
@@ -615,7 +661,7 @@ class PageController extends Controller
 
         $totalLessons = $contents->count();
 
-        $completedLessons = \App\Models\LessonProgress::where(
+        $completedLessons = LessonProgress::where(
             'student_id',
             session('student_id')
         )

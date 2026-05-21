@@ -20,6 +20,8 @@ use App\Http\Controllers\CourseController;
 
 // Public pages
 Route::get('/', [PageController::class, 'home'])->name('home');
+Route::post('/access-request/store',[PageController::class, 'storeAccessRequest'])->name('access.request.store');
+Route::get('/portal', [PageController::class, 'portal'])->name('portal');
 
 Route::get('/admin-login', [PageController::class, 'adminLogin'])->name('admin.login');
 Route::post('/admin-login', [UserController::class, 'adminLogin'])->name('admin.login.submit');
