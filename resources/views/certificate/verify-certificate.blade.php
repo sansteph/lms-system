@@ -78,7 +78,7 @@
 
                             <p class="mb-2">
                                 <strong>Student Name:</strong>
-                                {{ $certificate->student->student_name ?? 'N/A' }}
+                                {{ $certificate->student->name ?? 'N/A' }}
                             </p>
 
                             <p class="mb-2">
