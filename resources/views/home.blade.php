@@ -7,11 +7,14 @@
     <!-- HERO SECTION -->
     <section class="hero-section">
 
-        <div class="hero-overlay"></div>
+       <div class="hero-overlay"></div>
+
+        <div class="hero-glow glow-1"></div>
+        <div class="hero-glow glow-2"></div>
 
         <div class="container">
 
-            <div class="row align-items-center min-vh-100">
+            <div class="row align-items-center hero-row">
 
                 <!-- LEFT CONTENT -->
                 <div class="col-lg-6">
@@ -101,59 +104,76 @@
                 <!-- RIGHT VISUAL -->
                 <div class="col-lg-6">
 
-                    <div class="hero-visual">
+                    <div class="hero-dashboard">
 
-                        <div class="floating-card card-1">
+                        <!-- floating badge -->
+                        <div class="hero-floating hero-floating-1">
+                            <i class="fa fa-brain"></i>
+                            AI Evaluation
+                        </div>
 
+                        <div class="hero-floating hero-floating-2">
                             <i class="fa fa-chart-line"></i>
-
-                            <span>
-                                Learning Analytics
-                            </span>
-
+                            Live Analytics
                         </div>
 
-                        <div class="floating-card card-2">
+                        <!-- MAIN DASHBOARD -->
+                        <div class="dashboard-glass">
 
-                            <i class="fa fa-robot"></i>
+                            <!-- top -->
+                            <div class="dashboard-top">
 
-                            <span>
-                                AI Assessments
-                            </span>
+                                <div>
+                                    <small>Welcome Back</small>
+                                    <h4>Learning Dashboard</h4>
+                                </div>
 
-                        </div>
-
-                        <div class="floating-card card-3">
-
-                            <i class="fa fa-certificate"></i>
-
-                            <span>
-                                Smart Certificates
-                            </span>
-
-                        </div>
-
-                        <div class="main-visual-card">
-
-                            <div class="visual-top">
-
-                                <div class="visual-dot"></div>
-                                <div class="visual-dot"></div>
-                                <div class="visual-dot"></div>
+                                <div class="dashboard-avatar">
+                                    <i class="fa fa-user"></i>
+                                </div>
 
                             </div>
 
-                            <div class="visual-body">
+                            <!-- stats -->
+                            <div class="dashboard-stats">
 
-                                <div class="visual-chart"></div>
-
-                                <div class="visual-progress">
-
-                                    <div class="progress-item"></div>
-                                    <div class="progress-item"></div>
-                                    <div class="progress-item"></div>
-
+                                <div class="dashboard-stat-box">
+                                    <h3>92%</h3>
+                                    <span>Progress</span>
                                 </div>
+
+                                <div class="dashboard-stat-box">
+                                    <h3>18</h3>
+                                    <span>Courses</span>
+                                </div>
+
+                            </div>
+
+                            <!-- course card -->
+                            <div class="course-preview-card">
+
+                                <div class="course-icon">
+                                    <i class="fa fa-laptop-code"></i>
+                                </div>
+
+                                <div class="course-info">
+                                    <h5>AI & Machine Learning</h5>
+
+                                    <div class="course-progress">
+                                        <div class="course-progress-bar"></div>
+                                    </div>
+
+                                    <small>75% Completed</small>
+                                </div>
+
+                            </div>
+
+                            <!-- analytics -->
+                            <div class="analytics-card">
+
+                                <div class="analytics-line analytics-line-1"></div>
+                                <div class="analytics-line analytics-line-2"></div>
+                                <div class="analytics-line analytics-line-3"></div>
 
                             </div>
 
@@ -240,23 +260,27 @@
 
                         <div class="feature-icon">
 
-                            <i class="fa fa-trophy"></i>
+                            <i class="fa fa-certificate"></i>
 
                         </div>
 
                         <h4>
-                            Gamified Learning
+                            Smart Certificates
                         </h4>
 
                         <p>
-                            Badges, achievements, certificates and
-                            rewards to improve learner engagement.
+                            Automatically generate and verify digital
+                            certificates for assessments and learning programs.
                         </p>
+
+                        <a href="#" class="feature-link">
+                            Learn More →
+                        </a>
 
                     </div>
 
                 </div>
-
+                
             </div>
 
         </div>
