@@ -2,7 +2,7 @@
 
 @section('content')
 
-<div class="portal-page">
+<div class="portal-page teacher-theme">
 
     <div class="login-card">
 

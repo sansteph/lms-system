@@ -2,90 +2,92 @@
 
 @section('content')
 
-<div class="portal-page">
+<div class="auth-page portal-auth-page">
 
-    <div class="portal-card">
+    <div class="auth-bg-glow glow-1"></div>
+    <div class="auth-bg-glow glow-2"></div>
 
-        <div class="portal-icon">
+    <div class="portal-auth-card">
 
-            <i class="fa fa-lock"></i>
+        <div class="portal-top-icon">
+
+            <div class="portal-main-icon">
+                <i class="fa fa-lock"></i>
+            </div>
 
         </div>
 
-        <h1>
+        <div class="auth-badge">
+            SECURE LEARNING ACCESS
+        </div>
 
+        <h1 class="portal-title">
             Authorized Learning Portal
-
         </h1>
 
         <p class="portal-subtitle">
-
             Login using credentials provided by your institute administrator.
-
         </p>
 
-        <div class="portal-notice">
+        <div class="portal-notice-box">
 
             <i class="fa fa-user-check"></i>
 
             <span>
-
                 Access restricted to approved students and teachers.
-
             </span>
 
         </div>
 
         <div class="portal-divider">
 
-            <span>
-
-                LOGIN ACCESS
-
-            </span>
+            <span>LOGIN ACCESS</span>
 
         </div>
 
         <div class="portal-role-grid">
 
             <a href="{{ route('teacher.login') }}"
-               class="portal-role">
+               class="portal-role-card teacher-card">
 
-                <i class="fa fa-chalkboard-teacher"></i>
+                <div class="portal-role-icon">
+                    <i class="fa fa-chalkboard-teacher"></i>
+                </div>
 
-                Teacher Login
+                <div>
+                    <h5>Teacher Login</h5>
+                    <p>Manage classes and assessments</p>
+                </div>
 
             </a>
 
             <a href="{{ route('student.login') }}"
-               class="portal-role">
+               class="portal-role-card student-card">
 
-                <i class="fa fa-user-graduate"></i>
+                <div class="portal-role-icon">
+                    <i class="fa fa-user-graduate"></i>
+                </div>
 
-                Student Login
+                <div>
+                    <h5>Student Login</h5>
+                    <p>Access learning dashboard</p>
+                </div>
 
             </a>
 
         </div>
 
-        <div class="mt-4">
+        <div class="auth-footer-link mt-4">
 
-            <a href="{{ route('home') }}"
-               class="btn btn-outline-secondary">
+            <a href="{{ route('home') }}">
 
-                <i class="fa fa-arrow-left me-2"></i>
+                <i class="fa fa-arrow-left"></i>
 
                 Back to Main Website
 
             </a>
 
         </div>
-
-        <p class="portal-footer-text">
-
-            Secure AI powered learning and assessment portal.
-
-        </p>
 
     </div>
 

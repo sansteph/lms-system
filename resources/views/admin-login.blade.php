@@ -2,25 +2,42 @@
 
 @section('content')
 
-<div class="portal-page">
+<div class="auth-page">
 
-    <div class="login-card">
+    <div class="auth-bg-glow glow-1"></div>
+    <div class="auth-bg-glow glow-2"></div>
 
-        <div class="login-icon admin-icon">
-            <i class="fa fa-user-shield"></i>
+    <div class="auth-card">
+
+        <div class="auth-logo">
+
+            <div class="auth-logo-icon">
+                <i class="fa fa-user-shield"></i>
+            </div>
+
+            <div>
+                <h5>TinkEdge LMS</h5>
+                <span>Admin Access Portal</span>
+            </div>
+
         </div>
 
-        <h2 class="login-title">
-            Admin Portal
-        </h2>
+        <div class="auth-badge">
+            SYSTEM ADMINISTRATION
+        </div>
 
-        <p class="login-subtitle">
-            Sign in to manage the LMS system.
+        <h1 class="auth-title">
+            Welcome Back
+        </h1>
+
+        <p class="auth-subtitle">
+            Sign in securely to manage institutions,
+            learners, analytics and LMS operations.
         </p>
 
         @if(session('error'))
 
-            <div class="alert alert-danger border-0 shadow-sm">
+            <div class="alert alert-danger auth-alert">
                 {{ session('error') }}
             </div>
 
@@ -33,19 +50,19 @@
 
             <div class="mb-4">
 
-                <label class="login-label">
+                <label class="auth-label">
                     Email Address
                 </label>
 
-                <div class="input-group modern-input">
+                <div class="auth-input-group">
 
-                    <span class="input-group-text">
+                    <span class="auth-input-icon">
                         <i class="fa fa-envelope"></i>
                     </span>
 
                     <input type="email"
                            name="email"
-                           class="form-control"
+                           class="form-control auth-input"
                            placeholder="Enter admin email"
                            required>
 
@@ -55,19 +72,19 @@
 
             <div class="mb-4">
 
-                <label class="login-label">
+                <label class="auth-label">
                     Password
                 </label>
 
-                <div class="input-group modern-input">
+                <div class="auth-input-group">
 
-                    <span class="input-group-text">
+                    <span class="auth-input-icon">
                         <i class="fa fa-lock"></i>
                     </span>
 
                     <input type="password"
                            name="password"
-                           class="form-control"
+                           class="form-control auth-input"
                            placeholder="Enter password"
                            required>
 
@@ -76,20 +93,24 @@
             </div>
 
             <button type="submit"
-                    class="btn login-btn w-100">
+                    class="btn auth-btn w-100">
 
-                <i class="fa fa-right-to-bracket me-2"></i>
+                <i class="fa fa-right-to-bracket"></i>
+
                 Login to Admin Panel
 
             </button>
 
         </form>
 
-        <div class="back-home">
+        <div class="auth-footer-link">
 
             <a href="{{ route('home') }}">
+
                 <i class="fa fa-arrow-left"></i>
-                Back to Portal
+
+                Back to Website
+
             </a>
 
         </div>

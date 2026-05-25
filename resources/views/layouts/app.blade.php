@@ -76,77 +76,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-@if(
-    request()->routeIs('home') ||
-    request()->routeIs('admin.login') ||
-    request()->routeIs('teacher.login') ||
-    request()->routeIs('student.login')
-)
-    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
 
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            tsParticles.load("particles-js", {
-                background: {
-                    color: "transparent"
-                },
-
-                fpsLimit: 60,
-
-                particles: {
-                    number: {
-                        value: 55
-                    },
-
-                    color: {
-                        value: [
-                            "#2563eb",
-                            "#4f46e5",
-                            "#7c3aed",
-                            "#0ea5e9"
-                        ]
-                    },
-
-                    shape: {
-                        type: "circle"
-                    },
-
-                    opacity: {
-                        value: 0.38
-                    },
-
-                    size: {
-                        value: {
-                            min: 2,
-                            max: 5
-                        }
-                    },
-
-                    links: {
-                        enable: true,
-                        color: "#93c5fd",
-                        distance: 150,
-                        opacity: 0.28,
-                        width: 1.2
-                    },
-
-                    move: {
-                        enable: true,
-                        speed: 1.3,
-                        direction: "none",
-                        random: false,
-                        straight: false,
-                        outModes: {
-                            default: "bounce"
-                        }
-                    }
-                },
-
-                detectRetina: true
-            });
-        });
-    </script>
-@endif
 
 </body>
 </html>
