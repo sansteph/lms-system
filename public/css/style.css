@@ -215,6 +215,7 @@
 .hero-title span{
     background:linear-gradient(90deg,#d946ef 0%,#8b5cf6 38%,#22d3ee 100%);
     -webkit-background-clip:text;
+    background-clip:text;
     -webkit-text-fill-color:transparent;
 }
 
@@ -410,6 +411,9 @@
         linear-gradient(#fff 0 0) content-box,
         linear-gradient(#fff 0 0);
     -webkit-mask-composite:xor;
+    mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
     mask-composite:exclude;
     pointer-events:none;
     opacity:.85;
