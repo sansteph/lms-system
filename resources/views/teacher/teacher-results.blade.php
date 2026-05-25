@@ -9,15 +9,22 @@
 
         <div class="col-md-10 col-lg-10 p-4">
 
-            <div class="page-header mb-4">
+            <div class="page-header d-flex justify-content-between align-items-center mb-4">
 
-                <h2 class="mb-1">
-                    Student Results
-                </h2>
+                <div>
+                    <h2 class="mb-1">
+                        Student Results
+                    </h2>
 
-                <p class="text-muted mb-0">
-                    View submitted assessments, scores, percentages, badges, and performance analytics.
-                </p>
+                    <p class="text-muted mb-0">
+                        View submitted assessments, scores, percentages, badges, and performance analytics.
+                    </p>
+                </div>
+
+                <a href="{{ route('results.export', request()->query()) }}" class="btn btn-success">
+                    <i class="fa fa-file-csv me-1"></i>
+                    Export CSV
+                </a>
 
             </div>
             

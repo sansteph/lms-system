@@ -53,7 +53,7 @@
                     <a href="{{ route('students') }}" class="btn btn-primary">Add Student</a>
                     <a href="{{ route('users') }}" class="btn btn-success">Add Teacher</a>
                     <a href="{{ route('content') }}" class="btn btn-warning">Upload Content</a>
-                    <a href="{{ route('assessments') }}" class="btn btn-info text-white">Create Assessment</a>
+                    <a href="{{ route('assessments') }}" class="btn btn-secondary text-white">Create Assessment</a>
                 </div>
             </div>
         </main>

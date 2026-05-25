@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\UserSession;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -121,6 +122,18 @@ class UserController extends Controller
                 'user_role' => $user->role,
             ]);
 
+            $userSession = UserSession::create([
+                'user_type' => 'Teacher',
+                'user_id' => $user->id,
+                'login_time' => now(),
+                'ip_address' => $request->ip(),
+                'browser' => $request->userAgent(),
+            ]);
+
+            session([
+                'tracking_session_id' => $userSession->id,
+            ]);
+
             return redirect()->route('teacher.dashboard');
         }
 
@@ -129,6 +142,21 @@ class UserController extends Controller
 
     public function logout()
     {
+        $trackingSessionId = session('tracking_session_id');
+
+        if ($trackingSessionId) {
+            $userSession = UserSession::find($trackingSessionId);
+
+            if ($userSession && !$userSession->logout_time) {
+                $logoutTime = now();
+
+                $userSession->update([
+                    'logout_time' => $logoutTime,
+                    'total_duration_seconds' => $logoutTime->diffInSeconds($userSession->login_time),
+                ]);
+            }
+        }
+
         session()->flush();
 
         return redirect()->route('home');

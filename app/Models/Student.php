@@ -6,6 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Student extends Model
 {
+    public function certificate()
+    {
+        return $this->hasOne(\App\Models\Certificate::class);
+    }
     protected $fillable = [
         'student_id',
         'name',

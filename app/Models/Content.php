@@ -6,13 +6,25 @@ use Illuminate\Database\Eloquent\Model;
 
 class Content extends Model
 {
+    public function course()
+    {
+        return $this->belongsTo(Course::class);
+    }
     protected $fillable = [
+
         'content_title',
+
+        'course_category',
+
+        'lesson_order',
+
         'content_type',
+
         'assigned_class',
-        'priority',
-        'access_rule',
-        'file_path',
+
+        'file',
+
         'status',
+
     ];
 }

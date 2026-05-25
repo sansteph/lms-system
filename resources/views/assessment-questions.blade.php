@@ -117,7 +117,7 @@
                                     </td>
                                     <td>{{ $question->marks }}</td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-warning"
+                                        <button class="btn btn-sm btn-warning"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#editQuestionModal{{ $question->id }}">
                                             Edit
@@ -130,7 +130,7 @@
                                             @csrf
                                             @method('DELETE')
 
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <button type="submit" class="btn btn-sm btn-danger">
                                                 Delete
                                             </button>
                                         </form>

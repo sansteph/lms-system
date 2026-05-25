@@ -9,60 +9,74 @@
 
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
+
+@if(
+    request()->routeIs('home') ||
+    request()->routeIs('admin.login') ||
+    request()->routeIs('teacher.login') ||
+    request()->routeIs('student.login')
+)
+    <div id="particles-js"></div>
+@endif
 
 @if(!request()->routeIs('home') &&
     !request()->routeIs('admin.login') &&
     !request()->routeIs('teacher.login') &&
     !request()->routeIs('student.login'))
 
-<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
 
-    <a class="navbar-brand fw-bold text-primary"
-       href="
-        @if(session('user_role') == 'Admin')
-            {{ route('admin.dashboard') }}
-        @elseif(session('user_role') == 'Teacher')
-            {{ route('teacher.dashboard') }}
-        @elseif(session('student_id'))
-            {{ route('student.dashboard') }}
-        @else
-            {{ route('home') }}
-        @endif
-        ">
-        LMS Panel
-    </a>
+        <a class="navbar-brand fw-bold text-primary"
+           href="
+            @if(session('user_role') == 'Admin')
+                {{ route('admin.dashboard') }}
+            @elseif(session('user_role') == 'Teacher')
+                {{ route('teacher.dashboard') }}
+            @elseif(session('student_id'))
+                {{ route('student.dashboard') }}
+            @else
+                {{ route('home') }}
+            @endif
+            ">
+            LMS Panel
+        </a>
 
-    <div class="ms-auto d-flex align-items-center gap-3">
+        <div class="ms-auto d-flex align-items-center gap-3">
 
-        @if(session('user_name') || session('student_name'))
-            <span class="text-muted fw-semibold">
-                {{ session('user_name') ?? session('student_name') }}
+            @if(session('user_name') || session('student_name'))
+                <span class="text-muted fw-semibold">
+                    {{ session('user_name') ?? session('student_name') }}
 
-                @if(session('user_role'))
-                    ({{ session('user_role') }})
-                @elseif(session('student_id'))
-                    (Student)
-                @endif
-            </span>
-        @endif
+                    @if(session('user_role'))
+                        ({{ session('user_role') }})
+                    @elseif(session('student_id'))
+                        (Student)
+                    @endif
+                </span>
+            @endif
 
-        @if(session()->has('user_id') || session()->has('student_id'))
-            <a href="{{ route('logout') }}" class="btn btn-sm btn-outline-danger">
-                Logout
-            </a>
-        @endif
+            @if(session()->has('user_id') || session()->has('student_id'))
+                <a href="{{ route('logout') }}" class="btn btn-sm btn-outline-danger">
+                    Logout
+                </a>
+            @endif
 
-    </div>
+        </div>
 
-</nav>
+    </nav>
 
 @endif
+
 @yield('content')
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+
 
 </body>
 </html>

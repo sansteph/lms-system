@@ -10,6 +10,7 @@ class ContentController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
+        $courses = \App\Models\Course::where('status', 1)->get();
 
         $contents = Content::when($search, function ($query, $search) {
             return $query->where('content_title', 'like', "%{$search}%")
@@ -17,19 +18,27 @@ class ContentController extends Controller
                          ->orWhere('assigned_class', 'like', "%{$search}%");
         })->get();
 
-        return view('content', compact('contents'));
+        return view('content', compact('contents','courses'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
+
             'content_title' => 'required|string|max:255',
+
+            'course_category' => 'required|string|max:255',
+
+            'lesson_order' => 'required|integer|min:1',
+
             'content_type' => 'required|string',
-            'assigned_class' => 'required|string',
-            'priority' => 'required|integer',
-            'access_rule' => 'required|string',
-            'file' => 'required|file|max:20480',
+
+            'assigned_class' => 'required|string|max:255',
+
+            'file' => 'required|file',
+
             'status' => 'required|boolean',
+
         ]);
 
         $filePath = null;
@@ -44,13 +53,21 @@ class ContentController extends Controller
         }
 
         Content::create([
+
             'content_title' => $request->content_title,
+
+            'course_category' => $request->course_category,
+
+            'lesson_order' => $request->lesson_order,
+
             'content_type' => $request->content_type,
+
             'assigned_class' => $request->assigned_class,
-            'priority' => $request->priority,
-            'access_rule' => $request->access_rule,
-            'file_path' => $filePath,
+
+            'file' => $filePath,
+
             'status' => $request->status,
+
         ]);
 
         return redirect()->back()->with('success', 'Content uploaded successfully');
@@ -58,12 +75,19 @@ class ContentController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
+
             'content_title' => 'required|string|max:255',
+
+            'course_category' => 'required|string|max:255',
+
+            'lesson_order' => 'required|integer|min:1',
+
             'content_type' => 'required|string',
-            'assigned_class' => 'required|string',
-            'priority' => 'required|integer',
-            'access_rule' => 'required|string',
+
+            'assigned_class' => 'required|string|max:255',
+
             'status' => 'required|boolean',
+
         ]);
 
         $content = Content::findOrFail($id);
@@ -77,13 +101,19 @@ class ContentController extends Controller
         }
 
         $content->update([
+
             'content_title' => $request->content_title,
+
+            'course_category' => $request->course_category,
+
+            'lesson_order' => $request->lesson_order,
+
             'content_type' => $request->content_type,
+
             'assigned_class' => $request->assigned_class,
-            'priority' => $request->priority,
-            'access_rule' => $request->access_rule,
-            'file_path' => $filePath,
+
             'status' => $request->status,
+
         ]);
 
         return redirect()->back()->with('success', 'Content updated successfully');

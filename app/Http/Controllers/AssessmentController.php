@@ -34,6 +34,7 @@ class AssessmentController extends Controller
             'question_paper_type' => 'nullable|string',
             'file' => 'nullable|file|max:20480',
             'status' => 'required|boolean',
+            'content_id' => 'nullable|exists:contents,id',
         ]);
 
         $filePath = null;
@@ -53,6 +54,7 @@ class AssessmentController extends Controller
             'question_paper_type' => $request->question_paper_type,
             'file_path' => $filePath,
             'status' => $request->status,
+            'content_id' => $request->content_id,
         ]);
 
         return redirect()->back()->with('success', 'Assessment created successfully');
@@ -102,6 +104,6 @@ class AssessmentController extends Controller
 
         $assessment->delete();
 
-        return redirect()->back()->with('success', 'Assessment deleted successfully');
+        return redirect()->back()->with('success', 'Assessment deleted successfully. Related questions, results, badges, and history were also removed.');
     }
 }

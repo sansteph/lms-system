@@ -94,14 +94,14 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-warning"
+                                        <button class="btn btn-sm btn-warning"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#editStudentModal{{ $student->id }}">
                                             Edit
                                         </button>
 
                                         <a href="{{ route('students.delete', $student->id) }}"
-                                           class="btn btn-sm btn-outline-danger"
+                                           class="btn btn-sm btn-danger"
                                            onclick="return confirm('Are you sure you want to delete this student? This will also remove their assessment history, badges, and certificate eligibility.')">
                                             Delete
                                         </a>

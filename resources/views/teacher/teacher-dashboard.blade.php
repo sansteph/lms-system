@@ -142,7 +142,7 @@
                                     Enter Marks
                                 </button>
 
-                                <button class="btn report-btn">
+                                <button class="btn btn-secondary">
                                     View Reports
                                 </button>
 
