@@ -18,6 +18,11 @@ class Student extends Model
         'section',
         'contact',
         'password',
-        'status'
+        'status',
+        'email',
+        'guardian_name',
+        'guardian_contact',
+        'is_robotics_club_member',
+        'profile_completed',
     ];
 }

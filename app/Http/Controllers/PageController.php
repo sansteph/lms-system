@@ -375,7 +375,7 @@ class PageController extends Controller
     {
         return view('student-login');
     }
-    public function studentLoginSubmit(Request $request)
+   public function studentLoginSubmit(Request $request)
     {
         $request->validate([
             'student_id' => 'required|string',
@@ -405,6 +405,10 @@ class PageController extends Controller
             session([
                 'tracking_session_id' => $userSession->id
             ]);
+
+            if (!$student->profile_completed) {
+                return redirect()->route('student.basic-details');
+            }
 
             return redirect()->route('student.dashboard');
         }

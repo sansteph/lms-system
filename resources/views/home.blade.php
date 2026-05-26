@@ -123,7 +123,7 @@
                                 <div class="dashboard-header">
 
                                     <div>
-                                        <small>Welcome back, Admin 👋</small>
+                                        <small>Welcome back, User</small>
                                         <h3>Dashboard Overview</h3>
                                     </div>
 

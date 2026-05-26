@@ -15,6 +15,8 @@ use App\Http\Controllers\AIController;
 use App\Http\Controllers\StudentAchievementController;
 use App\Http\Controllers\LessonProgressController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\StudentProfileController;
+use App\Http\Controllers\TeacherStudentProfileController;
 
 
 
@@ -136,14 +138,17 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
 
     Route::get('/results/export', [PageController::class, 'exportResults'])->name('results.export');
 
-    
+    Route::get('/teacher/student-profiles', [TeacherStudentProfileController::class, 'index'])->name('teacher.student.profiles');
+
+    Route::get('/teacher/student-details/export', [TeacherStudentProfileController::class, 'export'])->name('teacher.student.profiles.export');
+
 });
 
 
 // Student protected routes
 Route::middleware(['student.auth','track.activity'])->group(function () {
 
-    Route::get('/student-dashboard',[PageController::class, 'studentDashboard'])->name('student.dashboard');
+    Route::get('/student-dashboard',[PageController::class, 'studentDashboard'])->middleware('student.profile.completed')->name('student.dashboard');
     Route::get('/student/take-assessment',[PageController::class, 'studentTakeAssessment'])->name('student.assessment');
     Route::get('/student/history',[PageController::class, 'studentHistory'])->name('student.history');
     Route::get('/student/badges',[PageController::class, 'studentBadges'])->name('student.badges');
@@ -156,8 +161,8 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::post('/student/lesson/{contentId}/complete',[LessonProgressController::class, 'markComplete'])->name('student.lesson.complete');
     Route::get('/student/content',[PageController::class, 'studentContent'])->name('student.content');
     Route::post('/student/lesson/{id}/complete',[PageController::class, 'completeLesson'])->name('student.lesson.complete');
-
- 
+    Route::get('/student/basic-details', [StudentProfileController::class, 'create'])->name('student.basic-details');
+    Route::post('/student/basic-details', [StudentProfileController::class, 'store'])->name('student.basic-details.store');
 });
 
 
