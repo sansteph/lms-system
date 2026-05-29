@@ -17,6 +17,7 @@
 
 @if(
     request()->routeIs('home') ||
+    request()->routeIs('portal') ||
     request()->routeIs('admin.login') ||
     request()->routeIs('teacher.login') ||
     request()->routeIs('student.login')
@@ -25,6 +26,7 @@
 @endif
 
 @if(!request()->routeIs('home') &&
+    !request()->routeIs('portal') &&
     !request()->routeIs('admin.login') &&
     !request()->routeIs('teacher.login') &&
     !request()->routeIs('student.login'))

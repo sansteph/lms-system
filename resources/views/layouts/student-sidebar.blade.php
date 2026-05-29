@@ -34,7 +34,7 @@
     </a>
 
     <a href="{{ route('student.profile') }}"
-    class="sidebar-link {{ request()->routeIs('student.profile') ? 'active' : '' }}">
+    class="sidebar-link {{ request()->routeIs('student.student-profile') ? 'active' : '' }}">
         Profile
     </a>
 
