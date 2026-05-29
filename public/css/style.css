@@ -2157,3 +2157,36 @@ main{
 .auth-select option{
     color:black;
 }
+
+.table {
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    border-radius: 16px;
+}
+
+.table thead th {
+    background: #f8fafc !important;
+    color: #334155;
+    font-weight: 700;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 14px;
+}
+
+.table tbody td {
+    padding: 14px;
+    color: #334155;
+    vertical-align: middle;
+}
+
+.table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background: #f8fbff;
+}
+
+.card .table {
+    margin-bottom: 0;
+}
