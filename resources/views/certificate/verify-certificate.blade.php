@@ -31,7 +31,35 @@
                           action="{{ route('certificate.verify.submit') }}">
 
                         @csrf
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Your Name</label>
+                            <input type="text"
+                                name="verifier_name"
+                                class="form-control"
+                                placeholder="Enter your full name"
+                                value="{{ old('verifier_name') }}"
+                                required>
+                        </div>
 
+                        <div class="mb-3">
+                            <label class="form-label">Email Address</label>
+                            <input type="email"
+                                name="verifier_email"
+                                class="form-control"
+                                placeholder="Enter your email address"
+                                value="{{ old('verifier_email') }}"
+                                required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Reason for Verification</label>
+                            <textarea name="verification_reason"
+                                    class="form-control"
+                                    rows="3"
+                                    placeholder="Example: Employment verification, admission verification, document validation"
+                                    required>{{ old('verification_reason') }}</textarea>
+                        </div>
                         <div class="mb-3">
 
                             <label class="form-label">

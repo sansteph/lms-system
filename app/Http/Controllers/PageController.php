@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Models\StudentAchievement;
 use App\Models\LessonProgress;  
 use App\Models\AccessRequest;
+use App\Models\CertificateVerificationLog;
 
 class PageController extends Controller
 {
@@ -695,7 +696,10 @@ class PageController extends Controller
     public function verifyCertificateSubmit(Request $request)
     {
         $request->validate([
-            'certificate_code' => 'required'
+            'verifier_name' => 'required|string|max:255',
+            'verifier_email' => 'required|email|max:255',
+            'verification_reason' => 'required|string|max:1000',
+            'certificate_code' => 'required|string|max:255',
         ]);
 
         $certificate = Certificate::where(
@@ -704,10 +708,26 @@ class PageController extends Controller
         )->first();
 
         $revoked = false;
+        $verificationStatus = 'failed';
 
-        if ($certificate && $certificate->status == 'Revoked') {
-            $revoked = true;
+        if ($certificate) {
+            if ($certificate->status == 'Revoked') {
+                $revoked = true;
+                $verificationStatus = 'revoked';
+            } else {
+                $verificationStatus = 'verified';
+            }
         }
+
+        CertificateVerificationLog::create([
+            'verifier_name' => $request->verifier_name,
+            'verifier_email' => $request->verifier_email,
+            'verification_reason' => $request->verification_reason,
+            'certificate_code' => $request->certificate_code,
+            'verification_status' => $verificationStatus,
+            'certificate_id' => $certificate ? $certificate->id : null,
+            'ip_address' => $request->ip(),
+        ]);
 
         return view('certificate.verify-certificate', compact(
             'certificate',
