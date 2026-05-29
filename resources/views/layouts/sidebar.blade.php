@@ -19,12 +19,16 @@
         Class Management
     </a>
 
-    <a href="{{ route('students') }}" class="sidebar-link {{ request()->routeIs('students') ? 'active' : '' }}">
-        Student Management
+    <a href="{{ route('courses') }}"class="sidebar-link {{ request()->routeIs('courses*') ? 'active' : '' }}">
+        Courses Management
     </a>
 
     <a href="{{ route('content') }}" class="sidebar-link {{ request()->routeIs('content') ? 'active' : '' }}">
         Content Management
+    </a>
+
+    <a href="{{ route('students') }}" class="sidebar-link {{ request()->routeIs('students') ? 'active' : '' }}">
+        Student Management
     </a>
 
     <a href="{{ route('assessments') }}" class="sidebar-link {{ request()->routeIs('assessments') ? 'active' : '' }}">
@@ -56,6 +60,10 @@
 
     <a href="{{ route('admin.achievements') }}"class="sidebar-link">
         Student Achievements
+    </a>
+
+    <a href="{{ route('admin.my-space') }}"class="sidebar-link {{ request()->routeIs('admin.my-space*') ? 'active' : '' }}">
+        My Space Review
     </a>
 
 </div>

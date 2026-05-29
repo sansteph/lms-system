@@ -14,6 +14,8 @@ class Content extends Model
 
         'content_title',
 
+        'course_id',
+
         'course_category',
 
         'lesson_order',
@@ -22,7 +24,7 @@ class Content extends Model
 
         'assigned_class',
 
-        'file',
+        'file_path',
 
         'status',
 

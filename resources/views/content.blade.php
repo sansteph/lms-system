@@ -48,7 +48,7 @@
 
                 <div class="alert alert-danger">
 
-                    Please fill all required fields correctly.
+                    {{ $errors->first() }}
 
                 </div>
 

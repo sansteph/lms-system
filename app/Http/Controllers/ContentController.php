@@ -27,7 +27,7 @@ class ContentController extends Controller
 
             'content_title' => 'required|string|max:255',
 
-            'course_category' => 'required|string|max:255',
+            'course_id' => 'required|exists:courses,id',
 
             'lesson_order' => 'required|integer|min:1',
 
@@ -56,7 +56,7 @@ class ContentController extends Controller
 
             'content_title' => $request->content_title,
 
-            'course_category' => $request->course_category,
+            'course_id' => $request->course_id,
 
             'lesson_order' => $request->lesson_order,
 
@@ -64,7 +64,7 @@ class ContentController extends Controller
 
             'assigned_class' => $request->assigned_class,
 
-            'file' => $filePath,
+            'file_path' => $filePath,
 
             'status' => $request->status,
 
@@ -72,13 +72,14 @@ class ContentController extends Controller
 
         return redirect()->back()->with('success', 'Content uploaded successfully');
     }
+
     public function update(Request $request, $id)
     {
         $request->validate([
 
             'content_title' => 'required|string|max:255',
 
-            'course_category' => 'required|string|max:255',
+            'course_id' => 'required|exists:courses,id',
 
             'lesson_order' => 'required|integer|min:1',
 
@@ -86,17 +87,22 @@ class ContentController extends Controller
 
             'assigned_class' => 'required|string|max:255',
 
+            'file' => 'nullable|file',
+
             'status' => 'required|boolean',
 
         ]);
 
         $content = Content::findOrFail($id);
 
-        $filePath = $content->file_path;
+        $filePath = $content->file;
 
         if ($request->hasFile('file')) {
+
             $file = $request->file('file');
+
             $fileName = time() . '_' . $file->getClientOriginalName();
+
             $filePath = $file->storeAs('contents', $fileName, 'public');
         }
 
@@ -104,13 +110,15 @@ class ContentController extends Controller
 
             'content_title' => $request->content_title,
 
-            'course_category' => $request->course_category,
+            'course_id' => $request->course_id,
 
             'lesson_order' => $request->lesson_order,
 
             'content_type' => $request->content_type,
 
             'assigned_class' => $request->assigned_class,
+
+            'file_path' => $filePath,
 
             'status' => $request->status,
 

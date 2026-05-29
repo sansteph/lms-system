@@ -33,6 +33,11 @@
         Notifications
     </a>
 
+    <a href="{{ route('student.my-space') }}"
+    class="sidebar-link {{ request()->routeIs('student.my-space') ? 'active' : '' }}">
+        My Space
+    </a>
+
     <a href="{{ route('student.profile') }}"
     class="sidebar-link {{ request()->routeIs('student.student-profile') ? 'active' : '' }}">
         Profile

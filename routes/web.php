@@ -16,28 +16,49 @@ use App\Http\Controllers\StudentAchievementController;
 use App\Http\Controllers\LessonProgressController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\StudentProfileController;
+use App\Http\Controllers\MySpaceController;
 use App\Http\Controllers\TeacherStudentProfileController;
+use App\Http\Controllers\IndependentLearnerController;
 
 
 
 // Public pages
 Route::get('/', [PageController::class, 'home'])->name('home');
+
 Route::post('/access-request/store',[PageController::class, 'storeAccessRequest'])->name('access.request.store');
+
 Route::get('/portal', [PageController::class, 'portal'])->name('portal');
+
 Route::get('/admin-login', [PageController::class, 'adminLogin'])->name('admin.login');
 Route::post('/admin-login', [UserController::class, 'adminLogin'])->name('admin.login.submit');
+
 Route::get('/teacher-login', [PageController::class, 'teacherLogin'])->name('teacher.login');
 Route::post('/teacher-login', [UserController::class, 'teacherLogin'])->name('teacher.login.submit');
-Route::get('/student-assessment', [PageController::class, 'studentAssessment'])->name('student.assessment.public');
+
+
 Route::get('/logout', [UserController::class, 'logout'])->name('logout');
+
 Route::get('/student-login', [PageController::class, 'studentLogin'])->name('student.login');
 Route::post('/student-login', [PageController::class, 'studentLoginSubmit'])->name('student.login.submit');
+
+Route::get('/student-assessment', [PageController::class, 'studentAssessment'])->name('student.assessment.public');
 Route::put('/assessment-questions/update/{id}',[AssessmentQuestionController::class, 'update'])->name('assessment-questions.update');
-Route::get('/verify-certificate', [PageController::class, 'verifyCertificate'])->name('certificate.verify');
-Route::post('/verify-certificate', [PageController::class, 'verifyCertificateSubmit'])->name('certificate.verify.submit');
 Route::delete('/assessment-questions/delete/{id}',[AssessmentQuestionController::class, 'delete'])->name('assessment-questions.delete');
 Route::get('/results/export', [PageController::class, 'exportResults'])->name('results.export');
 
+
+Route::get('/verify-certificate', [PageController::class, 'verifyCertificate'])->name('certificate.verify');
+Route::post('/verify-certificate', [PageController::class, 'verifyCertificateSubmit'])->name('certificate.verify.submit');
+
+
+Route::get('/independent/register', [IndependentLearnerController::class, 'register'])->name('independent.register');
+Route::post('/independent/register', [IndependentLearnerController::class, 'registerSubmit'])->name('independent.register.submit');
+Route::get('/independent/login', [IndependentLearnerController::class, 'login'])->name('independent.login');
+Route::post('/independent/login', [IndependentLearnerController::class, 'loginSubmit'])->name('independent.login.submit');
+Route::get('/independent/courses', [IndependentLearnerController::class, 'courses'])->name('independent.courses');
+Route::get('/independent/courses/{id}', [IndependentLearnerController::class, 'courseDetails'])->name('independent.courses.show');
+
+Route::get('/independent-dashboard', [IndependentLearnerController::class, 'dashboard'])->name('independent.dashboard');
 
 // Admin protected routes
 Route::middleware(['admin.auth'])->group(function () {
@@ -110,6 +131,17 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::post('/admin/achievements/{id}/approve',[StudentAchievementController::class, 'approve'])->name('admin.achievements.approve');
 
     Route::post('/admin/achievements/{id}/reject',[StudentAchievementController::class, 'reject'])->name('admin.achievements.reject');
+
+    Route::get('/admin/my-space', [MySpaceController::class, 'adminIndex'])->name('admin.my-space');
+
+    Route::post('/admin/my-space/{id}/approve', [MySpaceController::class, 'approve'])->name('admin.my-space.approve');
+
+    Route::post('/admin/my-space/{id}/reject', [MySpaceController::class, 'reject'])->name('admin.my-space.reject');
+
+    Route::post('/admin/my-space/{id}/feature', [MySpaceController::class, 'feature'])->name('admin.my-space.feature');
+
+    Route::get('/admin/my-space/{id}', [MySpaceController::class, 'show'])->name('admin.my-space.show');
+
 });
 
 
@@ -142,6 +174,19 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
 
     Route::get('/teacher/student-details/export', [TeacherStudentProfileController::class, 'export'])->name('teacher.student.profiles.export');
 
+    Route::get('/teacher/my-space', [MySpaceController::class, 'index'])->name('teacher.my-space');
+
+    Route::get('/teacher/my-space/create', [MySpaceController::class, 'create'])->name('teacher.my-space.create');
+
+    Route::post('/teacher/my-space/store', [MySpaceController::class, 'store'])->name('teacher.my-space.store');
+
+    Route::get('/teacher/my-space/{id}/edit', [MySpaceController::class, 'edit'])->name('teacher.my-space.edit');
+
+    Route::post('/teacher/my-space/{id}/update', [MySpaceController::class, 'update'])->name('teacher.my-space.update');
+
+    Route::post('/teacher/my-space/{id}/delete', [MySpaceController::class, 'delete'])->name('teacher.my-space.delete');
+
+    Route::get('/teacher/my-space/{id}', [MySpaceController::class, 'show'])->name('teacher.my-space.show');
 });
 
 
@@ -163,6 +208,13 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::post('/student/lesson/{id}/complete',[PageController::class, 'completeLesson'])->name('student.lesson.complete');
     Route::get('/student/basic-details', [StudentProfileController::class, 'create'])->name('student.basic-details');
     Route::post('/student/basic-details', [StudentProfileController::class, 'store'])->name('student.basic-details.store');
+    Route::get('/student/my-space', [MySpaceController::class, 'index'])->name('student.my-space');
+    Route::get('/student/my-space/create', [MySpaceController::class, 'create'])->name('student.my-space.create');
+    Route::post('/student/my-space/store', [MySpaceController::class, 'store'])->name('student.my-space.store');
+    Route::get('/student/my-space/{id}/edit', [MySpaceController::class, 'edit'])->name('student.my-space.edit');
+    Route::post('/student/my-space/{id}/update', [MySpaceController::class, 'update'])->name('student.my-space.update');
+    Route::post('/student/my-space/{id}/delete', [MySpaceController::class, 'delete'])->name('student.my-space.delete');
+    Route::get('/student/my-space/{id}', [MySpaceController::class, 'show'])->name('student.my-space.show');
 });
 
 

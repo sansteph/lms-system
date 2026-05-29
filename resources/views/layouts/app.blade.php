@@ -20,7 +20,9 @@
     request()->routeIs('portal') ||
     request()->routeIs('admin.login') ||
     request()->routeIs('teacher.login') ||
-    request()->routeIs('student.login')
+    request()->routeIs('student.login') ||
+    request()->routeIs('independent.register') ||
+    request()->routeIs('independent.login')
 )
     <div id="particles-js"></div>
 @endif
@@ -29,7 +31,9 @@
     !request()->routeIs('portal') &&
     !request()->routeIs('admin.login') &&
     !request()->routeIs('teacher.login') &&
-    !request()->routeIs('student.login'))
+    !request()->routeIs('student.login') &&
+    !request()->routeIs('independent.register') &&
+    !request()->routeIs('independent.login'))
 
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
 
@@ -41,6 +45,8 @@
                 {{ route('teacher.dashboard') }}
             @elseif(session('student_id'))
                 {{ route('student.dashboard') }}
+            @elseif(session('independent_learner_id'))
+                {{ route('independent.dashboard') }}
             @else
                 {{ route('home') }}
             @endif
@@ -50,20 +56,41 @@
 
         <div class="ms-auto d-flex align-items-center gap-3">
 
-            @if(session('user_name') || session('student_name'))
+            @if(
+                session('user_name') ||
+                session('student_name') ||
+                session('independent_learner_name')
+            )
                 <span class="text-muted fw-semibold">
-                    {{ session('user_name') ?? session('student_name') }}
+
+                    {{ session('user_name')
+                        ?? session('student_name')
+                        ?? session('independent_learner_name') }}
 
                     @if(session('user_role'))
+
                         ({{ session('user_role') }})
+
                     @elseif(session('student_id'))
+
                         (Student)
+
+                    @elseif(session('independent_learner_id'))
+
+                        (Independent Learner)
+
                     @endif
+
                 </span>
             @endif
 
-            @if(session()->has('user_id') || session()->has('student_id'))
-                <a href="{{ route('logout') }}" class="btn btn-sm btn-outline-danger">
+            @if(
+                session()->has('user_id') ||
+                session()->has('student_id') ||
+                session()->has('independent_learner_id')
+            )
+                <a href="{{ route('logout') }}"
+                   class="btn btn-sm btn-outline-danger">
                     Logout
                 </a>
             @endif
@@ -77,8 +104,6 @@
 @yield('content')
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-
 
 </body>
 </html>

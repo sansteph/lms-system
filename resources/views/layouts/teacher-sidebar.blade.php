@@ -47,6 +47,11 @@
         Notifications
     </a>
 
+    <a href="{{ route('teacher.my-space') }}"
+    class="sidebar-link {{ request()->routeIs('teacher.my-space') ? 'active' : '' }}">
+        My Space
+    </a>
+
     <a href="{{ route('teacher.profile') }}"
     class="sidebar-link {{ request()->routeIs('teacher.profile') ? 'active' : '' }}">
         Profile

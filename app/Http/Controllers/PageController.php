@@ -564,6 +564,24 @@ class PageController extends Controller
             )
         );
     }
+
+    public function studentProfile()
+    {
+        $student = Student::find(session('student_id'));
+
+        if (!$student) {
+            return redirect()->route('student.login');
+        }
+
+        $badgeCount = AssessmentResult::where('student_id', $student->id)
+            ->whereNotNull('badge')
+            ->count();
+
+        return view('student.student-profile', compact(
+            'student',
+            'badgeCount'
+        ));
+    }
     public function studentHistory()
     {
         $studentId = session('student_id');

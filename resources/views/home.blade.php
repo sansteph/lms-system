@@ -385,9 +385,10 @@
                                     AI assessments and skill certifications.
                                 </p>
 
-                                <button class="btn access-btn-alt">
-                                    Coming Soon
-                                </button>
+                                <a href="{{ route('independent.register') }}" class="btn access-btn-alt">
+                                    Get Started
+                                    <i class="fa fa-arrow-right"></i>
+                                </a>
                             </div>
 
                             <div class="access-illustration access-cap">

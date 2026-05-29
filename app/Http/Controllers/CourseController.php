@@ -18,60 +18,98 @@ class CourseController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $request->validate([
+{
+$request->validate([
 
-            'course_title' => 'required|string|max:255',
+    'course_title' => 'required|string|max:255',
 
-            'description' => 'nullable|string',
+    'description' => 'nullable|string',
 
-            'target' => 'required|string',
+    'target' => 'required|string',
 
-            'assigned_class' => 'nullable|string',
+    'assigned_class' => 'nullable|string',
 
-        ]);
+    'price' => 'required|numeric|min:0',
 
-        Course::create([
+    'availability_type' => 'required',
 
-            'course_title' => $request->course_title,
+    'is_active' => 'required',
 
-            'description' => $request->description,
+]);
 
-            'target' => $request->target,
+Course::create([
 
-            'assigned_class' => $request->assigned_class,
+    'course_title' => $request->course_title,
 
-            'certificate_enabled' => 1,
+    'description' => $request->description,
 
-            'status' => 1,
+    'target' => $request->target,
 
-        ]);
+    'assigned_class' => $request->assigned_class,
 
-        return redirect()->back()
-            ->with('success', 'Course created successfully');
-    }
+    'price' => $request->price,
 
-    public function update(Request $request, $id)
-    {
-        $course = Course::findOrFail($id);
+    'availability_type' => $request->availability_type,
 
-        $course->update([
+    'is_active' => $request->is_active,
 
-            'course_title' => $request->course_title,
+    'certificate_enabled' => 1,
 
-            'description' => $request->description,
+    'status' => 1,
 
-            'target' => $request->target,
+]);
 
-            'assigned_class' => $request->assigned_class,
+return redirect()->back()
+    ->with('success', 'Course created successfully');
 
-            'status' => $request->status,
+}
 
-        ]);
+public function update(Request $request, $id)
+{
+$course = Course::findOrFail($id);
 
-        return redirect()->back()
-            ->with('success', 'Course updated successfully');
-    }
+$request->validate([
+
+    'course_title' => 'required|string|max:255',
+
+    'description' => 'nullable|string',
+
+    'target' => 'required|string',
+
+    'assigned_class' => 'nullable|string',
+
+    'price' => 'required|numeric|min:0',
+
+    'availability_type' => 'required',
+
+    'is_active' => 'required',
+
+]);
+
+$course->update([
+
+    'course_title' => $request->course_title,
+
+    'description' => $request->description,
+
+    'target' => $request->target,
+
+    'assigned_class' => $request->assigned_class,
+
+    'price' => $request->price,
+
+    'availability_type' => $request->availability_type,
+
+    'is_active' => $request->is_active,
+
+    'status' => $request->is_active,
+
+]);
+
+return redirect()->back()
+    ->with('success', 'Course updated successfully');
+
+}
 
     public function delete($id)
     {
