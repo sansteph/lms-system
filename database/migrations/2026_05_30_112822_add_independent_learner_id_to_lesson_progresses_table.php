@@ -11,19 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('contents', function (Blueprint $table) {
-            $table->unsignedBigInteger('course_id')->nullable()->after('id');
-            $table->integer('lesson_order')->default(1)->after('course_id');
+        Schema::table('lesson_progress', function (Blueprint $table) {
+            $table->unsignedBigInteger('independent_learner_id')
+                ->nullable()
+                ->after('student_id');
         });
     }
+
 
     /**
      * Reverse the migrations.
      */
     public function down(): void
     {
-        Schema::table('contents', function (Blueprint $table) {
-            $table->dropColumn(['course_id', 'lesson_order']);
+        Schema::table('lesson_progress', function (Blueprint $table) {
+            $table->dropColumn('independent_learner_id');
         });
     }
+
+    
 };

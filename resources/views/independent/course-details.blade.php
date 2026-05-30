@@ -50,9 +50,34 @@
             </div>
 
             <div class="mt-4">
-                <button class="btn btn-primary">
-                    Enroll Now
-                </button>
+
+                @if(session('independent_learner_id'))
+
+                    <form method="POST"
+                        action="{{ route('independent.courses.enroll', $course->id) }}">
+
+                        @csrf
+
+                        <button type="submit"
+                                class="btn btn-primary">
+
+                            Enroll Now
+
+                        </button>
+
+                    </form>
+
+                @else
+
+                    <a href="{{ route('independent.login') }}"
+                    class="btn btn-primary">
+
+                        Login to Enroll
+
+                    </a>
+
+                @endif
+
             </div>
 
         </div>

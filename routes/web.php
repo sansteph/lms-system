@@ -57,8 +57,16 @@ Route::get('/independent/login', [IndependentLearnerController::class, 'login'])
 Route::post('/independent/login', [IndependentLearnerController::class, 'loginSubmit'])->name('independent.login.submit');
 Route::get('/independent/courses', [IndependentLearnerController::class, 'courses'])->name('independent.courses');
 Route::get('/independent/courses/{id}', [IndependentLearnerController::class, 'courseDetails'])->name('independent.courses.show');
-
+Route::post('/independent/courses/{id}/enroll', [IndependentLearnerController::class, 'enroll'])->name('independent.courses.enroll');
 Route::get('/independent-dashboard', [IndependentLearnerController::class, 'dashboard'])->name('independent.dashboard');
+Route::get('/independent/my-enrollments', [IndependentLearnerController::class, 'myEnrollments'])->name('independent.enrollments');
+Route::post('/independent/lesson/{contentId}/complete', [IndependentLearnerController::class, 'markLessonComplete'])->name('independent.lesson.complete');
+Route::get('/independent/courses/{id}/learn', [IndependentLearnerController::class, 'learnCourse'])->name('independent.courses.learn');
+Route::get('/independent/certificates', [IndependentLearnerController::class, 'certificates'])->name('independent.certificates');
+
+Route::get('/admin/independent-learners', [IndependentLearnerController::class, 'adminIndex'])->name('admin.independent.learners');
+Route::post('/admin/independent-learners/{id}/toggle-status', [IndependentLearnerController::class, 'toggleStatus'])->name('admin.independent.learners.toggle-status');
+Route::get('/admin/independent-learners/{id}', [IndependentLearnerController::class, 'showLearner'])->name('admin.independent.learners.show');
 
 // Admin protected routes
 Route::middleware(['admin.auth'])->group(function () {

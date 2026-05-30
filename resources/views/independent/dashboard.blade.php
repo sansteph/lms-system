@@ -72,9 +72,40 @@
                         Track courses you've enrolled in.
                     </p>
 
-                    <button class="btn btn-success" disabled>
-                        Coming Soon
-                    </button>
+                    @if($enrollments->count() > 0)
+
+                        <ul class="list-group mt-3 text-start">
+
+                            @foreach($enrollments as $enrollment)
+
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                    <a href="{{ route('independent.courses.learn', $enrollment->course_id) }}"
+                                    class="text-decoration-none fw-semibold">
+
+                                        {{ $enrollment->course->course_title ?? 'Course Deleted' }}
+
+                                    </a>
+
+                                    <span class="badge bg-warning text-dark">
+                                        {{ $enrollment->payment_status }}
+                                    </span>
+
+                                </li>
+
+                            @endforeach
+
+                        </ul>
+
+                    @else
+
+                        <p class="text-muted">
+                            You have not enrolled in any courses yet.
+                        </p>
+
+                    @endif
+
+                    
 
                 </div>
 
@@ -98,9 +129,12 @@
                         View certificates earned through learning.
                     </p>
 
-                    <button class="btn btn-warning text-white" disabled>
-                        Coming Soon
-                    </button>
+                    <a href="{{ route('independent.certificates') }}"
+                    class="btn btn-warning text-white">
+
+                        View Certificates
+
+                    </a>
 
                 </div>
 

@@ -66,4 +66,8 @@
         My Space Review
     </a>
 
+    <a href="{{ route('admin.independent.learners') }}"class="sidebar-link {{ request()->routeIs('admin.independent.learners*') ? 'active' : '' }}">
+        Independent Learners
+    </a>
+
 </div>

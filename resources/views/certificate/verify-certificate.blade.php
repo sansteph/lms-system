@@ -35,31 +35,32 @@
                         <div class="mb-3">
                             <label class="form-label">Your Name</label>
                             <input type="text"
-                                name="verifier_name"
-                                class="form-control"
-                                placeholder="Enter your full name"
-                                value="{{ old('verifier_name') }}"
-                                required>
+                                   name="verifier_name"
+                                   class="form-control"
+                                   placeholder="Enter your full name"
+                                   value="{{ old('verifier_name') }}"
+                                   required>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Email Address</label>
                             <input type="email"
-                                name="verifier_email"
-                                class="form-control"
-                                placeholder="Enter your email address"
-                                value="{{ old('verifier_email') }}"
-                                required>
+                                   name="verifier_email"
+                                   class="form-control"
+                                   placeholder="Enter your email address"
+                                   value="{{ old('verifier_email') }}"
+                                   required>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Reason for Verification</label>
                             <textarea name="verification_reason"
-                                    class="form-control"
-                                    rows="3"
-                                    placeholder="Example: Employment verification, admission verification, document validation"
-                                    required>{{ old('verification_reason') }}</textarea>
+                                      class="form-control"
+                                      rows="3"
+                                      placeholder="Example: Employment verification, admission verification, document validation"
+                                      required>{{ old('verification_reason') }}</textarea>
                         </div>
+
                         <div class="mb-3">
 
                             <label class="form-label">
@@ -104,20 +105,36 @@
                                 {{ $certificate->certificate_code }}
                             </p>
 
-                            <p class="mb-2">
-                                <strong>Student Name:</strong>
-                                {{ $certificate->student->name ?? 'N/A' }}
-                            </p>
+                            @if($certificate->certificate_type == 'Independent')
 
-                            <p class="mb-2">
-                                <strong>Student ID:</strong>
-                                {{ $certificate->student->student_id ?? 'N/A' }}
-                            </p>
+                                <p class="mb-2">
+                                    <strong>Learner Name:</strong>
+                                    {{ $certificate->independentLearner->name ?? 'N/A' }}
+                                </p>
 
-                            <p class="mb-2">
-                                <strong>Badge Count:</strong>
-                                {{ $certificate->badge_count }}
-                            </p>
+                                <p class="mb-2">
+                                    <strong>Course:</strong>
+                                    {{ $certificate->course->course_title ?? 'N/A' }}
+                                </p>
+
+                            @else
+
+                                <p class="mb-2">
+                                    <strong>Student Name:</strong>
+                                    {{ $certificate->student->name ?? 'N/A' }}
+                                </p>
+
+                                <p class="mb-2">
+                                    <strong>Student ID:</strong>
+                                    {{ $certificate->student->student_id ?? 'N/A' }}
+                                </p>
+
+                                <p class="mb-2">
+                                    <strong>Badge Count:</strong>
+                                    {{ $certificate->badge_count }}
+                                </p>
+
+                            @endif
 
                             <p class="mb-2">
                                 <strong>Issued Date:</strong>

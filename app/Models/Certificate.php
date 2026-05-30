@@ -7,6 +7,15 @@ use App\Models\Student;
 
 class Certificate extends Model
 {
+    public function independentLearner()
+    {
+        return $this->belongsTo(IndependentLearner::class);
+    }
+
+    public function course()
+    {
+        return $this->belongsTo(Course::class);
+    }
     public function student()
     {
         return $this->belongsTo(Student::class, 'student_id', 'id');
@@ -17,5 +26,8 @@ class Certificate extends Model
         'badge_count',
         'issued_date',
         'status',
+        'certificate_type',
+        'course_id',
+        'independent_learner_id',
     ];
 }
