@@ -7,6 +7,10 @@
         Dashboard
     </a>
 
+    <a href="{{ route('admin.change.password') }}" class="sidebar-link">
+        Change Password
+    </a>
+
     <a href="{{ route('users') }}" class="sidebar-link {{ request()->routeIs('users') ? 'active' : '' }}">
         Teachers Management
     </a>

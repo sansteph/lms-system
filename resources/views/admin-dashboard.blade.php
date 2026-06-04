@@ -8,10 +8,23 @@
         @include('layouts.sidebar')
 
         <main class="col-md-10 col-lg-10 p-4">
+
             <div class="page-header mb-4">
                 <h2>Admin Dashboard</h2>
                 <p>Welcome back! Manage your LMS from one place.</p>
             </div>
+
+            @if(session('user_role') == 'Admin' && is_null(session('password_changed_at')))
+
+                <div class="alert alert-warning shadow-sm border-0 mb-4">
+
+                    <strong>Security Reminder:</strong>
+                    You are using a system-generated password.
+                    Please change your password for better account security.
+
+                </div>
+
+            @endif
 
             <div class="row g-4">
 

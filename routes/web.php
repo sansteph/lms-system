@@ -68,6 +68,9 @@ Route::get('/admin/independent-learners', [IndependentLearnerController::class, 
 Route::post('/admin/independent-learners/{id}/toggle-status', [IndependentLearnerController::class, 'toggleStatus'])->name('admin.independent.learners.toggle-status');
 Route::get('/admin/independent-learners/{id}', [IndependentLearnerController::class, 'showLearner'])->name('admin.independent.learners.show');
 
+Route::get('/admin/institute-register', [UserController::class, 'instituteRegister'])->name('admin.institute.register');
+Route::post('/admin/institute-register', [UserController::class, 'instituteRegisterSubmit'])->name('admin.institute.register.submit');
+
 // Admin protected routes
 Route::middleware(['admin.auth'])->group(function () {
 
@@ -149,6 +152,10 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::post('/admin/my-space/{id}/feature', [MySpaceController::class, 'feature'])->name('admin.my-space.feature');
 
     Route::get('/admin/my-space/{id}', [MySpaceController::class, 'show'])->name('admin.my-space.show');
+
+    Route::get('/admin/change-password', [UserController::class, 'changePassword'])->name('admin.change.password');
+
+    Route::post('/admin/change-password', [UserController::class, 'changePasswordSubmit'])->name('admin.change.password.submit');
 
 });
 
