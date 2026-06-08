@@ -10,6 +10,8 @@ class Course extends Model
 
         'course_title',
 
+        'institute',
+
         'description',
 
         'target',

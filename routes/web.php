@@ -19,72 +19,75 @@ use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\MySpaceController;
 use App\Http\Controllers\TeacherStudentProfileController;
 use App\Http\Controllers\IndependentLearnerController;
+use Illuminate\Support\Facades\Mail;
 
 
+//Public Routes
 
-// Public pages
 Route::get('/', [PageController::class, 'home'])->name('home');
 
-Route::post('/access-request/store',[PageController::class, 'storeAccessRequest'])->name('access.request.store');
-
 Route::get('/portal', [PageController::class, 'portal'])->name('portal');
+
+Route::post('/access-request/store', [PageController::class, 'storeAccessRequest'])
+    ->name('access.request.store');
+
+Route::get('/logout', [UserController::class, 'logout'])->name('logout');
 
 Route::get('/admin-login', [PageController::class, 'adminLogin'])->name('admin.login');
 Route::post('/admin-login', [UserController::class, 'adminLogin'])->name('admin.login.submit');
 
+Route::get('/admin/institute-register', [UserController::class, 'instituteRegister'])
+    ->name('admin.institute.register');
+
+Route::post('/admin/institute-register', [UserController::class, 'instituteRegisterSubmit'])
+    ->name('admin.institute.register.submit');
+
 Route::get('/teacher-login', [PageController::class, 'teacherLogin'])->name('teacher.login');
 Route::post('/teacher-login', [UserController::class, 'teacherLogin'])->name('teacher.login.submit');
-
-
-Route::get('/logout', [UserController::class, 'logout'])->name('logout');
 
 Route::get('/student-login', [PageController::class, 'studentLogin'])->name('student.login');
 Route::post('/student-login', [PageController::class, 'studentLoginSubmit'])->name('student.login.submit');
 
-Route::get('/student-assessment', [PageController::class, 'studentAssessment'])->name('student.assessment.public');
-Route::put('/assessment-questions/update/{id}',[AssessmentQuestionController::class, 'update'])->name('assessment-questions.update');
-Route::delete('/assessment-questions/delete/{id}',[AssessmentQuestionController::class, 'delete'])->name('assessment-questions.delete');
-Route::get('/results/export', [PageController::class, 'exportResults'])->name('results.export');
-
-
 Route::get('/verify-certificate', [PageController::class, 'verifyCertificate'])->name('certificate.verify');
 Route::post('/verify-certificate', [PageController::class, 'verifyCertificateSubmit'])->name('certificate.verify.submit');
 
-
 Route::get('/independent/register', [IndependentLearnerController::class, 'register'])->name('independent.register');
 Route::post('/independent/register', [IndependentLearnerController::class, 'registerSubmit'])->name('independent.register.submit');
+
 Route::get('/independent/login', [IndependentLearnerController::class, 'login'])->name('independent.login');
 Route::post('/independent/login', [IndependentLearnerController::class, 'loginSubmit'])->name('independent.login.submit');
+
 Route::get('/independent/courses', [IndependentLearnerController::class, 'courses'])->name('independent.courses');
 Route::get('/independent/courses/{id}', [IndependentLearnerController::class, 'courseDetails'])->name('independent.courses.show');
-Route::post('/independent/courses/{id}/enroll', [IndependentLearnerController::class, 'enroll'])->name('independent.courses.enroll');
+
+
 Route::get('/independent-dashboard', [IndependentLearnerController::class, 'dashboard'])->name('independent.dashboard');
+Route::post('/independent/courses/{id}/enroll', [IndependentLearnerController::class, 'enroll'])->name('independent.courses.enroll');
 Route::get('/independent/my-enrollments', [IndependentLearnerController::class, 'myEnrollments'])->name('independent.enrollments');
-Route::post('/independent/lesson/{contentId}/complete', [IndependentLearnerController::class, 'markLessonComplete'])->name('independent.lesson.complete');
 Route::get('/independent/courses/{id}/learn', [IndependentLearnerController::class, 'learnCourse'])->name('independent.courses.learn');
+Route::post('/independent/lesson/{contentId}/complete', [IndependentLearnerController::class, 'markLessonComplete'])->name('independent.lesson.complete');
 Route::get('/independent/certificates', [IndependentLearnerController::class, 'certificates'])->name('independent.certificates');
 
-Route::get('/admin/independent-learners', [IndependentLearnerController::class, 'adminIndex'])->name('admin.independent.learners');
-Route::post('/admin/independent-learners/{id}/toggle-status', [IndependentLearnerController::class, 'toggleStatus'])->name('admin.independent.learners.toggle-status');
-Route::get('/admin/independent-learners/{id}', [IndependentLearnerController::class, 'showLearner'])->name('admin.independent.learners.show');
 
-Route::get('/admin/institute-register', [UserController::class, 'instituteRegister'])->name('admin.institute.register');
-Route::post('/admin/institute-register', [UserController::class, 'instituteRegisterSubmit'])->name('admin.institute.register.submit');
 
-// Admin protected routes
+
+
+//Admin + InstituteAdmin Shared Routes
+
 Route::middleware(['admin.auth'])->group(function () {
 
-    Route::get('/courses', [CourseController::class, 'index'])->name('courses');
-
-    Route::post('/courses/store', [CourseController::class, 'store'])->name('courses.store');
-
-    Route::post('/courses/update/{id}', [CourseController::class, 'update'])->name('courses.update');
-
-    Route::get('/courses/delete/{id}', [CourseController::class, 'delete'])->name('courses.delete');
-
-    Route::get('/test-gemini', [AIController::class, 'testGemini']);
-
     Route::get('/admin-dashboard', [PageController::class, 'adminDashboard'])->name('admin.dashboard');
+
+    Route::get('/admin/change-password', [UserController::class, 'changePassword'])
+        ->name('admin.change.password');
+
+    Route::post('/admin/change-password', [UserController::class, 'changePasswordSubmit'])
+        ->name('admin.change.password.submit');
+
+    Route::get('/courses', [CourseController::class, 'index'])->name('courses');
+    Route::post('/courses/store', [CourseController::class, 'store'])->name('courses.store');
+    Route::post('/courses/update/{id}', [CourseController::class, 'update'])->name('courses.update');
+    Route::get('/courses/delete/{id}', [CourseController::class, 'delete'])->name('courses.delete');
 
     Route::get('/students', [PageController::class, 'students'])->name('students');
     Route::post('/students/store', [PageController::class, 'storeStudent'])->name('students.store');
@@ -101,11 +104,6 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::post('/users/update/{id}', [UserController::class, 'update'])->name('users.update');
     Route::get('/users/delete/{id}', [UserController::class, 'delete'])->name('users.delete');
 
-    Route::get('/institutes', [InstituteController::class, 'index'])->name('institutes');
-    Route::post('/institutes/store', [InstituteController::class, 'store'])->name('institutes.store');
-    Route::post('/institutes/update/{id}', [InstituteController::class, 'update'])->name('institutes.update');
-    Route::get('/institutes/delete/{id}', [InstituteController::class, 'delete'])->name('institutes.delete');
-
     Route::get('/content', [ContentController::class, 'index'])->name('content');
     Route::post('/content/store', [ContentController::class, 'store'])->name('content.store');
     Route::post('/content/update/{id}', [ContentController::class, 'update'])->name('content.update');
@@ -116,6 +114,11 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::post('/assessments/update/{id}', [AssessmentController::class, 'update'])->name('assessments.update');
     Route::get('/assessments/delete/{id}', [AssessmentController::class, 'delete'])->name('assessments.delete');
 
+    Route::get('/assessment-questions', [AssessmentQuestionController::class, 'index'])->name('assessment-questions');
+    Route::post('/assessment-questions/store', [AssessmentQuestionController::class, 'store'])->name('assessment-questions.store');
+    Route::put('/assessment-questions/update/{id}', [AssessmentQuestionController::class, 'update'])->name('assessment-questions.update');
+    Route::delete('/assessment-questions/delete/{id}', [AssessmentQuestionController::class, 'delete'])->name('assessment-questions.delete');
+
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
     Route::post('/notifications/store', [NotificationController::class, 'store'])->name('notifications.store');
     Route::post('/notifications/update/{id}', [NotificationController::class, 'update'])->name('notifications.update');
@@ -123,39 +126,61 @@ Route::middleware(['admin.auth'])->group(function () {
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports');
 
-    Route::get('/assessment-questions', [AssessmentQuestionController::class, 'index'])->name('assessment-questions');
-    Route::post('/assessment-questions/store', [AssessmentQuestionController::class, 'store'])->name('assessment-questions.store');
-
     Route::get('/admin/certificates', [PageController::class, 'adminCertificates'])->name('admin.certificates');
     Route::post('/admin/certificates/revoke/{id}', [PageController::class, 'revokeCertificate'])->name('admin.certificates.revoke');
     Route::post('/admin/certificates/reissue/{id}', [PageController::class, 'reissueCertificate'])->name('admin.certificates.reissue');
+
     Route::get('/results/export', [PageController::class, 'exportResults'])->name('results.export');
 
     Route::get('/admin/analytics', [PageController::class, 'adminAnalytics'])->name('admin.analytics');
 
-    Route::get('/admin/activity-monitoring', [PageController::class, 'activityMonitoring'])->name('admin.activity.monitoring');
-
-    Route::get('/admin/export-activity-report',[PageController::class, 'exportActivityReport'])->name('admin.export.activity');
-
-    Route::get('/admin/achievements',[StudentAchievementController::class, 'adminIndex'])->name('admin.achievements');
-
-    Route::post('/admin/achievements/{id}/approve',[StudentAchievementController::class, 'approve'])->name('admin.achievements.approve');
-
-    Route::post('/admin/achievements/{id}/reject',[StudentAchievementController::class, 'reject'])->name('admin.achievements.reject');
+    Route::get('/admin/achievements', [StudentAchievementController::class, 'adminIndex'])->name('admin.achievements');
+    Route::post('/admin/achievements/{id}/approve', [StudentAchievementController::class, 'approve'])->name('admin.achievements.approve');
+    Route::post('/admin/achievements/{id}/reject', [StudentAchievementController::class, 'reject'])->name('admin.achievements.reject');
 
     Route::get('/admin/my-space', [MySpaceController::class, 'adminIndex'])->name('admin.my-space');
-
     Route::post('/admin/my-space/{id}/approve', [MySpaceController::class, 'approve'])->name('admin.my-space.approve');
-
     Route::post('/admin/my-space/{id}/reject', [MySpaceController::class, 'reject'])->name('admin.my-space.reject');
-
     Route::post('/admin/my-space/{id}/feature', [MySpaceController::class, 'feature'])->name('admin.my-space.feature');
-
     Route::get('/admin/my-space/{id}', [MySpaceController::class, 'show'])->name('admin.my-space.show');
 
-    Route::get('/admin/change-password', [UserController::class, 'changePassword'])->name('admin.change.password');
+});
 
-    Route::post('/admin/change-password', [UserController::class, 'changePasswordSubmit'])->name('admin.change.password.submit');
+
+//Super Admin Only Routes
+
+Route::middleware(['admin.auth', 'super.admin'])->group(function () {
+
+    Route::get('/institutes', [InstituteController::class, 'index'])->name('institutes');
+    Route::post('/institutes/store', [InstituteController::class, 'store'])->name('institutes.store');
+    Route::post('/institutes/update/{id}', [InstituteController::class, 'update'])->name('institutes.update');
+    Route::get('/institutes/delete/{id}', [InstituteController::class, 'delete'])->name('institutes.delete');
+
+    Route::get('/admin/institute-requests', [UserController::class, 'instituteRequests'])
+        ->name('admin.institute.requests');
+
+    Route::post('/admin/institute-requests/{id}/approve', [UserController::class, 'approveInstituteRequest'])
+        ->name('admin.institute.requests.approve');
+
+    Route::post('/admin/institute-requests/{id}/reject', [UserController::class, 'rejectInstituteRequest'])
+        ->name('admin.institute.requests.reject');
+
+    Route::get('/admin/independent-learners', [IndependentLearnerController::class, 'adminIndex'])
+        ->name('admin.independent.learners');
+
+    Route::post('/admin/independent-learners/{id}/toggle-status', [IndependentLearnerController::class, 'toggleStatus'])
+        ->name('admin.independent.learners.toggle-status');
+
+    Route::get('/admin/independent-learners/{id}', [IndependentLearnerController::class, 'showLearner'])
+        ->name('admin.independent.learners.show');
+
+    Route::get('/admin/activity-monitoring', [PageController::class, 'activityMonitoring'])
+        ->name('admin.activity.monitoring');
+
+    Route::get('/admin/export-activity-report', [PageController::class, 'exportActivityReport'])
+        ->name('admin.export.activity');
+
+    Route::get('/test-gemini', [AIController::class, 'testGemini']);
 
 });
 

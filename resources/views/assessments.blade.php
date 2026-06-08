@@ -100,6 +100,7 @@
                             <tr>
                                 <th>Sl. No</th>
                                 <th>Assessment Title</th>
+                                <th>Institute</th>
                                 <th>Type</th>
                                 <th>Class</th>
                                 <th>Total Marks</th>
@@ -120,6 +121,8 @@
                                     <td>{{ $index + 1 }}</td>
 
                                     <td>{{ $assessment->assessment_title }}</td>
+
+                                    <td>{{ $assessment->institute ?? 'N/A' }}</td>
 
                                     <td>
 
@@ -213,7 +216,7 @@
                             @empty
 
                                 <tr>
-                                    <td colspan="10"
+                                    <td colspan="11"
                                         class="text-center text-muted">
                                         No assessments found
                                     </td>
@@ -285,6 +288,35 @@
                                    class="form-control"
                                    placeholder="Enter assessment title"
                                    required>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Institute
+                            </label>
+
+                            @if(session('user_role') == 'InstituteAdmin')
+
+                                <input type="hidden"
+                                    name="institute"
+                                    value="{{ session('user_institute') }}">
+
+                                <input type="text"
+                                    class="form-control"
+                                    value="{{ session('user_institute') }}"
+                                    readonly>
+
+                            @else
+
+                                <input type="text"
+                                    name="institute"
+                                    class="form-control"
+                                    value=""
+                                    required>
+
+                            @endif
 
                         </div>
 
@@ -462,6 +494,16 @@
                             <label class="form-label">Assessment Title</label>
                             <input type="text" name="assessment_title" class="form-control"
                                    value="{{ $assessment->assessment_title }}" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Institute</label>
+                            @if(session('user_role') == 'InstituteAdmin')
+                                <input type="hidden" name="institute" value="{{ session('user_institute') }}">
+                                <input type="text" class="form-control" value="{{ session('user_institute') }}" readonly>
+                            @else
+                                <input type="text" name="institute" class="form-control" value="{{ $assessment->institute }}" required>
+                            @endif
                         </div>
 
                         <div class="col-md-6">

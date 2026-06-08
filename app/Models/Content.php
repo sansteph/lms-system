@@ -24,6 +24,8 @@ class Content extends Model
 
         'assigned_class',
 
+        'institute',
+
         'file_path',
 
         'status',

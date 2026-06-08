@@ -176,6 +176,10 @@
                                 </th>
 
                                 <th>
+                                    Institute
+                                </th>
+
+                                <th>
                                     Course
                                 </th>
 
@@ -219,6 +223,10 @@
 
                                         {{ $content->content_title }}
 
+                                    </td>
+
+                                    <td>
+                                        {{ $content->institute ?? 'N/A' }}
                                     </td>
 
                                     <td>
@@ -307,7 +315,7 @@
 
                                 <tr>
 
-                                    <td colspan="8"
+                                    <td colspan="9"
                                         class="text-center text-muted">
 
                                         No content found
@@ -376,6 +384,30 @@
                                    class="form-control"
                                    required>
 
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Institute</label>
+
+                            @if(session('user_role') == 'InstituteAdmin')
+
+                                <input type="hidden"
+                                    name="institute"
+                                    value="{{ session('user_institute') }}">
+
+                                <input type="text"
+                                    class="form-control"
+                                    value="{{ session('user_institute') }}"
+                                    readonly>
+
+                            @else
+
+                                <input type="text"
+                                    name="institute"
+                                    class="form-control"
+                                    required>
+
+                            @endif
                         </div>
 
                         <div class="col-md-6">
@@ -573,6 +605,31 @@
                                    value="{{ $content->content_title }}"
                                    required>
 
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Institute</label>
+
+                            @if(session('user_role') == 'InstituteAdmin')
+
+                                <input type="hidden"
+                                    name="institute"
+                                    value="{{ session('user_institute') }}">
+
+                                <input type="text"
+                                    class="form-control"
+                                    value="{{ session('user_institute') }}"
+                                    readonly>
+
+                            @else
+
+                                <input type="text"
+                                    name="institute"
+                                    class="form-control"
+                                    value="{{ $content->institute }}"
+                                    required>
+
+                            @endif
                         </div>
 
                         <div class="col-md-6">

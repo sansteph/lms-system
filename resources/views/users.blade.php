@@ -29,38 +29,8 @@
             @endif
 
             @if($errors->any())
-                <div class="alert alert-danger">Please fill all required fields correctly.</div>
+                <div class="alert alert-danger">{{ $errors->first() }}</div>
             @endif
-
-            <div class="row g-4 mb-4">
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <h6>Total Teachers</h6>
-                        <h2>{{ $users->count() }}</h2>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <h6>Active Teachers</h6>
-                        <h2>{{ $users->where('status', 1)->count() }}</h2>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <h6>Inactive Teachers</h6>
-                        <h2>{{ $users->where('status', 0)->count() }}</h2>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <h6>Teacher Accounts</h6>
-                        <h2>{{ $users->count() }}</h2>
-                    </div>
-                </div>
-            </div>
 
             <div class="card shadow border-0">
                 <div class="card-body">
@@ -88,6 +58,7 @@
                                 <th>Teacher ID</th>
                                 <th>Name</th>
                                 <th>Email</th>
+                                <th>Institute</th>
                                 <th>Status</th>
                                 <th width="180">Actions</th>
                             </tr>
@@ -100,6 +71,7 @@
                                     <td>{{ $user->user_id }}</td>
                                     <td>{{ $user->name }}</td>
                                     <td>{{ $user->email }}</td>
+                                    <td>{{ $user->institute ?? 'N/A' }}</td>
 
                                     <td>
                                         @if($user->status == 1)
@@ -125,7 +97,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted">
+                                    <td colspan="7" class="text-center text-muted">
                                         No teachers found
                                     </td>
                                 </tr>
@@ -157,38 +129,33 @@
 
                         <div class="col-md-6">
                             <label class="form-label">Teacher ID</label>
-                            <input type="text"
-                                   name="user_id"
-                                   class="form-control"
-                                   placeholder="Example: TCH001"
-                                   required>
+                            <input type="text" name="user_id" class="form-control" placeholder="Example: TCH001" required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Full Name</label>
-                            <input type="text"
-                                   name="name"
-                                   class="form-control"
-                                   placeholder="Enter full name"
-                                   required>
+                            <input type="text" name="name" class="form-control" placeholder="Enter full name" required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Email Address</label>
-                            <input type="email"
-                                   name="email"
-                                   class="form-control"
-                                   placeholder="Enter email address"
-                                   required>
+                            <input type="email" name="email" class="form-control" placeholder="Enter email address" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Institute</label>
+
+                            @if(session('user_role') == 'InstituteAdmin')
+                                <input type="hidden" name="institute" value="{{ session('user_institute') }}">
+                                <input type="text" class="form-control" value="{{ session('user_institute') }}" readonly>
+                            @else
+                                <input type="text" name="institute" class="form-control" placeholder="Enter institute name" required>
+                            @endif
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Password</label>
-                            <input type="password"
-                                   name="password"
-                                   class="form-control"
-                                   placeholder="Enter password"
-                                   required>
+                            <input type="password" name="password" class="form-control" placeholder="Enter password" required>
                         </div>
 
                         <div class="col-md-6">
@@ -231,29 +198,28 @@
 
                             <div class="col-md-6">
                                 <label class="form-label">Teacher ID</label>
-                                <input type="text"
-                                       name="user_id"
-                                       class="form-control"
-                                       value="{{ $user->user_id }}"
-                                       required>
+                                <input type="text" name="user_id" class="form-control" value="{{ $user->user_id }}" required>
                             </div>
 
                             <div class="col-md-6">
                                 <label class="form-label">Full Name</label>
-                                <input type="text"
-                                       name="name"
-                                       class="form-control"
-                                       value="{{ $user->name }}"
-                                       required>
+                                <input type="text" name="name" class="form-control" value="{{ $user->name }}" required>
                             </div>
 
                             <div class="col-md-6">
                                 <label class="form-label">Email Address</label>
-                                <input type="email"
-                                       name="email"
-                                       class="form-control"
-                                       value="{{ $user->email }}"
-                                       required>
+                                <input type="email" name="email" class="form-control" value="{{ $user->email }}" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Institute</label>
+
+                                @if(session('user_role') == 'InstituteAdmin')
+                                    <input type="hidden" name="institute" value="{{ session('user_institute') }}">
+                                    <input type="text" class="form-control" value="{{ session('user_institute') }}" readonly>
+                                @else
+                                    <input type="text" name="institute" class="form-control" value="{{ $user->institute }}" required>
+                                @endif
                             </div>
 
                             <div class="col-md-6">

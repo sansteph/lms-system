@@ -43,6 +43,34 @@
             <div class="mb-3">
 
                 <label>
+                    Institute
+                </label>
+
+                @if(session('user_role') == 'InstituteAdmin')
+
+                    <input type="hidden"
+                        name="institute"
+                        value="{{ session('user_institute') }}">
+
+                    <input type="text"
+                        class="form-control"
+                        value="{{ session('user_institute') }}"
+                        readonly>
+
+                @else
+
+                    <input type="text"
+                        name="institute"
+                        class="form-control"
+                        required>
+
+                @endif
+
+            </div>
+
+            <div class="mb-3">
+
+                <label>
                     Description
                 </label>
 
@@ -176,6 +204,8 @@
 
                     <th>Course</th>
 
+                    <th>Institute</th>
+
                     <th>Target</th>
 
                     <th>Class</th>
@@ -200,6 +230,10 @@
 
                             {{ $course->course_title }}
 
+                        </td>
+
+                        <td>
+                            {{ $course->institute ?? 'N/A' }}
                         </td>
 
                         <td>
@@ -246,7 +280,7 @@
 
                     <tr>
 
-                        <td colspan="6"
+                        <td colspan="7"
                             class="text-center">
 
                             No courses created

@@ -15,10 +15,6 @@
         Teachers Management
     </a>
 
-    <a href="{{ route('institutes') }}" class="sidebar-link {{ request()->routeIs('institutes') ? 'active' : '' }}">
-        Institute Management
-    </a>
-
     <a href="{{ route('classes') }}" class="sidebar-link {{ request()->routeIs('classes') ? 'active' : '' }}">
         Class Management
     </a>
@@ -50,10 +46,6 @@
         Analytics
     </a>
 
-    <a href="{{ route('admin.activity.monitoring') }}"class="sidebar-link {{ request()->routeIs('admin.activity.monitoring') ? 'active' : '' }}">
-        Activity Monitoring
-    </a>
-
     <a href="{{ route('notifications') }}" class="sidebar-link {{ request()->routeIs('notifications') ? 'active' : '' }}">
         Notifications
     </a>
@@ -70,8 +62,24 @@
         My Space Review
     </a>
 
-    <a href="{{ route('admin.independent.learners') }}"class="sidebar-link {{ request()->routeIs('admin.independent.learners*') ? 'active' : '' }}">
-        Independent Learners
-    </a>
+    @if(session('user_role') == 'Admin')
+
+        <a href="{{ route('admin.activity.monitoring') }}"class="sidebar-link {{ request()->routeIs('admin.activity.monitoring') ? 'active' : '' }}">
+            Activity Monitoring
+        </a>
+
+        <a href="{{ route('institutes') }}" class="sidebar-link {{ request()->routeIs('institutes') ? 'active' : '' }}">
+            Institute Management
+        </a>
+
+        <a href="{{ route('admin.institute.requests') }}"class="sidebar-link">
+            Institute Requests
+        </a>
+
+        <a href="{{ route('admin.independent.learners') }}"class="sidebar-link {{ request()->routeIs('admin.independent.learners*') ? 'active' : '' }}">
+            Independent Learners
+        </a>
+
+    @endif
 
 </div>

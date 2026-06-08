@@ -23,6 +23,7 @@ class Assessment extends Model
         'duration',
         'question_paper_type',
         'file_path',
+        'institute',
         'status',
     ];
 }

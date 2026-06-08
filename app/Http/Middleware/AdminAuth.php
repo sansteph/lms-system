@@ -15,8 +15,9 @@ class AdminAuth
     {
         if (
             !session()->has('user_id') ||
-            session('user_role') != 'Admin'
-        ) {
+            !in_array(session('user_role'), ['Admin', 'InstituteAdmin'])
+        ) 
+        {
             return redirect()->route('admin.login');
         }
 

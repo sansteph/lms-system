@@ -25,45 +25,12 @@
             </div>
 
             @if(session('success'))
-                <div class="alert alert-success">
-                    {{ session('success') }}
-                </div>
+                <div class="alert alert-success">{{ session('success') }}</div>
             @endif
+
             @if($errors->any())
-                <div class="alert alert-danger">
-                    Please fill all required fields correctly.
-                </div>
+                <div class="alert alert-danger">{{ $errors->first() }}</div>
             @endif
-
-            <div class="row g-4 mb-4">
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <h6>Total Classes</h6>
-                        <h2>{{ $classes->count() }}</h2>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <h6>Total Sections</h6>
-                        <h2>{{ $classes->count() }}</h2>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <h6>Assigned Teachers</h6>
-                        <h2>{{ $classes->count() }}</h2>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <h6>Academic Year</h6>
-                        <h2>{{ date('Y') }}</h2>
-                    </div>
-                </div>
-            </div>
 
             <div class="card shadow border-0">
                 <div class="card-body">
@@ -71,10 +38,10 @@
                     <form method="GET" action="{{ route('classes') }}" class="row mb-3">
                         <div class="col-md-4">
                             <input type="text"
-                                name="search"
-                                class="form-control"
-                                placeholder="Search by class or teacher"
-                                value="{{ request('search') }}">
+                                   name="search"
+                                   class="form-control"
+                                   placeholder="Search by class or teacher"
+                                   value="{{ request('search') }}">
                         </div>
 
                         <div class="col-md-2">
@@ -89,6 +56,7 @@
                             <tr>
                                 <th>Sl. No</th>
                                 <th>Class</th>
+                                <th>Institute</th>
                                 <th>Section</th>
                                 <th>Class Teacher</th>
                                 <th>Academic Year</th>
@@ -103,6 +71,7 @@
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
                                     <td>{{ $class->class_name }}</td>
+                                    <td>{{ $class->institute ?? 'N/A' }}</td>
                                     <td>{{ $class->section }}</td>
                                     <td>{{ $class->class_teacher }}</td>
                                     <td>{{ $class->academic_year }}</td>
@@ -123,14 +92,13 @@
                                         </button>
 
                                         <a href="{{ route('classes.delete', $class->id) }}"
-                                        class="btn btn-sm btn-outline-danger"
-                                        onclick="return confirm('Are you sure you want to delete this class?')">
+                                           class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('Are you sure you want to delete this class?')">
                                             Delete
                                         </a>
                                     </td>
                                 </tr>
 
-                                <!-- Edit Class Modal -->
                                 <div class="modal fade" id="editClassModal{{ $class->id }}" tabindex="-1">
                                     <div class="modal-dialog modal-lg modal-dialog-centered">
                                         <div class="modal-content">
@@ -140,7 +108,6 @@
 
                                                 <div class="modal-header">
                                                     <h5 class="modal-title">Edit Class</h5>
-
                                                     <button type="button"
                                                             class="btn-close"
                                                             data-bs-dismiss="modal">
@@ -153,61 +120,73 @@
 
                                                         <div class="col-md-6">
                                                             <label class="form-label">Class Name</label>
-
                                                             <input type="text"
-                                                                name="class_name"
-                                                                class="form-control"
-                                                                value="{{ $class->class_name }}"
-                                                                required>
+                                                                   name="class_name"
+                                                                   class="form-control"
+                                                                   value="{{ $class->class_name }}"
+                                                                   required>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Institute</label>
+
+                                                            @if(session('user_role') == 'InstituteAdmin')
+                                                                <input type="hidden"
+                                                                       name="institute"
+                                                                       value="{{ session('user_institute') }}">
+
+                                                                <input type="text"
+                                                                       class="form-control"
+                                                                       value="{{ session('user_institute') }}"
+                                                                       readonly>
+                                                            @else
+                                                                <input type="text"
+                                                                       name="institute"
+                                                                       class="form-control"
+                                                                       value="{{ $class->institute }}"
+                                                                       required>
+                                                            @endif
                                                         </div>
 
                                                         <div class="col-md-6">
                                                             <label class="form-label">Section</label>
-
                                                             <input type="text"
-                                                                name="section"
-                                                                class="form-control"
-                                                                value="{{ $class->section }}"
-                                                                required>
+                                                                   name="section"
+                                                                   class="form-control"
+                                                                   value="{{ $class->section }}"
+                                                                   required>
                                                         </div>
 
                                                         <div class="col-md-6">
                                                             <label class="form-label">Class Teacher</label>
-
                                                             <input type="text"
-                                                                name="class_teacher"
-                                                                class="form-control"
-                                                                value="{{ $class->class_teacher }}"
-                                                                required>
+                                                                   name="class_teacher"
+                                                                   class="form-control"
+                                                                   value="{{ $class->class_teacher }}"
+                                                                   required>
                                                         </div>
 
                                                         <div class="col-md-6">
                                                             <label class="form-label">Academic Year</label>
-
                                                             <input type="text"
-                                                                name="academic_year"
-                                                                class="form-control"
-                                                                value="{{ $class->academic_year }}"
-                                                                required>
+                                                                   name="academic_year"
+                                                                   class="form-control"
+                                                                   value="{{ $class->academic_year }}"
+                                                                   required>
                                                         </div>
 
                                                         <div class="col-md-6">
                                                             <label class="form-label">Status</label>
-
                                                             <select name="status"
                                                                     class="form-control"
                                                                     required>
-
-                                                                <option value="1"
-                                                                    {{ $class->status == 1 ? 'selected' : '' }}>
+                                                                <option value="1" {{ $class->status == 1 ? 'selected' : '' }}>
                                                                     Active
                                                                 </option>
 
-                                                                <option value="0"
-                                                                    {{ $class->status == 0 ? 'selected' : '' }}>
+                                                                <option value="0" {{ $class->status == 0 ? 'selected' : '' }}>
                                                                     Inactive
                                                                 </option>
-
                                                             </select>
                                                         </div>
 
@@ -237,7 +216,7 @@
                             @empty
 
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted">
+                                    <td colspan="8" class="text-center text-muted">
                                         No classes found
                                     </td>
                                 </tr>
@@ -246,11 +225,6 @@
                         </tbody>
                     </table>
 
-                    <div class="mt-4 d-flex gap-2 flex-wrap">
-                        <button class="btn btn-outline-primary">Promote Classes</button>
-                        <button class="btn btn-outline-danger">Archive Class X</button>
-                    </div>
-
                 </div>
             </div>
 
@@ -258,7 +232,6 @@
     </div>
 </div>
 
-<!-- Add Class Modal -->
 <div class="modal fade" id="addClassModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -276,22 +249,59 @@
 
                         <div class="col-md-6">
                             <label class="form-label">Class Name</label>
-                            <input type="text" name="class_name" class="form-control" placeholder="Example: VIII" required>
+                            <input type="text"
+                                   name="class_name"
+                                   class="form-control"
+                                   placeholder="Example: VIII"
+                                   required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Institute</label>
+
+                            @if(session('user_role') == 'InstituteAdmin')
+                                <input type="hidden"
+                                       name="institute"
+                                       value="{{ session('user_institute') }}">
+
+                                <input type="text"
+                                       class="form-control"
+                                       value="{{ session('user_institute') }}"
+                                       readonly>
+                            @else
+                                <input type="text"
+                                       name="institute"
+                                       class="form-control"
+                                       placeholder="Enter institute name"
+                                       required>
+                            @endif
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Section</label>
-                            <input type="text" name="section" class="form-control" placeholder="Example: A" required>
+                            <input type="text"
+                                   name="section"
+                                   class="form-control"
+                                   placeholder="Example: A"
+                                   required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Class Teacher</label>
-                            <input type="text" name="class_teacher" class="form-control" placeholder="Teacher name" required>
+                            <input type="text"
+                                   name="class_teacher"
+                                   class="form-control"
+                                   placeholder="Teacher name"
+                                   required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Academic Year</label>
-                            <input type="text" name="academic_year" class="form-control" placeholder="2026" required>
+                            <input type="text"
+                                   name="academic_year"
+                                   class="form-control"
+                                   placeholder="2026"
+                                   required>
                         </div>
 
                         <div class="col-md-6">
@@ -315,13 +325,5 @@
         </div>
     </div>
 </div>
-
-<script>
-function confirmDelete() {
-    if(confirm("Are you sure you want to delete this class?")) {
-        alert("Delete logic will be connected next");
-    }
-}
-</script>
 
 @endsection

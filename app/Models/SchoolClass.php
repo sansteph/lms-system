@@ -14,5 +14,6 @@ protected $fillable = [
     'class_teacher',
     'academic_year',
     'status',
+    'institute',
 ];
 }

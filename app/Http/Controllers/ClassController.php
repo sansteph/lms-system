@@ -11,12 +11,18 @@ class ClassController extends Controller
     {
         $search = $request->search;
 
-        $classes = SchoolClass::when($search, function ($query, $search) {
-            return $query->where('class_name', 'like', "%{$search}%")
-                        ->orWhere('section', 'like', "%{$search}%")
-                        ->orWhere('class_teacher', 'like', "%{$search}%")
-                        ->orWhere('academic_year', 'like', "%{$search}%");
-        })->get();
+        $classes = SchoolClass::when(session('user_role') == 'InstituteAdmin', function ($query) {
+                $query->where('institute', session('user_institute'));
+            })
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('class_name', 'like', "%{$search}%")
+                      ->orWhere('section', 'like', "%{$search}%")
+                      ->orWhere('class_teacher', 'like', "%{$search}%")
+                      ->orWhere('academic_year', 'like', "%{$search}%");
+                });
+            })
+            ->get();
 
         return view('classes', compact('classes'));
     }
@@ -29,9 +35,15 @@ class ClassController extends Controller
             'class_teacher' => 'required|string|max:100',
             'academic_year' => 'required|string|max:20',
             'status' => 'required|boolean',
+            'institute' => session('user_role') == 'Admin'
+                ? 'required|string|max:255'
+                : 'nullable|string|max:255',
         ]);
 
         SchoolClass::create([
+            'institute' => session('user_role') == 'InstituteAdmin'
+                ? session('user_institute')
+                : $request->institute,
             'class_name' => $request->class_name,
             'section' => $request->section,
             'class_teacher' => $request->class_teacher,
@@ -41,6 +53,7 @@ class ClassController extends Controller
 
         return redirect()->back()->with('success', 'Class added successfully');
     }
+
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -49,11 +62,24 @@ class ClassController extends Controller
             'class_teacher' => 'required|string|max:100',
             'academic_year' => 'required|string|max:20',
             'status' => 'required|boolean',
+            'institute' => session('user_role') == 'Admin'
+                ? 'required|string|max:255'
+                : 'nullable|string|max:255',
         ]);
 
         $class = SchoolClass::findOrFail($id);
 
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $class->institute != session('user_institute')
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
+
         $class->update([
+            'institute' => session('user_role') == 'InstituteAdmin'
+                ? session('user_institute')
+                : $request->institute,
             'class_name' => $request->class_name,
             'section' => $request->section,
             'class_teacher' => $request->class_teacher,
@@ -63,9 +89,17 @@ class ClassController extends Controller
 
         return redirect()->back()->with('success', 'Class updated successfully');
     }
+
     public function delete($id)
     {
         $class = SchoolClass::findOrFail($id);
+
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $class->institute != session('user_institute')
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $class->delete();
 

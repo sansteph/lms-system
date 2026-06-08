@@ -102,13 +102,19 @@ class PageController extends Controller
     {
         $search = $request->search;
 
-        $students = Student::when($search, function ($query, $search) {
-            return $query->where('name', 'like', "%{$search}%")
-                        ->orWhere('student_id', 'like', "%{$search}%")
-                        ->orWhere('institute', 'like', "%{$search}%")
-                        ->orWhere('class', 'like', "%{$search}%")
-                        ->orWhere('section', 'like', "%{$search}%");
-        })->get();
+        $students = Student::when(session('user_role') == 'InstituteAdmin', function ($query) {
+                $query->where('institute', session('user_institute'));
+            })
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('student_id', 'like', "%{$search}%")
+                    ->orWhere('institute', 'like', "%{$search}%")
+                    ->orWhere('class', 'like', "%{$search}%")
+                    ->orWhere('section', 'like', "%{$search}%");
+                });
+            })
+            ->get();
 
         return view('students', compact('students'));
     }
@@ -145,17 +151,20 @@ class PageController extends Controller
         $request->validate([
             'student_id' => 'required|string|max:50',
             'name' => 'required|string|max:100',
-            'institute' => 'required|string|max:100',
             'class' => 'required|string|max:50',
             'section' => 'required|string|max:20',
             'contact' => 'required|string|max:20',
             'password' => 'required|min:6',
         ]);
 
+        $institute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : $request->institute;
+
         Student::create([
             'student_id' => $request->student_id,
             'name' => $request->name,
-            'institute' => $request->institute,
+            'institute' => $institute,
             'class' => $request->class,
             'section' => $request->section,
             'contact' => $request->contact,
@@ -180,10 +189,18 @@ class PageController extends Controller
 
         $student = Student::findOrFail($id);
 
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $student->institute != session('user_institute')
+        ) 
+        {
+            abort(403, 'Unauthorized action.');
+        }
+
         $studentData = [
             'student_id' => $request->student_id,
             'name' => $request->name,
-            'institute' => $request->institute,
+            'institute' => session('user_role') == 'InstituteAdmin'? session('user_institute'): $request->institute,
             'class' => $request->class,
             'section' => $request->section,
             'contact' => $request->contact,
@@ -201,6 +218,14 @@ class PageController extends Controller
     public function deleteStudent($id)
     {
         $student = Student::findOrFail($id);
+
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $student->institute != session('user_institute')
+        ) 
+        {
+            abort(403, 'Unauthorized action.');
+        }
 
         AssessmentResult::where('student_id', $id)->delete();
 

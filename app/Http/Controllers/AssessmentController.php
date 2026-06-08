@@ -14,11 +14,17 @@ class AssessmentController extends Controller
         $search = $request->search;
 
         $assessments = Assessment::with('questions')
+            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+                $query->where('institute', session('user_institute'));
+            })
             ->when($search, function ($query, $search) {
-            return $query->where('assessment_title', 'like', "%{$search}%")
-                         ->orWhere('assessment_type', 'like', "%{$search}%")
-                         ->orWhere('assigned_class', 'like', "%{$search}%");
-        })->get();
+                $query->where(function ($q) use ($search) {
+                    $q->where('assessment_title', 'like', "%{$search}%")
+                      ->orWhere('assessment_type', 'like', "%{$search}%")
+                      ->orWhere('assigned_class', 'like', "%{$search}%");
+                });
+            })
+            ->get();
 
         return view('assessments', compact('assessments'));
     }
@@ -35,6 +41,9 @@ class AssessmentController extends Controller
             'file' => 'nullable|file|max:20480',
             'status' => 'required|boolean',
             'content_id' => 'nullable|exists:contents,id',
+            'institute' => session('user_role') == 'Admin'
+                ? 'required|string|max:255'
+                : 'nullable|string|max:255',
         ]);
 
         $filePath = null;
@@ -46,6 +55,9 @@ class AssessmentController extends Controller
         }
 
         Assessment::create([
+            'institute' => session('user_role') == 'InstituteAdmin'
+                ? session('user_institute')
+                : $request->institute,
             'assessment_title' => $request->assessment_title,
             'assessment_type' => $request->assessment_type,
             'assigned_class' => $request->assigned_class,
@@ -57,8 +69,10 @@ class AssessmentController extends Controller
             'content_id' => $request->content_id,
         ]);
 
-        return redirect()->back()->with('success', 'Assessment created successfully');
+        return redirect()->back()
+            ->with('success', 'Assessment created successfully');
     }
+
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -70,9 +84,20 @@ class AssessmentController extends Controller
             'question_paper_type' => 'nullable|string',
             'file' => 'nullable|file|max:20480',
             'status' => 'required|boolean',
+            'content_id' => 'nullable|exists:contents,id',
+            'institute' => session('user_role') == 'Admin'
+                ? 'required|string|max:255'
+                : 'nullable|string|max:255',
         ]);
 
         $assessment = Assessment::findOrFail($id);
+
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $assessment->institute != session('user_institute')
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $filePath = $assessment->file_path;
 
@@ -83,6 +108,9 @@ class AssessmentController extends Controller
         }
 
         $assessment->update([
+            'institute' => session('user_role') == 'InstituteAdmin'
+                ? session('user_institute')
+                : $request->institute,
             'assessment_title' => $request->assessment_title,
             'assessment_type' => $request->assessment_type,
             'assigned_class' => $request->assigned_class,
@@ -91,19 +119,30 @@ class AssessmentController extends Controller
             'question_paper_type' => $request->question_paper_type,
             'file_path' => $filePath,
             'status' => $request->status,
+            'content_id' => $request->content_id,
         ]);
 
-        return redirect()->back()->with('success', 'Assessment updated successfully');
+        return redirect()->back()
+            ->with('success', 'Assessment updated successfully');
     }
+
     public function delete($id)
     {
         $assessment = Assessment::findOrFail($id);
+
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $assessment->institute != session('user_institute')
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
 
         AssessmentResult::where('assessment_id', $id)->delete();
         AssessmentQuestion::where('assessment_id', $id)->delete();
 
         $assessment->delete();
 
-        return redirect()->back()->with('success', 'Assessment deleted successfully. Related questions, results, badges, and history were also removed.');
+        return redirect()->back()
+            ->with('success', 'Assessment deleted successfully. Related questions, results, badges, and history were also removed.');
     }
 }

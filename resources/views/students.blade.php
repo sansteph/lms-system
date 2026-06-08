@@ -18,10 +18,6 @@
                 </div>
 
                 <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-outline-success btn-sm">
-                        Import Excel
-                    </button>
-
                     <button class="btn btn-primary btn-sm"
                             data-bs-toggle="modal"
                             data-bs-target="#addStudentModal">
@@ -41,17 +37,17 @@
 
                     @if($errors->any())
                         <div class="alert alert-danger">
-                            Please fill all required fields correctly.
+                            {{ $errors->first() }}
                         </div>
                     @endif
 
                     <form method="GET" action="{{ route('students') }}" class="row mb-3">
                         <div class="col-md-4">
                             <input type="text"
-                                name="search"
-                                class="form-control"
-                                placeholder="Search by name or ID"
-                                value="{{ request('search') }}">
+                                   name="search"
+                                   class="form-control"
+                                   placeholder="Search by name or ID"
+                                   value="{{ request('search') }}">
                         </div>
 
                         <div class="col-md-2">
@@ -122,6 +118,7 @@
 
                                                 <div class="modal-body">
                                                     <div class="row g-3">
+
                                                         <div class="col-md-6">
                                                             <label class="form-label">Student ID</label>
                                                             <input type="text" name="student_id" class="form-control" value="{{ $student->student_id }}" required>
@@ -134,7 +131,23 @@
 
                                                         <div class="col-md-6">
                                                             <label class="form-label">Institute</label>
-                                                            <input type="text" name="institute" class="form-control" value="{{ $student->institute }}" required>
+
+                                                            @if(session('user_role') == 'InstituteAdmin')
+                                                                <input type="hidden"
+                                                                       name="institute"
+                                                                       value="{{ session('user_institute') }}">
+
+                                                                <input type="text"
+                                                                       class="form-control"
+                                                                       value="{{ session('user_institute') }}"
+                                                                       readonly>
+                                                            @else
+                                                                <input type="text"
+                                                                       name="institute"
+                                                                       class="form-control"
+                                                                       value="{{ $student->institute }}"
+                                                                       required>
+                                                            @endif
                                                         </div>
 
                                                         <div class="col-md-3">
@@ -164,6 +177,7 @@
                                                                 <option value="0" {{ $student->status == 0 ? 'selected' : '' }}>Inactive</option>
                                                             </select>
                                                         </div>
+
                                                     </div>
                                                 </div>
 
@@ -208,6 +222,7 @@
 
                 <div class="modal-body">
                     <div class="row g-3">
+
                         <div class="col-md-6">
                             <label class="form-label">Student ID</label>
                             <input type="text" name="student_id" class="form-control" required>
@@ -220,7 +235,22 @@
 
                         <div class="col-md-6">
                             <label class="form-label">Institute</label>
-                            <input type="text" name="institute" class="form-control" required>
+
+                            @if(session('user_role') == 'InstituteAdmin')
+                                <input type="hidden"
+                                       name="institute"
+                                       value="{{ session('user_institute') }}">
+
+                                <input type="text"
+                                       class="form-control"
+                                       value="{{ session('user_institute') }}"
+                                       readonly>
+                            @else
+                                <input type="text"
+                                       name="institute"
+                                       class="form-control"
+                                       required>
+                            @endif
                         </div>
 
                         <div class="col-md-3">
@@ -237,10 +267,12 @@
                             <label class="form-label">Contact</label>
                             <input type="text" name="contact" class="form-control" required>
                         </div>
+
                         <div class="col-md-6">
                             <label class="form-label">Password</label>
                             <input type="password" name="password" class="form-control" placeholder="Enter Password" required>
                         </div>
+
                     </div>
                 </div>
 
