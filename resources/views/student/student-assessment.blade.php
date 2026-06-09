@@ -73,156 +73,192 @@
 
             @if($selectedAssessment)
 
-                <div class="card shadow border-0 mt-4">
+                @if(!session('active_assessment_session_id'))
 
-                    <div class="card-body">
+                    <div class="card shadow border-0 mt-4">
+                        <div class="card-body text-center">
 
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <h5>Assessment Instructions</h5>
 
-                            <div>
+                            <ul class="text-start mt-3">
+                                <li>Do not switch tabs or windows.</li>
+                                <li>Do not refresh the page.</li>
+                                <li>Content access will be locked during assessment.</li>
+                                <li>3 violations will auto-submit the assessment.</li>
+                            </ul>
 
-                                <h5 class="mb-1">
-                                    {{ $selectedAssessment->assessment_title }}
-                                </h5>
+                            <form method="POST"
+                                action="{{ route('assessment.session.start', $selectedAssessment->id) }}">
 
-                                <p class="text-muted mb-0">
-                                    Total Marks:
-                                    {{ $questions->sum('marks') }}
+                                @csrf
 
-                                    |
+                                <button type="submit"
+                                        class="btn btn-success">
 
-                                    Duration:
-                                    {{ $selectedAssessment->duration }} Minutes
-                                </p>
+                                    Start Assessment
 
-                            </div>
+                                </button>
 
-                            <div class="alert alert-warning mb-0">
+                            </form>
 
-                                Time Left:
-                                <strong id="timer">
-                                    {{ $selectedAssessment->duration }}:00
-                                </strong>
+                        </div>
+                    </div>
+
+                @else
+
+                    <div class="card shadow border-0 mt-4">
+
+                        <div class="card-body">
+
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+
+                                <div>
+
+                                    <h5 class="mb-1">
+                                        {{ $selectedAssessment->assessment_title }}
+                                    </h5>
+
+                                    <p class="text-muted mb-0">
+                                        Total Marks:
+                                        {{ $questions->sum('marks') }}
+
+                                        |
+
+                                        Duration:
+                                        {{ $selectedAssessment->duration }} Minutes
+                                    </p>
+
+                                </div>
+
+                                <div class="alert alert-warning mb-0">
+
+                                    Time Left:
+                                    <strong id="timer">
+                                        {{ $selectedAssessment->duration }}:00
+                                    </strong>
+
+                                </div>
 
                             </div>
 
                         </div>
 
                     </div>
-
-                </div>
-
-                <form method="POST"
+                    <form method="POST"
                       action="{{ route('assessment-results.store') }}"
                       class="mt-4"
                       id="assessmentForm">
 
-                    @csrf
+                        @csrf
 
-                    <input type="hidden"
-                           name="student_id"
-                           value="{{ session('student_id') }}">
+                        <input type="hidden"
+                            name="student_id"
+                            value="{{ session('student_id') }}">
 
-                    <input type="hidden"
-                           name="assessment_id"
-                           value="{{ $selectedAssessment->id }}">
+                        <input type="hidden"
+                            name="assessment_id"
+                            value="{{ $selectedAssessment->id }}">
 
-                    <input type="hidden" 
-                            name="total_marks" 
-                            value="{{ $questions->sum('marks') }}">
+                        <input type="hidden" 
+                                name="total_marks" 
+                                value="{{ $questions->sum('marks') }}">
 
-                    @forelse($questions as $index => $question)
+                        @forelse($questions as $index => $question)
 
-                        <div class="card shadow border-0 mb-3">
+                            <div class="card shadow border-0 mb-3">
 
-                            <div class="card-body">
+                                <div class="card-body">
 
-                                <h6 class="mb-3">
+                                    <h6 class="mb-3">
 
-                                    {{ $index + 1 }}.
-                                    {{ $question->question }}
+                                        {{ $index + 1 }}.
+                                        {{ $question->question }}
 
-                                </h6>
+                                    </h6>
 
-                                <div class="form-check mb-2">
+                                    <div class="form-check mb-2">
 
-                                    <input class="form-check-input"
-                                           type="radio"
-                                           name="answers[{{ $question->id }}]"
-                                           value="A">
+                                        <input class="form-check-input"
+                                            type="radio"
+                                            name="answers[{{ $question->id }}]"
+                                            value="A">
 
-                                    <label class="form-check-label">
-                                        {{ $question->option_a }}
-                                    </label>
+                                        <label class="form-check-label">
+                                            {{ $question->option_a }}
+                                        </label>
 
-                                </div>
+                                    </div>
 
-                                <div class="form-check mb-2">
+                                    <div class="form-check mb-2">
 
-                                    <input class="form-check-input"
-                                           type="radio"
-                                           name="answers[{{ $question->id }}]"
-                                           value="B">
+                                        <input class="form-check-input"
+                                            type="radio"
+                                            name="answers[{{ $question->id }}]"
+                                            value="B">
 
-                                    <label class="form-check-label">
-                                        {{ $question->option_b }}
-                                    </label>
+                                        <label class="form-check-label">
+                                            {{ $question->option_b }}
+                                        </label>
 
-                                </div>
+                                    </div>
 
-                                <div class="form-check mb-2">
+                                    <div class="form-check mb-2">
 
-                                    <input class="form-check-input"
-                                           type="radio"
-                                           name="answers[{{ $question->id }}]"
-                                           value="C">
+                                        <input class="form-check-input"
+                                            type="radio"
+                                            name="answers[{{ $question->id }}]"
+                                            value="C">
 
-                                    <label class="form-check-label">
-                                        {{ $question->option_c }}
-                                    </label>
+                                        <label class="form-check-label">
+                                            {{ $question->option_c }}
+                                        </label>
 
-                                </div>
+                                    </div>
 
-                                <div class="form-check">
+                                    <div class="form-check">
 
-                                    <input class="form-check-input"
-                                           type="radio"
-                                           name="answers[{{ $question->id }}]"
-                                           value="D">
+                                        <input class="form-check-input"
+                                            type="radio"
+                                            name="answers[{{ $question->id }}]"
+                                            value="D">
 
-                                    <label class="form-check-label">
-                                        {{ $question->option_d }}
-                                    </label>
+                                        <label class="form-check-label">
+                                            {{ $question->option_d }}
+                                        </label>
+
+                                    </div>
 
                                 </div>
 
                             </div>
 
-                        </div>
+                        @empty
 
-                    @empty
+                            <div class="alert alert-warning">
 
-                        <div class="alert alert-warning">
+                                No questions added for this assessment yet.
 
-                            No questions added for this assessment yet.
+                            </div>
 
-                        </div>
+                        @endforelse
 
-                    @endforelse
+                        @if($questions->count() > 0)
 
-                    @if($questions->count() > 0)
+                            <button type="submit"
+                                    class="btn btn-success w-100">
 
-                        <button type="submit"
-                                class="btn btn-success w-100">
+                                Submit Assessment
 
-                            Submit Assessment
+                            </button>
 
-                        </button>
+                        @endif
 
-                    @endif
+                    </form>
 
-                </form>
 
+                    
+                @endif
+                
             @endif
 
         </div>
@@ -231,37 +267,39 @@
 
 </div>
 
-@if($selectedAssessment)
+@if($selectedAssessment && session('active_assessment_session_id'))
 
 <script>
-
     let minutes = parseInt("{{ $selectedAssessment->duration }}");
     let seconds = 0;
+    let submitting = false;
 
     const timerElement = document.getElementById("timer");
+    const assessmentForm = document.getElementById("assessmentForm");
+
+    const violationUrl = "{{ route('assessment.session.violation', session('active_assessment_session_id')) }}";
+    const csrfToken = "{{ csrf_token() }}";
+
+    function submitAssessment() {
+        if (!submitting) {
+            submitting = true;
+            assessmentForm.submit();
+        }
+    }
 
     const countdown = setInterval(function () {
-
         if (seconds === 0) {
-
             if (minutes === 0) {
-
                 clearInterval(countdown);
-
                 alert("Time is up! Your assessment will be submitted now.");
-
-                document.getElementById("assessmentForm").submit();
-
+                submitAssessment();
                 return;
             }
 
             minutes--;
             seconds = 59;
-
         } else {
-
             seconds--;
-
         }
 
         timerElement.innerText =
@@ -269,6 +307,49 @@
 
     }, 1000);
 
+    function recordViolation() {
+        fetch(violationUrl, {
+            method: "POST",
+            headers: {
+                "X-CSRF-TOKEN": csrfToken,
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.auto_submit) {
+                alert(
+                    "Assessment automatically submitted due to repeated tab switching."
+                );
+                submitAssessment();
+            }
+            else {
+                alert(
+                    "Warning: Do not switch tabs/windows during the assessment. Violation "
+                    + data.violation_count +
+                    " of 3."
+                );
+            }
+        });
+    }
+
+    document.addEventListener("visibilitychange", function () {
+        if (document.hidden && !submitting) {
+            recordViolation();
+        }
+    });
+
+    window.addEventListener("blur", function () {
+        if (!submitting) {
+            recordViolation();
+        }
+    });
+
+    assessmentForm.addEventListener("submit", function () {
+        submitting = true;
+    });
 </script>
 
 @endif

@@ -62,6 +62,12 @@
         My Space Review
     </a>
 
+    @if(in_array(session('user_role'), ['Admin', 'InstituteAdmin']))
+        <a href="{{ route('admin.assessment.monitoring') }}" class="sidebar-link {{ request()->routeIs('admin.assessment.monitoring') ? 'active' : '' }}">
+            Assessment Monitoring
+        </a>
+    @endif
+
     @if(session('user_role') == 'Admin')
 
         <a href="{{ route('admin.activity.monitoring') }}"class="sidebar-link {{ request()->routeIs('admin.activity.monitoring') ? 'active' : '' }}">

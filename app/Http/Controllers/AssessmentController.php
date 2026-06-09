@@ -20,13 +20,20 @@ class AssessmentController extends Controller
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('assessment_title', 'like', "%{$search}%")
-                      ->orWhere('assessment_type', 'like', "%{$search}%")
-                      ->orWhere('assigned_class', 'like', "%{$search}%");
+                    ->orWhere('assessment_type', 'like', "%{$search}%")
+                    ->orWhere('assigned_class', 'like', "%{$search}%");
                 });
             })
             ->get();
 
-        return view('assessments', compact('assessments'));
+        $contents = \App\Models\Content::where('status', 1)
+            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+                $query->where('institute', session('user_institute'));
+            })
+            ->orderBy('lesson_order')
+            ->get();
+
+        return view('assessments', compact('assessments', 'contents'));
     }
 
     public function store(Request $request)
@@ -40,7 +47,7 @@ class AssessmentController extends Controller
             'question_paper_type' => 'nullable|string',
             'file' => 'nullable|file|max:20480',
             'status' => 'required|boolean',
-            'content_id' => 'nullable|exists:contents,id',
+            'content_id' => 'required|exists:contents,id',
             'institute' => session('user_role') == 'Admin'
                 ? 'required|string|max:255'
                 : 'nullable|string|max:255',
@@ -84,7 +91,7 @@ class AssessmentController extends Controller
             'question_paper_type' => 'nullable|string',
             'file' => 'nullable|file|max:20480',
             'status' => 'required|boolean',
-            'content_id' => 'nullable|exists:contents,id',
+            'content_id' => 'required|exists:contents,id',
             'institute' => session('user_role') == 'Admin'
                 ? 'required|string|max:255'
                 : 'nullable|string|max:255',

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\AssessmentResult;
 use App\Models\AssessmentQuestion;
+use App\Models\AssessmentSession;
 
 class AssessmentResultController extends Controller
 {
@@ -17,12 +18,20 @@ class AssessmentResultController extends Controller
             'answers' => 'nullable|array',
         ]);
 
+        $existingResult = AssessmentResult::where('student_id', $request->student_id)
+            ->where('assessment_id', $request->assessment_id)
+            ->first();
+
+        if ($existingResult) {
+            return redirect()->route('student.history')
+                ->with('error', 'You have already submitted this assessment.');
+        }
+
         $score = 0;
         $answers = $request->answers ?? [];
 
         foreach ($answers as $questionId => $selectedAnswer) {
-
-            $question = \App\Models\AssessmentQuestion::find($questionId);
+            $question = AssessmentQuestion::find($questionId);
 
             if ($question && $question->correct_answer == $selectedAnswer) {
                 $score += $question->marks;
@@ -44,14 +53,6 @@ class AssessmentResultController extends Controller
         } elseif ($percentage >= 40) {
             $badge = 'Bronze';
         }
-        $existingResult = AssessmentResult::where('student_id', $request->student_id)
-            ->where('assessment_id', $request->assessment_id)
-            ->first();
-
-        if ($existingResult) {
-            return redirect()->route('student.history')
-                ->with('error', 'You have already submitted this assessment.');
-        }
 
         AssessmentResult::create([
             'student_id' => $request->student_id,
@@ -62,6 +63,19 @@ class AssessmentResultController extends Controller
             'badge' => $badge,
             'percentage' => $percentage,
         ]);
+
+        if (session('active_assessment_session_id')) {
+            AssessmentSession::where('id', session('active_assessment_session_id'))
+                ->update([
+                    'status' => 'Submitted',
+                    'submitted_at' => now(),
+                ]);
+
+            session()->forget([
+                'active_assessment_session_id',
+                'active_assessment_id',
+            ]);
+        }
 
         return redirect()->route('student.history')
             ->with('success', 'Assessment submitted successfully');

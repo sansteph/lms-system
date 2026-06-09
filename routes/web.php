@@ -182,6 +182,8 @@ Route::middleware(['admin.auth', 'super.admin'])->group(function () {
 
     Route::get('/test-gemini', [AIController::class, 'testGemini']);
 
+    Route::get('/admin/assessment-monitoring', [PageController::class, 'assessmentMonitoring'])->name('admin.assessment.monitoring');
+
 });
 
 
@@ -227,6 +229,12 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::post('/teacher/my-space/{id}/delete', [MySpaceController::class, 'delete'])->name('teacher.my-space.delete');
 
     Route::get('/teacher/my-space/{id}', [MySpaceController::class, 'show'])->name('teacher.my-space.show');
+
+    Route::post('/assessment-session/start/{assessmentId}', [PageController::class, 'startAssessmentSession'])->name('assessment.session.start');
+
+    Route::post('/assessment-session/violation/{sessionId}', [PageController::class, 'recordAssessmentViolation'])->name('assessment.session.violation');
+
+    Route::post('/assessment-session/submit/{sessionId}', [PageController::class, 'submitAssessmentSession'])->name('assessment.session.submit');
 });
 
 
@@ -255,6 +263,9 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::post('/student/my-space/{id}/update', [MySpaceController::class, 'update'])->name('student.my-space.update');
     Route::post('/student/my-space/{id}/delete', [MySpaceController::class, 'delete'])->name('student.my-space.delete');
     Route::get('/student/my-space/{id}', [MySpaceController::class, 'show'])->name('student.my-space.show');
+    Route::post('/assessment-session/start/{assessmentId}', [PageController::class, 'startAssessmentSession'])->name('assessment.session.start');
+    Route::post('/assessment-session/violation/{sessionId}', [PageController::class, 'recordAssessmentViolation'])->name('assessment.session.violation');
+    Route::post('/assessment-session/submit/{sessionId}', [PageController::class, 'submitAssessmentSession'])->name('assessment.session.submit');
 });
 
 

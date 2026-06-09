@@ -18,6 +18,7 @@ use App\Models\StudentAchievement;
 use App\Models\LessonProgress;  
 use App\Models\AccessRequest;
 use App\Models\CertificateVerificationLog;
+use App\Models\AssessmentSession;
 
 class PageController extends Controller
 {
@@ -478,6 +479,91 @@ class PageController extends Controller
             'totalAssessmentCount',
         ));
     }
+
+    public function startAssessmentSession($assessmentId)
+    {
+        $userType = session('student_id') ? 'Student' : 'Teacher';
+
+        $userId = session('student_id') ?? session('user_id');
+
+        $session = AssessmentSession::where('assessment_id', $assessmentId)
+            ->where('user_id', $userId)
+            ->where('user_type', $userType)
+            ->where('status', 'Started')
+            ->first();
+
+        if (!$session) {
+
+            $session = AssessmentSession::create([
+                'assessment_id' => $assessmentId,
+                'user_id' => $userId,
+                'user_type' => $userType,
+                'started_at' => now(),
+                'status' => 'Started',
+            ]);
+
+        }
+
+        session([
+            'active_assessment_session_id' => $session->id,
+            'active_assessment_id' => $assessmentId,
+        ]);
+
+        return redirect()
+            ->route('student.assessment', ['assessment_id' => $assessmentId])
+            ->with('success', 'Assessment session started.');
+    }
+
+    public function recordAssessmentViolation($sessionId)
+    {
+        $session = AssessmentSession::findOrFail($sessionId);
+
+        $session->increment('violation_count');
+
+        $session->refresh();
+
+        $session->update([
+            'last_violation_at' => now(),
+        ]);
+
+        if ($session->violation_count >= 3) {
+
+            $session->update([
+                'status' => 'AutoSubmitted',
+                'submitted_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'violation_count' => $session->violation_count,
+                'auto_submit' => true,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'violation_count' => $session->violation_count,
+            'auto_submit' => false,
+        ]);
+    }
+
+    public function submitAssessmentSession($sessionId)
+    {
+        $session = AssessmentSession::findOrFail($sessionId);
+
+        $session->update([
+            'status' => 'Submitted',
+            'submitted_at' => now(),
+        ]);
+
+        session()->forget([
+            'active_assessment_session_id',
+            'active_assessment_id',
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'Assessment submitted successfully.');
+    }
     public function studentTakeAssessment(Request $request)
     {
         $studentId = session('student_id');
@@ -705,35 +791,39 @@ class PageController extends Controller
 
     public function studentContent()
     {
+        $activeAssessmentSession = AssessmentSession::where('user_id', session('student_id'))
+            ->where('user_type', 'Student')
+            ->where('status', 'Started')
+            ->first();
+
+        if ($activeAssessmentSession) {
+            return redirect()
+                ->route('student.assessment', [
+                    'assessment_id' => $activeAssessmentSession->assessment_id,
+                ])
+                ->with('error', 'Content is locked while your assessment is in progress.');
+        }
+
         $contents = Content::orderBy('lesson_order')->get();
 
         $totalLessons = $contents->count();
 
-        $completedLessons = LessonProgress::where(
-            'student_id',
-            session('student_id')
-        )
-        ->where('is_completed', true)
-        ->count();
+        $completedLessons = LessonProgress::where('student_id', session('student_id'))
+            ->where('is_completed', true)
+            ->count();
 
         $progressPercentage = 0;
 
         if ($totalLessons > 0) {
-
-            $progressPercentage = round(
-                ($completedLessons / $totalLessons) * 100
-            );
+            $progressPercentage = round(($completedLessons / $totalLessons) * 100);
         }
 
-        return view(
-            'student.student-content',
-            compact(
-                'contents',
-                'totalLessons',
-                'completedLessons',
-                'progressPercentage'
-            )
-        );
+        return view('student.student-content', compact(
+            'contents',
+            'totalLessons',
+            'completedLessons',
+            'progressPercentage'
+        ));
     }
 
     public function verifyCertificateSubmit(Request $request)
@@ -1093,5 +1183,27 @@ class PageController extends Controller
 
         return redirect()->back()
             ->with('success', 'Lesson marked as completed');
+    }
+
+    public function assessmentMonitoring()
+    {
+        $sessions = AssessmentSession::with([
+                'assessment',
+                'student',
+                'teacher',
+            ])
+            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+
+                $query->whereHas('assessment', function ($q) {
+
+                    $q->where('institute', session('user_institute'));
+
+                });
+
+            })
+            ->latest()
+            ->get();
+
+        return view('assessment-monitoring', compact('sessions'));
     }
 }

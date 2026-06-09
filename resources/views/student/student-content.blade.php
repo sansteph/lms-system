@@ -160,7 +160,7 @@
 
                                         <h5 class="fw-bold mb-0">
 
-                                            {{ $content->title }}
+                                            {{ $content->content_title }}
 
                                         </h5>
 
@@ -210,7 +210,7 @@
 
                                 {{-- FILE SECTION --}}
 
-                                @if($content->file)
+                                @if($content->file_path)
 
                                     <div class="mb-4">
 
@@ -238,7 +238,7 @@
 
                                                 @if(!$isLocked)
 
-                                                    <a href="{{ asset('storage/' . $content->file) }}"
+                                                    <a href="{{ asset('storage/' . $content->file_path) }}"
                                                        target="_blank"
                                                        class="btn btn-sm btn-outline-primary">
 

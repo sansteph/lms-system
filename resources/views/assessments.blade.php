@@ -202,9 +202,7 @@
                                             <a href="{{ route('assessments.delete', $assessment->id) }}"
                                             class="btn btn-sm btn-danger"
                                             onclick="return confirm('Are you sure you want to delete this assessment?')">
-
                                                 Delete
-
                                             </a>
 
                                         </div>
@@ -357,6 +355,32 @@
                                    class="form-control"
                                    placeholder="Example: VIII - A"
                                    required>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Linked Lesson
+                            </label>
+
+                            <select name="content_id"
+                                    class="form-control"
+                                    required>
+
+                                <option value="">
+                                    Select Lesson
+                                </option>
+
+                                @foreach($contents as $content)
+
+                                    <option value="{{ $content->id }}">
+                                        Lesson {{ $content->lesson_order }} - {{ $content->content_title }}
+                                    </option>
+
+                                @endforeach
+
+                            </select>
 
                         </div>
 
@@ -518,6 +542,19 @@
                             <label class="form-label">Class / Group</label>
                             <input type="text" name="assigned_class" class="form-control"
                                    value="{{ $assessment->assigned_class }}" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Linked Lesson</label>
+                            <select name="content_id"class="form-control"required>
+                                <option value="">Select Lesson</option>
+                                @foreach($contents as $content)
+                                    <option value="{{ $content->id }}"
+                                        {{ $assessment->content_id == $content->id ? 'selected' : '' }}>
+                                        Lesson {{ $content->lesson_order }} - {{ $content->content_title }}
+                                    </option>
+                                @endforeach
+                            </select>
                         </div>
 
                         <div class="col-md-3">
