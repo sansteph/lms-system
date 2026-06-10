@@ -133,6 +133,18 @@ class UserController extends Controller
                 'user_institute' => $user->institute,
                 'password_changed_at' => $user->password_changed_at,
             ]);
+
+            $userSession = UserSession::create([
+                'user_type' => $user->role,
+                'user_id' => $user->id,
+                'login_time' => now(),
+                'ip_address' => $request->ip(),
+                'browser' => $request->userAgent(),
+            ]);
+
+            session([
+                'tracking_session_id' => $userSession->id,
+            ]);
             return redirect()->route('admin.dashboard');
         }
 

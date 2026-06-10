@@ -18,6 +18,11 @@ class UserSession extends Model
         'browser',
     ];
 
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
     public function teacher()
     {
         return $this->belongsTo(User::class, 'user_id');

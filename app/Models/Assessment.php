@@ -25,5 +25,6 @@ class Assessment extends Model
         'file_path',
         'institute',
         'status',
+        'content_id',
     ];
 }

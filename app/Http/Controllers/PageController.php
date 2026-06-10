@@ -1010,14 +1010,11 @@ class PageController extends Controller
             'assessmentAverages',
         ));
     }
-    public function activityMonitoring(Request $request)
+   public function activityMonitoring(Request $request)
     {
-        $userType = $request->user_type;
         $date = $request->date;
 
-        $sessions = UserSession::when($userType, function ($query, $userType) {
-                $query->where('user_type', $userType);
-            })
+        $instituteAdminSessions = UserSession::where('user_type', 'InstituteAdmin')
             ->when($date, function ($query, $date) {
                 $query->whereDate('login_time', $date);
             })
@@ -1025,15 +1022,49 @@ class PageController extends Controller
             ->take(20)
             ->get();
 
-        $activityLogs = UserActivityLog::when($userType, function ($query, $userType) {
-                $query->where('user_type', $userType);
+        $teacherSessions = UserSession::where('user_type', 'Teacher')
+            ->when($date, function ($query, $date) {
+                $query->whereDate('login_time', $date);
             })
+            ->latest()
+            ->take(20)
+            ->get();
+
+        $studentSessions = UserSession::where('user_type', 'Student')
+            ->when($date, function ($query, $date) {
+                $query->whereDate('login_time', $date);
+            })
+            ->latest()
+            ->take(20)
+            ->get();
+
+        $instituteAdminLogs = UserActivityLog::where('user_type', 'InstituteAdmin')
             ->when($date, function ($query, $date) {
                 $query->whereDate('started_at', $date);
             })
             ->latest()
-            ->take(50)
+            ->take(30)
             ->get();
+
+        $teacherLogs = UserActivityLog::where('user_type', 'Teacher')
+            ->when($date, function ($query, $date) {
+                $query->whereDate('started_at', $date);
+            })
+            ->latest()
+            ->take(30)
+            ->get();
+
+        $studentLogs = UserActivityLog::where('user_type', 'Student')
+            ->when($date, function ($query, $date) {
+                $query->whereDate('started_at', $date);
+            })
+            ->latest()
+            ->take(30)
+            ->get();
+
+        $activeInstituteAdmins = UserSession::where('user_type', 'InstituteAdmin')
+            ->distinct('user_id')
+            ->count('user_id');
 
         $activeTeachers = UserSession::where('user_type', 'Teacher')
             ->distinct('user_id')
@@ -1043,56 +1074,42 @@ class PageController extends Controller
             ->distinct('user_id')
             ->count('user_id');
 
-        $onlineUsers = UserSession::when($userType, function ($query, $userType) {
-                $query->where('user_type', $userType);
-            })
-            ->when($date, function ($query, $date) {
-                $query->whereDate('login_time', $date);
-            })
-            ->whereNull('logout_time')
-            ->count();
+        $onlineUsers = UserSession::whereNull('logout_time')->count();
 
-        $mostVisitedSection = UserActivityLog::when($userType, function ($query, $userType) {
-                $query->where('user_type', $userType);
-            })
-            ->when($date, function ($query, $date) {
-                $query->whereDate('started_at', $date);
-            })
-            ->selectRaw('section_name, COUNT(*) as total')
+        $averageSessionDuration = UserSession::avg('total_duration_seconds');
+
+        $mostVisitedSection = UserActivityLog::selectRaw('section_name, COUNT(*) as total')
             ->whereNotNull('section_name')
             ->groupBy('section_name')
             ->orderByDesc('total')
             ->first();
 
-        $averageSessionDuration = UserSession::when($userType, function ($query, $userType) {
-                $query->where('user_type', $userType);
-            })
-            ->when($date, function ($query, $date) {
-                $query->whereDate('login_time', $date);
-            })
-            ->avg('total_duration_seconds');
-
-        $sectionDurations = UserActivityLog::when($userType, function ($query, $userType) {
-                $query->where('user_type', $userType);
-            })
-            ->when($date, function ($query, $date) {
-                $query->whereDate('started_at', $date);
-            })
-            ->selectRaw('section_name, SUM(duration_seconds) as total_duration')
+        $sectionDurations = UserActivityLog::selectRaw('section_name, SUM(duration_seconds) as total_duration')
             ->whereNotNull('section_name')
             ->groupBy('section_name')
             ->orderByDesc('total_duration')
             ->get();
+        
+        $assessmentSessions = AssessmentSession::with(['assessment','student','teacher',])
+            ->latest()
+            ->take(30)
+            ->get();
 
         return view('activity-monitoring', compact(
-            'sessions',
-            'activityLogs',
+            'instituteAdminSessions',
+            'teacherSessions',
+            'studentSessions',
+            'instituteAdminLogs',
+            'teacherLogs',
+            'studentLogs',
+            'activeInstituteAdmins',
             'activeTeachers',
             'activeStudents',
             'onlineUsers',
-            'mostVisitedSection',
             'averageSessionDuration',
-            'sectionDurations'
+            'mostVisitedSection',
+            'sectionDurations',
+            'assessmentSessions',
         ));
     }
     public function exportActivityReport(Request $request)

@@ -144,6 +144,8 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::post('/admin/my-space/{id}/feature', [MySpaceController::class, 'feature'])->name('admin.my-space.feature');
     Route::get('/admin/my-space/{id}', [MySpaceController::class, 'show'])->name('admin.my-space.show');
 
+    Route::get('/admin/assessment-monitoring', [PageController::class, 'assessmentMonitoring'])->name('admin.assessment.monitoring');
+
 });
 
 
@@ -181,8 +183,6 @@ Route::middleware(['admin.auth', 'super.admin'])->group(function () {
         ->name('admin.export.activity');
 
     Route::get('/test-gemini', [AIController::class, 'testGemini']);
-
-    Route::get('/admin/assessment-monitoring', [PageController::class, 'assessmentMonitoring'])->name('admin.assessment.monitoring');
 
 });
 
@@ -251,7 +251,6 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::get('/student/certificate',[PageController::class, 'studentCertificate'])->name('student.certificate');
     Route::get('/student/achievements/create',[StudentAchievementController::class, 'create'])->name('student.achievements.create');
     Route::post('/student/achievements/store',[StudentAchievementController::class, 'store'])->name('student.achievements.store');
-    Route::post('/student/lesson/{contentId}/complete',[LessonProgressController::class, 'markComplete'])->name('student.lesson.complete');
     Route::get('/student/content',[PageController::class, 'studentContent'])->name('student.content');
     Route::post('/student/lesson/{id}/complete',[PageController::class, 'completeLesson'])->name('student.lesson.complete');
     Route::get('/student/basic-details', [StudentProfileController::class, 'create'])->name('student.basic-details');
