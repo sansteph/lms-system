@@ -14,13 +14,42 @@ class ReportController extends Controller
 {
     public function index()
     {
-        $studentCount = Student::count();
-        $teacherCount = User::where('role', 'Teacher')->count();
-        $classCount = SchoolClass::count();
-        $instituteCount = Institute::count();
-        $contentCount = Content::count();
-        $assessmentCount = Assessment::count();
-        $notificationCount = Notification::count();
+        if (session('user_role') == 'InstituteAdmin') {
+
+            $institute = session('user_institute');
+
+            $studentCount = Student::where('institute', $institute)->count();
+
+            $teacherCount = User::where('role', 'Teacher')
+                ->where('institute', $institute)
+                ->count();
+
+            $classCount = SchoolClass::where('institute', $institute)->count();
+
+            $instituteCount = 1;
+
+            $contentCount = Content::where('institute', $institute)->count();
+
+            $assessmentCount = Assessment::where('institute', $institute)->count();
+
+            $notificationCount = Notification::where('institute', $institute)->count();
+
+        } else {
+
+            $studentCount = Student::count();
+
+            $teacherCount = User::where('role', 'Teacher')->count();
+
+            $classCount = SchoolClass::count();
+
+            $instituteCount = Institute::count();
+
+            $contentCount = Content::count();
+
+            $assessmentCount = Assessment::count();
+
+            $notificationCount = Notification::count();
+        }
 
         return view('reports', compact(
             'studentCount',

@@ -86,14 +86,49 @@ class MySpaceController extends Controller
 
     public function adminIndex()
     {
-        $items = MySpace::latest()->get();
+        $items = MySpace::when(session('user_role') == 'InstituteAdmin', function ($query) {
+
+                $studentIds = \App\Models\Student::where('institute', session('user_institute'))
+                    ->pluck('id');
+
+                $teacherIds = \App\Models\User::where('role', 'Teacher')
+                    ->where('institute', session('user_institute'))
+                    ->pluck('id');
+
+                $query->where(function ($q) use ($studentIds, $teacherIds) {
+                    $q->where(function ($sub) use ($studentIds) {
+                        $sub->where('created_by_type', 'Student')
+                            ->whereIn('created_by_id', $studentIds);
+                    })
+                    ->orWhere(function ($sub) use ($teacherIds) {
+                        $sub->where('created_by_type', 'Teacher')
+                            ->whereIn('created_by_id', $teacherIds);
+                    });
+                });
+
+            })
+            ->latest()
+            ->get();
 
         return view('my-space.admin-index', compact('items'));
     }
 
+    private function authorizeAdminAccess($item)
+    {
+        if (session('user_role') != 'InstituteAdmin') {
+            return;
+        }
+
+        $submitter = $item->submitter();
+
+        if (!$submitter || $submitter->institute != session('user_institute')) {
+            abort(403, 'Unauthorized action.');
+        }
+    }
     public function approve($id)
     {
         $item = MySpace::findOrFail($id);
+        $this->authorizeAdminAccess($item);
 
         $item->update([
             'status' => 'Approved',
@@ -106,6 +141,7 @@ class MySpaceController extends Controller
     public function reject($id)
     {
         $item = MySpace::findOrFail($id);
+        $this->authorizeAdminAccess($item);
 
         $item->update([
             'status' => 'Rejected',
@@ -118,6 +154,7 @@ class MySpaceController extends Controller
     public function feature($id)
     {
         $item = MySpace::findOrFail($id);
+        $this->authorizeAdminAccess($item);
 
         $item->update([
             'status' => 'Featured',
@@ -130,6 +167,7 @@ class MySpaceController extends Controller
     public function show($id)
     {
         $item = MySpace::findOrFail($id);
+        $this->authorizeAdminAccess($item);
 
         $submitter = $item->submitter();
 
@@ -142,7 +180,7 @@ class MySpaceController extends Controller
         );
     }
 
-        public function edit($id)
+    public function edit($id)
     {
         $item = MySpace::findOrFail($id);
 

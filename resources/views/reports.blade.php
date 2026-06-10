@@ -130,7 +130,7 @@
                                 <td>
                                     <button class="btn btn-sm btn-primary">View</button>
                                     <button class="btn btn-sm btn-success">Download</button>
-                                </td
+                                </td>
                             </tr>
 
                             <tr>

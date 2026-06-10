@@ -11,5 +11,6 @@ class Notification extends Model
         'message',
         'target',
         'notification_date',
+        'institute',
     ];
 }

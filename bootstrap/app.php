@@ -17,26 +17,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'teacher.auth' => \App\Http\Middleware\TeacherAuth::class,
             'student.auth' => \App\Http\Middleware\StudentAuth::class,
             'track.activity' => \App\Http\Middleware\TrackUserActivity::class,
-            
-        ]);
-
-    })
-
-    ->withMiddleware(function (Middleware $middleware) {
-
-        $middleware->alias([
             'student.profile.completed' => EnsureStudentProfileCompleted::class,
-        ]);
-
-    })
-
-    ->withMiddleware(function ($middleware) {
-
-        $middleware->alias([
             'super.admin' => \App\Http\Middleware\SuperAdminOnly::class,
+            'independent.auth' => \App\Http\Middleware\IndependentAuth::class,
         ]);
 
     })
+
 
     ->withExceptions(function (Exceptions $exceptions): void {
         //

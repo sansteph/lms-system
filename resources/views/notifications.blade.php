@@ -103,6 +103,7 @@
                                 <th>Sl. No</th>
                                 <th>Title</th>
                                 <th>Message</th>
+                                <th>Institute</th>
                                 <th>Target</th>
                                 <th>Date</th>
                                 <th width="180">Actions</th>
@@ -120,6 +121,8 @@
                                     <td>{{ $notification->title }}</td>
 
                                     <td>{{ $notification->message }}</td>
+
+                                    <td>{{ $notification->institute ?? 'All Institutes' }}</td>
 
                                     <td>
 
@@ -167,7 +170,7 @@
                             @empty
 
                                 <tr>
-                                    <td colspan="6"
+                                    <td colspan="7"
                                         class="text-center text-muted">
                                         No notifications found
                                     </td>
@@ -230,6 +233,23 @@
                                    required>
 
                         </div>
+
+                        @if(session('user_role') == 'Admin')
+
+                            <div class="col-md-6">
+
+                                <label class="form-label">
+                                    Institute
+                                </label>
+
+                                <input type="text"
+                                    name="institute"
+                                    class="form-control"
+                                    required>
+
+                            </div>
+
+                        @endif
 
                         <div class="col-md-6">
 
@@ -342,6 +362,24 @@
                                    value="{{ $notification->title }}"
                                    required>
                         </div>
+
+                        @if(session('user_role') == 'Admin')
+
+                            <div class="col-md-6">
+
+                                <label class="form-label">
+                                    Institute
+                                </label>
+
+                                <input type="text"
+                                    name="institute"
+                                    class="form-control"
+                                    value="{{ $notification->institute }}"
+                                    required>
+
+                            </div>
+
+                        @endif
 
                         <div class="col-md-6">
                             <label class="form-label">Target Audience</label>

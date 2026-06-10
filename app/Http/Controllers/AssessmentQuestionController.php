@@ -10,20 +10,26 @@ class AssessmentQuestionController extends Controller
 {
     public function index()
     {
-        $questions = AssessmentQuestion::latest()->get();
+        $questions = AssessmentQuestion::whereHas('assessment', function ($query) {
+                if (session('user_role') == 'InstituteAdmin') {
+                    $query->where('institute', session('user_institute'));
+                }
+            })
+            ->latest()
+            ->get();
 
-        $assessments = Assessment::all();
+        $assessments = Assessment::when(session('user_role') == 'InstituteAdmin', function ($query) {
+                $query->where('institute', session('user_institute'));
+            })
+            ->get();
 
-        return view('assessment-questions', compact(
-            'questions',
-            'assessments'
-        ));
+        return view('assessment-questions', compact('questions', 'assessments'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'assessment_id' => 'required',
+            'assessment_id' => 'required|exists:assessments,id',
             'question' => 'required',
             'option_a' => 'required',
             'option_b' => 'required',
@@ -33,28 +39,33 @@ class AssessmentQuestionController extends Controller
             'marks' => 'required|integer',
         ]);
 
-        AssessmentQuestion::create([
-            'assessment_id' => $request->assessment_id,
-            'question' => $request->question,
-            'option_a' => $request->option_a,
-            'option_b' => $request->option_b,
-            'option_c' => $request->option_c,
-            'option_d' => $request->option_d,
-            'correct_answer' => $request->correct_answer,
-            'marks' => $request->marks,
-        ]);
+        $assessment = Assessment::findOrFail($request->assessment_id);
 
-        
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $assessment->institute != session('user_institute')
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
 
-        return redirect()->back()->with(
-            'success',
-            'Question added successfully'
-        );
+        AssessmentQuestion::create($request->only([
+            'assessment_id',
+            'question',
+            'option_a',
+            'option_b',
+            'option_c',
+            'option_d',
+            'correct_answer',
+            'marks',
+        ]));
+
+        return redirect()->back()->with('success', 'Question added successfully');
     }
+
     public function update(Request $request, $id)
     {
         $request->validate([
-            'assessment_id' => 'required',
+            'assessment_id' => 'required|exists:assessments,id',
             'question' => 'required',
             'option_a' => 'required',
             'option_b' => 'required',
@@ -65,17 +76,28 @@ class AssessmentQuestionController extends Controller
         ]);
 
         $question = AssessmentQuestion::findOrFail($id);
+        $assessment = Assessment::findOrFail($request->assessment_id);
 
-        $question->update([
-            'assessment_id' => $request->assessment_id,
-            'question' => $request->question,
-            'option_a' => $request->option_a,
-            'option_b' => $request->option_b,
-            'option_c' => $request->option_c,
-            'option_d' => $request->option_d,
-            'correct_answer' => $request->correct_answer,
-            'marks' => $request->marks,
-        ]);
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            (
+                $question->assessment->institute != session('user_institute') ||
+                $assessment->institute != session('user_institute')
+            )
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $question->update($request->only([
+            'assessment_id',
+            'question',
+            'option_a',
+            'option_b',
+            'option_c',
+            'option_d',
+            'correct_answer',
+            'marks',
+        ]));
 
         return redirect()->back()->with('success', 'Question updated successfully');
     }
@@ -83,6 +105,13 @@ class AssessmentQuestionController extends Controller
     public function delete($id)
     {
         $question = AssessmentQuestion::findOrFail($id);
+
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $question->assessment->institute != session('user_institute')
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $question->delete();
 
