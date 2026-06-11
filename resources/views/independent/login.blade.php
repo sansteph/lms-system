@@ -17,7 +17,7 @@
 
             <div>
                 <h5>TinkEdge LMS</h5>
-                <span>Independent Learning</span>
+                <span>Hybrid Learning</span>
             </div>
 
         </div>
@@ -31,7 +31,7 @@
         </h1>
 
         <p class="auth-subtitle">
-            Login to continue your independent learning journey.
+            Login to continue your hybrid learning journey.
         </p>
 
         @if(session('success'))

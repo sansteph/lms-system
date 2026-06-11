@@ -32,7 +32,7 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Teachers</h6>
+                        <h6>STEM Engineers</h6>
                         <h2>{{ $teacherCount }}</h2>
                     </div>
                 </div>
@@ -62,7 +62,7 @@
                             <select class="form-control">
                                 <option>Select Report Type</option>
                                 <option>Student Performance</option>
-                                <option>Teacher Performance</option>
+                                <option>STEM Engineer Performance</option>
                                 <option>Class-wise Report</option>
                                 <option>MIS Report</option>
                             </select>
@@ -124,9 +124,9 @@
 
                             <tr>
                                 <td>2</td>
-                                <td>Teacher Performance Report</td>
-                                <td><span class="badge bg-warning text-dark">Teacher</span></td>
-                                <td>View teacher count, assigned classes, and assessment participation.</td>
+                                <td>STEM Engineer Performance Report</td>
+                                <td><span class="badge bg-warning text-dark">STEM Engineer</span></td>
+                                <td>View STEM Engineer count, assigned classes, and assessment participation.</td>
                                 <td>
                                     <button class="btn btn-sm btn-primary">View</button>
                                     <button class="btn btn-sm btn-success">Download</button>
@@ -137,7 +137,7 @@
                                 <td>3</td>
                                 <td>Class-wise Report</td>
                                 <td><span class="badge bg-info">Class</span></td>
-                                <td>View class count, sections, assigned teachers, and student distribution.</td>
+                                <td>View class count, sections, assigned STEM Engineers, and student distribution.</td>
                                 <td>
                                     <button class="btn btn-sm btn-primary">View</button>
                                     <button class="btn btn-sm btn-success">Download</button>

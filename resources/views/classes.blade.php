@@ -13,7 +13,7 @@
                 <div>
                     <h2 class="mb-1">Class Management</h2>
                     <p class="text-muted mb-0">
-                        Manage classes, sections, teachers, and academic year details.
+                        Manage classes, sections, STEM Engineers, and academic year details.
                     </p>
                 </div>
 
@@ -40,7 +40,7 @@
                             <input type="text"
                                    name="search"
                                    class="form-control"
-                                   placeholder="Search by class or teacher"
+                                   placeholder="Search by class or STEM Engineers"
                                    value="{{ request('search') }}">
                         </div>
 
@@ -58,7 +58,8 @@
                                 <th>Class</th>
                                 <th>Institute</th>
                                 <th>Section</th>
-                                <th>Class Teacher</th>
+                                <th>STEM Engineer</th>
+                                <th>Assigned Content</th>
                                 <th>Academic Year</th>
                                 <th>Status</th>
                                 <th width="180">Actions</th>
@@ -74,6 +75,7 @@
                                     <td>{{ $class->institute ?? 'N/A' }}</td>
                                     <td>{{ $class->section }}</td>
                                     <td>{{ $class->class_teacher }}</td>
+                                    <td>{{ $class->content->title ?? 'Not Assigned' }}</td>
                                     <td>{{ $class->academic_year }}</td>
 
                                     <td>
@@ -158,12 +160,51 @@
                                                         </div>
 
                                                         <div class="col-md-6">
-                                                            <label class="form-label">Class Teacher</label>
-                                                            <input type="text"
-                                                                   name="class_teacher"
-                                                                   class="form-control"
-                                                                   value="{{ $class->class_teacher }}"
-                                                                   required>
+                                                            <label class="form-label">STEM Engineer</label>
+                                                            <select name="class_teacher"
+                                                                    class="form-control"
+                                                                    required>
+                                                                <option value="">
+                                                                    Select STEM Engineer
+                                                                </option>
+                                                                @foreach($stemEngineers as $engineer)
+
+                                                                    <option value="{{ $engineer->name }}"
+                                                                        {{ $class->class_teacher == $engineer->name ? 'selected' : '' }}>
+
+                                                                        {{ $engineer->name }} - {{ $engineer->email }}
+
+                                                                    </option>
+                                                                @endforeach
+                                                            </select>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+
+                                                            <label class="form-label">
+                                                                Assigned Content
+                                                            </label>
+
+                                                            <select name="content_id"
+                                                                    class="form-control">
+
+                                                                <option value="">
+                                                                    Select Content
+                                                                </option>
+
+                                                                @foreach($contents as $content)
+
+                                                                    <option value="{{ $content->id }}"
+                                                                        {{ $class->content_id == $content->id ? 'selected' : '' }}>
+
+                                                                        {{ $content->title }}
+
+                                                                    </option>
+
+                                                                @endforeach
+
+                                                            </select>
+
                                                         </div>
 
                                                         <div class="col-md-6">
@@ -216,7 +257,7 @@
                             @empty
 
                                 <tr>
-                                    <td colspan="8" class="text-center text-muted">
+                                    <td colspan="9" class="text-center text-muted">
                                         No classes found
                                     </td>
                                 </tr>
@@ -287,12 +328,47 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label">Class Teacher</label>
-                            <input type="text"
-                                   name="class_teacher"
-                                   class="form-control"
-                                   placeholder="Teacher name"
-                                   required>
+                            <label class="form-label">STEM Engineer</label>
+                            <select name="class_teacher"
+                                    class="form-control"
+                                    required>
+                                <option value="">
+                                    Select STEM Engineer
+                                </option>
+                                @foreach($stemEngineers as $engineer)
+
+                                    <option value="{{ $engineer->name }}">
+                                        {{ $engineer->name }} - {{ $engineer->email }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Assigned Content
+                            </label>
+
+                            <select name="content_id"
+                                    class="form-control">
+
+                                <option value="">
+                                    Select Content
+                                </option>
+
+                                @foreach($contents as $content)
+
+                                    <option value="{{ $content->id }}">
+
+                                        {{ $content->title }}
+
+                                    </option>
+
+                                @endforeach
+
+                            </select>
+
                         </div>
 
                         <div class="col-md-6">

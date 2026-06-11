@@ -34,7 +34,7 @@
             <i class="fa fa-user-check"></i>
 
             <span>
-                Access restricted to approved students and teachers.
+                Access restricted to approved students and STEM Engineers.
             </span>
 
         </div>
@@ -55,7 +55,7 @@
                 </div>
 
                 <div>
-                    <h5>Teacher Login</h5>
+                    <h5>STEM Engineer Login</h5>
                     <p>Manage classes and assessments</p>
                 </div>
 

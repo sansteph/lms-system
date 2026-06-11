@@ -52,7 +52,7 @@
                         </h1>
 
                         <p class="hero-description">
-                            Empowering institutions, teachers and learners with AI
+                            Empowering institutions, STEM Engineers and learners with AI
                             assessments, analytics, certificates and a complete
                             learning management system.
                         </p>
@@ -354,7 +354,7 @@
                                 <h3>Institutional Learning</h3>
                                 <p>
                                     Schools and institutes can manage students,
-                                    teachers, assessments and certificates
+                                    STEM Engineers, assessments and certificates
                                     using the LMS portal.
                                 </p>
 
@@ -379,7 +379,7 @@
                         <div class="access-content">
 
                             <div class="access-text">
-                                <h3>Independent Learning</h3>
+                                <h3>Hybrid Learning</h3>
                                 <p>
                                     Learn independently through premium courses,
                                     AI assessments and skill certifications.
@@ -392,7 +392,7 @@
                             </div>
 
                             <div class="access-illustration access-cap">
-                                <img src="{{ asset('images/IndependentLogo.png') }}">
+                                <img src="{{ asset('images/HybridLogo.png') }}">
                             </div>
 
                         </div>

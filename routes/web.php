@@ -60,15 +60,14 @@ Route::post('/independent/login', [IndependentLearnerController::class, 'loginSu
 Route::get('/independent/courses', [IndependentLearnerController::class, 'courses'])->name('independent.courses');
 Route::get('/independent/courses/{id}', [IndependentLearnerController::class, 'courseDetails'])->name('independent.courses.show');
 
-
-Route::get('/independent-dashboard', [IndependentLearnerController::class, 'dashboard'])->name('independent.dashboard');
-Route::post('/independent/courses/{id}/enroll', [IndependentLearnerController::class, 'enroll'])->name('independent.courses.enroll');
-Route::get('/independent/my-enrollments', [IndependentLearnerController::class, 'myEnrollments'])->name('independent.enrollments');
-Route::get('/independent/courses/{id}/learn', [IndependentLearnerController::class, 'learnCourse'])->name('independent.courses.learn');
-Route::post('/independent/lesson/{contentId}/complete', [IndependentLearnerController::class, 'markLessonComplete'])->name('independent.lesson.complete');
-Route::get('/independent/certificates', [IndependentLearnerController::class, 'certificates'])->name('independent.certificates');
-
-
+Route::middleware(['independent.auth'])->group(function () {
+    Route::get('/independent-dashboard', [IndependentLearnerController::class, 'dashboard'])->name('independent.dashboard');
+    Route::post('/independent/courses/{id}/enroll', [IndependentLearnerController::class, 'enroll'])->name('independent.courses.enroll');
+    Route::get('/independent/my-enrollments', [IndependentLearnerController::class, 'myEnrollments'])->name('independent.enrollments');
+    Route::get('/independent/courses/{id}/learn', [IndependentLearnerController::class, 'learnCourse'])->name('independent.courses.learn');
+    Route::post('/independent/lesson/{contentId}/complete', [IndependentLearnerController::class, 'markLessonComplete'])->name('independent.lesson.complete');
+    Route::get('/independent/certificates', [IndependentLearnerController::class, 'certificates'])->name('independent.certificates');
+});
 
 
 
@@ -78,11 +77,8 @@ Route::middleware(['admin.auth'])->group(function () {
 
     Route::get('/admin-dashboard', [PageController::class, 'adminDashboard'])->name('admin.dashboard');
 
-    Route::get('/admin/change-password', [UserController::class, 'changePassword'])
-        ->name('admin.change.password');
-
-    Route::post('/admin/change-password', [UserController::class, 'changePasswordSubmit'])
-        ->name('admin.change.password.submit');
+    Route::get('/admin/change-password', [UserController::class, 'changePassword'])->name('admin.change.password');
+    Route::post('/admin/change-password', [UserController::class, 'changePasswordSubmit'])->name('admin.change.password.submit');
 
     Route::get('/courses', [CourseController::class, 'index'])->name('courses');
     Route::post('/courses/store', [CourseController::class, 'store'])->name('courses.store');
@@ -145,6 +141,11 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::get('/admin/my-space/{id}', [MySpaceController::class, 'show'])->name('admin.my-space.show');
 
     Route::get('/admin/assessment-monitoring', [PageController::class, 'assessmentMonitoring'])->name('admin.assessment.monitoring');
+
+    Route::get('/assessment-review',[AssessmentResultController::class, 'reviewResults'])->name('assessment.review');
+    Route::post('/assessment-review/{id}',[AssessmentResultController::class, 'reviewAnswer'])->name('assessment.review.submit');
+
+    Route::get('/admin/class-session-report', [PageController::class, 'classSessionReport'])->name('admin.class-session.report');
 
 });
 
@@ -235,6 +236,18 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::post('/assessment-session/violation/{sessionId}', [PageController::class, 'recordAssessmentViolation'])->name('assessment.session.violation');
 
     Route::post('/assessment-session/submit/{sessionId}', [PageController::class, 'submitAssessmentSession'])->name('assessment.session.submit');
+
+    Route::get('/assessment-review',[AssessmentResultController::class, 'reviewResults'])->name('assessment.review');
+
+    Route::post('/assessment-review/{id}',[AssessmentResultController::class, 'reviewAnswer'])->name('assessment.review.submit');
+
+    Route::get('/assessment-review', [AssessmentResultController::class, 'reviewResults'])->name('assessment.review');
+
+    Route::post('/assessment-review/{id}', [AssessmentResultController::class, 'reviewAnswer'])->name('assessment.review.submit');
+
+    Route::post('/teacher/class-session/start/{classId}',[PageController::class, 'startClassSession'])->name('teacher.class-session.start');
+
+    Route::post('/teacher/class-session/end/{sessionId}',[PageController::class, 'endClassSession'])->name('teacher.class-session.end');
 });
 
 

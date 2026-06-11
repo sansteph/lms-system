@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Content;
 use App\Models\SchoolClass;
 
 class ClassController extends Controller
@@ -11,20 +12,37 @@ class ClassController extends Controller
     {
         $search = $request->search;
 
+        $contents = Content::when(
+            session('user_role') == 'InstituteAdmin',
+            function ($query) {
+                $query->where('institute', session('user_institute'));
+            }
+        )->where('status', 1)
+        ->orderBy('content_title')
+        ->get();
+
         $classes = SchoolClass::when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
             })
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('class_name', 'like', "%{$search}%")
-                      ->orWhere('section', 'like', "%{$search}%")
-                      ->orWhere('class_teacher', 'like', "%{$search}%")
-                      ->orWhere('academic_year', 'like', "%{$search}%");
+                    ->orWhere('section', 'like', "%{$search}%")
+                    ->orWhere('class_teacher', 'like', "%{$search}%")
+                    ->orWhere('academic_year', 'like', "%{$search}%");
                 });
             })
             ->get();
 
-        return view('classes', compact('classes'));
+        $stemEngineers = \App\Models\User::where('role', 'Teacher')
+            ->where('status', 1)
+            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+                $query->where('institute', session('user_institute'));
+            })
+            ->orderBy('name')
+            ->get();
+
+        return view('classes', compact('classes', 'stemEngineers','contents'));
     }
 
     public function store(Request $request)
@@ -35,6 +53,7 @@ class ClassController extends Controller
             'class_teacher' => 'required|string|max:100',
             'academic_year' => 'required|string|max:20',
             'status' => 'required|boolean',
+            'content_id' => 'nullable|exists:contents,id',
             'institute' => session('user_role') == 'Admin'
                 ? 'required|string|max:255'
                 : 'nullable|string|max:255',
@@ -61,6 +80,7 @@ class ClassController extends Controller
             'section' => 'required|string|max:20',
             'class_teacher' => 'required|string|max:100',
             'academic_year' => 'required|string|max:20',
+            'content_id' => 'nullable|exists:contents,id',
             'status' => 'required|boolean',
             'institute' => session('user_role') == 'Admin'
                 ? 'required|string|max:255'

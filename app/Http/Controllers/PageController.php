@@ -19,6 +19,8 @@ use App\Models\LessonProgress;
 use App\Models\AccessRequest;
 use App\Models\CertificateVerificationLog;
 use App\Models\AssessmentSession;
+use App\Models\User;
+use App\Models\ClassContentSession;
 
 class PageController extends Controller
 {
@@ -97,7 +99,36 @@ class PageController extends Controller
 
     public function adminDashboard()
     {
-        return view('admin-dashboard');
+        $isInstituteAdmin = session('user_role') == 'InstituteAdmin';
+        $institute = session('user_institute');
+
+        $studentCount = Student::when($isInstituteAdmin, function ($query) use ($institute) {
+                $query->where('institute', $institute);
+            })
+            ->count();
+
+        $teacherCount = User::where('role', 'Teacher')
+            ->when($isInstituteAdmin, function ($query) use ($institute) {
+                $query->where('institute', $institute);
+            })
+            ->count();
+
+        $classCount = SchoolClass::when($isInstituteAdmin, function ($query) use ($institute) {
+                $query->where('institute', $institute);
+            })
+            ->count();
+
+        $assessmentCount = Assessment::when($isInstituteAdmin, function ($query) use ($institute) {
+                $query->where('institute', $institute);
+            })
+            ->count();
+
+        return view('admin-dashboard', compact(
+            'studentCount',
+            'teacherCount',
+            'classCount',
+            'assessmentCount'
+        ));
     }
     public function students(Request $request)
     {
@@ -270,7 +301,7 @@ class PageController extends Controller
     public function teacherDashboard()
     {
         $teacherName = session('user_name');
-        $teacher = \App\Models\User::find(session('user_id'));
+        $teacher = User::find(session('user_id'));
 
         $contentCount = Content::where('institute', $teacher->institute)->count();
         $assessmentCount = Assessment::where('institute', $teacher->institute)->count();
@@ -286,18 +317,24 @@ class PageController extends Controller
 
     public function teacherClasses()
     {
-        $teacher = \App\Models\User::find(session('user_id'));
+        $teacher = User::find(session('user_id'));
 
-        $classes = SchoolClass::where('institute', $teacher->institute)
+        $classes = SchoolClass::with('content')
+            ->where('institute', $teacher->institute)
             ->latest()
             ->get();
 
-        return view('teacher.my-classes', compact('classes'));
+        $activeSessions = ClassContentSession::where('stem_engineer_id', session('user_id'))
+            ->where('status', 'Started')
+            ->get()
+            ->keyBy('class_id');
+
+        return view('teacher.my-classes', compact('classes', 'activeSessions'));
     }
 
     public function teacherContent()
     {
-        $teacher = \App\Models\User::find(session('user_id'));
+        $teacher = User::find(session('user_id'));
 
         $contents = Content::where('institute', $teacher->institute)
             ->latest()
@@ -308,7 +345,7 @@ class PageController extends Controller
 
     public function teacherAssessments()
     {
-        $teacher = \App\Models\User::find(session('user_id'));
+        $teacher = User::find(session('user_id'));
 
         $assessments = Assessment::where('institute', $teacher->institute)
             ->latest()
@@ -319,7 +356,7 @@ class PageController extends Controller
 
     public function teacherReports()
     {
-        $teacher = \App\Models\User::find(session('user_id'));
+        $teacher = User::find(session('user_id'));
 
         $studentCount = Student::where('institute', $teacher->institute)->count();
         $classCount = SchoolClass::where('institute', $teacher->institute)->count();
@@ -341,7 +378,7 @@ class PageController extends Controller
         $status = $request->status;
         $sort = $request->sort;
 
-        $teacher = \App\Models\User::find(session('user_id'));
+        $teacher = User::find(session('user_id'));
 
         $results = AssessmentResult::with(['assessment', 'student'])
             ->whereHas('student', function ($query) use ($teacher) {
@@ -419,7 +456,7 @@ class PageController extends Controller
     }
     public function teacherNotifications()
     {
-        $teacher = \App\Models\User::find(session('user_id'));
+        $teacher = User::find(session('user_id'));
 
         $notifications = Notification::where('institute', $teacher->institute)
             ->whereIn('target', ['Teachers', 'Class'])
@@ -1016,32 +1053,68 @@ class PageController extends Controller
     }
     public function adminAnalytics()
     {
-        $studentCount = Student::count();
-        $assessmentCount = Assessment::count();
-        $certificateCount = Certificate::count();
+        $isInstituteAdmin = session('user_role') == 'InstituteAdmin';
+        $institute = session('user_institute');
 
-        $averageScore = AssessmentResult::avg('percentage') ?? 0;
+        $studentQuery = Student::query()
+            ->when($isInstituteAdmin, function ($query) use ($institute) {
+                $query->where('institute', $institute);
+            });
 
-        $goldCount = AssessmentResult::where('badge', 'Gold')->count();
-        $silverCount = AssessmentResult::where('badge', 'Silver')->count();
-        $bronzeCount = AssessmentResult::where('badge', 'Bronze')->count();
+        $assessmentQuery = Assessment::query()
+            ->when($isInstituteAdmin, function ($query) use ($institute) {
+                $query->where('institute', $institute);
+            });
 
-        $recentResults = AssessmentResult::with(['student', 'assessment'])
+        $resultQuery = AssessmentResult::with(['student', 'assessment'])
+            ->when($isInstituteAdmin, function ($query) use ($institute) {
+                $query->whereHas('student', function ($q) use ($institute) {
+                    $q->where('institute', $institute);
+                });
+            });
+
+        $certificateQuery = Certificate::with('student')
+            ->when($isInstituteAdmin, function ($query) use ($institute) {
+                $query->whereHas('student', function ($q) use ($institute) {
+                    $q->where('institute', $institute);
+                });
+            });
+
+        $studentCount = $studentQuery->count();
+        $assessmentCount = $assessmentQuery->count();
+        $certificateCount = $certificateQuery->count();
+
+        $averageScore = (clone $resultQuery)->avg('percentage') ?? 0;
+
+        $goldCount = (clone $resultQuery)->where('badge', 'Gold')->count();
+        $silverCount = (clone $resultQuery)->where('badge', 'Silver')->count();
+        $bronzeCount = (clone $resultQuery)->where('badge', 'Bronze')->count();
+
+        $recentResults = (clone $resultQuery)
             ->latest()
             ->take(5)
             ->get();
 
-        $attemptedCount = AssessmentResult::distinct('student_id')->count('student_id');
-        $passedCount = AssessmentResult::where('percentage', '>=', 50)->count();
-        $failedCount = AssessmentResult::where('percentage', '<', 50)->count();
+        $attemptedCount = (clone $resultQuery)
+            ->distinct('student_id')
+            ->count('student_id');
+
+        $passedCount = (clone $resultQuery)
+            ->where('percentage', '>=', 50)
+            ->count();
+
+        $failedCount = (clone $resultQuery)
+            ->where('percentage', '<', 50)
+            ->count();
+
         $notAttemptedCount = max($studentCount - $attemptedCount, 0);
 
-        $topPerformers = AssessmentResult::with('student')
+        $topPerformers = (clone $resultQuery)
             ->orderByDesc('percentage')
             ->take(5)
             ->get();
 
-        $assessmentAverages = AssessmentResult::with('assessment')
+        $assessmentAverages = (clone $resultQuery)
             ->selectRaw('assessment_id, AVG(percentage) as average_percentage')
             ->groupBy('assessment_id')
             ->take(5)
@@ -1061,10 +1134,10 @@ class PageController extends Controller
             'failedCount',
             'topPerformers',
             'recentResults',
-            'assessmentAverages',
+            'assessmentAverages'
         ));
     }
-   public function activityMonitoring(Request $request)
+    public function activityMonitoring(Request $request)
     {
         $date = $request->date;
 
@@ -1276,5 +1349,72 @@ class PageController extends Controller
             ->get();
 
         return view('assessment-monitoring', compact('sessions'));
+    }
+
+    public function startClassSession($classId)
+    {
+        $class = SchoolClass::findOrFail($classId);
+
+        $existingSession = ClassContentSession::where('class_id', $class->id)
+            ->where('stem_engineer_id', session('user_id'))
+            ->where('status', 'Started')
+            ->first();
+
+        if ($existingSession) {
+            return redirect()->back()
+                ->with('error', 'A session is already running for this class.');
+        }
+
+        ClassContentSession::create([
+            'class_id' => $class->id,
+            'content_id' => $class->content_id,
+            'stem_engineer_id' => session('user_id'),
+            'started_at' => now(),
+            'status' => 'Started',
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'Class session started.');
+    }
+
+    public function endClassSession($sessionId)
+    {
+        $session = ClassContentSession::findOrFail($sessionId);
+
+        if ($session->status == 'Completed') {
+            return redirect()->back()
+                ->with('error', 'Session already completed.');
+        }
+
+        $endedAt = now();
+
+        $duration = strtotime($endedAt) - strtotime($session->started_at);
+
+        $session->update([
+            'ended_at' => $endedAt,
+            'duration_seconds' => $duration,
+            'status' => 'Completed',
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'Class session ended successfully.');
+    }
+
+    public function classSessionReport()
+    {
+        $sessions = ClassContentSession::with([
+                'class',
+                'content',
+                'stemEngineer',
+            ])
+            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+                $query->whereHas('class', function ($q) {
+                    $q->where('institute', session('user_institute'));
+                });
+            })
+            ->latest()
+            ->get();
+
+        return view('class-session-report', compact('sessions'));
     }
 }

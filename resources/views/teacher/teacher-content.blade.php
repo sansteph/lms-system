@@ -112,7 +112,7 @@
                     </table>
 
                     <div class="alert alert-info mt-3 mb-0">
-                        Content uploaded by Admin will appear here for teachers.
+                        Content uploaded by Admin will appear here for STEM Engineers.
                     </div>
 
                 </div>

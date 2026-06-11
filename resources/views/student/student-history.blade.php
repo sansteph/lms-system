@@ -71,10 +71,10 @@
 
                     <div class="dashboard-card">
 
-                        <h6>Badges Earned</h6>
+                        <h6>Pending Review</h6>
 
                         <h2>
-                            {{ $results->whereNotNull('badge')->count() }}
+                            {{ $results->where('status', 'Pending Review')->count() }}
                         </h2>
 
                     </div>
@@ -85,20 +85,10 @@
 
                     <div class="dashboard-card">
 
-                        <h6>Latest Percentage</h6>
+                        <h6>Badges Earned</h6>
 
                         <h2>
-
-                            @if($results->count() > 0)
-
-                                {{ number_format($results->first()->percentage, 2) }}%
-
-                            @else
-
-                                0%
-
-                            @endif
-
+                            {{ $results->whereNotNull('badge')->count() }}
                         </h2>
 
                     </div>
@@ -173,9 +163,25 @@
 
                                     <td>
 
-                                        <span class="badge bg-success">
-                                            {{ $result->status }}
-                                        </span>
+                                        @if($result->status == 'Completed')
+
+                                            <span class="badge bg-success">
+                                                Completed
+                                            </span>
+
+                                        @elseif($result->status == 'Pending Review')
+
+                                            <span class="badge bg-warning text-dark">
+                                                Pending Review
+                                            </span>
+
+                                        @else
+
+                                            <span class="badge bg-secondary">
+                                                {{ $result->status }}
+                                            </span>
+
+                                        @endif
 
                                     </td>
 

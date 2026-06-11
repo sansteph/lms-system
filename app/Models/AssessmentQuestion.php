@@ -15,6 +15,11 @@ class AssessmentQuestion extends Model
         'option_d',
         'correct_answer',
         'marks',
+        'topic',
+        'question_type',
+        'short_answer',
+        'long_answer',
+        'explanation',
     ];
     public function assessment()
     {

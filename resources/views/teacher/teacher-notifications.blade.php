@@ -26,7 +26,7 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Teacher Notifications</h6>
+                        <h6>STEM Engineer Notifications</h6>
                         <h2>{{ $notifications->where('target', 'Teachers')->count() }}</h2>
                     </div>
                 </div>
@@ -68,7 +68,7 @@
                                     <td>{{ $notification->message }}</td>
                                     <td>
                                         @if($notification->target == 'Teachers')
-                                            <span class="badge bg-warning text-dark">Teachers</span>
+                                            <span class="badge bg-warning text-dark">STEM Engineers</span>
                                         @elseif($notification->target == 'Students')
                                             <span class="badge bg-primary">Students</span>
                                         @else

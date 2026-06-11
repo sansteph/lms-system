@@ -61,7 +61,7 @@
                     <div class="dashboard-card">
 
                         <h6>
-                            Teacher Assessments
+                            STEM Engineer Assessments
                         </h6>
 
                         <h2>
@@ -198,7 +198,7 @@
 
                                             <span class="badge bg-warning text-dark">
 
-                                                Teacher
+                                                STEM Engineer
 
                                             </span>
 

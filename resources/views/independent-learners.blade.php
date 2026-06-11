@@ -10,7 +10,7 @@
         <div class="col-md-10 col-lg-10 p-4">
 
             <div class="page-header mb-4">
-                <h2>Independent Learners</h2>
+                <h2>Hybrid Learners</h2>
                 <p class="text-muted mb-0">
                     View and manage self-registered learners.
                 </p>
@@ -105,7 +105,7 @@
 
                                 <tr>
                                     <td colspan="6" class="text-center text-muted">
-                                        No independent learners found.
+                                        No hybrid learners found.
                                     </td>
                                 </tr>
 

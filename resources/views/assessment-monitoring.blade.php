@@ -39,7 +39,7 @@
                                 $userName = $session->student->name ?? 'Student Deleted';
                                 $institute = $session->student->institute ?? 'N/A';
                             } elseif ($session->user_type == 'Teacher') {
-                                $userName = $session->teacher->name ?? 'Teacher Deleted';
+                                $userName = $session->teacher->name ?? 'STEM Engineer Deleted';
                                 $institute = $session->teacher->institute ?? 'N/A';
                             }
                         @endphp

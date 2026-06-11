@@ -1,6 +1,6 @@
 <div class="admin-sidebar col-md-2 col-lg-2 min-vh-100 p-3">
     <div class="sidebar-title mb-4">
-        <h4>Teacher Panel</h4>
+        <h4>STEM Engineer Panel</h4>
     </div>
 
     <a href="{{ route('teacher.dashboard') }}"
@@ -55,5 +55,13 @@
     <a href="{{ route('teacher.profile') }}"
     class="sidebar-link {{ request()->routeIs('teacher.profile') ? 'active' : '' }}">
         Profile
+    </a>
+
+    <a href="{{ route('assessment.review') }}" class="sidebar-link">
+        Assessment Review
+    </a>
+
+    <a href="{{ route('assessment.review') }}"class="sidebar-link {{ request()->routeIs('assessment.review') ? 'active' : '' }}">
+        Assessment Evaluation
     </a>
 </div>

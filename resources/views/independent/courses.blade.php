@@ -7,7 +7,7 @@
     <div class="page-header mb-4">
         <h2>Explore Courses</h2>
         <p class="text-muted mb-0">
-            Browse premium independent learning courses.
+            Browse premium hybrid learning courses.
         </p>
     </div>
 

@@ -40,7 +40,7 @@
                     </h5>
 
                     <p class="text-muted">
-                        Browse independent learning programs.
+                        Browse hybrid learning programs.
                     </p>
 
                     <a href="{{ route('independent.courses') }}"

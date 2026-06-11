@@ -13,7 +13,7 @@
             <div class="page-header mb-4">
                 <h2 class="mb-1">Activity Monitoring</h2>
                 <p class="text-muted mb-0">
-                    Monitor institute admins, teachers, students, sessions, and activity logs.
+                    Monitor institute admins, STEM engineers, students, sessions, and activity logs.
                 </p>
             </div>
 
@@ -28,7 +28,7 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Active Teachers</h6>
+                        <h6>Active STEM Engineers</h6>
                         <h2>{{ $activeTeachers }}</h2>
                     </div>
                 </div>
@@ -177,7 +177,7 @@
 
                 <div class="card-body">
 
-                    <h5 class="mb-4">Teacher Activity</h5>
+                    <h5 class="mb-4">STEM Engineer Activity</h5>
 
                     <div class="table-responsive">
 
@@ -185,7 +185,7 @@
 
                             <thead>
                                 <tr>
-                                    <th>Teacher Name</th>
+                                    <th>STEM Engineer Name</th>
                                     <th>Institute</th>
                                     <th>Login Time</th>
                                     <th>Logout Time</th>
@@ -233,7 +233,7 @@
 
                                     <tr>
                                         <td colspan="7" class="text-center text-muted">
-                                            No teacher session data available.
+                                            No STEM Engineer session data available.
                                         </td>
                                     </tr>
 
@@ -421,7 +421,7 @@
 
                                             @elseif($session->user_type == 'Teacher')
 
-                                                {{ $session->teacher->name ?? 'Teacher Deleted' }}
+                                                {{ $session->teacher->name ?? 'STEM Engineer Deleted' }}
 
                                             @else
 
@@ -608,7 +608,7 @@
 
                 <div class="card-body">
 
-                    <h5 class="mb-4">Teacher Activity Logs</h5>
+                    <h5 class="mb-4">STEM Engineer Activity Logs</h5>
 
                     <div class="table-responsive">
 
@@ -616,7 +616,7 @@
 
                             <thead>
                                 <tr>
-                                    <th>Teacher</th>
+                                    <th>STEM Engineer</th>
                                     <th>Section</th>
                                     <th>Route</th>
                                     <th>Visited At</th>
@@ -629,7 +629,7 @@
                                 @forelse($teacherLogs as $log)
 
                                     <tr>
-                                        <td>{{ $log->teacher->name ?? 'Teacher Deleted' }}</td>
+                                        <td>{{ $log->teacher->name ?? 'STEM Engineer Deleted' }}</td>
                                         <td>{{ $log->section_name }}</td>
                                         <td>{{ $log->route_name }}</td>
                                         <td>{{ \Carbon\Carbon::parse($log->started_at)->format('d M Y h:i A') }}</td>
@@ -640,7 +640,7 @@
 
                                     <tr>
                                         <td colspan="5" class="text-center text-muted">
-                                            No teacher activity logs available.
+                                            No STEM Engineer activity logs available.
                                         </td>
                                     </tr>
 

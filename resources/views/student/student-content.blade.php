@@ -334,7 +334,7 @@
 
                                 <p class="text-muted mb-0">
 
-                                    Learning materials and lessons will appear here once uploaded by your teacher.
+                                    Learning materials and lessons will appear here once uploaded by your STEM Engineer.
 
                                 </p>
 

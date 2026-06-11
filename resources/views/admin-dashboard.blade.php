@@ -31,28 +31,28 @@
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <p>Total Students</p>
-                        <h2>250</h2>
+                        <h2>{{ $studentCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <p>Total Teachers</p>
-                        <h2>25</h2>
+                        <p>Total STEM Engineers</p>
+                        <h2>{{ $teacherCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <p>Total Classes</p>
-                        <h2>10</h2>
+                        <h2>{{ $classCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <p>Assessments</p>
-                        <h2>18</h2>
+                        <h2>{{ $assessmentCount }}</h2>
                     </div>
                 </div>
 
@@ -64,7 +64,7 @@
 
                 <div class="mt-3 d-flex flex-wrap gap-2">
                     <a href="{{ route('students') }}" class="btn btn-primary">Add Student</a>
-                    <a href="{{ route('users') }}" class="btn btn-success">Add Teacher</a>
+                    <a href="{{ route('users') }}" class="btn btn-success">Add STEM Engineer</a>
                     <a href="{{ route('content') }}" class="btn btn-warning">Upload Content</a>
                     <a href="{{ route('assessments') }}" class="btn btn-secondary text-white">Create Assessment</a>
                 </div>

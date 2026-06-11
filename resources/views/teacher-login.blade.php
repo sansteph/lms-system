@@ -11,7 +11,7 @@
         </div>
 
         <h2 class="login-title">
-            Teacher Portal
+            STEM Engineer Portal
         </h2>
 
         <p class="login-subtitle">
@@ -46,7 +46,7 @@
                     <input type="email"
                            name="email"
                            class="form-control"
-                           placeholder="Enter teacher email"
+                           placeholder="Enter STEM Engineer email"
                            required>
 
                 </div>
@@ -79,7 +79,7 @@
                     class="btn login-btn teacher-btn w-100">
 
                 <i class="fa fa-right-to-bracket me-2"></i>
-                Login to Teacher Panel
+                Login to STEM Engineer Panel
 
             </button>
 

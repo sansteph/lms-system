@@ -57,8 +57,10 @@
                                 <th>Sl. No</th>
                                 <th>Class</th>
                                 <th>Section</th>
-                                <th>Class Teacher</th>
+                                <th>Class STEM Engineer</th>
                                 <th>Academic Year</th>
+                                <th>Content</th>
+                                <th>Session</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -71,6 +73,44 @@
                                     <td>{{ $class->section }}</td>
                                     <td>{{ $class->class_teacher }}</td>
                                     <td>{{ $class->academic_year }}</td>
+                                    <td>{{ $class->content->content_title ?? 'Not Assigned' }}</td>
+                                    <td>
+                                        @if(isset($activeSessions[$class->id]))
+
+                                            <form method="POST"
+                                                action="{{ route('teacher.class-session.end', $activeSessions[$class->id]->id) }}">
+                                                @csrf
+
+                                                <button type="submit"
+                                                        class="btn btn-sm btn-danger">
+                                                    End Session
+                                                </button>
+                                            </form>
+
+                                        @else
+
+                                            @if($class->content_id)
+
+                                                <form method="POST"
+                                                    action="{{ route('teacher.class-session.start', $class->id) }}">
+                                                    @csrf
+
+                                                    <button type="submit"
+                                                            class="btn btn-sm btn-success">
+                                                        Start Session
+                                                    </button>
+                                                </form>
+
+                                            @else
+
+                                                <span class="badge bg-secondary">
+                                                    No Content
+                                                </span>
+
+                                            @endif
+
+                                        @endif
+                                    </td>
                                     <td>
                                         @if($class->status == 1)
                                             <span class="badge bg-success">Active</span>
@@ -81,7 +121,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted">
+                                    <td colspan="8" class="text-center text-muted">
                                         No classes assigned yet
                                     </td>
                                 </tr>
@@ -90,7 +130,7 @@
                     </table>
 
                     <div class="alert alert-info mt-3 mb-0">
-                        Classes created by Admin will appear here for teachers.
+                        Classes created by Admin will appear here for STEM Engineers.
                     </div>
 
                 </div>

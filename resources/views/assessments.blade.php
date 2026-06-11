@@ -14,7 +14,7 @@
                     <h2 class="mb-1">Assessment Management</h2>
 
                     <p class="text-muted mb-0">
-                        Create student and teacher assessments, generate links, and manage status.
+                        Create student and STEM Engineer assessments, generate links, and manage status.
                     </p>
                 </div>
 
@@ -55,7 +55,7 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Teacher Assessments</h6>
+                        <h6>STEM Engineer Assessments</h6>
                         <h2>{{ $assessments->where('assessment_type', 'Teacher')->count() }}</h2>
                     </div>
                 </div>
@@ -135,7 +135,7 @@
                                         @else
 
                                             <span class="badge bg-warning text-dark">
-                                                Teacher
+                                                STEM Engineer
                                             </span>
 
                                         @endif
@@ -337,7 +337,7 @@
                                 </option>
 
                                 <option value="Teacher">
-                                    Teacher
+                                    STEM Engineer
                                 </option>
 
                             </select>
@@ -534,7 +534,7 @@
                             <label class="form-label">Assessment Type</label>
                             <select name="assessment_type" class="form-control" required>
                                 <option value="Student" {{ $assessment->assessment_type == 'Student' ? 'selected' : '' }}>Student</option>
-                                <option value="Teacher" {{ $assessment->assessment_type == 'Teacher' ? 'selected' : '' }}>Teacher</option>
+                                <option value="Teacher" {{ $assessment->assessment_type == 'Teacher' ? 'selected' : '' }}>STEM Engineer</option>
                             </select>
                         </div>
 

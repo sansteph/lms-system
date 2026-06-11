@@ -15,7 +15,7 @@
                     <h2 class="mb-1">Notifications</h2>
 
                     <p class="text-muted mb-0">
-                        Send announcements and notifications to students and teachers.
+                        Send announcements and notifications to students and STEM Engineers.
                     </p>
                 </div>
 
@@ -57,7 +57,7 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Teachers</h6>
+                        <h6>STEM Engineers</h6>
                         <h2>{{ $notifications->where('target', 'Teachers')->count() }}</h2>
                     </div>
                 </div>
@@ -135,7 +135,7 @@
                                         @elseif($notification->target == 'Teachers')
 
                                             <span class="badge bg-warning text-dark">
-                                                Teachers
+                                                STEM Engineers
                                             </span>
 
                                         @else
@@ -270,7 +270,7 @@
                                 </option>
 
                                 <option value="Teachers">
-                                    Teachers
+                                   STEM Engineers
                                 </option>
 
                                 <option value="Class">
@@ -388,7 +388,7 @@
                                     Students
                                 </option>
                                 <option value="Teachers" {{ $notification->target == 'Teachers' ? 'selected' : '' }}>
-                                    Teachers
+                                   STEM Engineers
                                 </option>
                                 <option value="Class" {{ $notification->target == 'Class' ? 'selected' : '' }}>
                                     Class

@@ -10,7 +10,8 @@ class AssessmentQuestionController extends Controller
 {
     public function index()
     {
-        $questions = AssessmentQuestion::whereHas('assessment', function ($query) {
+        $questions = AssessmentQuestion::with('assessment')
+            ->whereHas('assessment', function ($query) {
                 if (session('user_role') == 'InstituteAdmin') {
                     $query->where('institute', session('user_institute'));
                 }
@@ -30,14 +31,39 @@ class AssessmentQuestionController extends Controller
     {
         $request->validate([
             'assessment_id' => 'required|exists:assessments,id',
+            'topic' => 'required|string|max:255',
+            'question_type' => 'required|in:MCQ,Short Answer,Long Answer',
             'question' => 'required',
-            'option_a' => 'required',
-            'option_b' => 'required',
-            'option_c' => 'required',
-            'option_d' => 'required',
-            'correct_answer' => 'required',
-            'marks' => 'required|integer',
+            'marks' => 'required|integer|min:1',
+
+            'option_a' => 'nullable',
+            'option_b' => 'nullable',
+            'option_c' => 'nullable',
+            'option_d' => 'nullable',
+            'correct_answer' => 'nullable',
+
+            'short_answer' => 'nullable',
+            'long_answer' => 'nullable',
+
+            'explanation' => 'nullable',
         ]);
+
+        if ($request->question_type != 'MCQ') {
+            $request->merge([
+                'option_a' => null,
+                'option_b' => null,
+                'option_c' => null,
+                'option_d' => null,
+                'correct_answer' => null,
+            ]);
+        }
+
+        if ($request->question_type == 'MCQ') {
+            $request->merge([
+                'short_answer' => null,
+                'long_answer' => null,
+            ]);
+        }
 
         $assessment = Assessment::findOrFail($request->assessment_id);
 
@@ -48,16 +74,32 @@ class AssessmentQuestionController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        AssessmentQuestion::create($request->only([
-            'assessment_id',
-            'question',
-            'option_a',
-            'option_b',
-            'option_c',
-            'option_d',
-            'correct_answer',
-            'marks',
-        ]));
+        AssessmentQuestion::create([
+
+            'assessment_id' => $request->assessment_id,
+
+            'topic' => $request->topic,
+
+            'question_type' => $request->question_type,
+
+            'question' => $request->question,
+
+            'option_a' => $request->option_a,
+            'option_b' => $request->option_b,
+            'option_c' => $request->option_c,
+            'option_d' => $request->option_d,
+
+            'correct_answer' => $request->correct_answer,
+
+            'short_answer' => $request->short_answer,
+
+            'long_answer' => $request->long_answer,
+
+            'explanation' => $request->explanation,
+
+            'marks' => $request->marks,
+
+        ]);
 
         return redirect()->back()->with('success', 'Question added successfully');
     }
@@ -66,14 +108,39 @@ class AssessmentQuestionController extends Controller
     {
         $request->validate([
             'assessment_id' => 'required|exists:assessments,id',
+            'topic' => 'required|string|max:255',
+            'question_type' => 'required|in:MCQ,Short Answer,Long Answer',
             'question' => 'required',
-            'option_a' => 'required',
-            'option_b' => 'required',
-            'option_c' => 'required',
-            'option_d' => 'required',
-            'correct_answer' => 'required',
-            'marks' => 'required|integer',
+            'marks' => 'required|integer|min:1',
+
+            'option_a' => 'nullable',
+            'option_b' => 'nullable',
+            'option_c' => 'nullable',
+            'option_d' => 'nullable',
+            'correct_answer' => 'nullable',
+
+            'short_answer' => 'nullable',
+            'long_answer' => 'nullable',
+
+            'explanation' => 'nullable',
         ]);
+
+        if ($request->question_type != 'MCQ') {
+            $request->merge([
+                'option_a' => null,
+                'option_b' => null,
+                'option_c' => null,
+                'option_d' => null,
+                'correct_answer' => null,
+            ]);
+        }
+
+        if ($request->question_type == 'MCQ') {
+            $request->merge([
+                'short_answer' => null,
+                'long_answer' => null,
+            ]);
+        }
 
         $question = AssessmentQuestion::findOrFail($id);
         $assessment = Assessment::findOrFail($request->assessment_id);
@@ -97,6 +164,11 @@ class AssessmentQuestionController extends Controller
             'option_d',
             'correct_answer',
             'marks',
+            'topic',
+            'question_type',
+            'short_answer',
+            'long_answer',
+            'explanation',  
         ]));
 
         return redirect()->back()->with('success', 'Question updated successfully');

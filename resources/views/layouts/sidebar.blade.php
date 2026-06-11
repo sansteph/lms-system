@@ -12,7 +12,7 @@
     </a>
 
     <a href="{{ route('users') }}" class="sidebar-link {{ request()->routeIs('users') ? 'active' : '' }}">
-        Teachers Management
+        STEM Engineers Management
     </a>
 
     <a href="{{ route('classes') }}" class="sidebar-link {{ request()->routeIs('classes') ? 'active' : '' }}">
@@ -62,11 +62,13 @@
         My Space Review
     </a>
 
-    @if(in_array(session('user_role'), ['Admin', 'InstituteAdmin']))
-        <a href="{{ route('admin.assessment.monitoring') }}" class="sidebar-link {{ request()->routeIs('admin.assessment.monitoring') ? 'active' : '' }}">
-            Assessment Monitoring
-        </a>
-    @endif
+    <a href="{{ route('admin.assessment.monitoring') }}" class="sidebar-link {{ request()->routeIs('admin.assessment.monitoring') ? 'active' : '' }}">
+        Assessment Monitoring
+    </a>
+
+    <a href="{{ route('admin.class-session.report') }}"class="sidebar-link {{ request()->routeIs('admin.class-session.report') ? 'active' : '' }}">
+        Class Session Report
+    </a>
 
     @if(session('user_role') == 'Admin')
 
@@ -83,9 +85,13 @@
         </a>
 
         <a href="{{ route('admin.independent.learners') }}"class="sidebar-link {{ request()->routeIs('admin.independent.learners*') ? 'active' : '' }}">
-            Independent Learners
+            Hybrid Learners
         </a>
 
     @endif
+
+    <a href="{{ route('assessment.review') }}"class="sidebar-link">
+        Assessment Review
+    </a>
 
 </div>

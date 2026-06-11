@@ -16,12 +16,12 @@
 
             <div>
                 <h5>TinkEdge LMS</h5>
-                <span>Independent Learning</span>
+                <span>Hybrid Learning</span>
             </div>
         </div>
 
         <div class="auth-badge">
-            INDEPENDENT LEARNER
+            HYBRID LEARNER
         </div>
 
         <h1 class="auth-title">

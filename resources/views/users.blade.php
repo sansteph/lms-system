@@ -11,16 +11,16 @@
 
             <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                 <div>
-                    <h2 class="mb-1">Teacher Management</h2>
+                    <h2 class="mb-1">STEM Engineer Management</h2>
                     <p class="text-muted mb-0">
-                        Manage teacher accounts and account status.
+                        Manage STEM Engineer accounts and account status.
                     </p>
                 </div>
 
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#addUserModal">
-                    Add Teacher
+                    Add STEM Engineer
                 </button>
             </div>
 
@@ -55,7 +55,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
-                                <th>Teacher ID</th>
+                                <th>STEM Engineer ID</th>
                                 <th>Name</th>
                                 <th>Email</th>
                                 <th>Institute</th>
@@ -90,7 +90,7 @@
 
                                         <a href="{{ route('users.delete', $user->id) }}"
                                            class="btn btn-sm btn-danger"
-                                           onclick="return confirm('Are you sure you want to delete this teacher?')">
+                                           onclick="return confirm('Are you sure you want to delete this STEM Engineer?')">
                                             Delete
                                         </a>
                                     </td>
@@ -98,7 +98,7 @@
                             @empty
                                 <tr>
                                     <td colspan="7" class="text-center text-muted">
-                                        No teachers found
+                                        No STEM Engineers found
                                     </td>
                                 </tr>
                             @endforelse
@@ -120,7 +120,7 @@
                 @csrf
 
                 <div class="modal-header">
-                    <h5 class="modal-title">Add Teacher</h5>
+                    <h5 class="modal-title">Add STEM Engineer</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
@@ -128,8 +128,8 @@
                     <div class="row g-3">
 
                         <div class="col-md-6">
-                            <label class="form-label">Teacher ID</label>
-                            <input type="text" name="user_id" class="form-control" placeholder="Example: TCH001" required>
+                            <label class="form-label">STEM Engineer ID</label>
+                            <input type="text" name="user_id" class="form-control" placeholder="Example: STE001" required>
                         </div>
 
                         <div class="col-md-6">
@@ -171,7 +171,7 @@
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success">Save Teacher</button>
+                    <button type="submit" class="btn btn-success">Save STEM Engineer</button>
                 </div>
 
             </form>
@@ -189,7 +189,7 @@
                     @csrf
 
                     <div class="modal-header">
-                        <h5 class="modal-title">Edit Teacher</h5>
+                        <h5 class="modal-title">Edit STEM Engineer</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
 
@@ -197,7 +197,7 @@
                         <div class="row g-3">
 
                             <div class="col-md-6">
-                                <label class="form-label">Teacher ID</label>
+                                <label class="form-label">STEM Engineer ID</label>
                                 <input type="text" name="user_id" class="form-control" value="{{ $user->user_id }}" required>
                             </div>
 
@@ -235,7 +235,7 @@
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success">Update Teacher</button>
+                        <button type="submit" class="btn btn-success">Update STEM Engineer</button>
                     </div>
 
                 </form>

@@ -12,7 +12,7 @@
             <div class="page-header mb-4">
                 <h2 class="mb-1">Profile</h2>
                 <p class="text-muted mb-0">
-                    Manage teacher account and personal details.
+                    Manage STEM Engineer account and personal details.
                 </p>
             </div>
 
@@ -28,7 +28,7 @@
                             </div>
 
                             <h4 class="mb-1">{{ $teacher->name }}</h4>
-                            <p class="text-muted mb-2">Teacher</p>
+                            <p class="text-muted mb-2">STEM Engineer</p>
 
                             @if($teacher->status == 1)
                                 <span class="badge bg-success">Active</span>
@@ -50,7 +50,7 @@
                                 <div class="row g-3">
 
                                     <div class="col-md-6">
-                                        <label class="form-label">Teacher ID</label>
+                                        <label class="form-label">STEM Engineer ID</label>
                                         <input type="text" class="form-control" value="{{ $teacher->user_id }}" readonly>
                                     </div>
 

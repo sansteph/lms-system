@@ -176,57 +176,67 @@
 
                                     </h6>
 
-                                    <div class="form-check mb-2">
+                                    @php
+                                        $questionType = $question->question_type ?? 'MCQ';
+                                    @endphp
 
-                                        <input class="form-check-input"
-                                            type="radio"
-                                            name="answers[{{ $question->id }}]"
-                                            value="A">
+                                    @if($questionType == 'MCQ')
 
-                                        <label class="form-check-label">
-                                            {{ $question->option_a }}
-                                        </label>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input"
+                                                type="radio"
+                                                name="answers[{{ $question->id }}]"
+                                                value="A">
+                                            <label class="form-check-label">
+                                                {{ $question->option_a }}
+                                            </label>
+                                        </div>
 
-                                    </div>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input"
+                                                type="radio"
+                                                name="answers[{{ $question->id }}]"
+                                                value="B">
+                                            <label class="form-check-label">
+                                                {{ $question->option_b }}
+                                            </label>
+                                        </div>
 
-                                    <div class="form-check mb-2">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input"
+                                                type="radio"
+                                                name="answers[{{ $question->id }}]"
+                                                value="C">
+                                            <label class="form-check-label">
+                                                {{ $question->option_c }}
+                                            </label>
+                                        </div>
 
-                                        <input class="form-check-input"
-                                            type="radio"
-                                            name="answers[{{ $question->id }}]"
-                                            value="B">
+                                        <div class="form-check">
+                                            <input class="form-check-input"
+                                                type="radio"
+                                                name="answers[{{ $question->id }}]"
+                                                value="D">
+                                            <label class="form-check-label">
+                                                {{ $question->option_d }}
+                                            </label>
+                                        </div>
 
-                                        <label class="form-check-label">
-                                            {{ $question->option_b }}
-                                        </label>
+                                    @elseif($questionType == 'Short Answer')
 
-                                    </div>
+                                        <textarea name="answers[{{ $question->id }}]"
+                                                class="form-control"
+                                                rows="3"
+                                                placeholder="Write your short answer here"></textarea>
 
-                                    <div class="form-check mb-2">
+                                    @elseif($questionType == 'Long Answer')
 
-                                        <input class="form-check-input"
-                                            type="radio"
-                                            name="answers[{{ $question->id }}]"
-                                            value="C">
+                                        <textarea name="answers[{{ $question->id }}]"
+                                                class="form-control"
+                                                rows="6"
+                                                placeholder="Write your detailed answer here"></textarea>
 
-                                        <label class="form-check-label">
-                                            {{ $question->option_c }}
-                                        </label>
-
-                                    </div>
-
-                                    <div class="form-check">
-
-                                        <input class="form-check-input"
-                                            type="radio"
-                                            name="answers[{{ $question->id }}]"
-                                            value="D">
-
-                                        <label class="form-check-label">
-                                            {{ $question->option_d }}
-                                        </label>
-
-                                    </div>
+                                    @endif
 
                                 </div>
 

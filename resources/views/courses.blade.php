@@ -93,7 +93,7 @@
                     </option>
 
                     <option value="Teacher">
-                        Teacher
+                        STEM Engineer
                     </option>
 
                     <option value="Both">
@@ -146,7 +146,7 @@
                     </option>
 
                     <option value="Independent">
-                        Independent Learners Only
+                        Hybrid Learners Only
                     </option>
 
                     <option value="Both">
