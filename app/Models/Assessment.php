@@ -15,6 +15,11 @@ class Assessment extends Model
     {
         return $this->questions->sum('marks');
     }
+
+    public function content()
+    {
+        return $this->belongsTo(Content::class, 'content_id');
+    }   
     protected $fillable = [
         'assessment_title',
         'assessment_type',

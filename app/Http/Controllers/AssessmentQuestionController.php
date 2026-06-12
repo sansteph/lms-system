@@ -48,6 +48,28 @@ class AssessmentQuestionController extends Controller
             'explanation' => 'nullable',
         ]);
 
+        if ($request->question_type == 'MCQ') {
+        $request->validate([
+            'option_a' => 'required',
+            'option_b' => 'required',
+            'option_c' => 'required',
+            'option_d' => 'required',
+            'correct_answer' => 'required',
+        ]);
+        }
+
+        if ($request->question_type == 'Short Answer') {
+            $request->validate([
+                'short_answer' => 'required',
+            ]);
+        }
+
+        if ($request->question_type == 'Long Answer') {
+            $request->validate([
+                'long_answer' => 'required',
+            ]);
+        }
+
         if ($request->question_type != 'MCQ') {
             $request->merge([
                 'option_a' => null,
@@ -124,6 +146,27 @@ class AssessmentQuestionController extends Controller
 
             'explanation' => 'nullable',
         ]);
+        if ($request->question_type == 'MCQ') {
+            $request->validate([
+                'option_a' => 'required',
+                'option_b' => 'required',
+                'option_c' => 'required',
+                'option_d' => 'required',
+                'correct_answer' => 'required',
+            ]);
+        }
+
+        if ($request->question_type == 'Short Answer') {
+            $request->validate([
+                'short_answer' => 'required',
+            ]);
+        }
+
+        if ($request->question_type == 'Long Answer') {
+            $request->validate([
+                'long_answer' => 'required',
+            ]);
+        }
 
         if ($request->question_type != 'MCQ') {
             $request->merge([
