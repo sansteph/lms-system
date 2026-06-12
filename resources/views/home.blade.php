@@ -110,151 +110,19 @@
 
                 </div>
 
-                <!-- RIGHT DASHBOARD -->
+                <!-- HERO IMAGE -->
                 <div class="col-xl-7 col-lg-6">
 
-                    <div class="dashboard-area">
+                    <div class="hero-image-wrapper text-center">
 
-                        <div class="dashboard-wrapper">
-
-                            <!-- MAIN DASHBOARD -->
-                            <div class="dashboard-card-main">
-
-                                <div class="dashboard-header">
-
-                                    <div>
-                                        <small>Welcome back, User</small>
-                                        <h3>Dashboard Overview</h3>
-                                    </div>
-
-                                    <div class="dashboard-profile">
-                                        <i class="fa fa-user"></i>
-                                        <span></span>
-                                    </div>
-
-                                </div>
-
-                                <div class="dashboard-stats-grid">
-
-                                    <div class="dashboard-stat-box">
-                                        <span>Overall Progress</span>
-                                        <div class="stat-box-row">
-                                            <h2>92%</h2>
-                                            <i class="fa fa-chart-line"></i>
-                                        </div>
-                                        <small>
-                                            <i class="fa fa-arrow-up"></i>
-                                            12% from last month
-                                        </small>
-                                    </div>
-
-                                    <div class="dashboard-stat-box">
-                                        <span>Enrolled Courses</span>
-                                        <div class="stat-box-row">
-                                            <h2>18</h2>
-                                            <div class="mini-book-icon">
-                                                <i class="fa fa-book-open"></i>
-                                            </div>
-                                        </div>
-                                        <small>Active learning</small>
-                                    </div>
-
-                                </div>
-
-                                <div class="dashboard-course-card">
-
-                                    <div class="course-icon">
-                                        <i class="fa fa-brain"></i>
-                                    </div>
-
-                                    <div class="course-content">
-
-                                        <div class="course-header">
-                                            <div>
-                                                <h5>AI & Machine Learning</h5>
-                                                <small>75% Completed</small>
-                                            </div>
-                                            <span>75%</span>
-                                        </div>
-
-                                        <div class="course-progress">
-                                            <div class="course-progress-fill"></div>
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                                <div class="dashboard-analytics">
-
-                                    <div class="analytics-top">
-                                        <h6>Learning Analytics</h6>
-                                        <span>This Week <i class="fa fa-angle-down"></i></span>
-                                    </div>
-
-                                    <div class="analytics-body">
-
-                                        <div class="analytics-scale">
-                                            <span>100%</span>
-                                            <span>50%</span>
-                                            <span>0%</span>
-                                        </div>
-
-                                        <div class="analytics-chart">
-
-                                            <div class="analytics-bars">
-                                                <div class="bar b1"></div>
-                                                <div class="bar b2"></div>
-                                                <div class="bar b3"></div>
-                                                <div class="bar b4"></div>
-                                                <div class="bar b5"></div>
-                                                <div class="bar b6"></div>
-                                                <div class="bar b7"></div>
-                                            </div>
-
-                                            <div class="analytics-days">
-                                                <span>Mon</span>
-                                                <span>Tue</span>
-                                                <span>Wed</span>
-                                                <span>Thu</span>
-                                                <span>Fri</span>
-                                                <span>Sat</span>
-                                                <span>Sun</span>
-                                            </div>
-
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                            <!-- FLOATING SIDE CARDS - INSIDE FRAME -->
-                            <div class="floating-cards-column">
-
-                                <div class="dashboard-side-card side-card-1">
-                                    <i class="fa fa-brain"></i>
-                                    <span>AI Evaluation</span>
-                                </div>
-
-                                <div class="dashboard-side-card side-card-2">
-                                    <i class="fa fa-chart-line"></i>
-                                    <span>Live Analytics</span>
-                                </div>
-
-                                <div class="dashboard-side-card side-card-3">
-                                    <i class="fa fa-certificate"></i>
-                                    <span>Smart Certificates</span>
-                                </div>
-
-                            </div>
-
-                        </div>
+                        <img src="{{ asset('images/Hero_Homepage.png') }}"
+                            alt="TinkEdge Learning"
+                            class="img-fluid hero-main-image">
 
                     </div>
 
                 </div>
+               
 
             </div>
 
@@ -385,8 +253,8 @@
                                     AI assessments and skill certifications.
                                 </p>
 
-                                <a href="{{ route('independent.register') }}" class="btn access-btn-alt">
-                                    Get Started
+                                <a href="{{ route('coming.soon') }}" class="btn access-btn-alt">
+                                    Coming Soon
                                     <i class="fa fa-arrow-right"></i>
                                 </a>
                             </div>

@@ -51,6 +51,8 @@ Route::post('/student-login', [PageController::class, 'studentLoginSubmit'])->na
 Route::get('/verify-certificate', [PageController::class, 'verifyCertificate'])->name('certificate.verify');
 Route::post('/verify-certificate', [PageController::class, 'verifyCertificateSubmit'])->name('certificate.verify.submit');
 
+Route::view('/coming-soon', 'coming-soon')->name('coming.soon');
+
 Route::get('/independent/register', [IndependentLearnerController::class, 'register'])->name('independent.register');
 Route::post('/independent/register', [IndependentLearnerController::class, 'registerSubmit'])->name('independent.register.submit');
 
