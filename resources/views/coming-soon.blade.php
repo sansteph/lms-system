@@ -12,12 +12,6 @@
 
     <div class="coming-soon-overlay">
 
-        <h1>Coming Soon</h1>
-
-        <p>
-            We're building something awesome.
-        </p>
-
         <a href="{{ route('home') }}" class="btn btn-primary">
             Back to Home
         </a>

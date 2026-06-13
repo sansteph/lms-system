@@ -22,7 +22,8 @@
     request()->routeIs('teacher.login') ||
     request()->routeIs('student.login') ||
     request()->routeIs('independent.register') ||
-    request()->routeIs('independent.login')
+    request()->routeIs('independent.login') ||
+    request()->routeIs('coming.soon')
 )
     <div id="particles-js"></div>
 @endif
@@ -33,7 +34,8 @@
     !request()->routeIs('teacher.login') &&
     !request()->routeIs('student.login') &&
     !request()->routeIs('independent.register') &&
-    !request()->routeIs('independent.login'))
+    !request()->routeIs('independent.login') &&
+    !request()->routeIs('coming.soon'))
 
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
 
