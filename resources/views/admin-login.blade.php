@@ -115,7 +115,8 @@
 
         <div class="text-center">
 
-            <p class="text-muted mb-3">
+            <p class="new-institute-text mb-3">
+                <i class="fa fa-school"></i>
                 New Institute?
             </p>
 

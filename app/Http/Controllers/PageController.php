@@ -20,6 +20,7 @@ use App\Models\AccessRequest;
 use App\Models\CertificateVerificationLog;
 use App\Models\AssessmentSession;
 use App\Models\User;
+use App\Models\AssessmentAnswer;
 use App\Models\ClassContentSession;
 
 class PageController extends Controller
@@ -302,16 +303,21 @@ class PageController extends Controller
     {
         $teacherName = session('user_name');
         $teacher = User::find(session('user_id'));
-
+        $classes = SchoolClass::where('class_teacher', $teacher->name)->get();
         $contentCount = Content::where('institute', $teacher->institute)->count();
         $assessmentCount = Assessment::where('institute', $teacher->institute)->count();
         $notificationCount = Notification::where('institute', $teacher->institute)->count();
+        $assignedClasses = SchoolClass::where('class_teacher',$teacher->name)->count();
+        $totalStudents = Student::where('institute',$teacher->institute)->count();
 
         return view('teacher.teacher-dashboard', compact(
             'teacherName',
             'contentCount',
             'assessmentCount',
-            'notificationCount'
+            'notificationCount',
+            'assignedClasses',
+            'totalStudents',
+            'classes',
         ));
     }
 
@@ -354,20 +360,50 @@ class PageController extends Controller
         return view('teacher.teacher-assessments', compact('assessments'));
     }
 
-    public function teacherReports()
+   public function teacherReports()
     {
         $teacher = User::find(session('user_id'));
 
         $studentCount = Student::where('institute', $teacher->institute)->count();
+
         $classCount = SchoolClass::where('institute', $teacher->institute)->count();
+
         $contentCount = Content::where('institute', $teacher->institute)->count();
+
         $assessmentCount = Assessment::where('institute', $teacher->institute)->count();
+
+        $completedResults = AssessmentResult::whereHas('student', function ($q) use ($teacher) {
+                $q->where('institute', $teacher->institute);
+            })
+            ->where('status', 'Completed')
+            ->count();
+
+        $pendingReviewCount = AssessmentAnswer::whereHas('student', function ($q) use ($teacher) {
+                $q->where('institute', $teacher->institute);
+            })
+            ->where('review_status', 'Pending Review')
+            ->count();
+
+        $averageScore = AssessmentResult::whereHas('student', function ($q) use ($teacher) {
+                $q->where('institute', $teacher->institute);
+            })
+            ->where('status', 'Completed')
+            ->avg('percentage') ?? 0;
+
+        $certificateCount = Certificate::whereHas('student', function ($q) use ($teacher) {
+                $q->where('institute', $teacher->institute);
+            })
+            ->count();
 
         return view('teacher.teacher-reports', compact(
             'studentCount',
             'classCount',
             'contentCount',
-            'assessmentCount'
+            'assessmentCount',
+            'completedResults',
+            'pendingReviewCount',
+            'averageScore',
+            'certificateCount'
         ));
     }
 
@@ -452,7 +488,31 @@ class PageController extends Controller
     }
     public function teacherCertificates()
     {
-        return view('teacher.teacher-certificates');
+        $teacher = User::find(session('user_id'));
+
+        $certificates = Certificate::with(['student', 'course'])
+            ->whereHas('student', function ($query) use ($teacher) {
+                $query->where('institute', $teacher->institute);
+            })
+            ->latest()
+            ->get();
+
+        $totalCertificates = $certificates->count();
+
+        $issuedCertificates = $certificates
+            ->where('status', 'Issued')
+            ->count();
+
+        $revokedCertificates = $certificates
+            ->where('status', 'Revoked')
+            ->count();
+
+        return view('teacher.teacher-certificates', compact(
+            'certificates',
+            'totalCertificates',
+            'issuedCertificates',
+            'revokedCertificates'
+        ));
     }
     public function teacherNotifications()
     {
@@ -467,7 +527,7 @@ class PageController extends Controller
     }
    public function teacherProfile()
     {
-        $teacher = \App\Models\User::find(session('user_id'));
+        $teacher = User::find(session('user_id'));
 
         return view('teacher.teacher-profile', compact('teacher'));
     }
@@ -549,6 +609,13 @@ class PageController extends Controller
             ->take(3)
             ->get();
 
+        $upcomingAssessments = Assessment::where('status', 1)
+            ->where('institute', $student->institute)
+            ->whereNotIn('id', $attemptedAssessmentIds)
+            ->latest()
+            ->take(5)
+            ->get();
+
         return view('student.student-dashboard', compact(
             'studentName',
             'studentCode',
@@ -556,7 +623,8 @@ class PageController extends Controller
             'badgeCount',
             'notifications',
             'pendingAssessmentCount',
-            'totalAssessmentCount'
+            'totalAssessmentCount',
+            'upcomingAssessments',
         ));
     }
 
@@ -886,10 +954,18 @@ class PageController extends Controller
                 ->with('error', 'Content is locked while your assessment is in progress.');
         }
 
-        $contents = Content::where('institute', $student->institute)
-            ->where('assigned_class', $student->class)
-            ->orderBy('lesson_order')
-            ->get();
+        $schoolClass = SchoolClass::with('content')
+            ->where('institute', $student->institute)
+            ->where('class_name', $student->class)
+            ->where('section', $student->section)
+            ->where('status', 1)
+            ->first();
+
+        $contents = collect();
+
+        if ($schoolClass && $schoolClass->content && $schoolClass->content->status == 1) {
+            $contents = collect([$schoolClass->content]);
+        }
 
         $totalLessons = $contents->count();
 
@@ -909,7 +985,6 @@ class PageController extends Controller
             'progressPercentage'
         ));
     }
-
     public function verifyCertificateSubmit(Request $request)
     {
         $request->validate([
@@ -1416,5 +1491,32 @@ class PageController extends Controller
             ->get();
 
         return view('class-session-report', compact('sessions'));
+    }
+
+    public function assessmentReviewMonitoring()
+    {
+        $results = AssessmentResult::with([
+            'student',
+            'assessment'
+        ])
+        ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+
+            $query->whereHas('student', function ($q) {
+
+                $q->where(
+                    'institute',
+                    session('user_institute')
+                );
+
+            });
+
+        })
+        ->latest()
+        ->get();
+
+        return view(
+            'assessment-review-monitoring',
+            compact('results')
+        );
     }
 }

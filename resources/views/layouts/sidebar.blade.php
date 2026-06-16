@@ -19,6 +19,10 @@
         Class Management
     </a>
 
+    <a href="{{ route('timetable') }}"class="sidebar-link {{ request()->routeIs('timetable*') ? 'active' : '' }}">
+        Weekly Timetable
+    </a>
+
     <a href="{{ route('courses') }}"class="sidebar-link {{ request()->routeIs('courses*') ? 'active' : '' }}">
         Courses Management
     </a>
@@ -90,8 +94,8 @@
 
     @endif
 
-    <a href="{{ route('assessment.review') }}"class="sidebar-link">
-        Assessment Review
+    <a href="{{ route('admin.assessment.review.monitoring') }}"class="sidebar-link {{ request()->routeIs('admin.assessment.review.monitoring') ? 'active' : '' }}">
+        Assessment Review Monitoring
     </a>
 
 </div>

@@ -75,23 +75,25 @@
                                 </thead>
 
                                 <tbody>
-                                    @forelse($results as $index => $result)
+                                    @forelse($upcomingAssessments as $index => $assessment)
                                         <tr>
                                             <td>{{ $index + 1 }}</td>
-                                            <td>Assessment #{{ $result->assessment_id }}</td>
-                                            <td>General</td>
-                                            <td>{{ $result->score }}/{{ $result->total_marks }}</td>
-                                            <td><span class="badge bg-success">{{ $result->status }}</span></td>
+                                            <td>{{ $assessment->assessment_title }}</td>
+                                            <td>{{ $assessment->assessment_type ?? 'General' }}</td>
+                                            <td>{{ $assessment->duration }} mins</td>
                                             <td>
-                                                <a href="{{ route('student.history') }}" class="btn btn-sm btn-primary">
-                                                    View Result
+                                                <span class="badge bg-warning text-dark">Pending</span>
+                                            </td>
+                                            <td>
+                                                <a href="{{ route('student.assessment') }}" class="btn btn-sm btn-primary">
+                                                    Start
                                                 </a>
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
                                             <td colspan="6" class="text-center text-muted">
-                                                No assessments submitted yet.
+                                                No upcoming assessments found.
                                             </td>
                                         </tr>
                                     @endforelse
@@ -111,7 +113,9 @@
                                 <a href="{{ route('student.assessment') }}" class="btn btn-primary">
                                     Take Assessment
                                 </a>
-                                <button class="btn btn-success">View Results</button>
+                                <a href="{{ route('student.history') }}" class="btn btn-success">
+                                    View Results
+                                </a>
                                 <a href="{{ route('student.badges') }}" class="btn btn-warning">
                                     View Achievements
                                 </a>
@@ -120,7 +124,6 @@
                     </div>
 
                     <div class="card shadow border-0">
-                        <div class="card-body">
                             <div class="card-body">
                                 <h5 class="mb-3">Latest Updates</h5>
                                 @forelse($notifications as $notification)
@@ -144,8 +147,6 @@
                                 @endforelse
 
                             </div>
-
-                        </div>
                     </div>
                 </div>
 

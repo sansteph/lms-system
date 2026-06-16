@@ -242,23 +242,15 @@
 
                                     <td>
 
-                                        <button class="btn btn-sm btn-warning">
+                                        <a href="{{ route('teacher.results') }}"
+                                        class="btn btn-sm btn-info">
+                                            View Results
+                                        </a>
 
-                                            Generate Link
-
-                                        </button>
-
-                                        @if($assessment->file_path)
-
-                                            <a href="{{ asset('storage/' . $assessment->file_path) }}"
-                                               target="_blank"
-                                               class="btn btn-sm btn-primary">
-
-                                                View Paper
-
-                                            </a>
-
-                                        @endif
+                                        <a href="{{ route('assessment.review') }}"
+                                        class="btn btn-sm btn-warning">
+                                            Evaluate
+                                        </a>
 
                                     </td>
 

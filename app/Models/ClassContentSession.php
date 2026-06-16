@@ -16,7 +16,7 @@ class ClassContentSession extends Model
         'status',
     ];
 
-    public function class()
+    public function schoolClass()
     {
         return $this->belongsTo(SchoolClass::class, 'class_id');
     }

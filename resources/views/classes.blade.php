@@ -75,9 +75,8 @@
                                     <td>{{ $class->institute ?? 'N/A' }}</td>
                                     <td>{{ $class->section }}</td>
                                     <td>{{ $class->class_teacher }}</td>
-                                    <td>{{ $class->content->title ?? 'Not Assigned' }}</td>
+                                    <td>{{ optional($class->content)->content_title ?? 'Not Assigned' }}</td>
                                     <td>{{ $class->academic_year }}</td>
-
                                     <td>
                                         @if($class->status == 1)
                                             <span class="badge bg-success">Active</span>
@@ -197,7 +196,7 @@
                                                                     <option value="{{ $content->id }}"
                                                                         {{ $class->content_id == $content->id ? 'selected' : '' }}>
 
-                                                                        {{ $content->title }}
+                                                                        {{ $content->content_title }}
 
                                                                     </option>
 
@@ -361,7 +360,7 @@
 
                                     <option value="{{ $content->id }}">
 
-                                        {{ $content->title }}
+                                        {{ $content->content_title }}
 
                                     </option>
 

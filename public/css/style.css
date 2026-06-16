@@ -1856,3 +1856,10 @@ main{
     position: absolute;
     bottom: 10px;
 }
+
+.new-institute-text {
+    font-size: 20px;
+    color: #cbd5e1;
+    margin-top: 12px;
+}
+

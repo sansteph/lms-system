@@ -3,43 +3,35 @@
         <h4>Student Panel</h4>
     </div>
 
-    <a href="{{ route('student.dashboard') }}"
-       class="sidebar-link {{ request()->routeIs('student.dashboard') ? 'active' : '' }}">
+    <a href="{{ route('student.dashboard') }}"class="sidebar-link {{ request()->routeIs('student.dashboard') ? 'active' : '' }}">
         Dashboard
     </a>
 
-    <a href="{{ route('student.content') }}"
-        class="sidebar-link">
+    <a href="{{ route('student.content') }}"class="sidebar-link {{ request()->routeIs('student.content') ? 'active' : '' }}">
         Learning Content
     </a>
 
-    <a href="{{ route('student.assessment') }}"
-        class="sidebar-link {{ request()->routeIs('student.assessment') ? 'active' : '' }}">
+    <a href="{{ route('student.assessment') }}"class="sidebar-link {{ request()->routeIs('student.assessment') ? 'active' : '' }}">
         Take Assessment
     </a>
 
-    <a href="{{ route('student.history') }}"
-    class="sidebar-link {{ request()->routeIs('student.history') ? 'active' : '' }}">
+    <a href="{{ route('student.history') }}"class="sidebar-link {{ request()->routeIs('student.history') ? 'active' : '' }}">
         Assessment History
     </a>
 
-    <a href="{{ route('student.badges') }}"
-    class="sidebar-link {{ request()->routeIs('student.badges') ? 'active' : '' }}">
+    <a href="{{ route('student.badges') }}"class="sidebar-link {{ request()->routeIs('student.badges') ? 'active' : '' }}">
         Achievements
     </a>
 
-    <a href="{{ route('student.notifications') }}"
-    class="sidebar-link {{ request()->routeIs('student.notifications') ? 'active' : '' }}">
+    <a href="{{ route('student.notifications') }}"class="sidebar-link {{ request()->routeIs('student.notifications') ? 'active' : '' }}">
         Notifications
     </a>
 
-    <a href="{{ route('student.my-space') }}"
-    class="sidebar-link {{ request()->routeIs('student.my-space') ? 'active' : '' }}">
+    <a href="{{ route('student.my-space') }}"class="sidebar-link {{ request()->routeIs('student.my-space') ? 'active' : '' }}">
         My Space
     </a>
 
-    <a href="{{ route('student.profile') }}"
-    class="sidebar-link {{ request()->routeIs('student.student-profile') ? 'active' : '' }}">
+    <a href="{{ route('student.profile') }}"class="sidebar-link {{ request()->routeIs('student.profile') ? 'active' : '' }}">
         Profile
     </a>
 

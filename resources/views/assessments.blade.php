@@ -108,7 +108,7 @@
                                 <th>Readiness</th>
                                 <th>Duration</th>
                                 <th>Status</th>
-                                <th width="320">Actions</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
 
@@ -165,7 +165,7 @@
 
                                     </td>
 
-                                    <td>{{ $assessment->duration }}</td>
+                                    <td>{{ $assessment->duration }} mins</td>
 
                                     <td>
 
@@ -187,11 +187,7 @@
 
                                     <td class="text-nowrap">
 
-                                        <div class="d-flex align-items-center gap-2">
-
-                                            <button class="btn btn-sm btn-info">
-                                                Link
-                                            </button>
+                                        <div class="d-flex flex-column gap-2 ">
 
                                             <button class="btn btn-sm btn-warning"
                                                     data-bs-toggle="modal"
@@ -225,16 +221,6 @@
                         </tbody>
 
                     </table>
-
-                    <div class="alert alert-info mt-3 mb-0">
-
-                        Assessment link format example:
-
-                        <strong>
-                            /student-assessment?institute_id=INS001&student_id=STU001&assessment_id=ASM001
-                        </strong>
-
-                    </div>
 
                 </div>
 

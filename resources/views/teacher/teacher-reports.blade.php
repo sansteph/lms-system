@@ -9,143 +9,130 @@
 
         <div class="col-md-10 col-lg-10 p-4">
 
-            <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-                <div>
-                    <h2 class="mb-1">Reports</h2>
-                    <p class="text-muted mb-0">
-                        View class performance, student progress, and assessment reports.
-                    </p>
-                </div>
-
-                <button class="btn report-btn btn-sm">
-                    Export Report
-                </button>
+            <div class="page-header mb-4">
+                <h2 class="mb-1">Reports</h2>
+                <p class="text-muted mb-0">
+                    View live class, student, content, and assessment summaries.
+                </p>
             </div>
 
             <div class="row g-4 mb-4">
+
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Student Reports</h6>
-                        <h2>120</h2>
+                        <h6>Total Students</h6>
+                        <h2>{{ $studentCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Class Reports</h6>
-                        <h2>5</h2>
+                        <h6>Total Classes</h6>
+                        <h2>{{ $classCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Average Score</h6>
-                        <h2>82%</h2>
+                        <h2>{{ number_format($averageScore, 2) }}%</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Pending Reviews</h6>
-                        <h2>3</h2>
+                        <h2>{{ $pendingReviewCount }}</h2>
                     </div>
                 </div>
-            </div>
 
-            <div class="card shadow border-0 mb-4">
-                <div class="card-body">
-                    <h5 class="mb-1">Generate Report</h5>
-                    <p class="text-muted mb-3">Filter reports by class, assessment, and date.</p>
-
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <select class="form-control">
-                                <option>Select Report Type</option>
-                                <option>Student Performance</option>
-                                <option>Class-wise Report</option>
-                                <option>Assessment Result</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-3">
-                            <select class="form-control">
-                                <option>Select Class</option>
-                                <option>VIII - A</option>
-                                <option>IX - B</option>
-                                <option>X - A</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-3">
-                            <select class="form-control">
-                                <option>Select Assessment</option>
-                                <option>AI Fundamentals Test</option>
-                                <option>Robotics Quiz</option>
-                                <option>IoT Assessment</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-2">
-                            <input type="date" class="form-control">
-                        </div>
-
-                        <div class="col-md-1">
-                            <button class="btn btn-success w-100">
-                                Go
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <input type="text"
-                                   class="form-control"
-                                   placeholder="Search reports">
-                        </div>
-                    </div>
+                    <h5 class="mb-4">Live STEM Engineer Report Summary</h5>
 
                     <table class="table table-bordered table-hover align-middle">
-                        <thead class="table-dark">
+
+                        <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
-                                <th>Report Name</th>
-                                <th>Type</th>
-                                <th>Class</th>
-                                <th>Generated Date</th>
-                                <th width="180">Actions</th>
+                                <th>Report Area</th>
+                                <th>Metric</th>
+                                <th>Current Value</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
 
                         <tbody>
+
                             <tr>
                                 <td>1</td>
-                                <td>VIII-A Student Performance</td>
-                                <td><span class="badge bg-primary">Student</span></td>
-                                <td>VIII - A</td>
-                                <td>05-05-2026</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">View</button>
-                                    <button class="btn btn-sm btn-success">Download</button>
-                                </td>
+                                <td>Students</td>
+                                <td>Total Students in Institute</td>
+                                <td>{{ $studentCount }}</td>
+                                <td><span class="badge bg-primary">Live</span></td>
                             </tr>
 
                             <tr>
                                 <td>2</td>
-                                <td>Robotics Quiz Result</td>
-                                <td><span class="badge bg-warning text-dark">Assessment</span></td>
-                                <td>IX - B</td>
-                                <td>05-05-2026</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">View</button>
-                                    <button class="btn btn-sm btn-success">Download</button>
-                                </td>
+                                <td>Classes</td>
+                                <td>Total Classes</td>
+                                <td>{{ $classCount }}</td>
+                                <td><span class="badge bg-info">Live</span></td>
                             </tr>
+
+                            <tr>
+                                <td>3</td>
+                                <td>Content</td>
+                                <td>Total Content</td>
+                                <td>{{ $contentCount }}</td>
+                                <td><span class="badge bg-info">Live</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>4</td>
+                                <td>Assessments</td>
+                                <td>Total Assessments</td>
+                                <td>{{ $assessmentCount }}</td>
+                                <td><span class="badge bg-warning text-dark">Live</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>5</td>
+                                <td>Assessment Results</td>
+                                <td>Completed Results</td>
+                                <td>{{ $completedResults }}</td>
+                                <td><span class="badge bg-success">Completed</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>6</td>
+                                <td>Manual Reviews</td>
+                                <td>Pending Written Answers</td>
+                                <td>{{ $pendingReviewCount }}</td>
+                                <td><span class="badge bg-warning text-dark">Pending</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>7</td>
+                                <td>Performance</td>
+                                <td>Average Assessment Score</td>
+                                <td>{{ number_format($averageScore, 2) }}%</td>
+                                <td><span class="badge bg-success">Calculated</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>8</td>
+                                <td>Certificates</td>
+                                <td>Total Certificates Issued</td>
+                                <td>{{ $certificateCount }}</td>
+                                <td><span class="badge bg-success">Live</span></td>
+                            </tr>
+
                         </tbody>
+
                     </table>
 
                 </div>

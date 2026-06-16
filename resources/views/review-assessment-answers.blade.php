@@ -5,7 +5,7 @@
 <div class="container-fluid">
     <div class="row">
 
-        @include('layouts.sidebar')
+        @include('layouts.teacher-sidebar')
 
         <div class="col-md-10 col-lg-10 p-4">
 

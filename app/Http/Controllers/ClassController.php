@@ -21,18 +21,19 @@ class ClassController extends Controller
         ->orderBy('content_title')
         ->get();
 
-        $classes = SchoolClass::when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->where('institute', session('user_institute'));
-            })
-            ->when($search, function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('class_name', 'like', "%{$search}%")
-                    ->orWhere('section', 'like', "%{$search}%")
-                    ->orWhere('class_teacher', 'like', "%{$search}%")
-                    ->orWhere('academic_year', 'like', "%{$search}%");
-                });
-            })
-            ->get();
+        $classes = SchoolClass::with('content')
+        ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+            $query->where('institute', session('user_institute'));
+        })
+        ->when($search, function ($query, $search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('class_name', 'like', "%{$search}%")
+                ->orWhere('section', 'like', "%{$search}%")
+                ->orWhere('class_teacher', 'like', "%{$search}%")
+                ->orWhere('academic_year', 'like', "%{$search}%");
+            });
+        })
+        ->get();
 
         $stemEngineers = \App\Models\User::where('role', 'Teacher')
             ->where('status', 1)
@@ -63,10 +64,12 @@ class ClassController extends Controller
             'institute' => session('user_role') == 'InstituteAdmin'
                 ? session('user_institute')
                 : $request->institute,
+
             'class_name' => $request->class_name,
             'section' => $request->section,
             'class_teacher' => $request->class_teacher,
             'academic_year' => $request->academic_year,
+            'content_id' => $request->content_id,
             'status' => $request->status,
         ]);
 
@@ -100,10 +103,12 @@ class ClassController extends Controller
             'institute' => session('user_role') == 'InstituteAdmin'
                 ? session('user_institute')
                 : $request->institute,
+
             'class_name' => $request->class_name,
             'section' => $request->section,
             'class_teacher' => $request->class_teacher,
             'academic_year' => $request->academic_year,
+            'content_id' => $request->content_id,
             'status' => $request->status,
         ]);
 

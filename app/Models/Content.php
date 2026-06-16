@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Content extends Model
 {
+    protected $table = 'contents';
     public function course()
     {
         return $this->belongsTo(Course::class);

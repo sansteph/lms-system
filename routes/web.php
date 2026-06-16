@@ -20,6 +20,7 @@ use App\Http\Controllers\MySpaceController;
 use App\Http\Controllers\TeacherStudentProfileController;
 use App\Http\Controllers\IndependentLearnerController;
 use Illuminate\Support\Facades\Mail;
+use App\Http\Controllers\ClassTimetableController;
 
 
 //Public Routes
@@ -62,6 +63,7 @@ Route::post('/independent/login', [IndependentLearnerController::class, 'loginSu
 Route::get('/independent/courses', [IndependentLearnerController::class, 'courses'])->name('independent.courses');
 Route::get('/independent/courses/{id}', [IndependentLearnerController::class, 'courseDetails'])->name('independent.courses.show');
 
+//Hybrid-Learners
 Route::middleware(['independent.auth'])->group(function () {
     Route::get('/independent-dashboard', [IndependentLearnerController::class, 'dashboard'])->name('independent.dashboard');
     Route::post('/independent/courses/{id}/enroll', [IndependentLearnerController::class, 'enroll'])->name('independent.courses.enroll');
@@ -144,10 +146,14 @@ Route::middleware(['admin.auth'])->group(function () {
 
     Route::get('/admin/assessment-monitoring', [PageController::class, 'assessmentMonitoring'])->name('admin.assessment.monitoring');
 
-    Route::get('/assessment-review',[AssessmentResultController::class, 'reviewResults'])->name('assessment.review');
-    Route::post('/assessment-review/{id}',[AssessmentResultController::class, 'reviewAnswer'])->name('assessment.review.submit');
-
     Route::get('/admin/class-session-report', [PageController::class, 'classSessionReport'])->name('admin.class-session.report');
+
+    Route::get('/class-timetable',[ClassTimetableController::class, 'index'])->name('timetable');
+    Route::post('/class-timetable/store',[ClassTimetableController::class, 'store'])->name('timetable.store');
+    Route::get('/class-timetable/copy-week',[ClassTimetableController::class, 'copyLastWeek'])->name('timetable.copy.week');
+    Route::get('/class-timetable/delete/{id}',[ClassTimetableController::class, 'delete'])->name('timetable.delete');
+
+    Route::get('/admin/assessment-review-monitoring',[PageController::class, 'assessmentReviewMonitoring'])->name('admin.assessment.review.monitoring');
 
 });
 
@@ -161,29 +167,21 @@ Route::middleware(['admin.auth', 'super.admin'])->group(function () {
     Route::post('/institutes/update/{id}', [InstituteController::class, 'update'])->name('institutes.update');
     Route::get('/institutes/delete/{id}', [InstituteController::class, 'delete'])->name('institutes.delete');
 
-    Route::get('/admin/institute-requests', [UserController::class, 'instituteRequests'])
-        ->name('admin.institute.requests');
+    Route::get('/admin/institute-requests', [UserController::class, 'instituteRequests'])->name('admin.institute.requests');
 
-    Route::post('/admin/institute-requests/{id}/approve', [UserController::class, 'approveInstituteRequest'])
-        ->name('admin.institute.requests.approve');
+    Route::post('/admin/institute-requests/{id}/approve', [UserController::class, 'approveInstituteRequest']) ->name('admin.institute.requests.approve');
 
-    Route::post('/admin/institute-requests/{id}/reject', [UserController::class, 'rejectInstituteRequest'])
-        ->name('admin.institute.requests.reject');
+    Route::post('/admin/institute-requests/{id}/reject', [UserController::class, 'rejectInstituteRequest']) ->name('admin.institute.requests.reject');
 
-    Route::get('/admin/independent-learners', [IndependentLearnerController::class, 'adminIndex'])
-        ->name('admin.independent.learners');
+    Route::get('/admin/independent-learners', [IndependentLearnerController::class, 'adminIndex'])->name('admin.independent.learners');
 
-    Route::post('/admin/independent-learners/{id}/toggle-status', [IndependentLearnerController::class, 'toggleStatus'])
-        ->name('admin.independent.learners.toggle-status');
+    Route::post('/admin/independent-learners/{id}/toggle-status', [IndependentLearnerController::class, 'toggleStatus'])->name('admin.independent.learners.toggle-status');
 
-    Route::get('/admin/independent-learners/{id}', [IndependentLearnerController::class, 'showLearner'])
-        ->name('admin.independent.learners.show');
+    Route::get('/admin/independent-learners/{id}', [IndependentLearnerController::class, 'showLearner'])->name('admin.independent.learners.show');
 
-    Route::get('/admin/activity-monitoring', [PageController::class, 'activityMonitoring'])
-        ->name('admin.activity.monitoring');
+    Route::get('/admin/activity-monitoring', [PageController::class, 'activityMonitoring'])->name('admin.activity.monitoring');
 
-    Route::get('/admin/export-activity-report', [PageController::class, 'exportActivityReport'])
-        ->name('admin.export.activity');
+    Route::get('/admin/export-activity-report', [PageController::class, 'exportActivityReport'])->name('admin.export.activity');
 
     Route::get('/test-gemini', [AIController::class, 'testGemini']);
 
@@ -239,17 +237,13 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
 
     Route::post('/assessment-session/submit/{sessionId}', [PageController::class, 'submitAssessmentSession'])->name('assessment.session.submit');
 
-    Route::get('/assessment-review',[AssessmentResultController::class, 'reviewResults'])->name('assessment.review');
+    Route::post('/teacher/class-session/start/{classId}',[PageController::class, 'startClassSession'])->name('teacher.class-session.start');
 
-    Route::post('/assessment-review/{id}',[AssessmentResultController::class, 'reviewAnswer'])->name('assessment.review.submit');
+    Route::post('/teacher/class-session/end/{sessionId}',[PageController::class, 'endClassSession'])->name('teacher.class-session.end');
 
     Route::get('/assessment-review', [AssessmentResultController::class, 'reviewResults'])->name('assessment.review');
 
     Route::post('/assessment-review/{id}', [AssessmentResultController::class, 'reviewAnswer'])->name('assessment.review.submit');
-
-    Route::post('/teacher/class-session/start/{classId}',[PageController::class, 'startClassSession'])->name('teacher.class-session.start');
-
-    Route::post('/teacher/class-session/end/{sessionId}',[PageController::class, 'endClassSession'])->name('teacher.class-session.end');
 });
 
 
@@ -264,6 +258,9 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::get('/student/profile',[PageController::class, 'studentProfile'])->name('student.profile');
     Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
     Route::get('/student/certificate',[PageController::class, 'studentCertificate'])->name('student.certificate');
+    Route::get('/student/achievements/{id}/edit', [StudentAchievementController::class, 'edit'])->name('student.achievements.edit');
+    Route::post('/student/achievements/{id}/update', [StudentAchievementController::class, 'update'])->name('student.achievements.update');
+    Route::post('/student/achievements/{id}/delete', [StudentAchievementController::class, 'delete'])->name('student.achievements.delete');
     Route::get('/student/achievements/create',[StudentAchievementController::class, 'create'])->name('student.achievements.create');
     Route::post('/student/achievements/store',[StudentAchievementController::class, 'store'])->name('student.achievements.store');
     Route::get('/student/content',[PageController::class, 'studentContent'])->name('student.content');

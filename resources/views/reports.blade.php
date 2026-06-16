@@ -17,9 +17,6 @@
                     </p>
                 </div>
 
-                <button class="btn btn-primary btn-sm">
-                    Download Summary
-                </button>
             </div>
 
             <div class="row g-4 mb-4">
@@ -52,107 +49,101 @@
                 </div>
             </div>
 
-            <div class="card shadow border-0 mb-4">
-                <div class="card-body">
-                    <h5 class="mb-1">Generate Report</h5>
-                    <p class="text-muted mb-3">Choose report type and filters to view or download.</p>
-
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <select class="form-control">
-                                <option>Select Report Type</option>
-                                <option>Student Performance</option>
-                                <option>STEM Engineer Performance</option>
-                                <option>Class-wise Report</option>
-                                <option>MIS Report</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-3">
-                            <select class="form-control">
-                                <option>Select Institute</option>
-                                <option>ABC School</option>
-                                <option>Bright Future Academy</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-2">
-                            <select class="form-control">
-                                <option>Select Class</option>
-                                <option>VIII - A</option>
-                                <option>IX - B</option>
-                                <option>X - A</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-2">
-                            <input type="date" class="form-control">
-                        </div>
-
-                        <div class="col-md-2">
-                            <button class="btn btn-success w-100">Generate</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div class="card shadow border-0">
                 <div class="card-body">
+
+                    <h5 class="mb-4">Live LMS Report Summary</h5>
 
                     <table class="table table-bordered table-hover align-middle">
                         <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
-                                <th>Report Name</th>
-                                <th>Report Type</th>
-                                <th>Description</th>
-                                <th width="180">Actions</th>
+                                <th>Report Area</th>
+                                <th>Metric</th>
+                                <th>Current Value</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
 
                         <tbody>
                             <tr>
                                 <td>1</td>
-                                <td>Student Performance Report</td>
-                                <td><span class="badge bg-primary">Student</span></td>
-                                <td>View student count, class-wise student details, and performance summary.</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">View</button>
-                                    <button class="btn btn-sm btn-success">Download</button>
-                                </td>
+                                <td>Students</td>
+                                <td>Total Registered Students</td>
+                                <td>{{ $studentCount }}</td>
+                                <td><span class="badge bg-primary">Live</span></td>
                             </tr>
 
                             <tr>
                                 <td>2</td>
-                                <td>STEM Engineer Performance Report</td>
-                                <td><span class="badge bg-warning text-dark">STEM Engineer</span></td>
-                                <td>View STEM Engineer count, assigned classes, and assessment participation.</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">View</button>
-                                    <button class="btn btn-sm btn-success">Download</button>
-                                </td>
+                                <td>STEM Engineers</td>
+                                <td>Total STEM Engineers</td>
+                                <td>{{ $teacherCount }}</td>
+                                <td><span class="badge bg-primary">Live</span></td>
                             </tr>
 
                             <tr>
                                 <td>3</td>
-                                <td>Class-wise Report</td>
-                                <td><span class="badge bg-info">Class</span></td>
-                                <td>View class count, sections, assigned STEM Engineers, and student distribution.</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">View</button>
-                                    <button class="btn btn-sm btn-success">Download</button>
-                                </td>
+                                <td>Classes</td>
+                                <td>Total Classes</td>
+                                <td>{{ $classCount }}</td>
+                                <td><span class="badge bg-info">Live</span></td>
                             </tr>
 
                             <tr>
                                 <td>4</td>
-                                <td>MIS Report</td>
-                                <td><span class="badge bg-success">MIS</span></td>
-                                <td>View overall LMS summary including institutes, content, assessments, and notifications.</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">View</button>
-                                    <button class="btn btn-sm btn-success">Download</button>
-                                </td>
+                                <td>Content</td>
+                                <td>Total Uploaded Content</td>
+                                <td>{{ $contentCount }}</td>
+                                <td><span class="badge bg-info">Live</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>5</td>
+                                <td>Assessments</td>
+                                <td>Total Assessments</td>
+                                <td>{{ $assessmentCount }}</td>
+                                <td><span class="badge bg-warning text-dark">Live</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>6</td>
+                                <td>Assessment Results</td>
+                                <td>Completed Results</td>
+                                <td>{{ $completedResults }}</td>
+                                <td><span class="badge bg-success">Completed</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>7</td>
+                                <td>Assessment Results</td>
+                                <td>Pending Manual Review</td>
+                                <td>{{ $pendingReviewResults }}</td>
+                                <td><span class="badge bg-warning text-dark">Pending</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>8</td>
+                                <td>Performance</td>
+                                <td>Average Score</td>
+                                <td>{{ number_format($averageScore, 2) }}%</td>
+                                <td><span class="badge bg-success">Calculated</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>9</td>
+                                <td>Certificates</td>
+                                <td>Total Certificates</td>
+                                <td>{{ $certificateCount }}</td>
+                                <td><span class="badge bg-success">Live</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>10</td>
+                                <td>Class Sessions</td>
+                                <td>Total Sessions Conducted</td>
+                                <td>{{ $classSessionCount }}</td>
+                                <td><span class="badge bg-secondary">Tracked</span></td>
                             </tr>
                         </tbody>
                     </table>

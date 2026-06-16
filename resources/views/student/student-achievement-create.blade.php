@@ -24,7 +24,7 @@
 
                 </div>
 
-                <a href="{{ route('student.achievements') }}"
+                <a href="{{ route('student.badges') }}"
                    class="btn btn-outline-secondary">
 
                     <i class="fa fa-arrow-left me-2"></i>
@@ -207,7 +207,7 @@
 
                         <div class="d-flex justify-content-end gap-3 mt-4">
 
-                            <a href="{{ route('student.achievements') }}"
+                            <a href="{{ route('student.achievements.create') }}"
                                class="btn btn-light border">
 
                                 Cancel

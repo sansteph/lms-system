@@ -9,6 +9,9 @@ use App\Models\Institute;
 use App\Models\Content;
 use App\Models\Assessment;
 use App\Models\Notification;
+use App\Models\AssessmentResult;
+use App\Models\Certificate;
+use App\Models\ClassContentSession;
 
 class ReportController extends Controller
 {
@@ -34,6 +37,34 @@ class ReportController extends Controller
 
             $notificationCount = Notification::where('institute', $institute)->count();
 
+            $completedResults = AssessmentResult::whereHas('student', function ($q) use ($institute) {
+                    $q->where('institute', $institute);
+                })
+                ->where('status', 'Completed')
+                ->count();
+
+            $pendingReviewResults = AssessmentResult::whereHas('student', function ($q) use ($institute) {
+                    $q->where('institute', $institute);
+                })
+                ->where('status', 'Pending Review')
+                ->count();
+
+            $averageScore = AssessmentResult::whereHas('student', function ($q) use ($institute) {
+                    $q->where('institute', $institute);
+                })
+                ->where('status', 'Completed')
+                ->avg('percentage') ?? 0;
+
+            $certificateCount = Certificate::whereHas('student', function ($q) use ($institute) {
+                    $q->where('institute', $institute);
+                })
+                ->count();
+
+            $classSessionCount = ClassContentSession::whereHas('schoolClass', function ($q) use ($institute) {
+                    $q->where('institute', $institute);
+                })
+                ->count();
+
         } else {
 
             $studentCount = Student::count();
@@ -49,6 +80,17 @@ class ReportController extends Controller
             $assessmentCount = Assessment::count();
 
             $notificationCount = Notification::count();
+
+            $completedResults = AssessmentResult::where('status', 'Completed')->count();
+
+            $pendingReviewResults = AssessmentResult::where('status', 'Pending Review')->count();
+
+            $averageScore = AssessmentResult::where('status', 'Completed')
+                ->avg('percentage') ?? 0;
+
+            $certificateCount = Certificate::count();
+
+            $classSessionCount = ClassContentSession::count();
         }
 
         return view('reports', compact(
@@ -58,7 +100,12 @@ class ReportController extends Controller
             'instituteCount',
             'contentCount',
             'assessmentCount',
-            'notificationCount'
+            'notificationCount',
+            'completedResults',
+            'pendingReviewResults',
+            'averageScore',
+            'certificateCount',
+            'classSessionCount'
         ));
     }
 }

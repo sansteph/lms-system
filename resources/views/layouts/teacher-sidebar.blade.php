@@ -57,10 +57,6 @@
         Profile
     </a>
 
-    <a href="{{ route('assessment.review') }}" class="sidebar-link">
-        Assessment Review
-    </a>
-
     <a href="{{ route('assessment.review') }}"class="sidebar-link {{ request()->routeIs('assessment.review') ? 'active' : '' }}">
         Assessment Evaluation
     </a>
