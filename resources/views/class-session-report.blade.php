@@ -40,13 +40,13 @@
 
                                 <tr>
                                     <td>
-                                        {{ $session->class->class_name ?? 'Deleted Class' }}
+                                        {{ $session->schoolClass->class_name ?? 'Deleted Class' }}
                                         -
-                                        {{ $session->class->section ?? '' }}
+                                        {{ $session->schoolClass->section ?? '' }}
                                     </td>
 
                                     <td>
-                                        {{ $session->class->institute ?? 'N/A' }}
+                                        {{ $session->schoolClass->institute ?? 'N/A' }}
                                     </td>
 
                                     <td>

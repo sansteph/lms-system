@@ -4,9 +4,9 @@
 
 <div class="container py-5">
 
-    <div class="certificate-container">
+    <div class="certificate-container certificate-print-area">
 
-        <div class="certificate-border">
+        <div class="certificate-border p-5">
 
             <div class="text-center">
 
@@ -27,11 +27,9 @@
                 </h2>
 
                 <p class="certificate-description">
-
                     For successfully earning achievement badges
                     and demonstrating outstanding learning performance
                     in the LMS platform.
-
                 </p>
 
                 <div class="certificate-details mt-5">
@@ -46,11 +44,17 @@
                         </strong>
                     </div>
 
-                    <small class="text-muted d-block mt-2">
-                        Verify at: {{ route('certificate.verify') }}
-                    </small>
+                    <div class="mt-3">
+                        <small class="text-muted d-block">
+                            Verify at
+                        </small>
 
-                    <div>
+                        <strong>
+                            {{ route('certificate.verify') }}
+                        </strong>
+                    </div>
+
+                    <div class="mt-3">
                         <small class="text-muted d-block">
                             Issued Date
                         </small>
@@ -62,22 +66,29 @@
 
                 </div>
 
-                <div class="mt-5">
-
-                    <button onclick="window.print()"
-                            class="btn btn-primary">
-
-                        <i class="fa fa-download"></i>
-                        Download Certificate
-
-                    </button>
-
-                </div>
-
             </div>
 
         </div>
 
+    </div>
+
+    <div class="certificate-actions no-print text-center mb-4">
+
+        <div class="mb-3">
+            <a href="{{ route('student.certificate.download') }}"
+            class="btn btn-primary">
+                <i class="fa fa-download me-2"></i>
+                Download Certificate
+            </a>
+        </div>
+
+        <div class="mb-3">
+            <a href="{{ route('student.badges') }}"
+            class="btn btn-outline-secondary ms-2">
+                <i class="fa fa-arrow-left me-2"></i>
+                Back
+            </a>
+        </div>
     </div>
 
 </div>

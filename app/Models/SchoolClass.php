@@ -17,17 +17,7 @@ class SchoolClass extends Model
         'academic_year',
         'status',
         'institute',
-        'content_id',
     ];
-
-    public function content()
-    {
-        return $this->belongsTo(
-            Content::class,
-            'content_id',
-            'id'
-        );
-    }
 
     public function timetables()
     {

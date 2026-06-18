@@ -58,7 +58,7 @@
         Certificates
     </a>
 
-    <a href="{{ route('admin.achievements') }}"class="sidebar-link">
+    <a href="{{ route('admin.achievements') }}"class="sidebar-link {{ request()->routeIs('admin.achievements') ? 'active' : '' }}">
         Student Achievements
     </a>
 
@@ -84,7 +84,7 @@
             Institute Management
         </a>
 
-        <a href="{{ route('admin.institute.requests') }}"class="sidebar-link">
+        <a href="{{ route('admin.institute.requests') }}"class="sidebar-link {{ request()->routeIs('admin.institute.requests') ? 'active' : '' }}">
             Institute Requests
         </a>
 

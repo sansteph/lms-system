@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Models\InstituteRegistrationRequest;
+use App\Models\Content;
+
 
 class UserController extends Controller
 {
@@ -397,5 +399,22 @@ class UserController extends Controller
 
         return redirect()->back()
             ->with('success', 'Institute request rejected.');
+    }
+
+    public function markTopicComplete($contentId)
+    {
+        $content = Content::findOrFail($contentId);
+
+        $content->update([
+
+            'is_released' => true
+
+        ]);
+
+        return redirect()->back()
+            ->with(
+                'success',
+                'Topic marked as completed and released to students.'
+            );
     }
 }

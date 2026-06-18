@@ -29,6 +29,8 @@ class Content extends Model
 
         'file_path',
 
+        'is_released',
+
         'status',
 
     ];

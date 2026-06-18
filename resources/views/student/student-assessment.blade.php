@@ -55,6 +55,7 @@
                                 @endforeach
 
                             </select>
+                        
 
                         </div>
 
@@ -64,6 +65,12 @@
                             Load Assessment
 
                         </button>
+
+                        <a href="{{ route('student.dashboard') }}"
+                            class="btn btn-secondary w-100 mt-2">
+
+                            Back
+                        </a>
 
                     </form>
 

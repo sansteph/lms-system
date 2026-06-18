@@ -1863,3 +1863,35 @@ main{
     margin-top: 12px;
 }
 
+@media print {
+
+    .no-print,
+    nav,
+    .navbar,
+    .sidebar,
+    .admin-sidebar,
+    header,
+    footer {
+        display: none !important;
+    }
+
+    .container,
+    .container-fluid,
+    .row,
+    .col-md-10,
+    .col-lg-10 {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .certificate-print-area {
+        width: 100% !important;
+        margin: 0 auto !important;
+        box-shadow: none !important;
+    }
+
+    body {
+        background: #fff !important;
+    }
+}

@@ -12,39 +12,46 @@ class ClassController extends Controller
     {
         $search = $request->search;
 
-        $contents = Content::when(
-            session('user_role') == 'InstituteAdmin',
-            function ($query) {
-                $query->where('institute', session('user_institute'));
-            }
-        )->where('status', 1)
-        ->orderBy('content_title')
-        ->get();
 
-        $classes = SchoolClass::with('content')
-        ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-            $query->where('institute', session('user_institute'));
-        })
-        ->when($search, function ($query, $search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('class_name', 'like', "%{$search}%")
-                ->orWhere('section', 'like', "%{$search}%")
-                ->orWhere('class_teacher', 'like', "%{$search}%")
-                ->orWhere('academic_year', 'like', "%{$search}%");
-            });
-        })
-        ->get();
+        $classes = SchoolClass::when(
+                session('user_role') == 'InstituteAdmin',
+                function ($query) {
+                    $query->where('institute', session('user_institute'));
+                }
+            )
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+
+                    $q->where('class_name', 'like', "%{$search}%")
+                    ->orWhere('section', 'like', "%{$search}%")
+                    ->orWhere('class_teacher', 'like', "%{$search}%")
+                    ->orWhere('academic_year', 'like', "%{$search}%");
+
+                });
+            })
+            ->orderBy('class_name')
+            ->get();
 
         $stemEngineers = \App\Models\User::where('role', 'Teacher')
             ->where('status', 1)
-            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->where('institute', session('user_institute'));
-            })
+            ->when(
+                session('user_role') == 'InstituteAdmin',
+                function ($query) {
+                    $query->where('institute', session('user_institute'));
+                }
+            )
             ->orderBy('name')
             ->get();
 
-        return view('classes', compact('classes', 'stemEngineers','contents'));
+        return view(
+            'classes',
+            compact(
+                'classes',
+                'stemEngineers'
+            )
+        );
     }
+
 
     public function store(Request $request)
     {

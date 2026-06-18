@@ -86,9 +86,8 @@ Route::middleware(['admin.auth'])->group(function () {
 
     Route::get('/courses', [CourseController::class, 'index'])->name('courses');
     Route::post('/courses/store', [CourseController::class, 'store'])->name('courses.store');
-    Route::post('/courses/update/{id}', [CourseController::class, 'update'])->name('courses.update');
+    Route::post('/courses/update/{id}',[CourseController::class, 'update'])->name('courses.update');
     Route::get('/courses/delete/{id}', [CourseController::class, 'delete'])->name('courses.delete');
-
     Route::get('/students', [PageController::class, 'students'])->name('students');
     Route::post('/students/store', [PageController::class, 'storeStudent'])->name('students.store');
     Route::post('/students/update/{id}', [PageController::class, 'updateStudent'])->name('students.update');
@@ -151,6 +150,7 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::get('/class-timetable',[ClassTimetableController::class, 'index'])->name('timetable');
     Route::post('/class-timetable/store',[ClassTimetableController::class, 'store'])->name('timetable.store');
     Route::get('/class-timetable/copy-week',[ClassTimetableController::class, 'copyLastWeek'])->name('timetable.copy.week');
+    Route::post('/class-timetable/update/{id}', [ClassTimetableController::class, 'update'])->name('timetable.update');
     Route::get('/class-timetable/delete/{id}',[ClassTimetableController::class, 'delete'])->name('timetable.delete');
 
     Route::get('/admin/assessment-review-monitoring',[PageController::class, 'assessmentReviewMonitoring'])->name('admin.assessment.review.monitoring');
@@ -244,6 +244,8 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::get('/assessment-review', [AssessmentResultController::class, 'reviewResults'])->name('assessment.review');
 
     Route::post('/assessment-review/{id}', [AssessmentResultController::class, 'reviewAnswer'])->name('assessment.review.submit');
+
+    Route::post('/teacher/topic-complete/{contentId}',[UserController::class, 'markTopicComplete'])->name('teacher.complete-topic');
 });
 
 
@@ -258,6 +260,7 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::get('/student/profile',[PageController::class, 'studentProfile'])->name('student.profile');
     Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
     Route::get('/student/certificate',[PageController::class, 'studentCertificate'])->name('student.certificate');
+    Route::get('/student/certificate/download', [PageController::class, 'downloadStudentCertificate'])->name('student.certificate.download');
     Route::get('/student/achievements/{id}/edit', [StudentAchievementController::class, 'edit'])->name('student.achievements.edit');
     Route::post('/student/achievements/{id}/update', [StudentAchievementController::class, 'update'])->name('student.achievements.update');
     Route::post('/student/achievements/{id}/delete', [StudentAchievementController::class, 'delete'])->name('student.achievements.delete');

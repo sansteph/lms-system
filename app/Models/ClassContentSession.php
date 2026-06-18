@@ -14,6 +14,7 @@ class ClassContentSession extends Model
         'ended_at',
         'duration_seconds',
         'status',
+        'timetable_id',
     ];
 
     public function schoolClass()
@@ -29,5 +30,10 @@ class ClassContentSession extends Model
     public function stemEngineer()
     {
         return $this->belongsTo(User::class, 'stem_engineer_id');
+    }
+
+    public function timetable()
+    {
+        return $this->belongsTo(ClassTimetable::class, 'timetable_id');
     }
 }

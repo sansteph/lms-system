@@ -8,9 +8,11 @@ class ClassTimetable extends Model
 {
     protected $fillable = [
         'class_id',
+        'content_id',
         'session_date',
         'day',
         'day_type',
+        'status',
         'from_time',
         'to_time',
     ];
@@ -20,6 +22,14 @@ class ClassTimetable extends Model
         return $this->belongsTo(
             SchoolClass::class,
             'class_id'
+        );
+    }
+
+    public function content()
+    {
+        return $this->belongsTo(
+            Content::class,
+            'content_id'
         );
     }
 }

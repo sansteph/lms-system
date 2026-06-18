@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Models\ClassTimetable;
 use App\Models\SchoolClass;
 use Carbon\Carbon;
+use App\Models\Content;
+
 
 class ClassTimetableController extends Controller
 {
@@ -18,16 +20,41 @@ class ClassTimetableController extends Controller
             ->orderBy('class_name')
             ->get();
 
-        $timetables = ClassTimetable::with('schoolClass')
+        $weekOffset = (int) request('week', 0);
+
+        $weekStart = now()
+            ->startOfWeek()
+            ->addWeeks($weekOffset);
+
+        $weekEnd = now()
+            ->endOfWeek()
+            ->addWeeks($weekOffset);
+
+        $contents = Content::when(session('user_role') == 'InstituteAdmin', function ($query) {
+            $query->where('institute', session('user_institute'));
+        })
+        ->where('status', 1)
+        ->orderBy('lesson_order')
+        ->get();
+
+        $timetables = ClassTimetable::with([
+                'schoolClass',
+                'content'
+            ])
+            ->whereBetween('session_date', [
+                $weekStart->format('Y-m-d'),
+                $weekEnd->format('Y-m-d')
+            ])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->whereHas('schoolClass', function ($q) {
                     $q->where('institute', session('user_institute'));
                 });
             })
-            ->latest('session_date')
+            ->orderBy('session_date')
+            ->orderBy('from_time')
             ->get();
 
-        return view('class-timetable', compact('classes', 'timetables'));
+        return view('class-timetable', compact('classes','contents','timetables','weekOffset','weekStart','weekEnd'));
     }
 
     public function store(Request $request)
@@ -37,7 +64,7 @@ class ClassTimetableController extends Controller
             'class_id' => 'required|exists:classes,id',
             'session_date' => 'required|date',
             'day_type' => 'required|in:Working Day,Holiday',
-
+            'content_id' => 'nullable|exists:contents,id',
             'from_time' => 'required',
             'to_time' => 'required',
         ]);
@@ -51,16 +78,10 @@ class ClassTimetableController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        $request->validate([
-            'class_id' => 'required|exists:classes,id',
-            'session_date' => 'required|date',
-            'from_time' => 'required',
-            'to_time' => 'required',
-            'day_type' => 'required|in:Working Day,Holiday',
-        ]);
-
         ClassTimetable::create([
             'class_id' => $request->class_id,
+
+            'content_id' => $request->content_id,
 
             'session_date' => $request->session_date,
 
@@ -119,6 +140,42 @@ class ClassTimetableController extends Controller
 
         return redirect()->back()
             ->with('success', 'Last week timetable copied successfully.');
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'class_id' => 'required|exists:classes,id',
+            'content_id' => 'nullable|exists:contents,id',
+            'session_date' => 'required|date',
+            'from_time' => 'required',
+            'to_time' => 'required',
+            'day_type' => 'required|in:Working Day,Holiday',
+        ]);
+
+        $timetable = ClassTimetable::with('schoolClass')->findOrFail($id);
+
+        $class = SchoolClass::findOrFail($request->class_id);
+
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $class->institute != session('user_institute')
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $timetable->update([
+            'class_id' => $request->class_id,
+            'content_id' => $request->content_id,
+            'session_date' => $request->session_date,
+            'day' => Carbon::parse($request->session_date)->format('l'),
+            'day_type' => $request->day_type,
+            'from_time' => $request->from_time,
+            'to_time' => $request->to_time,
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'Timetable entry updated successfully.');
     }
 
     public function delete($id)

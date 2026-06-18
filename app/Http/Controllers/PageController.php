@@ -21,7 +21,10 @@ use App\Models\CertificateVerificationLog;
 use App\Models\AssessmentSession;
 use App\Models\User;
 use App\Models\AssessmentAnswer;
+use App\Models\Course;
 use App\Models\ClassContentSession;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\ClassTimetable;
 
 class PageController extends Controller
 {
@@ -325,17 +328,34 @@ class PageController extends Controller
     {
         $teacher = User::find(session('user_id'));
 
-        $classes = SchoolClass::with('content')
-            ->where('institute', $teacher->institute)
-            ->latest()
+        $today = now()->format('Y-m-d');
+
+        $scheduledClasses = ClassTimetable::with([
+                'schoolClass',
+                'content'
+            ])
+            ->where('session_date', $today)
+            ->whereHas('schoolClass', function ($q) use ($teacher) {
+                $q->where('institute', $teacher->institute);
+            })
+            ->orderBy('from_time')
             ->get();
 
-        $activeSessions = ClassContentSession::where('stem_engineer_id', session('user_id'))
+        $activeSessions = ClassContentSession::where(
+                'stem_engineer_id',
+                session('user_id')
+            )
             ->where('status', 'Started')
             ->get()
-            ->keyBy('class_id');
+            ->keyBy('timetable_id');
 
-        return view('teacher.my-classes', compact('classes', 'activeSessions'));
+        return view(
+            'teacher.my-classes',
+            compact(
+                'scheduledClasses',
+                'activeSessions'
+            )
+        );
     }
 
     public function teacherContent()
@@ -954,17 +974,23 @@ class PageController extends Controller
                 ->with('error', 'Content is locked while your assessment is in progress.');
         }
 
-        $schoolClass = SchoolClass::with('content')
-            ->where('institute', $student->institute)
-            ->where('class_name', $student->class)
-            ->where('section', $student->section)
-            ->where('status', 1)
+        $assignedClass = trim($student->class . ' ' . $student->section);
+
+        $course = Course::where('institute', $student->institute)
+            ->whereRaw(
+                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                [$assignedClass]
+            )
             ->first();
 
         $contents = collect();
 
-        if ($schoolClass && $schoolClass->content && $schoolClass->content->status == 1) {
-            $contents = collect([$schoolClass->content]);
+        if ($course) {
+            $contents = Content::where('course_id', $course->id)
+                ->where('status', 1)
+                ->where('is_released', true)
+                ->orderBy('lesson_order')
+                ->get();
         }
 
         $totalLessons = $contents->count();
@@ -1426,64 +1452,129 @@ class PageController extends Controller
         return view('assessment-monitoring', compact('sessions'));
     }
 
-    public function startClassSession($classId)
+    public function startClassSession($timetableId)
     {
-        $class = SchoolClass::findOrFail($classId);
+        $timetable = ClassTimetable::with([
+        'schoolClass',
+        'content'
+        ])->findOrFail($timetableId);
 
-        $existingSession = ClassContentSession::where('class_id', $class->id)
-            ->where('stem_engineer_id', session('user_id'))
-            ->where('status', 'Started')
+        $existingSession = ClassContentSession::where(
+                'class_id',
+                $timetable->class_id
+            )
+            ->where(
+                'stem_engineer_id',
+                session('user_id')
+            )
+            ->where(
+                'status',
+                'Started'
+            )
             ->first();
 
         if ($existingSession) {
+
             return redirect()->back()
-                ->with('error', 'A session is already running for this class.');
+                ->with(
+                    'error',
+                    'A session is already running for this class.'
+                );
         }
 
         ClassContentSession::create([
-            'class_id' => $class->id,
-            'content_id' => $class->content_id,
+
+            'timetable_id' => $timetable->id,
+
+            'class_id' => $timetable->class_id,
+
+            'content_id' => $timetable->content_id,
+
             'stem_engineer_id' => session('user_id'),
+
             'started_at' => now(),
+
             'status' => 'Started',
+
+        ]);
+
+        $timetable->update([
+
+            'status' => 'Started'
+
         ]);
 
         return redirect()->back()
-            ->with('success', 'Class session started.');
+            ->with(
+                'success',
+                'Class session started successfully.'
+            );
+
     }
+
 
     public function endClassSession($sessionId)
     {
         $session = ClassContentSession::findOrFail($sessionId);
 
+
         if ($session->status == 'Completed') {
+
             return redirect()->back()
-                ->with('error', 'Session already completed.');
+                ->with(
+                    'error',
+                    'Session already completed.'
+                );
         }
 
         $endedAt = now();
 
-        $duration = strtotime($endedAt) - strtotime($session->started_at);
+        $duration = strtotime($endedAt) -
+                    strtotime($session->started_at);
 
         $session->update([
+
             'ended_at' => $endedAt,
+
             'duration_seconds' => $duration,
+
             'status' => 'Completed',
+
         ]);
 
+        ClassTimetable::where(
+                'class_id',
+                $session->class_id
+            )
+            ->where(
+                'content_id',
+                $session->content_id
+            )
+            ->whereDate(
+                'session_date',
+                today()
+            )
+            ->update([
+                'status' => 'Completed'
+            ]);
+
         return redirect()->back()
-            ->with('success', 'Class session ended successfully.');
+            ->with(
+                'success',
+                'Class session ended successfully.'
+            );
+
     }
 
     public function classSessionReport()
     {
         $sessions = ClassContentSession::with([
-                'class',
+                'schoolClass',
                 'content',
                 'stemEngineer',
             ])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->whereHas('class', function ($q) {
+                $query->whereHas('schoolClass', function ($q) {
                     $q->where('institute', session('user_institute'));
                 });
             })
@@ -1518,5 +1609,20 @@ class PageController extends Controller
             'assessment-review-monitoring',
             compact('results')
         );
+    }
+
+    public function downloadStudentCertificate()
+    {
+        $student = Student::findOrFail(session('student_id'));
+
+        $certificate = Certificate::where('student_id', $student->id)
+            ->latest()
+            ->firstOrFail();
+
+        $pdf = Pdf::loadView('student.student-certificate-pdf',
+        compact('student', 'certificate'))
+            ->setPaper('a4', 'landscape');
+
+        return $pdf->stream('certificate-' . $certificate->certificate_code . '.pdf');
     }
 }
