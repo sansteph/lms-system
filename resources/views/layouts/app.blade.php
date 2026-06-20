@@ -71,9 +71,17 @@
                         ?? session('student_name')
                         ?? session('independent_learner_name') }}
 
-                    @if(session('user_role'))
+                    @if(session('user_role') == 'Admin')
 
-                        ({{ session('user_role') }})
+                        (Admin)
+
+                    @elseif(session('user_role') == 'InstituteAdmin')
+
+                        (Institute Admin)
+
+                    @elseif(session('user_role') == 'Teacher')
+
+                        (STEM Engineer)
 
                     @elseif(session('student_id'))
 
@@ -81,7 +89,7 @@
 
                     @elseif(session('independent_learner_id'))
 
-                        (Independent Learner)
+                        (Hybrid Learner)
 
                     @endif
 

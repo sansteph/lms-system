@@ -49,7 +49,154 @@
                 </div>
             </div>
 
+            <div class="row g-4 mb-4">
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Today's Classes</h6>
+                        <h2>{{ $todayClassCount }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Completed Today</h6>
+                        <h2>{{ $todayCompletedSessions }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Live Sessions</h6>
+                        <h2>{{ $activeSessions }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Teaching Hours</h6>
+                        <h2>{{ $totalTeachingHours }}</h2>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="row g-4 mb-4">
+
+                <div class="col-md-4">
+                    <div class="dashboard-card">
+                        <h6>Released Lessons</h6>
+                        <h2>{{ $contentReleasedCount }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="dashboard-card">
+                        <h6>Certificates Issued</h6>
+                        <h2>{{ $certificateCount }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="dashboard-card">
+                        <h6>Average Score</h6>
+                        <h2>{{ number_format($averageScore, 1) }}%</h2>
+                    </div>
+                </div>
+
+            </div>
+
             <div class="card shadow border-0">
+
+                <div class="card-body">
+
+                    <h5 class="mb-4">
+                        Daily Operations Summary
+                    </h5>
+
+                    <table class="table table-bordered table-hover align-middle">
+
+                        <thead class="table-light">
+
+                            <tr>
+                                <th>Metric</th>
+                                <th>Value</th>
+                                <th>Status</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            <tr>
+                                <td>Classes Scheduled Today</td>
+                                <td>{{ $todayClassCount }}</td>
+                                <td>
+                                    <span class="badge bg-primary">
+                                        Scheduled
+                                    </span>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>Sessions Completed Today</td>
+                                <td>{{ $todayCompletedSessions }}</td>
+                                <td>
+                                    <span class="badge bg-success">
+                                        Completed
+                                    </span>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>Active Live Sessions</td>
+                                <td>{{ $activeSessions }}</td>
+                                <td>
+                                    <span class="badge bg-warning text-dark">
+                                        Live
+                                    </span>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>Total Teaching Hours Delivered</td>
+                                <td>{{ $totalTeachingHours }}</td>
+                                <td>
+                                    <span class="badge bg-info">
+                                        Tracked
+                                    </span>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>Released Learning Content</td>
+                                <td>{{ $contentReleasedCount }}</td>
+                                <td>
+                                    <span class="badge bg-success">
+                                        Available
+                                    </span>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>Certificates Issued</td>
+                                <td>{{ $certificateCount }}</td>
+                                <td>
+                                    <span class="badge bg-success">
+                                        Issued
+                                    </span>
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <div class="card shadow border-0 mt-4">
                 <div class="card-body">
 
                     <h5 class="mb-4">Live LMS Report Summary</h5>

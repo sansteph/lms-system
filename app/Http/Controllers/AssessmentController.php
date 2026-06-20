@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Assessment;
 use App\Models\AssessmentResult;
 use App\Models\AssessmentQuestion;
+use Illuminate\Support\Facades\Storage;
 
 class AssessmentController extends Controller
 {
@@ -38,6 +39,9 @@ class AssessmentController extends Controller
 
     public function store(Request $request)
     {
+        if (session('user_role') != 'Teacher') {
+            abort(403, 'Only STEM Engineers can create assessments.');
+        }
         $request->validate([
             'assessment_title' => 'required|string|max:255',
             'assessment_type' => 'required|string',
@@ -82,6 +86,9 @@ class AssessmentController extends Controller
 
     public function update(Request $request, $id)
     {
+        if (session('user_role') != 'Teacher') {
+            abort(403, 'Only STEM Engineers can edit assessments.');
+        }
         $request->validate([
             'assessment_title' => 'required|string|max:255',
             'assessment_type' => 'required|string',
@@ -109,9 +116,22 @@ class AssessmentController extends Controller
         $filePath = $assessment->file_path;
 
         if ($request->hasFile('file')) {
+
+            if ($assessment->file_path &&
+                Storage::disk('public')->exists($assessment->file_path)) {
+
+                Storage::disk('public')->delete($assessment->file_path);
+            }
+
             $file = $request->file('file');
+
             $fileName = time() . '_' . $file->getClientOriginalName();
-            $filePath = $file->storeAs('assessments', $fileName, 'public');
+
+            $filePath = $file->storeAs(
+                'assessments',
+                $fileName,
+                'public'
+            );
         }
 
         $assessment->update([
@@ -135,6 +155,9 @@ class AssessmentController extends Controller
 
     public function delete($id)
     {
+        if (session('user_role') != 'Teacher') {
+            abort(403, 'Only STEM Engineers can delete assessments.');
+        }
         $assessment = Assessment::findOrFail($id);
 
         if (
@@ -146,6 +169,12 @@ class AssessmentController extends Controller
 
         AssessmentResult::where('assessment_id', $id)->delete();
         AssessmentQuestion::where('assessment_id', $id)->delete();
+
+        if ($assessment->file_path &&
+            Storage::disk('public')->exists($assessment->file_path)) {
+
+            Storage::disk('public')->delete($assessment->file_path);
+        }
 
         $assessment->delete();
 

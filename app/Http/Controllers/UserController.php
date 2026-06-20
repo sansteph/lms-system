@@ -61,7 +61,7 @@ class UserController extends Controller
         ]);
 
         return redirect()->back()
-            ->with('success', 'Teacher added successfully');
+            ->with('success', 'STEM Engineer added successfully');
     }
 
     public function update(Request $request, $id)
@@ -93,7 +93,7 @@ class UserController extends Controller
         ]);
 
         return redirect()->back()
-            ->with('success', 'Teacher updated successfully');
+            ->with('success', 'STEM Engineer updated successfully');
     }
 
     public function delete($id)
@@ -111,7 +111,7 @@ class UserController extends Controller
         $user->delete();
 
         return redirect()->back()
-            ->with('success', 'Teacher deleted successfully');
+            ->with('success', 'STEM Engineer deleted successfully');
     }
 
     public function adminLogin(Request $request)
@@ -192,7 +192,7 @@ class UserController extends Controller
         }
 
         return redirect()->back()
-            ->with('error', 'Invalid teacher login details');
+            ->with('error', 'Invalid STEM Engineer login details');
     }
 
     public function logout()

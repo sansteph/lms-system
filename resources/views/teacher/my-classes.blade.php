@@ -181,16 +181,11 @@
 
                                         <form method="POST"
                                             action="{{ route('teacher.class-session.start', $schedule->id) }}">
-
                                             @csrf
 
-                                            <button type="submit"
-                                                    class="btn btn-sm btn-success">
-
+                                            <button type="submit" class="btn btn-sm btn-success">
                                                 Start Session
-
                                             </button>
-
                                         </form>
 
                                     @else
@@ -273,7 +268,7 @@
                 <div class="alert alert-info mt-3 mb-0">
 
                     Sessions displayed here are based on today's timetable schedule.
-                    Teachers should start and complete sessions from this page.
+                    STEM Engineers should start and complete sessions from this page.
 
                 </div>
 

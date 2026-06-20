@@ -29,6 +29,9 @@ class AssessmentQuestionController extends Controller
 
     public function store(Request $request)
     {
+        if (session('user_role') != 'Teacher') {
+            abort(403, 'Only STEM Engineers can manage assessment questions.');
+        }
         $request->validate([
             'assessment_id' => 'required|exists:assessments,id',
             'topic' => 'required|string|max:255',

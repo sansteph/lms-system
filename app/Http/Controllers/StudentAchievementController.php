@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\StudentAchievement;
 use App\Models\Notification;
+use Illuminate\Support\Facades\Storage;
 
 class StudentAchievementController extends Controller
 {
@@ -203,6 +204,13 @@ class StudentAchievementController extends Controller
         $filePath = $achievement->certificate_file;
 
         if ($request->hasFile('certificate_file')) {
+
+            if ($achievement->certificate_file &&
+                Storage::disk('public')->exists($achievement->certificate_file)) {
+
+                Storage::disk('public')->delete($achievement->certificate_file);
+            }
+
             $filePath = $request->file('certificate_file')
                 ->store('certificates', 'public');
         }
@@ -229,7 +237,13 @@ class StudentAchievementController extends Controller
             ->where('student_id', session('student_id'))
             ->firstOrFail();
 
-        $achievement->delete();
+        if ($achievement->certificate_file &&
+            Storage::disk('public')->exists($achievement->certificate_file)) {
+
+            Storage::disk('public')->delete($achievement->certificate_file);
+        }
+
+        $achievement->delete(); 
 
         return redirect()
             ->route('student.badges')

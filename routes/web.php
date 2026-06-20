@@ -108,16 +108,6 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::post('/content/update/{id}', [ContentController::class, 'update'])->name('content.update');
     Route::get('/content/delete/{id}', [ContentController::class, 'delete'])->name('content.delete');
 
-    Route::get('/assessments', [AssessmentController::class, 'index'])->name('assessments');
-    Route::post('/assessments/store', [AssessmentController::class, 'store'])->name('assessments.store');
-    Route::post('/assessments/update/{id}', [AssessmentController::class, 'update'])->name('assessments.update');
-    Route::get('/assessments/delete/{id}', [AssessmentController::class, 'delete'])->name('assessments.delete');
-
-    Route::get('/assessment-questions', [AssessmentQuestionController::class, 'index'])->name('assessment-questions');
-    Route::post('/assessment-questions/store', [AssessmentQuestionController::class, 'store'])->name('assessment-questions.store');
-    Route::put('/assessment-questions/update/{id}', [AssessmentQuestionController::class, 'update'])->name('assessment-questions.update');
-    Route::delete('/assessment-questions/delete/{id}', [AssessmentQuestionController::class, 'delete'])->name('assessment-questions.delete');
-
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
     Route::post('/notifications/store', [NotificationController::class, 'store'])->name('notifications.store');
     Route::post('/notifications/update/{id}', [NotificationController::class, 'update'])->name('notifications.update');
@@ -149,7 +139,7 @@ Route::middleware(['admin.auth'])->group(function () {
 
     Route::get('/class-timetable',[ClassTimetableController::class, 'index'])->name('timetable');
     Route::post('/class-timetable/store',[ClassTimetableController::class, 'store'])->name('timetable.store');
-    Route::get('/class-timetable/copy-week',[ClassTimetableController::class, 'copyLastWeek'])->name('timetable.copy.week');
+    Route::get('/class-timetable/copy-week',[ClassTimetableController::class, 'copyWeekToNext'])->name('timetable.copy.week');
     Route::post('/class-timetable/update/{id}', [ClassTimetableController::class, 'update'])->name('timetable.update');
     Route::get('/class-timetable/delete/{id}',[ClassTimetableController::class, 'delete'])->name('timetable.delete');
 
@@ -182,8 +172,6 @@ Route::middleware(['admin.auth', 'super.admin'])->group(function () {
     Route::get('/admin/activity-monitoring', [PageController::class, 'activityMonitoring'])->name('admin.activity.monitoring');
 
     Route::get('/admin/export-activity-report', [PageController::class, 'exportActivityReport'])->name('admin.export.activity');
-
-    Route::get('/test-gemini', [AIController::class, 'testGemini']);
 
 });
 
@@ -237,7 +225,7 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
 
     Route::post('/assessment-session/submit/{sessionId}', [PageController::class, 'submitAssessmentSession'])->name('assessment.session.submit');
 
-    Route::post('/teacher/class-session/start/{classId}',[PageController::class, 'startClassSession'])->name('teacher.class-session.start');
+    Route::post('/teacher/class-session/start/{timetableId}',[PageController::class, 'startClassSession'])->name('teacher.class-session.start');
 
     Route::post('/teacher/class-session/end/{sessionId}',[PageController::class, 'endClassSession'])->name('teacher.class-session.end');
 
@@ -246,6 +234,32 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::post('/assessment-review/{id}', [AssessmentResultController::class, 'reviewAnswer'])->name('assessment.review.submit');
 
     Route::post('/teacher/topic-complete/{contentId}',[UserController::class, 'markTopicComplete'])->name('teacher.complete-topic');
+
+    Route::get('/teacher/session-content/{contentId}', [PageController::class, 'teacherSessionContent'])->name('teacher.session.content');
+
+   Route::get('/teacher/assessments', [AssessmentController::class, 'index'])
+    ->name('teacher.assessments');
+
+    Route::post('/teacher/assessments/store', [AssessmentController::class, 'store'])
+        ->name('teacher.assessments.store');
+
+    Route::post('/teacher/assessments/update/{id}', [AssessmentController::class, 'update'])
+        ->name('teacher.assessments.update');
+
+    Route::get('/teacher/assessments/delete/{id}', [AssessmentController::class, 'delete'])
+        ->name('teacher.assessments.delete');
+
+    Route::get('/teacher/assessment-questions', [AssessmentQuestionController::class, 'index'])
+        ->name('teacher.assessment.questions');
+
+    Route::post('/teacher/assessment-questions/store', [AssessmentQuestionController::class, 'store'])
+        ->name('teacher.assessment.questions.store');
+
+    Route::post('/teacher/assessment-questions/update/{id}', [AssessmentQuestionController::class, 'update'])
+        ->name('teacher.assessment.questions.update');
+
+    Route::get('/teacher/assessment-questions/delete/{id}', [AssessmentQuestionController::class, 'delete'])
+        ->name('teacher.assessment.questions.delete');
 });
 
 

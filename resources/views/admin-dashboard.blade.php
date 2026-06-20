@@ -49,13 +49,6 @@
                     </div>
                 </div>
 
-                <div class="col-md-3">
-                    <div class="dashboard-card">
-                        <p>Assessments</p>
-                        <h2>{{ $assessmentCount }}</h2>
-                    </div>
-                </div>
-
             </div>
 
             <div class="card shadow-sm border-0 mt-4 p-4">
@@ -66,7 +59,6 @@
                     <a href="{{ route('students') }}" class="btn btn-primary">Add Student</a>
                     <a href="{{ route('users') }}" class="btn btn-success">Add STEM Engineer</a>
                     <a href="{{ route('content') }}" class="btn btn-warning">Upload Content</a>
-                    <a href="{{ route('assessments') }}" class="btn btn-secondary text-white">Create Assessment</a>
                 </div>
             </div>
         </main>

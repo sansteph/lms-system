@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Content;
 use App\Models\Course;
+use Illuminate\Support\Facades\Storage;
 
 class ContentController extends Controller
 {
@@ -44,7 +45,7 @@ class ContentController extends Controller
             'lesson_order' => 'required|integer|min:1',
             'content_type' => 'required|string',
             'assigned_class' => 'required|string|max:255',
-            'file' => 'required|file',
+            'file' => 'required|file|mimes:pdf,ppt,pptx,mp4,mov,avi,jpg,jpeg,png,webp|max:51200',
             'status' => 'required|boolean',
             'institute' => session('user_role') == 'Admin'
                 ? 'required|string|max:255'
@@ -52,27 +53,65 @@ class ContentController extends Controller
         ]);
 
         $filePath = null;
+        $previewPdfPath = null;
 
         if ($request->hasFile('file')) {
+
             $file = $request->file('file');
+
             $fileName = time() . '_' . $file->getClientOriginalName();
+
             $filePath = $file->storeAs('contents', $fileName, 'public');
+
+            $extension = strtolower($file->getClientOriginalExtension());
+
+            if (in_array($extension, ['ppt', 'pptx'])) {
+
+                $inputPath = storage_path('app/public/' . $filePath);
+
+                $outputDir = storage_path('app/public/content-previews');
+
+                if (!file_exists($outputDir)) {
+                    mkdir($outputDir, 0775, true);
+                }
+
+                $libreOfficePath = '"C:\\Program Files\\LibreOffice\\program\\soffice.exe"';
+
+                $command = $libreOfficePath
+                    . ' --headless'
+                    . ' --convert-to pdf'
+                    . ' --outdir ' . escapeshellarg($outputDir)
+                    . ' ' . escapeshellarg($inputPath);
+
+                exec($command, $output, $resultCode);
+
+                $pdfFileName = pathinfo($fileName, PATHINFO_FILENAME) . '.pdf';
+
+                $convertedPdfPath = $outputDir . DIRECTORY_SEPARATOR . $pdfFileName;
+
+                if ($resultCode === 0 && file_exists($convertedPdfPath)) {
+                    $previewPdfPath = 'content-previews/' . $pdfFileName;
+                }
+            }
         }
 
         Content::create([
             'institute' => session('user_role') == 'InstituteAdmin'
                 ? session('user_institute')
                 : $request->institute,
+
             'content_title' => $request->content_title,
             'course_id' => $request->course_id,
             'lesson_order' => $request->lesson_order,
             'content_type' => $request->content_type,
             'assigned_class' => $request->assigned_class,
             'file_path' => $filePath,
+            'preview_pdf_path' => $previewPdfPath,
             'status' => $request->status,
         ]);
 
-        return redirect()->back()->with('success', 'Content uploaded successfully');
+        return redirect()->back()
+            ->with('success', 'Content uploaded successfully');
     }
 
     public function update(Request $request, $id)
@@ -83,7 +122,7 @@ class ContentController extends Controller
             'lesson_order' => 'required|integer|min:1',
             'content_type' => 'required|string',
             'assigned_class' => 'required|string|max:255',
-            'file' => 'nullable|file',
+            'file' => 'nullable|file|mimes:pdf,ppt,pptx,mp4,mov,avi,jpg,jpeg,png,webp|max:51200',
             'status' => 'required|boolean',
             'institute' => session('user_role') == 'Admin'
                 ? 'required|string|max:255'
@@ -100,11 +139,56 @@ class ContentController extends Controller
         }
 
         $filePath = $content->file_path;
+        $previewPdfPath = $content->preview_pdf_path;
 
         if ($request->hasFile('file')) {
+
+            if ($content->file_path && Storage::disk('public')->exists($content->file_path)) {
+                Storage::disk('public')->delete($content->file_path);
+            }
+
+            if ($content->preview_pdf_path && Storage::disk('public')->exists($content->preview_pdf_path)) {
+                Storage::disk('public')->delete($content->preview_pdf_path);
+            }
+
             $file = $request->file('file');
+
             $fileName = time() . '_' . $file->getClientOriginalName();
+
             $filePath = $file->storeAs('contents', $fileName, 'public');
+
+            $previewPdfPath = null;
+
+            $extension = strtolower($file->getClientOriginalExtension());
+
+            if (in_array($extension, ['ppt', 'pptx'])) {
+
+                $inputPath = storage_path('app/public/' . $filePath);
+
+                $outputDir = storage_path('app/public/content-previews');
+
+                if (!file_exists($outputDir)) {
+                    mkdir($outputDir, 0775, true);
+                }
+
+                $libreOfficePath = '"C:\\Program Files\\LibreOffice\\program\\soffice.exe"';
+
+                $command = $libreOfficePath
+                    . ' --headless'
+                    . ' --convert-to pdf'
+                    . ' --outdir ' . escapeshellarg($outputDir)
+                    . ' ' . escapeshellarg($inputPath);
+
+                exec($command, $output, $resultCode);
+
+                $pdfFileName = pathinfo($fileName, PATHINFO_FILENAME) . '.pdf';
+
+                $convertedPdfPath = $outputDir . DIRECTORY_SEPARATOR . $pdfFileName;
+
+                if ($resultCode === 0 && file_exists($convertedPdfPath)) {
+                    $previewPdfPath = 'content-previews/' . $pdfFileName;
+                }
+            }
         }
 
         $content->update([
@@ -117,10 +201,12 @@ class ContentController extends Controller
             'content_type' => $request->content_type,
             'assigned_class' => $request->assigned_class,
             'file_path' => $filePath,
+            'preview_pdf_path' => $previewPdfPath,
             'status' => $request->status,
         ]);
 
-        return redirect()->back()->with('success', 'Content updated successfully');
+        return redirect()->back()
+            ->with('success', 'Content updated successfully');
     }
 
     public function delete($id)
@@ -134,8 +220,17 @@ class ContentController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        if ($content->file_path && Storage::disk('public')->exists($content->file_path)) {
+            Storage::disk('public')->delete($content->file_path);
+        }
+
+        if ($content->preview_pdf_path && Storage::disk('public')->exists($content->preview_pdf_path)) {
+            Storage::disk('public')->delete($content->preview_pdf_path);
+        }
+
         $content->delete();
 
-        return redirect()->back()->with('success', 'Content deleted successfully');
+        return redirect()->back()
+            ->with('success', 'Content deleted successfully');
     }
 }

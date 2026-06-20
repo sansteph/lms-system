@@ -54,7 +54,9 @@ class ClassTimetableController extends Controller
             ->orderBy('from_time')
             ->get();
 
-        return view('class-timetable', compact('classes','contents','timetables','weekOffset','weekStart','weekEnd'));
+        $groupedTimetables = $timetables->groupBy('day');
+
+        return view('class-timetable', compact('classes','contents','timetables','groupedTimetables','weekOffset','weekStart','weekEnd'));
     }
 
     public function store(Request $request)
@@ -67,6 +69,7 @@ class ClassTimetableController extends Controller
             'content_id' => 'nullable|exists:contents,id',
             'from_time' => 'required',
             'to_time' => 'required',
+            'status' => 'Scheduled',
         ]);
 
         $class = SchoolClass::findOrFail($request->class_id);
@@ -100,14 +103,23 @@ class ClassTimetableController extends Controller
             ->with('success', 'Timetable entry created successfully.');
     }
 
-    public function copyLastWeek()
+    public function copyWeekToNext()
     {
+        $weekOffset = (int) request('week', 0);
 
-        $lastWeekStart = now()->subWeek()->startOfWeek();
-        $lastWeekEnd = now()->subWeek()->endOfWeek();
+        $sourceWeekStart = now()
+            ->startOfWeek()
+            ->addWeeks($weekOffset);
 
-        $lastWeekEntries = ClassTimetable::with('schoolClass')
-            ->whereBetween('session_date', [$lastWeekStart, $lastWeekEnd])
+        $sourceWeekEnd = now()
+            ->endOfWeek()
+            ->addWeeks($weekOffset);
+
+        $sourceEntries = ClassTimetable::with('schoolClass')
+            ->whereBetween('session_date', [
+                $sourceWeekStart->format('Y-m-d'),
+                $sourceWeekEnd->format('Y-m-d')
+            ])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->whereHas('schoolClass', function ($q) {
                     $q->where('institute', session('user_institute'));
@@ -115,14 +127,17 @@ class ClassTimetableController extends Controller
             })
             ->get();
 
-        if ($lastWeekEntries->count() == 0) {
+        if ($sourceEntries->count() == 0) {
+
             return redirect()->back()
-                ->with('error', 'No timetable found for last week.');
+                ->with('error', 'No timetable found for the selected week.');
+
         }
 
+        foreach ($sourceEntries as $entry) {
 
-        foreach ($lastWeekEntries as $entry) {
-            $newDate = Carbon::parse($entry->session_date)->addWeek();
+            $newDate = Carbon::parse($entry->session_date)
+                ->addWeek();
 
             ClassTimetable::updateOrCreate(
                 [
@@ -130,16 +145,20 @@ class ClassTimetableController extends Controller
                     'session_date' => $newDate->format('Y-m-d'),
                 ],
                 [
+                    'content_id' => $entry->content_id,
                     'day' => $newDate->format('l'),
                     'day_type' => $entry->day_type,
                     'from_time' => $entry->from_time,
                     'to_time' => $entry->to_time,
+
+                    // Reset copied sessions
+                    'status' => 'Scheduled',
                 ]
             );
         }
 
         return redirect()->back()
-            ->with('success', 'Last week timetable copied successfully.');
+            ->with('success', 'Timetable copied successfully to next week.');
     }
 
     public function update(Request $request, $id)
@@ -172,6 +191,7 @@ class ClassTimetableController extends Controller
             'day_type' => $request->day_type,
             'from_time' => $request->from_time,
             'to_time' => $request->to_time,
+            'status' => 'Scheduled',
         ]);
 
         return redirect()->back()

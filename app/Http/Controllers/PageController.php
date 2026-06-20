@@ -1373,7 +1373,7 @@ class PageController extends Controller
                 $userName = 'Unknown User';
 
                 if ($log->user_type == 'Teacher') {
-                    $userName = $log->teacher->name ?? 'Teacher Deleted';
+                    $userName = $log->teacher->name ?? 'STEM Engineer Deleted';
                 }
 
                 elseif ($log->user_type == 'Student') {
@@ -1454,62 +1454,42 @@ class PageController extends Controller
 
     public function startClassSession($timetableId)
     {
-        $timetable = ClassTimetable::with([
-        'schoolClass',
-        'content'
-        ])->findOrFail($timetableId);
+        $timetable = ClassTimetable::with(['schoolClass', 'content'])
+            ->findOrFail($timetableId);
 
-        $existingSession = ClassContentSession::where(
-                'class_id',
-                $timetable->class_id
-            )
-            ->where(
-                'stem_engineer_id',
-                session('user_id')
-            )
-            ->where(
-                'status',
-                'Started'
-            )
+        $existingSession = ClassContentSession::where('timetable_id', $timetable->id)
+            ->where('stem_engineer_id', session('user_id'))
+            ->where('status', 'Started')
             ->first();
 
         if ($existingSession) {
-
             return redirect()->back()
-                ->with(
-                    'error',
-                    'A session is already running for this class.'
-                );
+                ->with('error', 'A session is already running for this timetable.');
         }
 
         ClassContentSession::create([
-
             'timetable_id' => $timetable->id,
-
             'class_id' => $timetable->class_id,
-
             'content_id' => $timetable->content_id,
-
             'stem_engineer_id' => session('user_id'),
-
             'started_at' => now(),
-
             'status' => 'Started',
-
         ]);
 
         $timetable->update([
-
-            'status' => 'Started'
-
+            'status' => 'Started',
         ]);
 
-        return redirect()->back()
-            ->with(
-                'success',
-                'Class session started successfully.'
-            );
+        return redirect()
+            ->route('teacher.session.content', $timetable->content_id)
+            ->with('success', 'Class session started successfully.');
+    }
 
+    public function teacherSessionContent($contentId)
+    {
+        $content = Content::findOrFail($contentId);
+
+        return view('teacher.session-content-viewer', compact('content'));
     }
 
 

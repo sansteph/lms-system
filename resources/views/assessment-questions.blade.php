@@ -5,7 +5,7 @@
 <div class="container-fluid">
     <div class="row">
 
-        @include('layouts.sidebar')
+        @include('layouts.teacher-sidebar')
 
         <div class="col-md-10 col-lg-10 p-4">
 
@@ -31,7 +31,7 @@
 
                     <h5 class="mb-4">Add Question</h5>
 
-                    <form method="POST" action="{{ route('assessment-questions.store') }}">
+                    <form method="POST" action="{{ route('teacher.assessment.questions.store') }}">
                         @csrf
 
                         <div class="row g-3">
@@ -213,7 +213,7 @@
                                         </button>
 
                                         <form method="POST"
-                                              action="{{ route('assessment-questions.delete', $question->id) }}"
+                                              action="{{ route('teacher.assessment.questions.delete', $question->id) }}"
                                               class="d-inline"
                                               onsubmit="return confirm('Are you sure you want to delete this question?')">
                                             @csrf
@@ -250,7 +250,7 @@
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
 
-            <form method="POST" action="{{ route('assessment-questions.update', $question->id) }}">
+            <form method="POST" action="{{ route('teacher.assessment.questions.update', $question->id) }}">
                 @csrf
                 @method('PUT')
 
