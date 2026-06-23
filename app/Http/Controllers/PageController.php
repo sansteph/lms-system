@@ -25,12 +25,30 @@ use App\Models\Course;
 use App\Models\ClassContentSession;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\ClassTimetable;
+use App\Models\Institute;
+use App\Models\IndependentLearner;
+
+
 
 class PageController extends Controller
 {
     public function home()
     {
-        return view('home');
+        $institutionalLearners = Student::where('status', 1)->count();
+
+        $independentLearners = IndependentLearner::where('status', 1)->count();
+
+        $activeLearners = $institutionalLearners + $independentLearners;
+
+        $assessmentCount = Assessment::count();
+
+        $institutionCount = Institute::count();
+
+        return view('home', compact(
+            'activeLearners',
+            'assessmentCount',
+            'institutionCount'
+        ));
     }
 
     public function portal()
@@ -1604,5 +1622,39 @@ class PageController extends Controller
             ->setPaper('a4', 'landscape');
 
         return $pdf->stream('certificate-' . $certificate->certificate_code . '.pdf');
+    }
+
+    public function coordinatorLogin()
+    {
+        return view('coordinator.login');
+    }
+
+    public function coordinatorLoginSubmit(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        $user = User::where('email', $request->email)
+            ->where('role', 'Coordinator')
+            ->where('status', 1)
+            ->first();
+
+        if ($user && \Hash::check($request->password, $user->password)) {
+
+            session([
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'user_role' => $user->role,
+                'user_institute' => $user->institute,
+            ]);
+
+            return redirect()->route('coordinator.dashboard');
+        }
+
+        return redirect()
+            ->back()
+            ->with('error', 'Invalid coordinator login credentials.');
     }
 }

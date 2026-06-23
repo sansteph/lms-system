@@ -21,6 +21,7 @@ use App\Http\Controllers\TeacherStudentProfileController;
 use App\Http\Controllers\IndependentLearnerController;
 use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\ClassTimetableController;
+use  App\Http\Controllers\CoordinatorController;
 
 
 //Public Routes
@@ -237,8 +238,8 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
 
     Route::get('/teacher/session-content/{contentId}', [PageController::class, 'teacherSessionContent'])->name('teacher.session.content');
 
-   Route::get('/teacher/assessments', [AssessmentController::class, 'index'])
-    ->name('teacher.assessments');
+    Route::get('/teacher/assessments', [AssessmentController::class, 'index'])
+        ->name('teacher.assessments');
 
     Route::post('/teacher/assessments/store', [AssessmentController::class, 'store'])
         ->name('teacher.assessments.store');
@@ -296,4 +297,16 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::post('/assessment-session/submit/{sessionId}', [PageController::class, 'submitAssessmentSession'])->name('assessment.session.submit');
 });
 
+Route::get('/coordinator/login', [PageController::class, 'coordinatorLogin'])->name('coordinator.login');
+Route::post('/coordinator/login', [PageController::class, 'coordinatorLoginSubmit'])->name('coordinator.login.submit');
 
+//Coordinator protected routes
+Route::middleware(['coordinator.auth'])->group(function () {
+
+    Route::get('/coordinator/dashboard',[CoordinatorController::class, 'dashboard'])->name('coordinator.dashboard');
+    Route::get('/coordinator/live-sessions',[CoordinatorController::class, 'liveSessions'])->name('coordinator.live-sessions');
+    Route::get('/coordinator/daily-report',[CoordinatorController::class, 'dailyReport'])->name('coordinator.daily-report');
+    Route::get('/coordinator/content-tracker',[CoordinatorController::class, 'contentTracker'])->name('coordinator.content-tracker');
+    Route::get('/coordinator/assessment-monitoring',[CoordinatorController::class, 'assessmentMonitoring'])->name('coordinator.assessment-monitoring');
+
+});
