@@ -5,6 +5,18 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Content;
 use App\Models\SchoolClass;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use App\Models\Student;
+use App\Models\LessonProgress;
+use App\Models\UserSession;
+use App\Models\Certificate;
+use App\Models\StudentAchievement;
+use App\Models\AssessmentResult;
+use App\Models\AssessmentQuestion;
+use App\Models\Assessment;
+use App\Models\ClassTimetable;
+use App\Models\ClassContentSession;
 
 class ClassController extends Controller
 {
@@ -133,8 +145,74 @@ class ClassController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        $class->delete();
+        DB::transaction(function () use ($class) {
 
-        return redirect()->back()->with('success', 'Class deleted successfully');
+            $students = Student::where('class', $class->class_name)
+                ->where('section', $class->section)
+                ->where('institute', $class->institute)
+                ->get();
+
+            foreach ($students as $student) {
+
+                AssessmentResult::where('student_id', $student->id)->delete();
+
+                LessonProgress::where('student_id', $student->id)->delete();
+
+                UserSession::where('user_type', 'Student')
+                    ->where('user_id', $student->id)
+                    ->delete();
+
+                Certificate::where('student_id', $student->id)->delete();
+
+                $achievements = StudentAchievement::where('student_id', $student->id)->get();
+
+                foreach ($achievements as $achievement) {
+                    if (
+                        $achievement->certificate_file &&
+                        Storage::disk('public')->exists($achievement->certificate_file)
+                    ) {
+                        Storage::disk('public')->delete($achievement->certificate_file);
+                    }
+
+                    $achievement->delete();
+                }
+
+                $student->delete();
+            }
+
+            $timetables = ClassTimetable::where('class_id', $class->id)->get();
+
+            foreach ($timetables as $timetable) {
+                ClassContentSession::where('class_id', $class->id)->delete();
+                $timetable->delete();
+            }
+
+            $assignedClass = trim($class->class_name . ' ' . $class->section);
+
+            $assessments = Assessment::where('assigned_class', $assignedClass)
+                ->where('institute', $class->institute)
+                ->get();
+
+            foreach ($assessments as $assessment) {
+
+                AssessmentResult::where('assessment_id', $assessment->id)->delete();
+
+                AssessmentQuestion::where('assessment_id', $assessment->id)->delete();
+
+                if (
+                    $assessment->file_path &&
+                    Storage::disk('public')->exists($assessment->file_path)
+                ) {
+                    Storage::disk('public')->delete($assessment->file_path);
+                }
+
+                $assessment->delete();
+            }
+
+            $class->delete();
+        });
+
+        return redirect()->back()
+            ->with('success', 'Class and all related records deleted successfully.');
     }
 }

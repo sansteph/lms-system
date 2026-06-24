@@ -155,50 +155,56 @@
 
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                         <div>
-                            <h5 class="mb-1">Certificate Progress</h5>
+                            <h5 class="mb-1">Course Certificates</h5>
                             <p class="text-muted mb-0">
-                                Earn 5 badges to unlock your certificate eligibility.
+                                Certificates are unlocked after completing all lessons and linked assessments in a course.
                             </p>
                         </div>
-
-                        @if($certificateEligible)
-                            <span class="badge bg-success px-3 py-2">Eligible</span>
-                        @else
-                            <span class="badge bg-warning text-dark px-3 py-2">In Progress</span>
-                        @endif
                     </div>
 
-                    <div class="progress mb-3" style="height: 14px; border-radius: 10px;">
-                        <div class="progress-bar"
-                             role="progressbar"
-                             style="width: {{ min(($results->count() / 5) * 100, 100) }}%">
-                        </div>
-                    </div>
+                    @forelse(($certificates ?? collect()) as $certificate)
 
-                    <div class="d-flex justify-content-between flex-wrap gap-2 mb-4">
-                        <small class="text-muted">{{ $results->count() }} / 5 badges earned</small>
-
-                        @if($certificateEligible)
-                            <small class="text-success fw-semibold">Certificate unlocked</small>
-                        @else
-                            <small class="text-primary fw-semibold">Keep progressing</small>
-                        @endif
-                    </div>
-
-                    @if($certificateEligible && $certificate && $certificate->status != 'Revoked')
-                        <div class="alert alert-success mb-0">
+                        <div class="alert alert-success mb-3">
                             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                                 <div>
-                                    <strong>Certificate Generated</strong><br>
-                                    <small>Certificate Code: {{ $certificate->certificate_code }}</small>
+                                    <strong>
+                                        {{ $certificate->course->course_title ?? 'Completed Course' }}
+                                    </strong>
+
+                                    <br>
+
+                                    <small>
+                                        Certificate Code: {{ $certificate->certificate_code }}
+                                    </small>
+
+                                    <br>
+
+                                    <small>
+                                        Type: {{ $certificate->certificate_type }}
+                                    </small>
+
+                                    <br>
+
+                                    <small>
+                                        Average Score: {{ $certificate->badge_count }}%
+                                    </small>
                                 </div>
 
-                                <a href="{{ route('student.certificate') }}" class="btn btn-success">
-                                    <i class="fa fa-download me-2"></i> View Certificate
+                                <a href="{{ route('student.certificate') }}"
+                                class="btn btn-success">
+                                    <i class="fa fa-download me-2"></i>
+                                    View Certificate
                                 </a>
                             </div>
                         </div>
-                    @endif
+
+                    @empty
+
+                        <div class="alert alert-warning mb-0">
+                            Complete all course lessons and linked assessments to unlock your course certificate.
+                        </div>
+
+                    @endforelse
 
                 </div>
             </div>

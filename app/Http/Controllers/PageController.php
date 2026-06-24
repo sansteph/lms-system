@@ -27,6 +27,9 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\ClassTimetable;
 use App\Models\Institute;
 use App\Models\IndependentLearner;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+
 
 
 
@@ -276,16 +279,42 @@ class PageController extends Controller
         if (
             session('user_role') == 'InstituteAdmin' &&
             $student->institute != session('user_institute')
-        ) 
-        {
+        ) {
             abort(403, 'Unauthorized action.');
         }
 
-        AssessmentResult::where('student_id', $id)->delete();
+        DB::transaction(function () use ($student, $id) {
 
-        $student->delete();
+            AssessmentResult::where('student_id', $id)->delete();
 
-        return redirect()->route('students')->with('success', 'Student deleted successfully!');
+            LessonProgress::where('student_id', $id)->delete();
+
+            UserSession::where('user_type', 'Student')
+                ->where('user_id', $id)
+                ->delete();
+
+            Certificate::where('student_id', $id)->delete();
+
+            $achievements = StudentAchievement::where('student_id', $id)->get();
+
+            foreach ($achievements as $achievement) {
+
+                if (
+                    $achievement->certificate_file &&
+                    Storage::disk('public')->exists($achievement->certificate_file)
+                ) {
+                    Storage::disk('public')->delete($achievement->certificate_file);
+                }
+
+                $achievement->delete();
+            }
+
+            $student->delete();
+        });
+
+        return redirect()
+            ->route('students')
+            ->with('success', 'Student and all related records deleted successfully.');
     }
 
     public function adminCertificates()
@@ -906,9 +935,10 @@ class PageController extends Controller
 
         $certificateEligible = $results->count() >= 5;
 
-        $certificate = Certificate::where('student_id', $studentId)
+        $certificates = Certificate::with('course')
+            ->where('student_id', $studentId)
             ->latest()
-            ->first();
+            ->get();
 
         $uploadedAchievements = StudentAchievement::where(
             'student_id',
@@ -927,7 +957,7 @@ class PageController extends Controller
 
             'certificateEligible',
 
-            'certificate',
+            'certificates',
 
             'uploadedAchievements'
 
@@ -1641,7 +1671,7 @@ class PageController extends Controller
             ->where('status', 1)
             ->first();
 
-        if ($user && \Hash::check($request->password, $user->password)) {
+        if ($user && Hash::check($request->password, $user->password)) {
 
             session([
                 'user_id' => $user->id,

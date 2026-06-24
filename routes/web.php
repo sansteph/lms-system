@@ -256,7 +256,7 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::post('/teacher/assessment-questions/store', [AssessmentQuestionController::class, 'store'])
         ->name('teacher.assessment.questions.store');
 
-    Route::post('/teacher/assessment-questions/update/{id}', [AssessmentQuestionController::class, 'update'])
+    Route::put('/teacher/assessment-questions/update/{id}',[AssessmentQuestionController::class, 'update'])
         ->name('teacher.assessment.questions.update');
 
     Route::get('/teacher/assessment-questions/delete/{id}', [AssessmentQuestionController::class, 'delete'])

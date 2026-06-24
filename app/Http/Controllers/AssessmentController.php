@@ -7,6 +7,7 @@ use App\Models\Assessment;
 use App\Models\AssessmentResult;
 use App\Models\AssessmentQuestion;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class AssessmentController extends Controller
 {
@@ -158,27 +159,26 @@ class AssessmentController extends Controller
         if (session('user_role') != 'Teacher') {
             abort(403, 'Only STEM Engineers can delete assessments.');
         }
+
         $assessment = Assessment::findOrFail($id);
 
-        if (
-            session('user_role') == 'InstituteAdmin' &&
-            $assessment->institute != session('user_institute')
-        ) {
-            abort(403, 'Unauthorized action.');
-        }
+        DB::transaction(function () use ($assessment, $id) {
 
-        AssessmentResult::where('assessment_id', $id)->delete();
-        AssessmentQuestion::where('assessment_id', $id)->delete();
+            AssessmentResult::where('assessment_id', $id)->delete();
 
-        if ($assessment->file_path &&
-            Storage::disk('public')->exists($assessment->file_path)) {
+            AssessmentQuestion::where('assessment_id', $id)->delete();
 
-            Storage::disk('public')->delete($assessment->file_path);
-        }
+            if (
+                $assessment->file_path &&
+                Storage::disk('public')->exists($assessment->file_path)
+            ) {
+                Storage::disk('public')->delete($assessment->file_path);
+            }
 
-        $assessment->delete();
+            $assessment->delete();
+        });
 
         return redirect()->back()
-            ->with('success', 'Assessment deleted successfully. Related questions, results, badges, and history were also removed.');
+            ->with('success', 'Assessment and all related records deleted successfully.');
     }
 }

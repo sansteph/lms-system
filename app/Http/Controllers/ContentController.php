@@ -6,6 +6,16 @@ use Illuminate\Http\Request;
 use App\Models\Content;
 use App\Models\Course;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Assessment;
+use App\Models\AssessmentQuestion;
+use App\Models\AssessmentResult;
+use App\Models\LessonProgress;
+use App\Models\ClassContentSession;
+use App\Models\ClassTimetable;
+use Illuminate\Support\Facades\DB;
+
+
+
 
 class ContentController extends Controller
 {
@@ -220,17 +230,50 @@ class ContentController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        if ($content->file_path && Storage::disk('public')->exists($content->file_path)) {
-            Storage::disk('public')->delete($content->file_path);
-        }
+        DB::transaction(function () use ($content, $id) {
 
-        if ($content->preview_pdf_path && Storage::disk('public')->exists($content->preview_pdf_path)) {
-            Storage::disk('public')->delete($content->preview_pdf_path);
-        }
+            $assessments = Assessment::where('content_id', $id)->get();
 
-        $content->delete();
+            foreach ($assessments as $assessment) {
+
+                AssessmentResult::where('assessment_id', $assessment->id)->delete();
+
+                AssessmentQuestion::where('assessment_id', $assessment->id)->delete();
+
+                if (
+                    $assessment->file_path &&
+                    Storage::disk('public')->exists($assessment->file_path)
+                ) {
+                    Storage::disk('public')->delete($assessment->file_path);
+                }
+
+                $assessment->delete();
+            }
+
+            LessonProgress::where('content_id', $id)->delete();
+
+            ClassContentSession::where('content_id', $id)->delete();
+
+            ClassTimetable::where('content_id', $id)->delete();
+
+            if (
+                $content->file_path &&
+                Storage::disk('public')->exists($content->file_path)
+            ) {
+                Storage::disk('public')->delete($content->file_path);
+            }
+
+            if (
+                $content->preview_pdf_path &&
+                Storage::disk('public')->exists($content->preview_pdf_path)
+            ) {
+                Storage::disk('public')->delete($content->preview_pdf_path);
+            }
+
+            $content->delete();
+        });
 
         return redirect()->back()
-            ->with('success', 'Content deleted successfully');
+            ->with('success', 'Content and all related records deleted successfully.');
     }
 }

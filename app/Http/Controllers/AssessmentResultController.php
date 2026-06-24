@@ -9,6 +9,9 @@ use App\Models\AssessmentSession;
 use App\Models\AssessmentAnswer;
 use App\Models\Certificate;
 use Illuminate\Support\Str;
+use App\Models\Assessment;
+use App\Models\Content;
+use App\Models\LessonProgress;
 
 class AssessmentResultController extends Controller
 {
@@ -105,7 +108,13 @@ class AssessmentResultController extends Controller
         ]);
 
         if (!$hasPendingReview) {
-            $this->issueCertificateIfEligible($request->student_id);
+            $assessment = Assessment::with('content')->find($request->assessment_id);
+            if ($assessment && $assessment->content) {
+                $this->issueCourseCertificateIfEligible(
+                    $request->student_id,
+                    $assessment->content->course_id
+                );
+            }
         }
 
         if (session('active_assessment_session_id')) {
@@ -194,7 +203,14 @@ class AssessmentResultController extends Controller
                 'status' => 'Completed',
             ]);
 
-            $this->issueCertificateIfEligible($result->student_id);
+            $assessment = Assessment::with('content')->find($result->assessment_id);
+
+            if ($assessment && $assessment->content) {
+                $this->issueCourseCertificateIfEligible(
+                    $result->student_id,
+                    $assessment->content->course_id
+                );
+            }
         }
 
         return redirect()->back()
@@ -218,29 +234,73 @@ class AssessmentResultController extends Controller
         return null;
     }
 
-    private function issueCertificateIfEligible($studentId)
+    private function issueCourseCertificateIfEligible($studentId, $courseId)
     {
-        $badgeCount = AssessmentResult::where('student_id', $studentId)
-            ->where('status', 'Completed')
-            ->whereNotNull('badge')
+        $contentIds = Content::where('course_id', $courseId)
+            ->where('status', 1)
+            ->where('is_released', 1)
+            ->pluck('id');
+
+        if ($contentIds->count() == 0) {
+            return;
+        }
+
+        $completedLessonCount = LessonProgress::where('student_id', $studentId)
+            ->whereIn('content_id', $contentIds)
+            ->where('is_completed', true)
             ->count();
 
+        if ($completedLessonCount < $contentIds->count()) {
+            return;
+        }
+
+        $assessmentIds = Assessment::whereIn('content_id', $contentIds)
+            ->where('status', 1)
+            ->pluck('id');
+
+        if ($assessmentIds->count() == 0) {
+            return;
+        }
+
+        $completedResults = AssessmentResult::where('student_id', $studentId)
+            ->whereIn('assessment_id', $assessmentIds)
+            ->where('status', 'Completed')
+            ->get();
+
+        if ($completedResults->count() < $assessmentIds->count()) {
+            return;
+        }
+
+        $averageScore = round($completedResults->avg('percentage'), 2);
+
+        if ($averageScore < 50) {
+            return;
+        }
+
         $existingCertificate = Certificate::where('student_id', $studentId)
-            ->where(function ($query) {
-                $query->where('certificate_type', 'Student')
-                    ->orWhereNull('certificate_type');
-            })
+            ->where('course_id', $courseId)
             ->first();
 
-        if ($badgeCount >= 5 && !$existingCertificate) {
-            Certificate::create([
-                'student_id' => $studentId,
-                'certificate_code' => 'CERT-' . strtoupper(Str::random(10)),
-                'badge_count' => $badgeCount,
-                'issued_date' => now(),
-                'status' => 'Issued',
-                'certificate_type' => 'Student',
-            ]);
+        if ($existingCertificate) {
+            return;
         }
+
+        $certificateType = 'Completion';
+
+        if ($averageScore >= 90) {
+            $certificateType = 'Excellence';
+        } elseif ($averageScore >= 75) {
+            $certificateType = 'Merit';
+        }
+
+        Certificate::create([
+            'student_id' => $studentId,
+            'course_id' => $courseId,
+            'certificate_code' => 'CERT-' . strtoupper(Str::random(10)),
+            'badge_count' => round($averageScore),
+            'issued_date' => now(),
+            'status' => 'Issued',
+            'certificate_type' => $certificateType,
+        ]);
     }
 }

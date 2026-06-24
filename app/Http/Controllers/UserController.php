@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Models\InstituteRegistrationRequest;
 use App\Models\Content;
+use Illuminate\Support\Facades\DB;
+use App\Models\SchoolClass;
+use App\Models\ClassContentSession;
 
 
 class UserController extends Controller
@@ -103,15 +106,30 @@ class UserController extends Controller
         if (
             session('user_role') == 'InstituteAdmin' &&
             $user->institute != session('user_institute')
-        ) 
-        {
+        ) {
             abort(403, 'Unauthorized action.');
         }
 
-        $user->delete();
+        DB::transaction(function () use ($user, $id) {
+
+            UserSession::where('user_type', 'Teacher')
+                ->where('user_id', $id)
+                ->delete();
+
+            ClassContentSession::where('stem_engineer_id', $id)
+                ->delete();
+
+            SchoolClass::where('class_teacher', $user->name)
+                ->where('institute', $user->institute)
+                ->update([
+                    'class_teacher' => null,
+                ]);
+
+            $user->delete();
+        });
 
         return redirect()->back()
-            ->with('success', 'STEM Engineer deleted successfully');
+            ->with('success', 'STEM Engineer and related records deleted successfully.');
     }
 
     public function adminLogin(Request $request)
