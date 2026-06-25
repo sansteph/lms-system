@@ -58,7 +58,7 @@
                 {{ route('home') }}
             @endif
             ">
-            LMS Panel
+            TinkEdge Learning Panel
         </a>
 
         <div class="ms-auto d-flex align-items-center gap-3">
@@ -93,6 +93,10 @@
                     @elseif(session('independent_learner_id'))
 
                         (Hybrid Learner)
+
+                    @elseif(session('user_role') == 'Coordinator')
+
+                        (Coordinator)
 
                     @endif
 
