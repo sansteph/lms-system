@@ -30,28 +30,28 @@
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Assigned Classes</h6>
-                        <h2>5</h2>
+                        <h2>{{ $assignedClasses }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Total Students</h6>
-                        <h2>180</h2>
+                        <h2>{{ $totalStudents }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Pending Assessments</h6>
-                        <h2><h2>{{ $assessmentCount }}</h2></h2>
+                        <h2>{{ $assessmentCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Completed Content</h6>
-                        <h2><h2>{{ $contentCount }}</h2></h2>
+                        <h2>{{ $contentCount }}</h2>
                     </div>
                 </div>
 
@@ -79,38 +79,47 @@
 
                                 <tbody>
 
-                                    <tr>
-                                        <td>VIII</td>
-                                        <td>A</td>
-                                        <td>40</td>
-                                        <td>
-                                            <span class="badge bg-success">
-                                                Active
-                                            </span>
-                                        </td>
-                                    </tr>
+                                    @forelse($classes as $class)
 
                                     <tr>
-                                        <td>IX</td>
-                                        <td>B</td>
-                                        <td>38</td>
+
+                                        <td>{{ $class->class_name }}</td>
+
+                                        <td>{{ $class->section }}</td>
+
+                                        <td>-</td>
+
                                         <td>
-                                            <span class="badge bg-success">
-                                                Active
-                                            </span>
+
+                                            @if($class->status)
+
+                                                <span class="badge bg-success">
+                                                    Active
+                                                </span>
+
+                                            @else
+
+                                                <span class="badge bg-danger">
+                                                    Inactive
+                                                </span>
+
+                                            @endif
+
                                         </td>
+
                                     </tr>
 
+                                    @empty
+
                                     <tr>
-                                        <td>X</td>
-                                        <td>A</td>
-                                        <td>42</td>
-                                        <td>
-                                            <span class="badge bg-warning text-dark">
-                                                Pending
-                                            </span>
+
+                                        <td colspan="4" class="text-center">
+                                            No classes assigned.
                                         </td>
+
                                     </tr>
+
+                                    @endforelse
 
                                 </tbody>
 
@@ -130,21 +139,25 @@
 
                             <div class="d-grid gap-2">
 
-                                <button class="btn btn-primary">
+                                <a href="{{ route('teacher.content') }}"
+                                class="btn btn-primary">
                                     Upload Content
-                                </button>
+                                </a>
 
-                                <button class="btn btn-success">
+                                <a href="{{ route('teacher.assessments') }}"
+                                class="btn btn-success">
                                     Create Assessment
-                                </button>
+                                </a>
 
-                                <button class="btn btn-warning">
-                                    Enter Marks
-                                </button>
+                                <a href="{{ route('assessment.review') }}"
+                                class="btn btn-warning">
+                                    Evaluate Assessments
+                                </a>
 
-                                <button class="btn btn-secondary">
+                                <a href="{{ route('teacher.reports') }}"
+                                class="btn btn-secondary">
                                     View Reports
-                                </button>
+                                </a>
 
                             </div>
 

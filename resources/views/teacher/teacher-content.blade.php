@@ -56,7 +56,7 @@
                                 <th>Title</th>
                                 <th>Class</th>
                                 <th>Type</th>
-                                <th>Priority</th>
+                                <th>Lesson Order</th>
                                 <th>Access Rule</th>
                                 <th>Status</th>
                                 <th width="160">Action</th>
@@ -78,7 +78,7 @@
                                             <span class="badge bg-danger">Video</span>
                                         @endif
                                     </td>
-                                    <td>{{ $content->priority }}</td>
+                                    <td>{{ $content->lesson_order }}</td>
                                     <td>{{ $content->access_rule }}</td>
                                     <td>
                                         @if($content->status == 1)

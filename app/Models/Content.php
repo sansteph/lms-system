@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Content extends Model
 {
+    protected $table = 'contents';
     public function course()
     {
         return $this->belongsTo(Course::class);
@@ -27,6 +28,10 @@ class Content extends Model
         'institute',
 
         'file_path',
+
+        'preview_pdf_path',
+
+        'is_released',
 
         'status',
 

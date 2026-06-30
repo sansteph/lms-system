@@ -3,13 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Content;
+use App\Models\ClassTimetable;
 
 class SchoolClass extends Model
 {
-    public function content()
-    {
-        return $this->belongsTo(Content::class);
-    }
     protected $table = 'classes';
 
     protected $fillable = [
@@ -20,4 +18,9 @@ class SchoolClass extends Model
         'status',
         'institute',
     ];
+
+    public function timetables()
+    {
+        return $this->hasMany(ClassTimetable::class, 'class_id');
+    }
 }

@@ -25,8 +25,8 @@
                     </div>
 
                     <div class="logo-text">
-                        <h5>TinkEdge LMS</h5>
-                        <span>AI Powered Learning</span>
+                        <h5>TinkEdge Learning</h5>
+                        <span>Learning Made Easy</span>
                     </div>
 
                 </div>
@@ -43,7 +43,7 @@
 
                         <div class="hero-badge">
                             <i class="fa fa-sparkles"></i>
-                            AI POWERED LEARNING ECOSYSTEM
+                            ADVANCED LEARNING ECOSYSTEM
                         </div>
 
                         <h1 class="hero-title">
@@ -52,7 +52,7 @@
                         </h1>
 
                         <p class="hero-description">
-                            Empowering institutions, STEM Engineers and learners with AI
+                            Empowering institutions, STEM Engineers and learners with automated
                             assessments, analytics, certificates and a complete
                             learning management system.
                         </p>
@@ -78,7 +78,7 @@
                                     <i class="fa fa-users"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h4>10K+</h4>
+                                    <h4>{{ number_format($activeLearners) }}</h4>
                                     <span>Active Learners</span>
                                 </div>
                             </div>
@@ -88,7 +88,7 @@
                                     <i class="fa fa-chart-column"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h4>500+</h4>
+                                    <h4>{{ number_format($assessmentCount) }}</h4>
                                     <span>Assessments</span>
                                 </div>
                             </div>
@@ -98,7 +98,7 @@
                                     <i class="fa fa-building-columns"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h4>120+</h4>
+                                    <h4>{{ number_format($institutionCount) }}</h4>
                                     <span>Institutions</span>
                                 </div>
                                 
@@ -165,8 +165,8 @@
                         <div class="feature-icon purple">
                             <i class="fa fa-brain"></i>
                         </div>
-                        <h4>AI Powered Assessments</h4>
-                        <p>Generate smart question papers, evaluations and adaptive assessments.</p>
+                        <h4>Automated Assessments</h4>
+                        <p>Experience progress wise assessment flow for enhanced learning.</p>
                     </div>
                 </div>
 
@@ -250,7 +250,7 @@
                                 <h3>Hybrid Learning</h3>
                                 <p>
                                     Learn independently through premium courses,
-                                    AI assessments and skill certifications.
+                                    automated assessments and skill certifications.
                                 </p>
 
                                 <a href="{{ route('coming.soon') }}" class="btn access-btn-alt">
@@ -276,57 +276,65 @@
 
     <!-- FOOTER -->
     <footer class="footer-section">
-
+        
         <div class="container">
 
             <div class="footer-wrapper">
 
-                <div class="footer-brand">
+                <div class="footer-top">
 
-                    <div class="footer-logo-placeholder">
-                        <img src="{{ asset('images/TinkEdgeLogo.png') }}" >
+                    <div class="footer-brand">
+                        <div class="footer-logo-placeholder">
+                            <img src="{{ asset('images/TinkEdgeLogo.png') }}">
+                        </div>
+
+                        <div>
+                            <h4>TinkEdge Learning</h4>
+                            <p>Advanced Learning Ecosystem</p>
+                        </div>
                     </div>
 
-                    <div>
-                        <h4>TinkEdge LMS</h4>
-                        <p>AI Powered Learning Ecosystem</p>
+                    <div class="footer-actions">
+
+                        <div class="footer-action-card">
+                            <div class="footer-action-icon blue">
+                                <i class="fa fa-user-shield"></i>
+                            </div>
+
+                            <div>
+                                <a href="{{ route('admin.login') }}">Admin Login</a>
+                                <span>Secure admin access</span>
+                            </div>
+                        </div>
+
+                        <div class="footer-action-card">
+                            <div class="footer-action-icon blue">
+                                <i class="fa fa-user-shield"></i>
+                            </div>
+
+                            <div>
+                                <a href="{{ route('coordinator.login') }}">Coordinator Login</a>
+                                <span>Secure coordinator access</span>
+                            </div>
+                        </div>
+
+                        <div class="footer-action-card">
+                            <div class="footer-action-icon orange">
+                                <i class="fa fa-certificate"></i>
+                            </div>
+
+                            <div>
+                                <a href="{{ route('certificate.verify') }}">Verify Certificate</a>
+                                <span>Verify your certificates</span>
+                            </div>
+                        </div>
+
                     </div>
 
-                </div>
-
-                <div class="footer-action-card">
-                    <div class="footer-action-icon blue">
-                        <i class="fa fa-user-shield"></i>
-                    </div>
-
-                    <div>
-                        <a href="{{ route('admin.login') }}">Admin Login</a>
-                        <span>Secure admin access</span>
-                    </div>
-
-                    <a href="{{ route('admin.login') }}" class="footer-arrow-link">
-                        <i class="fa fa-arrow-right footer-arrow"></i>
-                    </a>
-                </div>
-
-                <div class="footer-action-card">
-                    <div class="footer-action-icon orange">
-                        <i class="fa fa-certificate"></i>
-                    </div>
-
-                    <div>
-                        <a href="{{ route('certificate.verify') }}">Verify Certificate</a>
-                        <span>Verify your certificates</span>
-                    </div>
-
-                    <a href="{{ route('certificate.verify') }}" class="footer-arrow-link">
-                        <i class="fa fa-arrow-right footer-arrow"></i>
-                    </a>
                 </div>
 
                 <div class="footer-copy">
-                    © {{ date('Y') }} TinkEdge LMS<br>
-                    All rights reserved.
+                    © {{ date('Y') }} TinkEdge LMS. All rights reserved.
                 </div>
 
             </div>

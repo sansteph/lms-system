@@ -2,103 +2,109 @@
 
 @section('content')
 
-<div class="container-fluid py-4">
+<div class="container-fluid">
+    <div class="row">
 
-    <div class="card shadow border-0">
+        @include('layouts.sidebar')
 
-        <div class="card-body">
+        <div class="col-md-10 col-lg-10 p-4">
 
-            <h3 class="mb-4">
-                Assessment Monitoring
-            </h3>
+            <div class="card shadow border-0">
 
-            <table class="table table-bordered table-hover align-middle">
+                <div class="card-body">
 
-                <thead class="table-light">
-                    <tr>
-                        <th>User</th>
-                        <th>User Type</th>
-                        <th>Institute</th>
-                        <th>Assessment</th>
-                        <th>Started At</th>
-                        <th>Submitted At</th>
-                        <th>Violations</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
+                    <h3 class="fw-bold mb-4">
+                        Assessment Monitoring
+                    </h3>
 
-                <tbody>
+                    <table class="table table-bordered table-hover align-middle">
 
-                    @forelse($sessions as $session)
+                        <thead class="table-light">
+                            <tr>
+                                <th>User</th>
+                                <th>User Type</th>
+                                <th>Institute</th>
+                                <th>Assessment</th>
+                                <th>Started At</th>
+                                <th>Submitted At</th>
+                                <th>Violations</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
 
-                        @php
-                            $userName = 'Unknown User';
-                            $institute = 'N/A';
+                        <tbody>
 
-                            if ($session->user_type == 'Student') {
-                                $userName = $session->student->name ?? 'Student Deleted';
-                                $institute = $session->student->institute ?? 'N/A';
-                            } elseif ($session->user_type == 'Teacher') {
-                                $userName = $session->teacher->name ?? 'STEM Engineer Deleted';
-                                $institute = $session->teacher->institute ?? 'N/A';
-                            }
-                        @endphp
+                            @forelse($sessions as $session)
 
-                        <tr>
-                            <td>{{ $userName }}</td>
-                            <td>{{ $session->user_type }}</td>
-                            <td>{{ $institute }}</td>
-                            <td>{{ $session->assessment->assessment_title ?? 'Assessment Deleted' }}</td>
-                            <td>{{ $session->started_at }}</td>
-                            <td>{{ $session->submitted_at ?? 'Not Submitted' }}</td>
+                                @php
+                                    $userName = 'Unknown User';
+                                    $institute = 'N/A';
 
-                            <td>
-                                @if($session->violation_count >= 3)
-                                    <span class="badge bg-danger">
-                                        {{ $session->violation_count }}
-                                    </span>
-                                @elseif($session->violation_count > 0)
-                                    <span class="badge bg-warning text-dark">
-                                        {{ $session->violation_count }}
-                                    </span>
-                                @else
-                                    <span class="badge bg-success">
-                                        0
-                                    </span>
-                                @endif
-                            </td>
+                                    if ($session->user_type == 'Student') {
+                                        $userName = $session->student->name ?? 'Student Deleted';
+                                        $institute = $session->student->institute ?? 'N/A';
+                                    } elseif ($session->user_type == 'Teacher') {
+                                        $userName = $session->teacher->name ?? 'STEM Engineer Deleted';
+                                        $institute = $session->teacher->institute ?? 'N/A';
+                                    }
+                                @endphp
 
-                            <td>
-                                @if($session->status == 'Started')
-                                    <span class="badge bg-warning text-dark">Started</span>
-                                @elseif($session->status == 'Submitted')
-                                    <span class="badge bg-success">Submitted</span>
-                                @elseif($session->status == 'AutoSubmitted')
-                                    <span class="badge bg-danger">Auto Submitted</span>
-                                @else
-                                    <span class="badge bg-secondary">{{ $session->status }}</span>
-                                @endif
-                            </td>
-                        </tr>
+                                <tr>
+                                    <td>{{ $userName }}</td>
+                                    <td>{{ $session->user_type }}</td>
+                                    <td>{{ $institute }}</td>
+                                    <td>{{ $session->assessment->assessment_title ?? 'Assessment Deleted' }}</td>
+                                    <td>{{ $session->started_at }}</td>
+                                    <td>{{ $session->submitted_at ?? 'Not Submitted' }}</td>
 
-                    @empty
+                                    <td>
+                                        @if($session->violation_count >= 3)
+                                            <span class="badge bg-danger">
+                                                {{ $session->violation_count }}
+                                            </span>
+                                        @elseif($session->violation_count > 0)
+                                            <span class="badge bg-warning text-dark">
+                                                {{ $session->violation_count }}
+                                            </span>
+                                        @else
+                                            <span class="badge bg-success">
+                                                0
+                                            </span>
+                                        @endif
+                                    </td>
 
-                        <tr>
-                            <td colspan="8" class="text-center text-muted">
-                                No assessment activity found.
-                            </td>
-                        </tr>
+                                    <td>
+                                        @if($session->status == 'Started')
+                                            <span class="badge bg-warning text-dark">Started</span>
+                                        @elseif($session->status == 'Submitted')
+                                            <span class="badge bg-success">Submitted</span>
+                                        @elseif($session->status == 'AutoSubmitted')
+                                            <span class="badge bg-danger">Auto Submitted</span>
+                                        @else
+                                            <span class="badge bg-secondary">{{ $session->status }}</span>
+                                        @endif
+                                    </td>
+                                </tr>
 
-                    @endforelse
+                            @empty
 
-                </tbody>
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted">
+                                        No assessment activity found.
+                                    </td>
+                                </tr>
 
-            </table>
+                            @endforelse
 
-        </div>
+                        </tbody>
 
+                    </table>
+
+                </div>
+
+            </div>
+        </div> 
     </div>
-
 </div>
 
 @endsection

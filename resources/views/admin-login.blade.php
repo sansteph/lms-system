@@ -115,7 +115,7 @@
 
         <div class="text-center">
 
-            <p>
+            <p class="text-muted mb-3">
                 New Institute?
             </p>
 

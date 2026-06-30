@@ -207,7 +207,7 @@
                                     @endphp
 
                                     <tr>
-                                        <td>{{ $session->teacher->name ?? 'Teacher Deleted' }}</td>
+                                        <td>{{ $session->teacher->name ?? 'STEM Engineer Deleted' }}</td>
                                         <td>{{ $session->teacher->institute ?? 'N/A' }}</td>
 
                                         <td>

@@ -4,6 +4,24 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Institute;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use App\Models\User;
+use App\Models\Student;
+use App\Models\SchoolClass;
+use App\Models\Course;
+use App\Models\Content;
+use App\Models\Assessment;
+use App\Models\AssessmentQuestion;
+use App\Models\AssessmentResult;
+use App\Models\Certificate;
+use App\Models\StudentAchievement;
+use App\Models\LessonProgress;
+use App\Models\UserSession;
+use App\Models\ClassTimetable;
+use App\Models\ClassContentSession;
+use App\Models\Notification;
+use App\Models\InstituteRegistrationRequest;
 
 class InstituteController extends Controller
 {
@@ -60,8 +78,111 @@ class InstituteController extends Controller
     {
         $institute = Institute::findOrFail($id);
 
-        $institute->delete();
+        DB::transaction(function () use ($institute) {
 
-        return redirect()->back()->with('success', 'Institute deleted successfully');
+            $instituteName = $institute->institute_name;
+
+            $students = Student::where('institute', $instituteName)->get();
+
+            foreach ($students as $student) {
+
+                AssessmentResult::where('student_id', $student->id)->delete();
+
+                LessonProgress::where('student_id', $student->id)->delete();
+
+                UserSession::where('user_type', 'Student')
+                    ->where('user_id', $student->id)
+                    ->delete();
+
+                Certificate::where('student_id', $student->id)->delete();
+
+                $achievements = StudentAchievement::where('student_id', $student->id)->get();
+
+                foreach ($achievements as $achievement) {
+
+                    if (
+                        $achievement->certificate_file &&
+                        Storage::disk('public')->exists($achievement->certificate_file)
+                    ) {
+                        Storage::disk('public')->delete($achievement->certificate_file);
+                    }
+
+                    $achievement->delete();
+                }
+
+                $student->delete();
+            }
+
+            $contents = Content::where('institute', $instituteName)->get();
+
+            foreach ($contents as $content) {
+
+                if (
+                    $content->file_path &&
+                    Storage::disk('public')->exists($content->file_path)
+                ) {
+                    Storage::disk('public')->delete($content->file_path);
+                }
+
+                if (
+                    $content->preview_pdf_path &&
+                    Storage::disk('public')->exists($content->preview_pdf_path)
+                ) {
+                    Storage::disk('public')->delete($content->preview_pdf_path);
+                }
+
+                LessonProgress::where('content_id', $content->id)->delete();
+
+                ClassContentSession::where('content_id', $content->id)->delete();
+
+                ClassTimetable::where('content_id', $content->id)->delete();
+
+                $content->delete();
+            }
+
+            $assessments = Assessment::where('institute', $instituteName)->get();
+
+            foreach ($assessments as $assessment) {
+
+                AssessmentResult::where('assessment_id', $assessment->id)->delete();
+
+                AssessmentQuestion::where('assessment_id', $assessment->id)->delete();
+
+                if (
+                    $assessment->file_path &&
+                    Storage::disk('public')->exists($assessment->file_path)
+                ) {
+                    Storage::disk('public')->delete($assessment->file_path);
+                }
+
+                $assessment->delete();
+            }
+
+            $classes = SchoolClass::where('institute', $instituteName)->get();
+
+            foreach ($classes as $class) {
+
+                ClassContentSession::where('class_id', $class->id)->delete();
+
+                ClassTimetable::where('class_id', $class->id)->delete();
+
+                $class->delete();
+            }
+
+            User::where('institute', $instituteName)
+                ->whereIn('role', ['Teacher', 'InstituteAdmin'])
+                ->delete();
+
+            Course::where('institute', $instituteName)->delete();
+
+            Notification::where('institute', $instituteName)->delete();
+
+            InstituteRegistrationRequest::where('institute_name', $instituteName)->delete();
+
+            $institute->delete();
+        });
+
+        return redirect()->back()
+            ->with('success', 'Institute and all related records deleted successfully.');
     }
 }

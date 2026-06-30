@@ -19,6 +19,10 @@
         Class Management
     </a>
 
+    <a href="{{ route('timetable') }}"class="sidebar-link {{ request()->routeIs('timetable*') ? 'active' : '' }}">
+        Weekly Timetable
+    </a>
+
     <a href="{{ route('courses') }}"class="sidebar-link {{ request()->routeIs('courses*') ? 'active' : '' }}">
         Courses Management
     </a>
@@ -29,13 +33,6 @@
 
     <a href="{{ route('students') }}" class="sidebar-link {{ request()->routeIs('students') ? 'active' : '' }}">
         Student Management
-    </a>
-
-    <a href="{{ route('assessments') }}" class="sidebar-link {{ request()->routeIs('assessments') ? 'active' : '' }}">
-        Assessment Management
-    </a>
-    <a href="{{ route('assessment-questions') }}" class="sidebar-link {{ request()->routeIs('assessment-questions') ? 'active' : '' }}">
-        Assessment Questions
     </a>
 
     <a href="{{ route('reports') }}" class="sidebar-link {{ request()->routeIs('reports') ? 'active' : '' }}">
@@ -54,7 +51,7 @@
         Certificates
     </a>
 
-    <a href="{{ route('admin.achievements') }}"class="sidebar-link">
+    <a href="{{ route('admin.achievements') }}"class="sidebar-link {{ request()->routeIs('admin.achievements') ? 'active' : '' }}">
         Student Achievements
     </a>
 
@@ -80,7 +77,7 @@
             Institute Management
         </a>
 
-        <a href="{{ route('admin.institute.requests') }}"class="sidebar-link">
+        <a href="{{ route('admin.institute.requests') }}"class="sidebar-link {{ request()->routeIs('admin.institute.requests') ? 'active' : '' }}">
             Institute Requests
         </a>
 
@@ -90,8 +87,8 @@
 
     @endif
 
-    <a href="{{ route('assessment.review') }}"class="sidebar-link">
-        Assessment Review
+    <a href="{{ route('admin.assessment.review.monitoring') }}"class="sidebar-link {{ request()->routeIs('admin.assessment.review.monitoring') ? 'active' : '' }}">
+        Assessment Review Monitoring
     </a>
 
 </div>

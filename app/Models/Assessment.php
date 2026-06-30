@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\AssessmentQuestion;
+use App\Models\AssessmentResult;
 
 class Assessment extends Model
 {
@@ -14,6 +15,12 @@ class Assessment extends Model
     public function getCalculatedMarksAttribute()
     {
         return $this->questions->sum('marks');
+    }
+
+    public function results()
+    {
+        return $this->hasMany(
+            AssessmentResult::class,'assessment_id');
     }
 
     public function content()

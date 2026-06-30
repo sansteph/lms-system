@@ -5,24 +5,30 @@
 <div class="container-fluid">
     <div class="row">
 
-        @include('layouts.sidebar')
+        @include('layouts.teacher-sidebar')
 
         <div class="col-md-10 col-lg-10 p-4">
 
             <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                 <div>
-                    <h2 class="mb-1">Assessment Management</h2>
+                    <h2 class="mb-1">
+                        {{ session('user_role') == 'Teacher' ? 'Assessment Management' : 'Assessment Monitoring' }}
+                    </h2>
 
                     <p class="text-muted mb-0">
-                        Create student and STEM Engineer assessments, generate links, and manage status.
+                        {{ session('user_role') == 'Teacher'
+                            ? 'Create and manage assessments.'
+                            : 'View assessments and monitor readiness.' }}
                     </p>
                 </div>
 
-                <button class="btn btn-primary btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#createAssessmentModal">
-                    Create Assessment
-                </button>
+                @if(session('user_role') == 'Teacher')
+                    <button class="btn btn-primary btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#createAssessmentModal">
+                        Create Assessment
+                    </button>
+                @endif
             </div>
 
             @if(session('success'))
@@ -70,11 +76,10 @@
             </div>
 
             <div class="card shadow border-0">
-
                 <div class="card-body">
 
                     <form method="GET"
-                          action="{{ route('assessments') }}"
+                          action="{{ route('teacher.assessments') }}"
                           class="row mb-3">
 
                         <div class="col-md-4">
@@ -94,150 +99,109 @@
 
                     </form>
 
-                    <table class="table table-bordered table-hover align-middle">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle">
 
-                        <thead class="table-light">
-                            <tr>
-                                <th>Sl. No</th>
-                                <th>Assessment Title</th>
-                                <th>Institute</th>
-                                <th>Type</th>
-                                <th>Class</th>
-                                <th>Total Marks</th>
-                                <th>Questions</th>
-                                <th>Readiness</th>
-                                <th>Duration</th>
-                                <th>Status</th>
-                                <th width="320">Actions</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-
-                            @forelse($assessments as $index => $assessment)
-
+                            <thead class="table-light">
                                 <tr>
+                                    <th>Sl. No</th>
+                                    <th>Assessment Title</th>
+                                    <th>Institute</th>
+                                    <th>Type</th>
+                                    <th>Class</th>
+                                    <th>Total Marks</th>
+                                    <th>Questions</th>
+                                    <th>Readiness</th>
+                                    <th>Duration</th>
+                                    <th>Status</th>
 
-                                    <td>{{ $index + 1 }}</td>
-
-                                    <td>{{ $assessment->assessment_title }}</td>
-
-                                    <td>{{ $assessment->institute ?? 'N/A' }}</td>
-
-                                    <td>
-
-                                        @if($assessment->assessment_type == 'Student')
-
-                                            <span class="badge bg-primary">
-                                                Student
-                                            </span>
-
-                                        @else
-
-                                            <span class="badge bg-warning text-dark">
-                                                STEM Engineer
-                                            </span>
-
-                                        @endif
-
-                                    </td>
-
-                                    <td>{{ $assessment->assigned_class }}</td>
-
-                                    <td>{{ $assessment->calculated_marks }}</td>
-
-                                    <td>{{ $assessment->questions->count() }}</td>
-                                    <td>
-
-                                        @if($assessment->questions->count() > 0)
-
-                                            <span class="badge bg-success">
-                                                Ready
-                                            </span>
-
-                                        @else
-
-                                            <span class="badge bg-danger">
-                                                Not Ready
-                                            </span>
-
-                                        @endif
-
-                                    </td>
-
-                                    <td>{{ $assessment->duration }}</td>
-
-                                    <td>
-
-                                        @if($assessment->status == 1)
-
-                                            <span class="badge bg-success">
-                                                Active
-                                            </span>
-
-                                        @else
-
-                                            <span class="badge bg-danger">
-                                                Inactive
-                                            </span>
-
-                                        @endif
-
-                                    </td>
-
-                                    <td class="text-nowrap">
-
-                                        <div class="d-flex align-items-center gap-2">
-
-                                            <button class="btn btn-sm btn-info">
-                                                Link
-                                            </button>
-
-                                            <button class="btn btn-sm btn-warning"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#editAssessmentModal{{ $assessment->id }}">
-                                                Edit
-                                            </button>
-
-                                            <a href="{{ route('assessments.delete', $assessment->id) }}"
-                                            class="btn btn-sm btn-danger"
-                                            onclick="return confirm('Are you sure you want to delete this assessment?')">
-                                                Delete
-                                            </a>
-
-                                        </div>
-
-                                    </td>
-
+                                    @if(session('user_role') == 'Teacher')
+                                        <th>Actions</th>
+                                    @endif
                                 </tr>
+                            </thead>
 
-                            @empty
+                            <tbody>
 
-                                <tr>
-                                    <td colspan="11"
-                                        class="text-center text-muted">
-                                        No assessments found
-                                    </td>
-                                </tr>
+                                @forelse($assessments as $index => $assessment)
 
-                            @endforelse
+                                    <tr>
+                                        <td>{{ $index + 1 }}</td>
 
-                        </tbody>
+                                        <td>{{ $assessment->assessment_title }}</td>
 
-                    </table>
+                                        <td>{{ $assessment->institute ?? 'N/A' }}</td>
 
-                    <div class="alert alert-info mt-3 mb-0">
+                                        <td>
+                                            @if($assessment->assessment_type == 'Student')
+                                                <span class="badge bg-primary">Student</span>
+                                            @else
+                                                <span class="badge bg-warning text-dark">STEM Engineer</span>
+                                            @endif
+                                        </td>
 
-                        Assessment link format example:
+                                        <td>{{ $assessment->assigned_class }}</td>
 
-                        <strong>
-                            /student-assessment?institute_id=INS001&student_id=STU001&assessment_id=ASM001
-                        </strong>
+                                        <td>{{ $assessment->calculated_marks }}</td>
 
+                                        <td>{{ $assessment->questions->count() }}</td>
+
+                                        <td>
+                                            @if($assessment->questions->count() > 0)
+                                                <span class="badge bg-success">Ready</span>
+                                            @else
+                                                <span class="badge bg-danger">Not Ready</span>
+                                            @endif
+                                        </td>
+
+                                        <td>{{ $assessment->duration }} mins</td>
+
+                                        <td>
+                                            @if($assessment->status == 1)
+                                                <span class="badge bg-success">Active</span>
+                                            @else
+                                                <span class="badge bg-danger">Inactive</span>
+                                            @endif
+                                        </td>
+
+                                        @if(session('user_role') == 'Teacher')
+                                            <td class="text-nowrap">
+                                                <div class="d-flex flex-column gap-2">
+
+                                                    <button class="btn btn-sm btn-warning"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#editAssessmentModal{{ $assessment->id }}">
+                                                        Edit
+                                                    </button>
+
+                                                    <a href="{{ route('teacher.assessments.delete', $assessment->id) }}"
+                                                       class="btn btn-sm btn-danger"
+                                                       onclick="return confirm('Are you sure you want to delete this assessment?')">
+                                                        Delete
+                                                    </a>
+
+                                                </div>
+                                            </td>
+                                        @endif
+                                    </tr>
+
+                                @empty
+
+                                    <tr>
+                                        <td colspan="{{ session('user_role') == 'Teacher' ? 11 : 10 }}"
+                                            class="text-center text-muted">
+                                            No assessments found
+                                        </td>
+                                    </tr>
+
+                                @endforelse
+
+                            </tbody>
+
+                        </table>
                     </div>
 
                 </div>
-
             </div>
 
         </div>
@@ -245,7 +209,8 @@
     </div>
 </div>
 
-<!-- Create Assessment Modal -->
+@if(session('user_role') == 'Teacher')
+
 <div class="modal fade" id="createAssessmentModal" tabindex="-1">
 
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -253,22 +218,18 @@
         <div class="modal-content">
 
             <form method="POST"
-                  action="{{ route('assessments.store') }}"
+                  action="{{ route('teacher.assessments.store') }}"
                   enctype="multipart/form-data">
 
                 @csrf
 
                 <div class="modal-header">
-
-                    <h5 class="modal-title">
-                        Create Assessment
-                    </h5>
+                    <h5 class="modal-title">Create Assessment</h5>
 
                     <button type="button"
                             class="btn-close"
                             data-bs-dismiss="modal">
                     </button>
-
                 </div>
 
                 <div class="modal-body">
@@ -276,194 +237,103 @@
                     <div class="row g-3">
 
                         <div class="col-md-6">
-
-                            <label class="form-label">
-                                Assessment Title
-                            </label>
-
+                            <label class="form-label">Assessment Title</label>
                             <input type="text"
                                    name="assessment_title"
                                    class="form-control"
                                    placeholder="Enter assessment title"
                                    required>
-
                         </div>
 
                         <div class="col-md-6">
+                            <label class="form-label">Institute</label>
 
-                            <label class="form-label">
-                                Institute
-                            </label>
+                            <input type="hidden"
+                                   name="institute"
+                                   value="{{ session('user_institute') }}">
 
-                            @if(session('user_role') == 'InstituteAdmin')
-
-                                <input type="hidden"
-                                    name="institute"
-                                    value="{{ session('user_institute') }}">
-
-                                <input type="text"
-                                    class="form-control"
-                                    value="{{ session('user_institute') }}"
-                                    readonly>
-
-                            @else
-
-                                <input type="text"
-                                    name="institute"
-                                    class="form-control"
-                                    value=""
-                                    required>
-
-                            @endif
-
+                            <input type="text"
+                                   class="form-control"
+                                   value="{{ session('user_institute') }}"
+                                   readonly>
                         </div>
 
                         <div class="col-md-6">
-
-                            <label class="form-label">
-                                Assessment Type
-                            </label>
-
+                            <label class="form-label">Assessment Type</label>
                             <select name="assessment_type"
                                     class="form-control"
                                     required>
-
-                                <option value="">
-                                    Select Assessment Type
-                                </option>
-
-                                <option value="Student">
-                                    Student
-                                </option>
-
-                                <option value="Teacher">
-                                    STEM Engineer
-                                </option>
-
+                                <option value="">Select Assessment Type</option>
+                                <option value="Student">Student</option>
+                                <option value="Teacher">STEM Engineer</option>
                             </select>
-
                         </div>
 
                         <div class="col-md-6">
-
-                            <label class="form-label">
-                                Class / Group
-                            </label>
-
+                            <label class="form-label">Class / Group</label>
                             <input type="text"
                                    name="assigned_class"
                                    class="form-control"
                                    placeholder="Example: VIII - A"
                                    required>
-
                         </div>
 
                         <div class="col-md-6">
-
-                            <label class="form-label">
-                                Linked Lesson
-                            </label>
-
+                            <label class="form-label">Linked Lesson</label>
                             <select name="content_id"
                                     class="form-control"
                                     required>
-
-                                <option value="">
-                                    Select Lesson
-                                </option>
+                                <option value="">Select Lesson</option>
 
                                 @foreach($contents as $content)
-
                                     <option value="{{ $content->id }}">
                                         Lesson {{ $content->lesson_order }} - {{ $content->content_title }}
                                     </option>
-
                                 @endforeach
-
                             </select>
-
                         </div>
 
                         <div class="col-md-3">
-
-                            <label class="form-label">
-                                Total Marks
-                            </label>
-
+                            <label class="form-label">Total Marks</label>
                             <input type="number"
                                    name="total_marks"
                                    class="form-control"
                                    required>
-
                         </div>
 
                         <div class="col-md-3">
-
-                            <label class="form-label">
-                                Duration
-                            </label>
-
+                            <label class="form-label">Duration</label>
                             <input type="text"
                                    name="duration"
                                    class="form-control"
                                    placeholder="45 mins"
                                    required>
-
                         </div>
 
                         <div class="col-md-6">
-
-                            <label class="form-label">
-                                Question Paper Type
-                            </label>
-
+                            <label class="form-label">Question Paper Type</label>
                             <select name="question_paper_type"
                                     class="form-control">
-
-                                <option value="Upload Question Paper">
-                                    Upload Question Paper
-                                </option>
-
-                                <option value="Create Questions Later">
-                                    Create Questions Later
-                                </option>
-
+                                <option value="Upload Question Paper">Upload Question Paper</option>
+                                <option value="Create Questions Later">Create Questions Later</option>
                             </select>
-
                         </div>
 
                         <div class="col-md-6">
-
-                            <label class="form-label">
-                                Question Paper File
-                            </label>
-
+                            <label class="form-label">Question Paper File</label>
                             <input type="file"
                                    name="file"
                                    class="form-control">
-
                         </div>
 
                         <div class="col-md-6">
-
-                            <label class="form-label">
-                                Status
-                            </label>
-
+                            <label class="form-label">Status</label>
                             <select name="status"
                                     class="form-control"
                                     required>
-
-                                <option value="1">
-                                    Active
-                                </option>
-
-                                <option value="0">
-                                    Inactive
-                                </option>
-
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
                             </select>
-
                         </div>
 
                     </div>
@@ -471,22 +341,16 @@
                 </div>
 
                 <div class="modal-footer">
-
                     <button type="button"
                             class="btn btn-light"
                             data-bs-dismiss="modal">
-
                         Cancel
-
                     </button>
 
                     <button type="submit"
                             class="btn btn-success">
-
                         Save Assessment
-
                     </button>
-
                 </div>
 
             </form>
@@ -496,58 +360,86 @@
     </div>
 
 </div>
+
 @foreach($assessments as $assessment)
+
 <div class="modal fade" id="editAssessmentModal{{ $assessment->id }}" tabindex="-1">
+
     <div class="modal-dialog modal-lg modal-dialog-centered">
+
         <div class="modal-content">
 
             <form method="POST"
-                  action="{{ route('assessments.update', $assessment->id) }}"
+                  action="{{ route('teacher.assessments.update', $assessment->id) }}"
                   enctype="multipart/form-data">
+
                 @csrf
 
                 <div class="modal-header">
                     <h5 class="modal-title">Edit Assessment</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+                    </button>
                 </div>
 
                 <div class="modal-body">
+
                     <div class="row g-3">
 
                         <div class="col-md-6">
                             <label class="form-label">Assessment Title</label>
-                            <input type="text" name="assessment_title" class="form-control"
-                                   value="{{ $assessment->assessment_title }}" required>
+                            <input type="text"
+                                   name="assessment_title"
+                                   class="form-control"
+                                   value="{{ $assessment->assessment_title }}"
+                                   required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Institute</label>
-                            @if(session('user_role') == 'InstituteAdmin')
-                                <input type="hidden" name="institute" value="{{ session('user_institute') }}">
-                                <input type="text" class="form-control" value="{{ session('user_institute') }}" readonly>
-                            @else
-                                <input type="text" name="institute" class="form-control" value="{{ $assessment->institute }}" required>
-                            @endif
+
+                            <input type="hidden"
+                                   name="institute"
+                                   value="{{ session('user_institute') }}">
+
+                            <input type="text"
+                                   class="form-control"
+                                   value="{{ session('user_institute') }}"
+                                   readonly>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Assessment Type</label>
-                            <select name="assessment_type" class="form-control" required>
-                                <option value="Student" {{ $assessment->assessment_type == 'Student' ? 'selected' : '' }}>Student</option>
-                                <option value="Teacher" {{ $assessment->assessment_type == 'Teacher' ? 'selected' : '' }}>STEM Engineer</option>
+                            <select name="assessment_type"
+                                    class="form-control"
+                                    required>
+                                <option value="Student" {{ $assessment->assessment_type == 'Student' ? 'selected' : '' }}>
+                                    Student
+                                </option>
+
+                                <option value="Teacher" {{ $assessment->assessment_type == 'Teacher' ? 'selected' : '' }}>
+                                    STEM Engineer
+                                </option>
                             </select>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Class / Group</label>
-                            <input type="text" name="assigned_class" class="form-control"
-                                   value="{{ $assessment->assigned_class }}" required>
+                            <input type="text"
+                                   name="assigned_class"
+                                   class="form-control"
+                                   value="{{ $assessment->assigned_class }}"
+                                   required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Linked Lesson</label>
-                            <select name="content_id"class="form-control"required>
+                            <select name="content_id"
+                                    class="form-control"
+                                    required>
                                 <option value="">Select Lesson</option>
+
                                 @foreach($contents as $content)
                                     <option value="{{ $content->id }}"
                                         {{ $assessment->content_id == $content->id ? 'selected' : '' }}>
@@ -559,23 +451,31 @@
 
                         <div class="col-md-3">
                             <label class="form-label">Total Marks</label>
-                            <input type="number" name="total_marks" class="form-control"
-                                   value="{{ $assessment->total_marks }}" required>
+                            <input type="number"
+                                   name="total_marks"
+                                   class="form-control"
+                                   value="{{ $assessment->total_marks }}"
+                                   required>
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label">Duration</label>
-                            <input type="text" name="duration" class="form-control"
-                                   value="{{ $assessment->duration }}" required>
+                            <input type="text"
+                                   name="duration"
+                                   class="form-control"
+                                   value="{{ $assessment->duration }}"
+                                   required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Question Paper Type</label>
-                            <select name="question_paper_type" class="form-control">
+                            <select name="question_paper_type"
+                                    class="form-control">
                                 <option value="Upload Question Paper"
                                     {{ $assessment->question_paper_type == 'Upload Question Paper' ? 'selected' : '' }}>
                                     Upload Question Paper
                                 </option>
+
                                 <option value="Create Questions Later"
                                     {{ $assessment->question_paper_type == 'Create Questions Later' ? 'selected' : '' }}>
                                     Create Questions Later
@@ -585,31 +485,56 @@
 
                         <div class="col-md-6">
                             <label class="form-label">Replace Question Paper</label>
-                            <input type="file" name="file" class="form-control">
-                            <small class="text-muted">Leave empty to keep existing file.</small>
+                            <input type="file"
+                                   name="file"
+                                   class="form-control">
+                            <small class="text-muted">
+                                Leave empty to keep existing file.
+                            </small>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Status</label>
-                            <select name="status" class="form-control" required>
-                                <option value="1" {{ $assessment->status == 1 ? 'selected' : '' }}>Active</option>
-                                <option value="0" {{ $assessment->status == 0 ? 'selected' : '' }}>Inactive</option>
+                            <select name="status"
+                                    class="form-control"
+                                    required>
+                                <option value="1" {{ $assessment->status == 1 ? 'selected' : '' }}>
+                                    Active
+                                </option>
+
+                                <option value="0" {{ $assessment->status == 0 ? 'selected' : '' }}>
+                                    Inactive
+                                </option>
                             </select>
                         </div>
 
                     </div>
+
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success">Update Assessment</button>
+                    <button type="button"
+                            class="btn btn-light"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-success">
+                        Update Assessment
+                    </button>
                 </div>
 
             </form>
 
         </div>
+
     </div>
+
 </div>
+
 @endforeach
+
+@endif
 
 @endsection

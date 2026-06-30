@@ -23,7 +23,8 @@
     request()->routeIs('student.login') ||
     request()->routeIs('independent.register') ||
     request()->routeIs('independent.login') ||
-    request()->routeIs('coming.soon')
+    request()->routeIs('coming.soon') ||
+    request()->routeIs('admin.institute.register')
 )
     <div id="particles-js"></div>
 @endif
@@ -35,7 +36,9 @@
     !request()->routeIs('student.login') &&
     !request()->routeIs('independent.register') &&
     !request()->routeIs('independent.login') &&
-    !request()->routeIs('coming.soon'))
+    !request()->routeIs('coming.soon') &&
+    !request()->routeIs('admin.institute.register') &&
+    !request()->routeIs('coordinator.login'))
 
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
 
@@ -49,11 +52,13 @@
                 {{ route('student.dashboard') }}
             @elseif(session('independent_learner_id'))
                 {{ route('independent.dashboard') }}
+            @elseif(session('user_role') == 'Coordinator')
+                {{ route('coordinator.dashboard') }}
             @else
                 {{ route('home') }}
             @endif
             ">
-            LMS Panel
+            TinkEdge Learning Panel
         </a>
 
         <div class="ms-auto d-flex align-items-center gap-3">
@@ -69,9 +74,17 @@
                         ?? session('student_name')
                         ?? session('independent_learner_name') }}
 
-                    @if(session('user_role'))
+                    @if(session('user_role') == 'Admin')
 
-                        ({{ session('user_role') }})
+                        (Admin)
+
+                    @elseif(session('user_role') == 'InstituteAdmin')
+
+                        (Institute Admin)
+
+                    @elseif(session('user_role') == 'Teacher')
+
+                        (STEM Engineer)
 
                     @elseif(session('student_id'))
 
@@ -79,7 +92,11 @@
 
                     @elseif(session('independent_learner_id'))
 
-                        (Independent Learner)
+                        (Hybrid Learner)
+
+                    @elseif(session('user_role') == 'Coordinator')
+
+                        (Coordinator)
 
                     @endif
 

@@ -235,7 +235,7 @@
                             <div>
 
                                 <strong>
-                                    {{ $result->student->student_name ?? 'Student Deleted' }}
+                                    {{ $result->student->name ?? 'Student Deleted' }}
                                 </strong>
 
                                 <span class="text-muted">
