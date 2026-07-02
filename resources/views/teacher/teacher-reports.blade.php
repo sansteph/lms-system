@@ -9,11 +9,17 @@
 
         <div class="col-md-10 col-lg-10 p-4">
 
-            <div class="page-header mb-4">
-                <h2 class="mb-1">Reports</h2>
-                <p class="text-muted mb-0">
-                    View live class, student, content, and assessment summaries.
-                </p>
+            <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                <div>
+                    <h2 class="mb-1">Reports</h2>
+                    <p class="text-muted mb-0">
+                        View class performance, student progress, and assessment reports.
+                    </p>
+                </div>
+
+                <button class="btn report-btn btn-sm">
+                    Export Report
+                </button>
             </div>
 
             <div class="row g-4 mb-4">
