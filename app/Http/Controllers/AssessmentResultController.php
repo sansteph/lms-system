@@ -293,11 +293,11 @@ class AssessmentResultController extends Controller
 
     private function calculateBadge($percentage)
     {
-        if ($percentage >= 85) {
+        if ($percentage >= 80) {
             return 'Gold';
         }
 
-        if ($percentage >= 65) {
+        if ($percentage >= 60) {
             return 'Silver';
         }
 
