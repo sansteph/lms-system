@@ -19,9 +19,6 @@
                     </p>
                 </div>
 
-                <a href="{{ route('student.assessment') }}" class="btn btn-primary btn-sm">
-                    Take Assessment
-                </a>
             </div>
 
             <div class="row g-4 mb-4">
