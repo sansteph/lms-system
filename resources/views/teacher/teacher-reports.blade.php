@@ -20,14 +20,14 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Total Students</h6>
+                        <h6>Assigned Students</h6>
                         <h2>{{ $studentCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Total Classes</h6>
+                        <h6>Assigned Classes</h6>
                         <h2>{{ $classCount }}</h2>
                     </div>
                 </div>
@@ -70,7 +70,7 @@
                             <tr>
                                 <td>1</td>
                                 <td>Students</td>
-                                <td>Total Students in Institute</td>
+                                <td>Students in Assigned Classes</td>
                                 <td>{{ $studentCount }}</td>
                                 <td><span class="badge bg-primary">Live</span></td>
                             </tr>
@@ -78,7 +78,7 @@
                             <tr>
                                 <td>2</td>
                                 <td>Classes</td>
-                                <td>Total Classes</td>
+                                <td>Assigned Classes</td>
                                 <td>{{ $classCount }}</td>
                                 <td><span class="badge bg-info">Live</span></td>
                             </tr>
@@ -86,7 +86,7 @@
                             <tr>
                                 <td>3</td>
                                 <td>Content</td>
-                                <td>Total Content</td>
+                                <td>Assigned Content</td>
                                 <td>{{ $contentCount }}</td>
                                 <td><span class="badge bg-info">Live</span></td>
                             </tr>
@@ -94,8 +94,8 @@
                             <tr>
                                 <td>4</td>
                                 <td>Assessments</td>
-                                <td>Total Assessments</td>
-                                <td>{{ $assessmentCount }}</td>
+                                <td>Your Assessments</td>
+                                <td>{{ $assessmentCount }} total | {{ $monthlyAssessmentCount }} monthly | {{ $annualAssessmentCount }} annual</td>
                                 <td><span class="badge bg-warning text-dark">Live</span></td>
                             </tr>
 

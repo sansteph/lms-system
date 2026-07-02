@@ -26,7 +26,7 @@
                     </h2>
 
                     <p class="text-muted mb-0">
-                        Access lessons, study materials, assignments, and uploaded resources.
+                        Access student documents released after the STEM Engineer completes each topic.
                     </p>
 
                 </div>
@@ -210,48 +210,64 @@
 
                                 {{-- FILE SECTION --}}
 
-                                @if($content->file_path)
+                                @if($content->student_file_path && !$isLocked)
+
+                                    @php
+                                        $extension = strtolower(pathinfo($content->student_file_path, PATHINFO_EXTENSION));
+                                        $previewExtensions = ['doc', 'docx'];
+                                        $streamVariant = in_array($extension, $previewExtensions) && $content->student_preview_pdf_path
+                                            ? 'preview'
+                                            : 'file';
+                                        $previewUrl = route('content.preview', [$content->id, 'student']);
+                                        $fileUrl = route('content.file.audience', [$content->id, 'student', $streamVariant]);
+                                    @endphp
 
                                     <div class="mb-4">
 
                                         <small class="text-muted d-block mb-2">
-
-                                            Attached Resource
-
+                                            Student Document
                                         </small>
 
-                                        <div class="border rounded p-3 bg-light">
+                                        @if($extension == 'pdf' || $streamVariant == 'preview')
 
-                                            <div class="d-flex justify-content-between align-items-center">
+                                            <iframe src="{{ $previewUrl }}"
+                                                    width="100%"
+                                                    height="320"
+                                                    style="border: 0; border-radius: 8px; background: #f8f9fa;">
+                                            </iframe>
 
-                                                <div>
+                                        @elseif(in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
 
-                                                    <i class="fa fa-file-alt text-primary me-2"></i>
+                                            <img src="{{ $fileUrl }}"
+                                                 class="img-fluid rounded border"
+                                                 alt="Content Preview">
 
-                                                    <span class="small fw-semibold">
+                                        @elseif(in_array($extension, ['mp4', 'webm', 'ogg', 'mov']))
 
-                                                        Learning Material
+                                            <video width="100%"
+                                                   height="260"
+                                                   controls
+                                                   controlsList="nodownload">
+                                                <source src="{{ $fileUrl }}">
+                                            </video>
 
-                                                    </span>
+                                        @else
 
-                                                </div>
-
-                                                @if(!$isLocked)
-
-                                                    <a href="{{ asset('storage/' . $content->file_path) }}"
-                                                       target="_blank"
-                                                       class="btn btn-sm btn-outline-primary">
-
-                                                        View
-
-                                                    </a>
-
-                                                @endif
-
+                                            <div class="alert alert-warning mb-0">
+                                                Inline preview is not available for this file type.
                                             </div>
 
-                                        </div>
+                                        @endif
 
+                                    </div>
+
+                                @elseif($content->student_file_path && $isLocked)
+
+                                    <div class="mb-4">
+                                        <div class="border rounded p-3 bg-light text-muted small">
+                                            <i class="fa fa-lock me-2"></i>
+                                            Resource unlocks after the previous lesson is completed.
+                                        </div>
                                     </div>
 
                                 @endif

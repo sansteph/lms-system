@@ -23,10 +23,7 @@
         Assessment Management
     </a>
 
-    <a href="{{ route('teacher.assessment.questions') }}"
-    class="sidebar-link {{ request()->routeIs('teacher.assessment.questions') ? 'active' : '' }}">
-        Assessment Questions
-    </a>    
+
 
     <a href="{{ route('assessment.review') }}"class="sidebar-link {{ request()->routeIs('assessment.review') ? 'active' : '' }}">
         Assessment Evaluation

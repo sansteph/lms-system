@@ -36,21 +36,22 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Total Students</h6>
+                        <h6>Assigned Students</h6>
                         <h2>{{ $totalStudents }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Pending Assessments</h6>
+                        <h6>Your Assessments</h6>
                         <h2>{{ $assessmentCount }}</h2>
+                        <small>Monthly: {{ $monthlyAssessmentCount }} | Annual: {{ $annualAssessmentCount }}</small>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Completed Content</h6>
+                        <h6>Assigned Content</h6>
                         <h2>{{ $contentCount }}</h2>
                     </div>
                 </div>
@@ -141,7 +142,7 @@
 
                                 <a href="{{ route('teacher.content') }}"
                                 class="btn btn-primary">
-                                    Upload Content
+                                    Access Content
                                 </a>
 
                                 <a href="{{ route('teacher.assessments') }}"

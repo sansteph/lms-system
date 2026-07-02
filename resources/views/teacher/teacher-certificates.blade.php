@@ -13,7 +13,7 @@
                 <div>
                     <h2 class="mb-1">Certificates</h2>
                     <p class="text-muted mb-0">
-                        Generate and print certificates for eligible students.
+                        Track program completion certificate requests for eligible students.
                     </p>
                 </div>
 
@@ -50,10 +50,12 @@
                                 <th>Sl. No</th>
                                 <th>Student Name</th>
                                 <th>Class</th>
-                                <th>Assessment</th>
-                                <th>Score</th>
+                                <th>Certificate Code</th>
+                                <th>Final Percentage</th>
+                                <th>Grade</th>
+                                <th>Classification</th>
+                                <th>Issued Date</th>
                                 <th>Status</th>
-                                <th width="200">Actions</th>
                             </tr>
                         </thead>
 
@@ -68,10 +70,12 @@
 
                                     <td>{{ $certificate->certificate_code }}</td>
 
-                                    <td>{{ $certificate->badge_count }}</td>
+                                    <td>{{ $certificate->final_score ?? $certificate->badge_count }}%</td>
+                                    <td>{{ $certificate->final_grade ?? 'N/A' }}</td>
+                                    <td>{{ $certificate->final_classification ?? 'N/A' }}</td>
 
                                     <td>
-                                        {{ \Carbon\Carbon::parse($certificate->issued_date)->format('d-m-Y') }}
+                                        {{ $certificate->issued_date ? \Carbon\Carbon::parse($certificate->issued_date)->format('d-m-Y') : 'Awaiting Approval' }}
                                     </td>
 
                                     <td>
@@ -86,7 +90,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted">
+                                    <td colspan="9" class="text-center text-muted">
                                         No certificates found.
                                     </td>
                                 </tr>
@@ -96,7 +100,7 @@
                     </table>
 
                     <div class="alert alert-info mt-3 mb-0">
-                        Certificates can be generated after assessment results are finalized.
+                        Certificate requests are prepared after Annual Assessment evaluation and issued only after Admin approval.
                     </div>
 
                 </div>

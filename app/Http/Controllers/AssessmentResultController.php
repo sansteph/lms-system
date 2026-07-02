@@ -4,14 +4,14 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\AssessmentResult;
-use App\Models\AssessmentQuestion;
 use App\Models\AssessmentSession;
-use App\Models\AssessmentAnswer;
 use App\Models\Certificate;
 use Illuminate\Support\Str;
 use App\Models\Assessment;
-use App\Models\Content;
-use App\Models\LessonProgress;
+use App\Models\Student;
+use App\Models\SchoolClass;
+use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 
 class AssessmentResultController extends Controller
 {
@@ -20,9 +20,25 @@ class AssessmentResultController extends Controller
         $request->validate([
             'student_id' => 'required',
             'assessment_id' => 'required',
-            'total_marks' => 'required|integer',
-            'answers' => 'nullable|array',
+            'total_marks' => 'required|integer|min:1',
+            'answer_text' => 'nullable|string',
+            'auto_submitted' => 'nullable|boolean',
         ]);
+
+        $isAutoSubmitted = $request->boolean('auto_submitted');
+
+        if (!$isAutoSubmitted && !$request->filled('answer_text')) {
+            return redirect()->back()
+                ->with('error', 'Please type your answer before submitting.');
+        }
+
+        if ((int) $request->student_id !== (int) session('student_id')) {
+            abort(403, 'Invalid student assessment submission.');
+        }
+
+        if (!$this->studentCanSubmitAssessment($request->assessment_id, $request->student_id)) {
+            abort(403, 'This assessment is not assigned to your class or is not approved yet.');
+        }
 
         $existingResult = AssessmentResult::where('student_id', $request->student_id)
             ->where('assessment_id', $request->assessment_id)
@@ -33,11 +49,7 @@ class AssessmentResultController extends Controller
                 ->with('error', 'You have already submitted this assessment.');
         }
 
-        $score = 0;
-        $hasPendingReview = false;
-        $answers = $request->answers ?? [];
-
-        $result = AssessmentResult::create([
+        AssessmentResult::create([
             'student_id' => $request->student_id,
             'assessment_id' => $request->assessment_id,
             'score' => 0,
@@ -45,77 +57,13 @@ class AssessmentResultController extends Controller
             'status' => 'Pending Review',
             'badge' => null,
             'percentage' => 0,
+            'answer_text' => $request->answer_text,
+            'answer_file_path' => null,
+            'feedback' => null,
+            'passed' => null,
+            'evaluated_by' => null,
+            'evaluated_at' => null,
         ]);
-
-        foreach ($answers as $questionId => $submittedAnswer) {
-            $question = AssessmentQuestion::find($questionId);
-
-            if (!$question) {
-                continue;
-            }
-
-            $questionType = $question->question_type ?? 'MCQ';
-
-            if ($questionType == 'MCQ') {
-                $isCorrect = $question->correct_answer == $submittedAnswer;
-                $marksAwarded = $isCorrect ? $question->marks : 0;
-
-                $score += $marksAwarded;
-
-                AssessmentAnswer::create([
-                    'assessment_result_id' => $result->id,
-                    'assessment_id' => $request->assessment_id,
-                    'student_id' => $request->student_id,
-                    'question_id' => $question->id,
-                    'question_type' => 'MCQ',
-                    'submitted_answer' => $submittedAnswer,
-                    'is_correct' => $isCorrect,
-                    'marks_awarded' => $marksAwarded,
-                    'review_status' => 'Auto Graded',
-                ]);
-            } else {
-                $hasPendingReview = true;
-
-                AssessmentAnswer::create([
-                    'assessment_result_id' => $result->id,
-                    'assessment_id' => $request->assessment_id,
-                    'student_id' => $request->student_id,
-                    'question_id' => $question->id,
-                    'question_type' => $questionType,
-                    'submitted_answer' => $submittedAnswer,
-                    'is_correct' => null,
-                    'marks_awarded' => 0,
-                    'review_status' => 'Pending Review',
-                ]);
-            }
-        }
-
-        $percentage = $request->total_marks > 0
-            ? ($score / $request->total_marks) * 100
-            : 0;
-
-        $badge = null;
-
-        if (!$hasPendingReview) {
-            $badge = $this->calculateBadge($percentage);
-        }
-
-        $result->update([
-            'score' => $score,
-            'percentage' => $percentage,
-            'badge' => $badge,
-            'status' => $hasPendingReview ? 'Pending Review' : 'Completed',
-        ]);
-
-        if (!$hasPendingReview) {
-            $assessment = Assessment::with('content')->find($request->assessment_id);
-            if ($assessment && $assessment->content) {
-                $this->issueCourseCertificateIfEligible(
-                    $request->student_id,
-                    $assessment->content->course_id
-                );
-            }
-        }
 
         if (session('active_assessment_session_id')) {
             $assessmentSession = AssessmentSession::find(session('active_assessment_session_id'));
@@ -136,85 +84,211 @@ class AssessmentResultController extends Controller
         }
 
         return redirect()->route('student.history')
-            ->with('success', 'Assessment submitted successfully');
+            ->with('success', 'Assessment submitted successfully. It is waiting for manual evaluation.');
     }
 
     public function reviewResults()
     {
-        $answers = AssessmentAnswer::with([
+        $pendingResults = AssessmentResult::with([
                 'student',
                 'assessment',
-                'question',
-                'result',
+                'assessment.teacher',
+                'evaluator',
             ])
-            ->where('review_status', 'Pending Review')
+            ->where('status', 'Pending Review')
             ->when(session('user_role') == 'Teacher', function ($query) {
-                $teacher = \App\Models\User::find(session('user_id'));
+                $teacher = User::findOrFail(session('user_id'));
 
-                $query->whereHas('student', function ($q) use ($teacher) {
-                    $q->where('institute', $teacher->institute);
+                $query->whereIn('student_id', $this->teacherAssignedStudentsQuery($teacher)->pluck('id'))
+                    ->whereHas('assessment', function ($q) use ($teacher) {
+                        $q->where('teacher_id', $teacher->id);
+                    });
+            })
+            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+                $query->whereHas('assessment', function ($q) {
+                    $q->where('institute', session('user_institute'));
                 });
             })
             ->latest()
             ->get();
 
-        return view('review-assessment-answers', compact('answers'));
+        return view('review-assessment-answers', compact('pendingResults'));
     }
 
     public function reviewAnswer(Request $request, $id)
     {
         $request->validate([
             'marks_awarded' => 'required|integer|min:0',
+            'feedback' => 'nullable|string|max:2000',
+            'passed' => 'required|in:0,1',
         ]);
 
-        $answer = AssessmentAnswer::with(['result', 'question'])->findOrFail($id);
+        $result = AssessmentResult::with(['assessment', 'student'])->findOrFail($id);
 
-        if ($request->marks_awarded > $answer->question->marks) {
+        if (session('user_role') == 'Teacher') {
+            $teacher = User::findOrFail(session('user_id'));
+
+            if (
+                !$result->assessment ||
+                $result->assessment->teacher_id != $teacher->id ||
+                !$result->student ||
+                !$this->teacherCanAccessStudent($teacher, $result->student)
+            ) {
+                abort(403, 'You can only evaluate students assigned to your class.');
+            }
+        }
+
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            (!$result->assessment || $result->assessment->institute != session('user_institute'))
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        if ($request->marks_awarded > $result->total_marks) {
             return redirect()->back()
                 ->with('error', 'Awarded marks cannot exceed maximum marks.');
         }
 
-        $answer->update([
-            'marks_awarded' => $request->marks_awarded,
-            'review_status' => 'Reviewed',
-            'is_correct' => $request->marks_awarded > 0,
+        $percentage = $result->total_marks > 0
+            ? ($request->marks_awarded / $result->total_marks) * 100
+            : 0;
+
+        $passed = (bool) $request->passed;
+
+        $result->update([
+            'score' => $request->marks_awarded,
+            'percentage' => $percentage,
+            'badge' => $passed ? $this->calculateBadge($percentage) : null,
+            'status' => 'Completed',
+            'feedback' => $request->feedback,
+            'passed' => $passed,
+            'evaluated_by' => session('user_id'),
+            'evaluated_at' => now(),
         ]);
 
-        $result = $answer->result;
-
-        $pendingCount = AssessmentAnswer::where('assessment_result_id', $result->id)
-            ->where('review_status', 'Pending Review')
-            ->count();
-
-        if ($pendingCount == 0) {
-            $totalScore = AssessmentAnswer::where('assessment_result_id', $result->id)
-                ->sum('marks_awarded');
-
-            $percentage = $result->total_marks > 0
-                ? ($totalScore / $result->total_marks) * 100
-                : 0;
-
-            $badge = $this->calculateBadge($percentage);
-
-            $result->update([
-                'score' => $totalScore,
-                'percentage' => $percentage,
-                'badge' => $badge,
-                'status' => 'Completed',
-            ]);
-
-            $assessment = Assessment::with('content')->find($result->assessment_id);
-
-            if ($assessment && $assessment->content) {
-                $this->issueCourseCertificateIfEligible(
-                    $result->student_id,
-                    $assessment->content->course_id
-                );
-            }
+        if ($result->assessment) {
+            $this->prepareCertificateRequestIfEligible($result->student_id, $result->assessment);
         }
 
         return redirect()->back()
-            ->with('success', 'Answer reviewed successfully.');
+            ->with('success', 'Assessment evaluated successfully.');
+    }
+
+    public function showAnswerFile(AssessmentResult $result)
+    {
+        if (!$this->canViewAnswerFile($result)) {
+            abort(403, 'You are not authorized to view this submission.');
+        }
+
+        if (!$result->answer_file_path || !Storage::disk('local')->exists($result->answer_file_path)) {
+            abort(404);
+        }
+
+        $path = Storage::disk('local')->path($result->answer_file_path);
+        $mimeType = mime_content_type($path) ?: 'application/octet-stream';
+        $fileName = str_replace('"', '', basename($path));
+
+        return response()->file($path, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+            'Cache-Control' => 'private, no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    private function canViewAnswerFile(AssessmentResult $result)
+    {
+        $result->loadMissing(['student', 'assessment']);
+
+        if (session('user_role') == 'Admin') {
+            return true;
+        }
+
+        if (session('user_role') == 'InstituteAdmin') {
+            return $result->assessment && $result->assessment->institute == session('user_institute');
+        }
+
+        if (session('user_role') == 'Teacher') {
+            $teacher = User::find(session('user_id'));
+
+            return $teacher &&
+                $result->assessment &&
+                $result->assessment->teacher_id == $teacher->id &&
+                $result->student &&
+                $this->teacherCanAccessStudent($teacher, $result->student);
+        }
+
+        if (session('student_id')) {
+            return (int) $result->student_id === (int) session('student_id');
+        }
+
+        return false;
+    }
+
+    private function teacherAssignedStudentsQuery(User $teacher)
+    {
+        $classes = SchoolClass::where('institute', $teacher->institute)
+            ->where('class_teacher', $teacher->name)
+            ->get(['class_name', 'section']);
+
+        $query = Student::where('institute', $teacher->institute);
+
+        if ($classes->isEmpty()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($studentQuery) use ($classes) {
+            foreach ($classes as $class) {
+                $studentQuery->orWhere(function ($q) use ($class) {
+                    $q->where('class', $class->class_name)
+                        ->where('section', $class->section);
+                });
+            }
+        });
+    }
+
+    private function teacherCanAccessStudent(User $teacher, Student $student)
+    {
+        return $this->teacherAssignedStudentsQuery($teacher)
+            ->where('id', $student->id)
+            ->exists();
+    }
+
+    private function studentClassName(Student $student)
+    {
+        return preg_replace('/\s+/', ' ', trim($student->class . ' ' . $student->section));
+    }
+
+    private function studentCanSubmitAssessment($assessmentId, $studentId)
+    {
+        $student = Student::find($studentId);
+
+        if (!$student) {
+            return false;
+        }
+
+        $assessment = Assessment::query()
+            ->where('id', $assessmentId)
+            ->where('institute', $student->institute)
+            ->where('status', 1)
+            ->where('question_paper_status', 'Approved')
+            ->whereNotNull('file_path')
+            ->first();
+
+        if (
+            !$assessment ||
+            (
+                $assessment->assessment_date &&
+                $assessment->assessment_date > today()->toDateString()
+            )
+        ) {
+            return false;
+        }
+
+        return $this->studentClassName($student) ==
+            preg_replace('/\s+/', ' ', trim((string) $assessment->assigned_class));
     }
 
     private function calculateBadge($percentage)
@@ -234,73 +308,137 @@ class AssessmentResultController extends Controller
         return null;
     }
 
-    private function issueCourseCertificateIfEligible($studentId, $courseId)
+    private function prepareCertificateRequestIfEligible($studentId, Assessment $assessment)
     {
-        $contentIds = Content::where('course_id', $courseId)
-            ->where('status', 1)
-            ->where('is_released', 1)
-            ->pluck('id');
-
-        if ($contentIds->count() == 0) {
+        if ($assessment->assessment_category != 'Annual') {
             return;
         }
 
-        $completedLessonCount = LessonProgress::where('student_id', $studentId)
-            ->whereIn('content_id', $contentIds)
-            ->where('is_completed', true)
-            ->count();
+        $student = Student::find($studentId);
 
-        if ($completedLessonCount < $contentIds->count()) {
+        if (!$student) {
             return;
         }
 
-        $assessmentIds = Assessment::whereIn('content_id', $contentIds)
-            ->where('status', 1)
-            ->pluck('id');
+        $assignedClass = preg_replace('/\s+/', ' ', trim((string) $assessment->assigned_class));
 
-        if ($assessmentIds->count() == 0) {
+        if ($this->studentClassName($student) != $assignedClass) {
             return;
         }
 
-        $completedResults = AssessmentResult::where('student_id', $studentId)
-            ->whereIn('assessment_id', $assessmentIds)
+        $annualResult = AssessmentResult::where('student_id', $studentId)
+            ->where('assessment_id', $assessment->id)
             ->where('status', 'Completed')
+            ->whereNotNull('evaluated_at')
+            ->where('passed', true)
+            ->first();
+
+        if (!$annualResult) {
+            return;
+        }
+
+        $monthlyAssessmentIds = Assessment::where('institute', $assessment->institute)
+            ->where('status', 1)
+            ->where('question_paper_status', 'Approved')
+            ->where('assessment_category', 'Monthly')
+            ->whereRaw(
+                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                [$assignedClass]
+            )
+            ->whereDate('assessment_date', '<=', today())
+            ->pluck('id');
+
+        $monthlyResults = AssessmentResult::where('student_id', $studentId)
+            ->whereIn('assessment_id', $monthlyAssessmentIds)
+            ->where('status', 'Completed')
+            ->whereNotNull('evaluated_at')
             ->get();
 
-        if ($completedResults->count() < $assessmentIds->count()) {
-            return;
-        }
+        $finalResults = $monthlyResults->push($annualResult);
 
-        $averageScore = round($completedResults->avg('percentage'), 2);
+        $averageScore = round($finalResults->avg('percentage'), 2);
 
-        if ($averageScore < 50) {
+        if ($averageScore < 40) {
             return;
         }
 
         $existingCertificate = Certificate::where('student_id', $studentId)
-            ->where('course_id', $courseId)
+            ->where('certificate_type', 'Annual')
             ->first();
 
         if ($existingCertificate) {
             return;
         }
 
-        $certificateType = 'Completion';
-
-        if ($averageScore >= 90) {
-            $certificateType = 'Excellence';
-        } elseif ($averageScore >= 75) {
-            $certificateType = 'Merit';
-        }
-
         Certificate::create([
             'student_id' => $studentId,
-            'course_id' => $courseId,
+            'course_id' => null,
             'certificate_code' => 'CERT-' . strtoupper(Str::random(10)),
             'badge_count' => round($averageScore),
-            'issued_date' => now(),
-            'status' => 'Issued',
-            'certificate_type' => $certificateType,
+            'final_score' => $averageScore,
+            'final_grade' => $this->calculateFinalGrade($averageScore),
+            'final_classification' => $this->calculateFinalClassification($averageScore),
+            'issued_date' => null,
+            'status' => 'Pending Approval',
+            'certificate_type' => 'Annual',
         ]);
+    }
+
+    private function calculateFinalGrade($percentage)
+    {
+        if ($percentage >= 90) {
+            return 'A+';
+        }
+
+        if ($percentage >= 80) {
+            return 'A';
+        }
+
+        if ($percentage >= 70) {
+            return 'B+';
+        }
+
+        if ($percentage >= 60) {
+            return 'B';
+        }
+
+        if ($percentage >= 50) {
+            return 'C+';
+        }
+
+        if ($percentage >= 40) {
+            return 'C';
+        }
+
+        return 'F';
+    }
+
+    private function calculateFinalClassification($percentage)
+    {
+        if ($percentage >= 90) {
+            return 'Outstanding';
+        }
+
+        if ($percentage >= 80) {
+            return 'Distinction';
+        }
+
+        if ($percentage >= 70) {
+            return 'First Class';
+        }
+
+        if ($percentage >= 60) {
+            return 'Second Class';
+        }
+
+        if ($percentage >= 50) {
+            return 'Pass';
+        }
+
+        if ($percentage >= 40) {
+            return 'Satisfactory';
+        }
+
+        return 'Fail';
     }
 }

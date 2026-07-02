@@ -10,7 +10,6 @@ use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\AssessmentResultController;
-use App\Http\Controllers\AssessmentQuestionController;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\StudentAchievementController;
 use App\Http\Controllers\LessonProgressController;
@@ -31,6 +30,12 @@ Route::post('/access-request/store', [PageController::class, 'storeAccessRequest
 Route::get('/logout', [UserController::class, 'logout'])->name('logout');
 Route::get('/verify-certificate', [PageController::class, 'verifyCertificate'])->name('certificate.verify');
 Route::post('/verify-certificate', [PageController::class, 'verifyCertificateSubmit'])->name('certificate.verify.submit');
+Route::get('/content-preview/{content}/for/{audience}', [ContentController::class, 'showPreview'])->name('content.preview');
+Route::get('/content-preview-stream/{content}/for/{audience}', [ContentController::class, 'streamPreview'])->name('content.preview.stream');
+Route::get('/content-files/{content}/for/{audience}/{variant?}', [ContentController::class, 'showFile'])->name('content.file.audience');
+Route::get('/content-files/{content}/{variant?}', [ContentController::class, 'showFile'])->name('content.file');
+Route::get('/assessment-paper/{assessment}/{variant?}', [AssessmentController::class, 'showQuestionPaper'])->name('assessment.paper');
+Route::get('/assessment-answer-file/{result}', [AssessmentResultController::class, 'showAnswerFile'])->name('assessment.answer.file');
 
 
 //Hybrid-Learners Public Routes
@@ -100,6 +105,7 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::get('/reports', [ReportController::class, 'index'])->name('reports');
 
     Route::get('/admin/certificates', [PageController::class, 'adminCertificates'])->name('admin.certificates');
+    Route::post('/admin/certificates/approve/{id}', [PageController::class, 'approveCertificate'])->name('admin.certificates.approve');
     Route::post('/admin/certificates/revoke/{id}', [PageController::class, 'revokeCertificate'])->name('admin.certificates.revoke');
     Route::post('/admin/certificates/reissue/{id}', [PageController::class, 'reissueCertificate'])->name('admin.certificates.reissue');
 
@@ -128,6 +134,12 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::get('/class-timetable/delete/{id}',[ClassTimetableController::class, 'delete'])->name('timetable.delete');
 
     Route::get('/admin/assessment-review-monitoring',[PageController::class, 'assessmentReviewMonitoring'])->name('admin.assessment.review.monitoring');
+
+    Route::get('/admin/question-papers', [AssessmentController::class, 'adminQuestionPapers'])->name('admin.question-papers');
+    Route::post('/admin/question-papers/{id}/approve', [AssessmentController::class, 'approveQuestionPaper'])->name('admin.question-papers.approve');
+    Route::post('/admin/question-papers/{id}/reject', [AssessmentController::class, 'rejectQuestionPaper'])->name('admin.question-papers.reject');
+    Route::get('/admin/assessment-review', [AssessmentResultController::class, 'reviewResults'])->name('admin.assessment.review');
+    Route::post('/admin/assessment-review/{id}', [AssessmentResultController::class, 'reviewAnswer'])->name('admin.assessment.review.submit');
 });
 
 //Super Admin Only Routes
@@ -164,8 +176,6 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::get('/teacher/my-classes', [PageController::class, 'teacherClasses'])->name('teacher.classes');
 
     Route::get('/teacher/content', [PageController::class, 'teacherContent'])->name('teacher.content');
-
-    Route::get('/teacher/assessments', [PageController::class, 'teacherAssessments'])->name('teacher.assessments');
 
     Route::get('/teacher/reports', [PageController::class, 'teacherReports'])->name('teacher.reports');
 
@@ -208,10 +218,6 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::post('/teacher/assessments/update/{id}', [AssessmentController::class, 'update'])->name('teacher.assessments.update');
     Route::get('/teacher/assessments/delete/{id}', [AssessmentController::class, 'delete'])->name('teacher.assessments.delete');
 
-    Route::get('/teacher/assessment-questions', [AssessmentQuestionController::class, 'index'])->name('teacher.assessment.questions');
-    Route::post('/teacher/assessment-questions/store', [AssessmentQuestionController::class, 'store'])->name('teacher.assessment.questions.store');
-    Route::put('/teacher/assessment-questions/update/{id}',[AssessmentQuestionController::class, 'update'])->name('teacher.assessment.questions.update');
-    Route::get('/teacher/assessment-questions/delete/{id}', [AssessmentQuestionController::class, 'delete'])->name('teacher.assessment.questions.delete');
 
 });
 
@@ -226,6 +232,7 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::get('/student-dashboard',[PageController::class, 'studentDashboard'])->middleware('student.profile.completed')->name('student.dashboard');
 
     Route::get('/student/take-assessment',[PageController::class, 'studentTakeAssessment'])->name('student.assessment');
+    Route::get('/student/take-assessment/{assessment}/start',[PageController::class, 'studentAssessmentTaking'])->name('student.assessment.take');
     Route::get('/student/history',[PageController::class, 'studentHistory'])->name('student.history');
 
     Route::get('/student/badges',[PageController::class, 'studentBadges'])->name('student.badges');
@@ -235,7 +242,6 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::get('/student/profile',[PageController::class, 'studentProfile'])->name('student.profile');
 
     Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
-    Route::get('/student/certificate',[PageController::class, 'studentCertificate'])->name('student.certificate');
     Route::get('/student/certificate/download', [PageController::class, 'downloadStudentCertificate'])->name('student.certificate.download');
 
     Route::get('/student/achievements/{id}/edit', [StudentAchievementController::class, 'edit'])->name('student.achievements.edit');

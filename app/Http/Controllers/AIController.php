@@ -19,7 +19,7 @@ class AIController extends Controller
                 [
                     'parts' => [
                         [
-                            'text' => 'Generate 3 MCQ questions about Photosynthesis'
+                            'text' => 'Draft a question-paper outline about Photosynthesis'
                         ]
                     ]
                 ]

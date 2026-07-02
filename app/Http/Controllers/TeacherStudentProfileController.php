@@ -2,21 +2,31 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SchoolClass;
 use App\Models\Student;
+use App\Models\User;
 
 class TeacherStudentProfileController extends Controller
 {
     public function index()
     {
-        $students = Student::where('profile_completed', true)
+        $teacher = User::findOrFail(session('user_id'));
+
+        $students = $this->teacherAssignedStudentsQuery($teacher)
+            ->where('profile_completed', true)
             ->latest()
             ->get();
 
         return view('teacher.student-details', compact('students'));
     }
+
     public function export()
     {
-        $students = Student::where('profile_completed', true)->get();
+        $teacher = User::findOrFail(session('user_id'));
+
+        $students = $this->teacherAssignedStudentsQuery($teacher)
+            ->where('profile_completed', true)
+            ->get();
 
         $filename = 'student_profiles.csv';
 
@@ -54,5 +64,27 @@ class TeacherStudentProfileController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    private function teacherAssignedStudentsQuery(User $teacher)
+    {
+        $classes = SchoolClass::where('institute', $teacher->institute)
+            ->where('class_teacher', $teacher->name)
+            ->get(['class_name', 'section']);
+
+        $query = Student::where('institute', $teacher->institute);
+
+        if ($classes->isEmpty()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($studentQuery) use ($classes) {
+            foreach ($classes as $class) {
+                $studentQuery->orWhere(function ($q) use ($class) {
+                    $q->where('class', $class->class_name)
+                        ->where('section', $class->section);
+                });
+            }
+        });
     }
 }

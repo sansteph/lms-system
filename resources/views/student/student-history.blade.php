@@ -111,6 +111,8 @@
 
                                 <th>Assessment</th>
 
+                                <th>Category</th>
+
                                 <th>Date</th>
 
                                 <th>Score</th>
@@ -150,7 +152,11 @@
                                     </td>
 
                                     <td>
-                                        {{ $result->created_at->format('d-m-Y') }}
+                                        {{ $result->assessment->assessment_category ?? 'N/A' }}
+                                    </td>
+
+                                    <td>
+                                        {{ $result->assessment && $result->assessment->assessment_date ? \Carbon\Carbon::parse($result->assessment->assessment_date)->format('d-m-Y') : $result->created_at->format('d-m-Y') }}
                                     </td>
 
                                     <td>
@@ -221,7 +227,7 @@
 
                                 <tr>
 
-                                    <td colspan="7"
+                                    <td colspan="8"
                                         class="text-center text-muted">
 
                                         No assessment history found.

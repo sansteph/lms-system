@@ -31,6 +31,10 @@ class Content extends Model
 
         'preview_pdf_path',
 
+        'student_file_path',
+
+        'student_preview_pdf_path',
+
         'is_released',
 
         'status',

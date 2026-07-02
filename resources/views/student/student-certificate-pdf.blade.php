@@ -1,292 +1,516 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
+<meta charset="utf-8">
+<style>
+@page {
+    margin: 0;
+    size: 297mm 210mm;
+}
 
-    <style> 
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 297mm;
+    height: 210mm;
+    overflow: hidden;
+    font-family: DejaVu Sans, sans-serif;
+    background: #ffffff;
+    page-break-after: avoid;
+}
 
-        body {
-            font-family: DejaVu Sans, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: #ffffff;
-        }
+* {
+    box-sizing: border-box;
+}
 
-        .certificate {
-            position: relative;      
-            height:520px;
-            box-sizing:border-box;
-            padding: 28px 54px;
-            border: 8px solid #0b2f78;
-            text-align: center;
-        }
+.certificate {
+    width: 260mm;
+    height: 180mm;
+    margin: 10mm auto;
+    position: relative;
+    overflow: hidden;
+    color: #061d55;
+    text-align: center;
+    background: #ffffff;
+    border: 0.22mm solid #e2c886;
+    page-break-inside: avoid;
+    page-break-after: avoid;
+}
 
-        .corner {
-            position: absolute;
-            width: 46px;
-            height: 46px;
-            border-color: #d4af37;
-        }
+.certificate::before {
+    content: "";
+    position: absolute;
+    top: 1.8mm;
+    left: 1.8mm;
+    right: 1.8mm;
+    bottom: 1.8mm;
+    border: 0.12mm solid #f0e3c3;
+    z-index: 1;
+}
 
-        .corner-tl { top: 28px; left: 28px; border-top: 3px solid; border-left: 3px solid; }
-        .corner-tr { top: 28px; right: 28px; border-top: 3px solid; border-right: 3px solid; }
-        .corner-bl { bottom: 28px; left: 28px; border-bottom: 3px solid; border-left: 3px solid; }
-        .corner-br { bottom: 28px; right: 28px; border-bottom: 3px solid; border-right: 3px solid; }
+.outer-blue {
+    position: absolute;
+    top: 3.5mm;
+    left: 3.5mm;
+    right: 3.5mm;
+    bottom: 3.5mm;
+    border: 0.48mm solid #082e68;
+    z-index: 2;
+}
 
-        .brand {
-            font-size: 12px;
-            letter-spacing: 6px;
-            color: #0b2f78;
-            font-weight: bold;
-            margin-bottom: 12px;
-        }
+.inner-gold {
+    position: absolute;
+    top: 6.3mm;
+    left: 6.3mm;
+    right: 6.3mm;
+    bottom: 6.3mm;
+    border: 0.22mm solid #d4ad62;
+    z-index: 2;
+}
 
-        .title {
-            font-size: 35px;
-            color: #111827;
-            margin: 0 0 8px;
-            font-weight: bold;
-        }
+.inner-fine {
+    position: absolute;
+    top: 9mm;
+    left: 9mm;
+    right: 9mm;
+    bottom: 9mm;
+    border: 0.12mm solid #efe4c8;
+    z-index: 2;
+}
 
-        .subtitle {
-            font-size: 14px;
-            color: #374151;
-            margin-bottom: 10px;
-        }
+.corner {
+    position: absolute;
+    width: 19mm;
+    height: 16mm;
+    z-index: 3;
+}
 
-        .student-name {
-            font-size: 31px;
-            color: #0b2f78;
-            font-weight: bold;
-            margin: 0 0 7px;
-        }
+.corner .blue-line,
+.corner .gold-line {
+    position: absolute;
+    border-color: #0b356f;
+    border-style: solid;
+}
 
-        .gold-line {
-            width: 190px;
-            height: 3px;
-            background: #d4af37;
-            margin: 0 auto 17px;
-        }
+.corner .gold-line {
+    border-color: #d4ad62;
+}
 
-        .description {
-            width: 76%;
-            margin: 0 auto 15px;
-            font-size: 12.5px;
-            line-height: 1.55;
-            color: #1f2937;
-        }
+.corner-tl {
+    top: 3.8mm;
+    left: 3.8mm;
+}
 
-        .details {
-            width: 74%;
-            margin: 0 auto 18px;
-            border-collapse: collapse;
-        }
+.corner-tr {
+    top: 3.8mm;
+    right: 3.8mm;
+}
 
-        .details td {
-            width: 33.33%;
-            text-align: center;
-            vertical-align: top;
-            border-right: 1px solid #d1d5db;
-            padding: 0 18px;
-        }
+.corner-bl {
+    bottom: 3.8mm;
+    left: 3.8mm;
+}
 
-        .details td:last-child {
-            border-right: none;
-        }
+.corner-br {
+    bottom: 3.8mm;
+    right: 3.8mm;
+}
 
-        .detail-icon {
-            font-size: 18px;
-            color: #d4af37;
-            margin-bottom: 6px;
-        }
+.corner-tl .blue-line,
+.corner-bl .blue-line {
+    left: 0;
+    border-left-width: 0.42mm;
+}
 
-        .label {
-            font-size: 9.5px;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            margin-bottom: 5px;
-        }
+.corner-tr .blue-line,
+.corner-br .blue-line {
+    right: 0;
+    border-right-width: 0.42mm;
+}
 
-        .value {
-            font-size: 11.5px;
-            font-weight: bold;
-            color: #111827;
-        }
+.corner-tl .blue-line,
+.corner-tr .blue-line {
+    top: 0;
+    width: 17mm;
+    height: 11mm;
+    border-top-width: 0.42mm;
+}
 
-        .bottom-table {
-            width: 82%;
-            margin: 24px auto 0;
-            border-collapse: collapse;
-        }
+.corner-bl .blue-line,
+.corner-br .blue-line {
+    bottom: 0;
+    width: 17mm;
+    height: 11mm;
+    border-bottom-width: 0.42mm;
+}
 
-        .bottom-table td {
-            width: 50%;
-            vertical-align: bottom;
-        }
+.corner-tl .gold-line,
+.corner-bl .gold-line {
+    left: 4mm;
+    border-left-width: 0.18mm;
+}
 
-        .issued-cell {
-            text-align: left;
-        }
+.corner-tr .gold-line,
+.corner-br .gold-line {
+    right: 4mm;
+    border-right-width: 0.18mm;
+}
 
-        .signature-cell {
-            text-align: right;
-        }
+.corner-tl .gold-line,
+.corner-tr .gold-line {
+    top: 4mm;
+    width: 12mm;
+    height: 7mm;
+    border-top-width: 0.18mm;
+}
 
-        .issued-table {
-            border-collapse: collapse;
-        }
+.corner-bl .gold-line,
+.corner-br .gold-line {
+    bottom: 4mm;
+    width: 12mm;
+    height: 7mm;
+    border-bottom-width: 0.18mm;
+}
 
-        .issued-table td {
-            vertical-align: middle;
-        }
+.content {
+    position: absolute;
+    top: 0;
+    left: 28mm;
+    right: 28mm;
+    z-index: 5;
+    height: 126mm;
+    padding-top: 19mm;
+    text-align: center;
+}
 
-        .logo-cell {
-            width: 68px;
-            text-align: center;
-            padding-right: 16px;
-        }
+.logo-row {
+    height: 18mm;
+    text-align: center;
+}
 
-        .logo-cell img {
-            max-width: 54px;
-            max-height: 54px;
-        }
+.logo-img {
+    height: 14mm;
+    max-width: 62mm;
+}
 
-        .issued-content {
-            border-left: 1px solid #d1d5db;
-            padding-left: 16px;
-        }
+.logo-text {
+    font-size: 18px;
+    line-height: 1;
+    font-weight: bold;
+}
 
-        .issued-small {
-            font-size: 12px;
-            color: #6b7280;
-            margin-bottom: 3px;
-        }
+.logo-text span {
+    color: #0097d8;
+}
 
-        .issued-name {
-            font-size: 18px;
-            font-weight: bold;
-            color: #0b2f78;
-            margin-bottom: 3px;
-        }
+.tagline {
+    font-size: 7px;
+    letter-spacing: 1.8px;
+    font-weight: bold;
+    margin-top: 1mm;
+}
 
-        .issued-tagline {
-            font-size: 10px;
-            color: #6b7280;
-        }
+.title {
+    font-family: DejaVu Serif, serif;
+    font-size: 34px;
+    letter-spacing: 8px;
+    line-height: 1;
+    margin: 0;
+    color: #061d55;
+}
 
-        .signature-box {
-            display: inline-block;
-            text-align: center;
-            width: 280px;
-        }
+.achievement-row {
+    margin-top: 3mm;
+    margin-bottom: 5.5mm;
+    color: #b78320;
+    font-family: DejaVu Serif, serif;
+    font-size: 13px;
+    letter-spacing: 3px;
+}
 
-        .signature-line {
-            width: 250px;
-            border-top: 2px solid #d4af37;
-            margin: 0 auto 8px;
-            margin-top: 50px;
-        }
+.achievement-row:before,
+.achievement-row:after {
+    content: "";
+    display: inline-block;
+    width: 20mm;
+    border-top: 0.35mm solid #c8942f;
+    vertical-align: middle;
+    margin: 0 4mm;
+}
 
-        .signature-title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #0b2f78;
-        }
+.presented {
+    font-size: 10px;
+    color: #111827;
+    margin-bottom: 3mm;
+}
 
-        .signature-sub {
-            font-size: 10.5px;
-            color: #6b7280;
-            margin-top: 4px;
-        }
-    </style>
+.student-name {
+    font-family: DejaVu Serif, serif;
+    font-size: 27px;
+    font-style: italic;
+    font-weight: normal;
+    color: #061d55;
+    margin: 0 auto 2mm;
+    max-width: 160mm;
+    line-height: 1.1;
+}
+
+.student-name.small {
+    font-size: 23px;
+}
+
+.name-line {
+    width: 112mm;
+    border-top: 0.4mm solid #c8942f;
+    margin: 0 auto 4mm;
+}
+
+.description {
+    width: 158mm;
+    height: 13mm;
+    margin: 0 auto 5.5mm;
+    font-size: 9px;
+    line-height: 1.45;
+    color: #111827;
+}
+
+.metrics {
+    width: 138mm;
+    margin: 0 auto;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.metrics td {
+    width: 33.33%;
+    padding: 0 7mm;
+    text-align: center;
+    border-right: 0.38mm solid #d4a041;
+}
+
+.metrics td:last-child {
+    border-right: none;
+}
+
+.metric-label {
+    font-size: 7.5px;
+    font-weight: bold;
+    color: #061d55;
+}
+
+.metric-value {
+    font-size: 11px;
+    font-weight: bold;
+    color: #061d55;
+    margin-top: 1mm;
+    text-transform: uppercase;
+}
+
+.footer {
+    position: absolute;
+    left: 44mm;
+    right: 44mm;
+    bottom: 15mm;
+    height: 34mm;
+    z-index: 6;
+}
+
+.footer-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.footer-table td {
+    width: 33.33%;
+    vertical-align: bottom;
+}
+
+.signature {
+    text-align: left;
+    padding-left: 0;
+}
+
+.signature-placeholder {
+    width: 40mm;
+    height: 11mm;
+    border: 0.28mm dashed #c2ccda;
+    color: #7b8798;
+    font-size: 6.5px;
+    line-height: 11mm;
+    text-align: center;
+    margin-bottom: 1.5mm;
+}
+
+.signature-line {
+    width: 40mm;
+    border-top: 0.45mm solid #061d55;
+    margin-bottom: 1mm;
+}
+
+.sign-name {
+    font-size: 8px;
+    font-weight: bold;
+}
+
+.sign-role {
+    font-size: 7px;
+    color: #111827;
+    margin-top: 0.5mm;
+}
+
+.seal-wrap {
+    text-align: center;
+}
+
+.stamp-placeholder {
+    display: inline-block;
+    width: 22mm;
+    height: 22mm;
+    border-radius: 50%;
+    border: 0.35mm dashed #c2ccda;
+    color: #7b8798;
+    text-align: center;
+    line-height: 22mm;
+    font-size: 7px;
+    font-weight: bold;
+    background: #fbfcff;
+}
+
+.issue {
+    text-align: right;
+    font-size: 7.4px;
+    line-height: 1.55;
+    color: #111827;
+    padding-right: 0;
+}
+
+.issue strong {
+    color: #061d55;
+    font-size: 8px;
+}
+</style>
 </head>
 
 <body>
+@php
+    $studentName = $student->name ?? 'Student Name';
+
+    $finalPercentage = $certificate->final_percentage
+        ?? $certificate->final_score
+        ?? $certificate->badge_count
+        ?? 0;
+
+    if ($certificate->final_grade && $certificate->final_classification) {
+        $grade = $certificate->final_grade;
+        $classification = $certificate->final_classification;
+    } elseif ($finalPercentage >= 90) {
+        $grade = 'A+';
+        $classification = 'Outstanding';
+    } elseif ($finalPercentage >= 80) {
+        $grade = 'A';
+        $classification = 'Distinction';
+    } elseif ($finalPercentage >= 70) {
+        $grade = 'B+';
+        $classification = 'First Class';
+    } elseif ($finalPercentage >= 60) {
+        $grade = 'B';
+        $classification = 'Second Class';
+    } elseif ($finalPercentage >= 50) {
+        $grade = 'C+';
+        $classification = 'Pass';
+    } elseif ($finalPercentage >= 40) {
+        $grade = 'C';
+        $classification = 'Satisfactory';
+    } else {
+        $grade = 'F';
+        $classification = 'Fail';
+    }
+
+    $issueDate = $certificate->issued_date
+        ? \Carbon\Carbon::parse($certificate->issued_date)->format('d F Y')
+        : now()->format('d F Y');
+
+    $certificateCode = $certificate->certificate_code ?? 'TE-2026-000000';
+    $logoPath = public_path('images/TinkEdgeLogo.png');
+@endphp
 
 <div class="certificate">
+    <div class="outer-blue"></div>
+    <div class="inner-gold"></div>
+    <div class="inner-fine"></div>
 
-    <div class="corner corner-tl"></div>
-    <div class="corner corner-tr"></div>
-    <div class="corner corner-bl"></div>
-    <div class="corner corner-br"></div>
+    <div class="corner corner-tl"><div class="blue-line"></div><div class="gold-line"></div></div>
+    <div class="corner corner-tr"><div class="blue-line"></div><div class="gold-line"></div></div>
+    <div class="corner corner-bl"><div class="blue-line"></div><div class="gold-line"></div></div>
+    <div class="corner corner-br"><div class="blue-line"></div><div class="gold-line"></div></div>
 
-    <div class="brand">TINKEDGE LEARNING COURSE CERTIFICATE</div>
+    <div class="content">
+        <div class="logo-row">
+            @if(file_exists($logoPath))
+                <img src="{{ $logoPath }}" class="logo-img" alt="TinkEdge">
+            @else
+                <div class="logo-text">Tink<span>Edge</span></div>
+                <div class="tagline">STEM EDUCATION</div>
+            @endif
+        </div>
 
-    <h1 class="title">
-        Certificate of {{ $certificate->certificate_type ?? 'Completion' }}
-    </h1>
+        <h1 class="title">CERTIFICATE</h1>
+        <div class="achievement-row">OF ACHIEVEMENT</div>
 
-    <div class="subtitle">This certificate is proudly presented to</div>
+        <div class="presented">This is proudly presented to</div>
 
-    <h2 class="student-name">{{ $student->name }}</h2>
+        <h2 class="student-name {{ strlen($studentName) > 28 ? 'small' : '' }}">
+            {{ $studentName }}
+        </h2>
 
-    <div class="gold-line"></div>
+        <div class="name-line"></div>
 
-    <p class="description">
-        This certificate is awarded for successfully completing the course
-        <strong>{{ $certificate->course->course_title ?? 'Completed Course' }}</strong>
-        on the TinkEdge LMS platform. The learner has completed all required learning
-        content and course-linked assessments, achieving an average assessment score of
-        <strong>{{ $certificate->badge_count ?? 0 }}%</strong>. This certificate recognizes
-        the learner’s course completion, assessment performance, and demonstrated learning progress.
-    </p>
+        <div class="description">
+            &nbsp;
+        </div>
 
-    <table class="details">
-        <tr>
-            <td>
-                <div class="detail-icon">▣</div>
-                <div class="label">Issued Date</div>
-                <div class="value">
-                    {{ \Carbon\Carbon::parse($certificate->issued_date)->format('d M Y') }}
-                </div>
-            </td>
+        <table class="metrics">
+            <tr>
+                <td>
+                    <div class="metric-label">Final Percentage</div>
+                    <div class="metric-value">{{ number_format($finalPercentage, 2) }}%</div>
+                </td>
+                <td>
+                    <div class="metric-label">Grade</div>
+                    <div class="metric-value">{{ $grade }}</div>
+                </td>
+                <td>
+                    <div class="metric-label">Classification</div>
+                    <div class="metric-value">{{ strtoupper($classification) }}</div>
+                </td>
+            </tr>
+        </table>
+    </div>
 
-            <td>
-                <div class="detail-icon">✦</div>
-                <div class="label">Certificate Code</div>
-                <div class="value">{{ $certificate->certificate_code }}</div>
-            </td>
-
-            <td>
-                <div class="detail-icon">◉</div>
-                <div class="label">Certificate Type</div>
-                <div class="value">{{ $certificate->certificate_type ?? 'Completion' }}</div>
-            </td>
-        </tr>
-    </table>
-
-    <table class="bottom-table">
-        <tr>
-            <td class="issued-cell">
-                <table class="issued-table">
-                    <tr>
-                        <td class="logo-cell">
-                            <img src="{{ public_path('images/TinkEdgeLogo.png') }}">
-                        </td>
-
-                        <td class="issued-content">
-                            <div class="issued-small">Issued by</div>
-                            <div class="issued-name">TinkEdge LMS</div>
-                            <div class="issued-tagline">
-                                Empowering Learners. Building Futures.
-                            </div>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-
-            <td class="signature-cell">
-                <div class="signature-box">
+    <div class="footer">
+        <table class="footer-table">
+            <tr>
+                <td class="signature">
+                    <div class="signature-placeholder">Director Signature</div>
                     <div class="signature-line"></div>
-                    <div class="signature-title">Director's Signature</div>
-                    <div class="signature-sub">TinkEdge Learning</div>
-                </div>
-            </td>
-        </tr>
-    </table>
+                    <div class="sign-name">Director</div>
+                    <div class="sign-role">TinkEdge</div>
+                </td>
 
+                <td class="seal-wrap">
+                    <div class="stamp-placeholder">Stamp</div>
+                </td>
+
+                <td class="issue">
+                    <strong>Date of Issue</strong><br>
+                    {{ $issueDate }}<br>
+                    Certificate ID: {{ $certificateCode }}
+                </td>
+            </tr>
+        </table>
+    </div>
 </div>
-
 </body>
 </html>

@@ -27,8 +27,9 @@
                                 <th>Assessment</th>
                                 <th>Institute</th>
                                 <th>Class</th>
-                                <th>Type</th>
-                                <th>Questions</th>
+                                <th>Category</th>
+                                <th>Assessment Date</th>
+                                <th>Question Paper</th>
                                 <th>Attempts</th>
                                 <th>Pending Reviews</th>
                                 <th>Average Score</th>
@@ -61,15 +62,19 @@
 
                                     <td>{{ $assessment->assigned_class }}</td>
 
+                                    <td>{{ $assessment->assessment_category ?? 'Monthly' }}</td>
+
+                                    <td>{{ $assessment->assessment_date ? \Carbon\Carbon::parse($assessment->assessment_date)->format('d M Y') : 'Not Set' }}</td>
+
                                     <td>
-                                        @if($assessment->assessment_type == 'Student')
-                                            <span class="badge bg-primary">Student</span>
+                                        @if($assessment->question_paper_status == 'Approved')
+                                            <span class="badge bg-success">Approved</span>
+                                        @elseif($assessment->question_paper_status == 'Rejected')
+                                            <span class="badge bg-danger">Rejected</span>
                                         @else
-                                            <span class="badge bg-warning text-dark">STEM Engineer</span>
+                                            <span class="badge bg-warning text-dark">Pending</span>
                                         @endif
                                     </td>
-
-                                    <td>{{ $assessment->questions->count() }}</td>
 
                                     <td>{{ $attempts }}</td>
 
@@ -101,7 +106,7 @@
                             @empty
 
                                 <tr>
-                                    <td colspan="10"
+                                    <td colspan="11"
                                         class="text-center text-muted">
                                         No assessments found.
                                     </td>

@@ -118,9 +118,8 @@ class CoordinatorController extends Controller
     public function assessmentMonitoring()
     {
         $assessments = Assessment::with([
-                'questions',
-                'results'
-            ])
+            'results',
+        ])
             ->latest()
             ->get();
 

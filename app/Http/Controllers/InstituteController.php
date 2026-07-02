@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Institute;
 use Illuminate\Support\Facades\DB;
+use App\Support\DeletesAssessments;
 use Illuminate\Support\Facades\Storage;
 use App\Models\User;
 use App\Models\Student;
@@ -12,7 +13,6 @@ use App\Models\SchoolClass;
 use App\Models\Course;
 use App\Models\Content;
 use App\Models\Assessment;
-use App\Models\AssessmentQuestion;
 use App\Models\AssessmentResult;
 use App\Models\Certificate;
 use App\Models\StudentAchievement;
@@ -25,6 +25,7 @@ use App\Models\InstituteRegistrationRequest;
 
 class InstituteController extends Controller
 {
+    use DeletesAssessments;
     public function index(Request $request)
     {
         $search = $request->search;
@@ -37,7 +38,9 @@ class InstituteController extends Controller
                         ->orWhere('email', 'like', "%{$search}%");
         })->get();
 
-        return view('institutes', compact('institutes'));
+        $studentCount = Student::count();
+
+        return view('institutes', compact('institutes', 'studentCount'));
     }
 
     public function store(Request $request)
@@ -117,19 +120,13 @@ class InstituteController extends Controller
 
             foreach ($contents as $content) {
 
-                if (
-                    $content->file_path &&
-                    Storage::disk('public')->exists($content->file_path)
-                ) {
-                    Storage::disk('public')->delete($content->file_path);
-                }
+                $this->deleteContentStoragePath($content->file_path);
 
-                if (
-                    $content->preview_pdf_path &&
-                    Storage::disk('public')->exists($content->preview_pdf_path)
-                ) {
-                    Storage::disk('public')->delete($content->preview_pdf_path);
-                }
+                $this->deleteContentStoragePath($content->preview_pdf_path);
+
+                $this->deleteContentStoragePath($content->student_file_path);
+
+                $this->deleteContentStoragePath($content->student_preview_pdf_path);
 
                 LessonProgress::where('content_id', $content->id)->delete();
 
@@ -143,19 +140,7 @@ class InstituteController extends Controller
             $assessments = Assessment::where('institute', $instituteName)->get();
 
             foreach ($assessments as $assessment) {
-
-                AssessmentResult::where('assessment_id', $assessment->id)->delete();
-
-                AssessmentQuestion::where('assessment_id', $assessment->id)->delete();
-
-                if (
-                    $assessment->file_path &&
-                    Storage::disk('public')->exists($assessment->file_path)
-                ) {
-                    Storage::disk('public')->delete($assessment->file_path);
-                }
-
-                $assessment->delete();
+                $this->deleteAssessmentCompletely($assessment);
             }
 
             $classes = SchoolClass::where('institute', $instituteName)->get();
@@ -185,4 +170,18 @@ class InstituteController extends Controller
         return redirect()->back()
             ->with('success', 'Institute and all related records deleted successfully.');
     }
+
+    private function deleteContentStoragePath($path)
+    {
+        if (!$path) {
+            return;
+        }
+
+        foreach (['local', 'public'] as $disk) {
+            if (Storage::disk($disk)->exists($path)) {
+                Storage::disk($disk)->delete($path);
+            }
+        }
+    }
+
 }

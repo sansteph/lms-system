@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Assessment;
 use App\Models\Student;
-use App\Models\AssessmentAnswer;
+use App\Models\User;
 
 class AssessmentResult extends Model
 {
@@ -17,6 +17,12 @@ class AssessmentResult extends Model
         'status',
         'badge',
         'percentage',
+        'answer_text',
+        'answer_file_path',
+        'feedback',
+        'passed',
+        'evaluated_by',
+        'evaluated_at',
     ];
 
     public function assessment()
@@ -35,11 +41,8 @@ class AssessmentResult extends Model
         );
     }
 
-    public function answers()
+    public function evaluator()
     {
-        return $this->hasMany(
-            AssessmentAnswer::class,
-            'assessment_result_id'
-        );
+        return $this->belongsTo(User::class, 'evaluated_by');
     }
 }

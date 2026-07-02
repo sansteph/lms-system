@@ -66,7 +66,7 @@
 
                                     <div class="col-md-6">
                                         <label class="form-label">Role</label>
-                                        <input type="text" class="form-control" value="{{ $teacher->role }}" readonly>
+                                        <input type="text" class="form-control" value="{{ $teacher->role == 'Teacher' ? 'STEM Engineer' : $teacher->role }}" readonly>
                                     </div>
 
                                     <div class="col-md-6">

@@ -155,6 +155,12 @@
 
                                         </form>
 
+                                    @elseif($schedule->status == 'Completed' && $schedule->content && !$schedule->content->student_file_path)
+
+                                        <span class="badge bg-warning text-dark">
+                                            Student Doc Missing
+                                        </span>
+
                                     @elseif($schedule->status == 'Completed' && $schedule->content && !$schedule->content->is_released)
 
                                         <form method="POST"

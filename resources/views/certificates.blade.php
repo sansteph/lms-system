@@ -12,9 +12,17 @@
             <div class="page-header mb-4">
                 <h2 class="mb-1">Certificate Management</h2>
                 <p class="text-muted mb-0">
-                    View issued student certificates and verification details.
+                    Review program completion certificate requests before students can access them.
                 </p>
             </div>
+
+            @if(session('success'))
+                <div class="alert alert-success">{{ session('success') }}</div>
+            @endif
+
+            @if(session('error'))
+                <div class="alert alert-danger">{{ session('error') }}</div>
+            @endif
 
             <div class="card shadow border-0">
                 <div class="card-body">
@@ -25,11 +33,13 @@
                                 <th>Sl. No</th>
                                 <th>Certificate Code</th>
                                 <th>Student Name</th>
-                                <th>Student ID</th>
-                                <th>Badges</th>
+                                <th>Program / Course</th>
+                                <th>Final Percentage</th>
+                                <th>Grade</th>
+                                <th>Classification</th>
                                 <th>Issued Date</th>
                                 <th>Status</th>
-                                <th width="160">Actions</th>
+                                <th width="220">Actions</th>
                             </tr>
                         </thead>
 
@@ -39,62 +49,59 @@
                                     <td>{{ $index + 1 }}</td>
                                     <td>{{ $certificate->certificate_code }}</td>
                                     <td>{{ $certificate->student->name ?? 'Student Deleted' }}</td>
-                                    <td>{{ $certificate->student_id }}</td>
-                                    <td>{{ $certificate->badge_count }}</td>
-                                    <td>{{ $certificate->issued_date }}</td>
+                                    <td>{{ $certificate->course->course_title ?? 'Program Completion' }}</td>
+                                    <td>{{ $certificate->final_score ?? $certificate->badge_count }}%</td>
+                                    <td>{{ $certificate->final_grade ?? 'N/A' }}</td>
+                                    <td>{{ $certificate->final_classification ?? 'N/A' }}</td>
                                     <td>
-                                        <span class="badge
-                                            {{ $certificate->status == 'Revoked'
-                                                ? 'bg-danger'
-                                                : 'bg-success' }}">
-
-                                            {{ $certificate->status }}
-
-                                        </span>
+                                        {{ $certificate->issued_date
+                                            ? \Carbon\Carbon::parse($certificate->issued_date)->format('d M Y')
+                                            : 'Awaiting approval' }}
                                     </td>
                                     <td>
-
-                                        @if($certificate->status != 'Revoked')
-
-                                            <form method="POST"
-                                                action="{{ route('admin.certificates.revoke', $certificate->id) }}">
-
-                                                @csrf
-
-                                                <button type="submit"
-                                                        class="btn btn-sm btn-danger"
-                                                        onclick="return confirm('Revoke this certificate?')">
-
-                                                    Revoke
-
-                                                </button>
-
-                                            </form>
-
+                                        @if($certificate->status == 'Pending Approval')
+                                            <span class="badge bg-warning text-dark">Pending Approval</span>
+                                        @elseif($certificate->status == 'Revoked')
+                                            <span class="badge bg-danger">Revoked</span>
                                         @else
-
-                                            <form method="POST"
-                                                action="{{ route('admin.certificates.reissue', $certificate->id) }}">
-
-                                                @csrf
-
-                                                <button type="submit"
-                                                        class="btn btn-sm btn-success">
-
-                                                    Reissue
-
-                                                </button>
-
-                                            </form>
-
+                                            <span class="badge bg-success">Issued</span>
                                         @endif
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            @if($certificate->status == 'Pending Approval')
+                                                <form method="POST" action="{{ route('admin.certificates.approve', $certificate->id) }}">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-success">
+                                                        Approve
+                                                    </button>
+                                                </form>
+                                            @endif
 
+                                            @if($certificate->status != 'Revoked')
+                                                <form method="POST" action="{{ route('admin.certificates.revoke', $certificate->id) }}">
+                                                    @csrf
+                                                    <button type="submit"
+                                                            class="btn btn-sm btn-danger"
+                                                            onclick="return confirm('Revoke this certificate?')">
+                                                        Revoke
+                                                    </button>
+                                                </form>
+                                            @else
+                                                <form method="POST" action="{{ route('admin.certificates.reissue', $certificate->id) }}">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-success">
+                                                        Reissue
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="text-center text-muted">
-                                        No certificates issued yet.
+                                    <td colspan="10" class="text-center text-muted">
+                                        No certificate requests found yet.
                                     </td>
                                 </tr>
                             @endforelse

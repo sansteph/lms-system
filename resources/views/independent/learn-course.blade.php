@@ -135,15 +135,42 @@
 
                     <hr>
 
-                    @if($content->file_path)
+                    @if($content->student_file_path)
 
-                        <a href="{{ asset('storage/' . $content->file_path) }}"
-                           target="_blank"
-                           class="btn btn-sm btn-success">
+                        @php
+                            $extension = strtolower(pathinfo($content->student_file_path, PATHINFO_EXTENSION));
+                            $previewExtensions = ['doc', 'docx'];
+                            $streamVariant = in_array($extension, $previewExtensions) && $content->student_preview_pdf_path
+                                ? 'preview'
+                                : 'file';
+                            $previewUrl = route('content.preview', [$content->id, 'student']);
+                            $fileUrl = route('content.file.audience', [$content->id, 'student', $streamVariant]);
+                        @endphp
 
-                            View Lesson
-
-                        </a>
+                        <div class="mb-3">
+                            @if($extension == 'pdf' || $streamVariant == 'preview')
+                                <iframe src="{{ $previewUrl }}"
+                                        width="100%"
+                                        height="420"
+                                        style="border: 0; border-radius: 8px; background: #f8f9fa;">
+                                </iframe>
+                            @elseif(in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
+                                <img src="{{ $fileUrl }}"
+                                     class="img-fluid rounded border"
+                                     alt="Content Preview">
+                            @elseif(in_array($extension, ['mp4', 'webm', 'ogg', 'mov']))
+                                <video width="100%"
+                                       height="360"
+                                       controls
+                                       controlsList="nodownload">
+                                    <source src="{{ $fileUrl }}">
+                                </video>
+                            @else
+                                <div class="alert alert-warning mb-0">
+                                    Inline preview is not available for this file type.
+                                </div>
+                            @endif
+                        </div>
 
                     @endif
 

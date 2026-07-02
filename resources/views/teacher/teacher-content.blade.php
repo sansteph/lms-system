@@ -12,7 +12,7 @@
             <div class="page-header mb-4">
                 <h2 class="mb-1">Learning Content</h2>
                 <p class="text-muted mb-0">
-                    Access assigned PPT, PDF, and video lessons.
+                    Access assigned STEM Engineer PPT lessons.
                 </p>
             </div>
 
@@ -26,22 +26,22 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>PPT Files</h6>
+                        <h6>STEM Engineer PPTs</h6>
                         <h2>{{ $contents->where('content_type', 'PPT')->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>PDF Files</h6>
-                        <h2>{{ $contents->where('content_type', 'PDF')->count() }}</h2>
+                        <h6>Released to Students</h6>
+                        <h2>{{ $contents->where('is_released', true)->count() }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Video Files</h6>
-                        <h2>{{ $contents->where('content_type', 'Video')->count() }}</h2>
+                        <h6>Student Docs Linked</h6>
+                        <h2>{{ $contents->whereNotNull('student_file_path')->count() }}</h2>
                     </div>
                 </div>
             </div>
@@ -70,12 +70,10 @@
                                     <td>{{ $content->content_title }}</td>
                                     <td>{{ $content->assigned_class }}</td>
                                     <td>
-                                        @if($content->content_type == 'PDF')
-                                            <span class="badge bg-info">PDF</span>
-                                        @elseif($content->content_type == 'PPT')
+                                        @if($content->file_path)
                                             <span class="badge bg-primary">PPT</span>
                                         @else
-                                            <span class="badge bg-danger">Video</span>
+                                            <span class="badge bg-secondary">Missing</span>
                                         @endif
                                     </td>
                                     <td>{{ $content->lesson_order }}</td>
@@ -89,11 +87,20 @@
                                     </td>
                                     <td>
                                         @if($content->file_path && $content->status == 1)
-                                            <a href="{{ asset('storage/' . $content->file_path) }}"
-                                               target="_blank"
-                                               class="btn btn-sm btn-primary">
-                                                Open
-                                            </a>
+                                            @php
+                                                $extension = strtolower(pathinfo($content->file_path, PATHINFO_EXTENSION));
+                                                $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
+                                                $streamVariant = in_array($extension, $previewExtensions) && $content->preview_pdf_path
+                                                    ? 'preview'
+                                                    : 'file';
+                                            @endphp
+
+                                            <button type="button"
+                                                    class="btn btn-sm btn-primary"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#contentPreviewModal{{ $content->id }}">
+                                                View
+                                            </button>
                                         @else
                                             <button class="btn btn-sm btn-secondary" disabled>
                                                 Locked
@@ -122,5 +129,67 @@
 
     </div>
 </div>
+
+@foreach($contents as $content)
+    @if($content->file_path && $content->status == 1)
+        @php
+            $extension = strtolower(pathinfo($content->file_path, PATHINFO_EXTENSION));
+            $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
+            $streamVariant = in_array($extension, $previewExtensions) && $content->preview_pdf_path
+                ? 'preview'
+                : 'file';
+            $previewUrl = route('content.preview', [$content->id, 'teacher']);
+            $fileUrl = route('content.file.audience', [$content->id, 'teacher', $streamVariant]);
+        @endphp
+
+        <div class="modal fade"
+             id="contentPreviewModal{{ $content->id }}"
+             tabindex="-1"
+             aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ $content->content_title }}</h5>
+                        <button type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Close">
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        @if($extension == 'pdf' || $streamVariant == 'preview')
+                            <iframe src="{{ $previewUrl }}"
+                                    width="100%"
+                                    height="720"
+                                    style="border: 0; border-radius: 8px; background: #f8f9fa;">
+                            </iframe>
+                        @elseif(in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
+                            <div class="text-center">
+                                <img src="{{ $fileUrl }}"
+                                     class="img-fluid rounded border"
+                                     alt="Content Preview">
+                            </div>
+                        @elseif(in_array($extension, ['mp4', 'webm', 'ogg', 'mov']))
+                            <video width="100%"
+                                   height="620"
+                                   controls
+                                   controlsList="nodownload">
+                                <source src="{{ $fileUrl }}">
+                            </video>
+                        @elseif(in_array($extension, ['mp3', 'wav']))
+                            <audio controls controlsList="nodownload" class="w-100">
+                                <source src="{{ $fileUrl }}">
+                            </audio>
+                        @else
+                            <div class="alert alert-warning mb-0">
+                                Inline preview is not available for this file type.
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+@endforeach
 
 @endsection

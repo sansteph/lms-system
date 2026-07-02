@@ -22,15 +22,20 @@
             </div>
 
             @php
-                $fileUrl = asset('storage/' . $content->file_path);
                 $extension = strtolower(pathinfo($content->file_path, PATHINFO_EXTENSION));
+                $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
+                $streamVariant = in_array($extension, $previewExtensions) && $content->preview_pdf_path
+                    ? 'preview'
+                    : 'file';
+                $previewUrl = route('content.preview', [$content->id, 'teacher']);
+                $fileUrl = route('content.file.audience', [$content->id, 'teacher', $streamVariant]);
             @endphp
 
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    @if(in_array($extension, ['pdf']))
-                        <iframe src="{{ $fileUrl }}"
+                    @if($extension == 'pdf' || $streamVariant == 'preview')
+                        <iframe src="{{ $previewUrl }}"
                                 width="100%"
                                 height="750"
                                 style="border: none;">
@@ -43,44 +48,25 @@
                                  alt="Content Preview">
                         </div>
 
-                    @elseif(in_array($extension, ['mp4', 'webm', 'ogg']))
+                    @elseif(in_array($extension, ['mp4', 'webm', 'ogg', 'mov']))
                         <video width="100%"
                                height="650"
-                               controls>
+                               controls
+                               controlsList="nodownload">
                             <source src="{{ $fileUrl }}">
                             Your browser does not support video preview.
                         </video>
 
                     @elseif(in_array($extension, ['mp3', 'wav']))
-                        <audio controls class="w-100">
+                        <audio controls controlsList="nodownload" class="w-100">
                             <source src="{{ $fileUrl }}">
                             Your browser does not support audio preview.
                         </audio>
 
-                    @elseif(in_array($extension, ['ppt', 'pptx']))
-
-                        @if($content->preview_pdf_path)
-
-                            <iframe src="{{ asset('storage/' . $content->preview_pdf_path) }}"
-                                    width="100%"
-                                    height="750"
-                                    style="border: none;">
-                            </iframe>
-
-                        @else
-
-                            <div class="alert alert-warning">
-                                PDF preview is not available for this presentation.
-                            </div>
-
-                            <a href="{{ asset('storage/' . $content->file_path) }}"
-                            class="btn btn-primary"
-                            target="_blank">
-                                Download Presentation
-                            </a>
-
-                        @endif
-
+                    @else
+                        <div class="alert alert-warning mb-0">
+                            Inline preview is not available for this file type.
+                        </div>
                     @endif
 
                 </div>

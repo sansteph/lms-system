@@ -421,7 +421,27 @@ class UserController extends Controller
 
     public function markTopicComplete($contentId)
     {
-        $content = Content::findOrFail($contentId);
+        $teacher = User::findOrFail(session('user_id'));
+        $content = Content::with('course')->findOrFail($contentId);
+
+        if ($content->institute != $teacher->institute || !$content->student_file_path) {
+            abort(403, 'This topic cannot be released to students.');
+        }
+
+        $assignedClasses = SchoolClass::where('institute', $teacher->institute)
+            ->where('class_teacher', $teacher->name)
+            ->get()
+            ->map(function ($class) {
+                return trim($class->class_name . ' ' . $class->section);
+            });
+
+        $contentClass = $content->course
+            ? $content->course->assigned_class
+            : $content->assigned_class;
+
+        if (!$assignedClasses->contains($contentClass)) {
+            abort(403, 'You can only release content assigned to your class.');
+        }
 
         $content->update([
 

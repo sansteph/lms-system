@@ -92,6 +92,14 @@
 
                         </div>
 
+                    @elseif(isset($inactive) && $inactive)
+
+                        <div class="alert alert-warning mt-4">
+
+                            This certificate has been generated but is waiting for admin approval.
+
+                        </div>
+
                     @elseif(isset($certificate) && $certificate)
 
                         <div class="alert alert-success mt-4">
@@ -114,7 +122,7 @@
 
                                 <p class="mb-2">
                                     <strong>Course:</strong>
-                                    {{ $certificate->course->course_title ?? 'N/A' }}
+                                    {{ $certificate->course->course_title ?? 'Program Completion' }}
                                 </p>
 
                             @else
@@ -130,8 +138,14 @@
                                 </p>
 
                                 <p class="mb-2">
-                                    <strong>Badge Count:</strong>
-                                    {{ $certificate->badge_count }}
+                                    <strong>Final Percentage:</strong>
+                                    {{ $certificate->final_score ?? $certificate->badge_count }}%
+                                    @if($certificate->final_grade)
+                                        / Grade {{ $certificate->final_grade }}
+                                    @endif
+                                    @if($certificate->final_classification)
+                                        / {{ $certificate->final_classification }}
+                                    @endif
                                 </p>
 
                             @endif

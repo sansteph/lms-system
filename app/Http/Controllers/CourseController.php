@@ -5,10 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Course;
 use Illuminate\Support\Facades\DB;
+use App\Support\DeletesAssessments;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Content;
 use App\Models\Assessment;
-use App\Models\AssessmentQuestion;
 use App\Models\AssessmentResult;
 use App\Models\LessonProgress;
 use App\Models\ClassTimetable;
@@ -16,6 +16,7 @@ use App\Models\ClassContentSession;
 
 class CourseController extends Controller
 {
+    use DeletesAssessments;
     public function index()
     {
         $courses = Course::when(session('user_role') == 'InstituteAdmin', function ($query) {
@@ -120,23 +121,8 @@ class CourseController extends Controller
 
             foreach ($contents as $content) {
 
-                $assessments = Assessment::where('content_id', $content->id)->get();
-
-                foreach ($assessments as $assessment) {
-
-                    AssessmentResult::where('assessment_id', $assessment->id)->delete();
-
-                    AssessmentQuestion::where('assessment_id', $assessment->id)->delete();
-
-                    if (
-                        $assessment->file_path &&
-                        Storage::disk('public')->exists($assessment->file_path)
-                    ) {
-                        Storage::disk('public')->delete($assessment->file_path);
-                    }
-
-                    $assessment->delete();
-                }
+                Assessment::where('content_id', $content->id)
+                    ->update(['content_id' => null]);
 
                 LessonProgress::where('content_id', $content->id)->delete();
 
@@ -144,19 +130,13 @@ class CourseController extends Controller
 
                 ClassTimetable::where('content_id', $content->id)->delete();
 
-                if (
-                    $content->file_path &&
-                    Storage::disk('public')->exists($content->file_path)
-                ) {
-                    Storage::disk('public')->delete($content->file_path);
-                }
+                $this->deleteContentStoragePath($content->file_path);
 
-                if (
-                    $content->preview_pdf_path &&
-                    Storage::disk('public')->exists($content->preview_pdf_path)
-                ) {
-                    Storage::disk('public')->delete($content->preview_pdf_path);
-                }
+                $this->deleteContentStoragePath($content->preview_pdf_path);
+
+                $this->deleteContentStoragePath($content->student_file_path);
+
+                $this->deleteContentStoragePath($content->student_preview_pdf_path);
 
                 $content->delete();
             }
@@ -167,4 +147,18 @@ class CourseController extends Controller
         return redirect()->back()
             ->with('success', 'Course and all related content deleted successfully.');
     }
+
+    private function deleteContentStoragePath($path)
+    {
+        if (!$path) {
+            return;
+        }
+
+        foreach (['local', 'public'] as $disk) {
+            if (Storage::disk($disk)->exists($path)) {
+                Storage::disk($disk)->delete($path);
+            }
+        }
+    }
+
 }

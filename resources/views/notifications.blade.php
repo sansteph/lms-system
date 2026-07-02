@@ -270,7 +270,7 @@
                                 </option>
 
                                 <option value="Teachers">
-                                   STEM Engineers
+                                    STEM Engineers
                                 </option>
 
                                 <option value="Class">
@@ -388,7 +388,7 @@
                                     Students
                                 </option>
                                 <option value="Teachers" {{ $notification->target == 'Teachers' ? 'selected' : '' }}>
-                                   STEM Engineers
+                                    STEM Engineers
                                 </option>
                                 <option value="Class" {{ $notification->target == 'Class' ? 'selected' : '' }}>
                                     Class

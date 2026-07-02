@@ -61,7 +61,7 @@ class TrackUserActivity
             'teacher.notifications', 'student.notifications' => 'Notifications',
             'teacher.profile', 'student.student-profile' => 'Profile',
             'student.badges' => 'Achievements',
-            'student.certificate' => 'Certificate',
+            'student.certificate.download' => 'Certificate',
             default => $routeName ?? 'Unknown Section',
         };
     }

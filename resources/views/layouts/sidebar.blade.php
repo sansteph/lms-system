@@ -63,6 +63,10 @@
         Assessment Monitoring
     </a>
 
+    <a href="{{ route('admin.question-papers') }}" class="sidebar-link {{ request()->routeIs('admin.question-papers*') ? 'active' : '' }}">
+        Question Paper Approval
+    </a>
+
     <a href="{{ route('admin.class-session.report') }}"class="sidebar-link {{ request()->routeIs('admin.class-session.report') ? 'active' : '' }}">
         Class Session Report
     </a>

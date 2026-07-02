@@ -312,6 +312,8 @@
 
                                 <th>Assessment</th>
 
+                                <th>Category</th>
+
                                 <th>Score</th>
 
                                 <th>Percentage</th>
@@ -367,6 +369,10 @@
                                     </td>
 
                                     <td>
+                                        {{ $result->assessment->assessment_category ?? 'N/A' }}
+                                    </td>
+
+                                    <td>
                                         {{ $result->score }}/{{ $result->total_marks }}
                                     </td>
 
@@ -413,7 +419,7 @@
                                     </td>
 
                                     <td>
-                                        {{ $result->created_at->format('d-m-Y') }}
+                                        {{ $result->assessment && $result->assessment->assessment_date ? \Carbon\Carbon::parse($result->assessment->assessment_date)->format('d-m-Y') : $result->created_at->format('d-m-Y') }}
                                     </td>
 
                                     <td>
@@ -436,7 +442,7 @@
 
                                 <tr>
 
-                                    <td colspan="9"
+                                    <td colspan="10"
                                         class="text-center text-muted">
 
                                         No results found.

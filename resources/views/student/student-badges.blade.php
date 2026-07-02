@@ -155,20 +155,20 @@
 
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                         <div>
-                            <h5 class="mb-1">Course Certificates</h5>
+                            <h5 class="mb-1">Program Certificates</h5>
                             <p class="text-muted mb-0">
-                                Certificates are unlocked after completing all lessons and linked assessments in a course.
+                                Certificates are prepared after your Annual Assessment is evaluated and approved by Admin.
                             </p>
                         </div>
                     </div>
 
                     @forelse(($certificates ?? collect()) as $certificate)
 
-                        <div class="alert alert-success mb-3">
+                        <div class="alert {{ $certificate->status == 'Issued' ? 'alert-success' : 'alert-warning' }} mb-3">
                             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                                 <div>
                                     <strong>
-                                        {{ $certificate->course->course_title ?? 'Completed Course' }}
+                                        {{ $certificate->course->course_title ?? 'Program Completion' }}
                                     </strong>
 
                                     <br>
@@ -186,22 +186,40 @@
                                     <br>
 
                                     <small>
-                                        Average Score: {{ $certificate->badge_count }}%
+                                        Final Percentage: {{ $certificate->final_score ?? $certificate->badge_count }}%
+                                        @if($certificate->final_grade)
+                                            | Grade: {{ $certificate->final_grade }}
+                                        @endif
+                                        @if($certificate->final_classification)
+                                            | {{ $certificate->final_classification }}
+                                        @endif
+                                    </small>
+
+                                    <br>
+
+                                    <small>
+                                        Status: {{ $certificate->status }}
                                     </small>
                                 </div>
 
-                                <a href="{{ route('student.certificate') }}"
-                                class="btn btn-success">
-                                    <i class="fa fa-download me-2"></i>
-                                    View Certificate
-                                </a>
+                                @if($certificate->status == 'Issued')
+                                    <a href="{{ route('student.certificate.download') }}"
+                                    class="btn btn-success">
+                                        <i class="fa fa-download me-2"></i>
+                                        View Certificate
+                                    </a>
+                                @else
+                                    <span class="badge bg-warning text-dark">
+                                        Waiting for Admin Approval
+                                    </span>
+                                @endif
                             </div>
                         </div>
 
                     @empty
 
                         <div class="alert alert-warning mb-0">
-                            Complete all course lessons and linked assessments to unlock your course certificate.
+                            Complete the Annual Assessment and wait for final evaluation to prepare your certificate request.
                         </div>
 
                     @endforelse

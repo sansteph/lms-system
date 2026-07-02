@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Content;
 use App\Models\SchoolClass;
 use Illuminate\Support\Facades\DB;
+use App\Support\DeletesAssessments;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Student;
 use App\Models\LessonProgress;
@@ -13,13 +14,13 @@ use App\Models\UserSession;
 use App\Models\Certificate;
 use App\Models\StudentAchievement;
 use App\Models\AssessmentResult;
-use App\Models\AssessmentQuestion;
 use App\Models\Assessment;
 use App\Models\ClassTimetable;
 use App\Models\ClassContentSession;
 
 class ClassController extends Controller
 {
+    use DeletesAssessments;
     public function index(Request $request)
     {
         $search = $request->search;
@@ -194,19 +195,7 @@ class ClassController extends Controller
                 ->get();
 
             foreach ($assessments as $assessment) {
-
-                AssessmentResult::where('assessment_id', $assessment->id)->delete();
-
-                AssessmentQuestion::where('assessment_id', $assessment->id)->delete();
-
-                if (
-                    $assessment->file_path &&
-                    Storage::disk('public')->exists($assessment->file_path)
-                ) {
-                    Storage::disk('public')->delete($assessment->file_path);
-                }
-
-                $assessment->delete();
+                $this->deleteAssessmentCompletely($assessment);
             }
 
             $class->delete();

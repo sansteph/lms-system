@@ -19,7 +19,7 @@
                     </h2>
 
                     <p class="text-muted mb-0">
-                        Upload structured lessons under courses for sequential learning.
+                        Upload STEM Engineer PPTs with linked Student Word documents.
                     </p>
 
                 </div>
@@ -79,12 +79,12 @@
                     <div class="dashboard-card">
 
                         <h6>
-                            PDF Files
+                            STEM Engineer PPTs
                         </h6>
 
                         <h2>
 
-                            {{ $contents->where('content_type', 'PDF')->count() }}
+                            {{ $contents->whereNotNull('file_path')->count() }}
 
                         </h2>
 
@@ -97,12 +97,12 @@
                     <div class="dashboard-card">
 
                         <h6>
-                            PPT Files
+                            Student Documents
                         </h6>
 
                         <h2>
 
-                            {{ $contents->where('content_type', 'PPT')->count() }}
+                            {{ $contents->whereNotNull('student_file_path')->count() }}
 
                         </h2>
 
@@ -115,12 +115,12 @@
                     <div class="dashboard-card">
 
                         <h6>
-                            Video Files
+                            Released Lessons
                         </h6>
 
                         <h2>
 
-                            {{ $contents->where('content_type', 'Video')->count() }}
+                            {{ $contents->where('is_released', true)->count() }}
 
                         </h2>
 
@@ -184,7 +184,7 @@
                                 </th>
 
                                 <th>
-                                    Type
+                                    Materials
                                 </th>
 
                                 <th>
@@ -237,24 +237,16 @@
 
                                     <td>
 
-                                        @if($content->content_type == 'PDF')
-
-                                            <span class="badge bg-info">
-                                                PDF
-                                            </span>
-
-                                        @elseif($content->content_type == 'PPT')
-
+                                        @if($content->file_path)
                                             <span class="badge bg-primary">
-                                                PPT
+                                                STEM Engineer PPT
                                             </span>
+                                        @endif
 
-                                        @else
-
-                                            <span class="badge bg-danger">
-                                                Video
+                                        @if($content->student_file_path)
+                                            <span class="badge bg-info">
+                                                Student Word Doc
                                             </span>
-
                                         @endif
 
                                     </td>
@@ -441,27 +433,15 @@
                         <div class="col-md-6">
 
                             <label class="form-label">
-                                Content Type
+                                STEM Engineer Material
                             </label>
 
                             <select name="content_type"
                                     class="form-control"
                                     required>
 
-                                <option value="">
-                                    Select Content Type
-                                </option>
-
-                                <option value="PDF">
-                                    PDF
-                                </option>
-
                                 <option value="PPT">
                                     PPT
-                                </option>
-
-                                <option value="Video">
-                                    Video
                                 </option>
 
                             </select>
@@ -497,12 +477,27 @@
                         <div class="col-md-6">
 
                             <label class="form-label">
-                                Upload File
+                                Upload STEM Engineer PPT
                             </label>
 
                             <input type="file"
                                    name="file"
                                    class="form-control"
+                                   accept=".ppt,.pptx"
+                                   required>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Upload Linked Student Word Document
+                            </label>
+
+                            <input type="file"
+                                   name="student_file"
+                                   class="form-control"
+                                   accept=".doc,.docx"
                                    required>
 
                         </div>
@@ -660,7 +655,7 @@
                         <div class="col-md-6">
 
                             <label class="form-label">
-                                Content Type
+                                STEM Engineer Material
                             </label>
 
                             <select name="content_type"
@@ -671,20 +666,6 @@
                                     {{ $content->content_type == 'PPT' ? 'selected' : '' }}>
 
                                     PPT
-
-                                </option>
-
-                                <option value="PDF"
-                                    {{ $content->content_type == 'PDF' ? 'selected' : '' }}>
-
-                                    PDF
-
-                                </option>
-
-                                <option value="Video"
-                                    {{ $content->content_type == 'Video' ? 'selected' : '' }}>
-
-                                    Video
 
                                 </option>
 
@@ -723,16 +704,36 @@
                         <div class="col-md-6">
 
                             <label class="form-label">
-                                Replace File
+                                Replace STEM Engineer PPT
                             </label>
 
                             <input type="file"
                                    name="file"
-                                   class="form-control">
+                                   class="form-control"
+                                   accept=".ppt,.pptx">
 
                             <small class="text-muted">
 
-                                Leave empty to keep existing file.
+                                Leave empty to keep existing PPT.
+
+                            </small>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Replace Linked Student Word Document
+                            </label>
+
+                            <input type="file"
+                                   name="student_file"
+                                   class="form-control"
+                                   accept=".doc,.docx">
+
+                            <small class="text-muted">
+
+                                Leave empty to keep existing student document.
 
                             </small>
 

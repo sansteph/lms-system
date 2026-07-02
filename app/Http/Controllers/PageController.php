@@ -9,7 +9,6 @@ use App\Models\Notification;
 use App\Models\SchoolClass;
 use Illuminate\Support\Facades\Hash;
 use App\Models\AssessmentResult;
-use App\Models\AssessmentQuestion;
 use App\Models\Certificate;
 use App\Models\UserSession;
 use App\Models\UserActivityLog;
@@ -20,7 +19,6 @@ use App\Models\AccessRequest;
 use App\Models\CertificateVerificationLog;
 use App\Models\AssessmentSession;
 use App\Models\User;
-use App\Models\AssessmentAnswer;
 use App\Models\Course;
 use App\Models\ClassContentSession;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -319,7 +317,7 @@ class PageController extends Controller
 
     public function adminCertificates()
     {
-        $certificates = Certificate::with('student')
+        $certificates = Certificate::with(['student', 'course'])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->whereHas('student', function ($q) {
                     $q->where('institute', session('user_institute'));
@@ -331,12 +329,49 @@ class PageController extends Controller
         return view('certificates', compact('certificates'));
     }
 
+    public function approveCertificate($id)
+    {
+        $certificate = Certificate::with('student')->findOrFail($id);
+
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $certificate->student &&
+            $certificate->student->institute != session('user_institute')
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        if ($certificate->status == 'Revoked') {
+            return redirect()->back()
+                ->with('error', 'Revoked certificates must be reissued instead of approved.');
+        }
+
+        $finalScore = $certificate->final_score ?? $certificate->badge_count ?? 0;
+
+        if ($finalScore < 40) {
+            return redirect()->back()
+                ->with('error', 'Students below 40% are not eligible for certificate approval.');
+        }
+
+        $certificate->update([
+            'status' => 'Issued',
+            'issued_date' => now(),
+            'final_score' => $finalScore,
+            'final_grade' => $this->calculateCertificateGrade($finalScore),
+            'final_classification' => $this->calculateCertificateClassification($finalScore),
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'Certificate approved and released to the student.');
+    }
+
     public function revokeCertificate($id)
     {
         $certificate = Certificate::with('student')->findOrFail($id);
 
         if (
             session('user_role') == 'InstituteAdmin' &&
+            $certificate->student &&
             $certificate->student->institute != session('user_institute')
         ) {
             abort(403, 'Unauthorized action.');
@@ -353,17 +388,36 @@ class PageController extends Controller
     {
         $teacherName = session('user_name');
         $teacher = User::find(session('user_id'));
-        $classes = SchoolClass::where('class_teacher', $teacher->name)->get();
-        $contentCount = Content::where('institute', $teacher->institute)->count();
-        $assessmentCount = Assessment::where('institute', $teacher->institute)->count();
+        $assignedClassNames = $this->teacherAssignedClassNames($teacher);
+        $classes = SchoolClass::where('institute', $teacher->institute)
+            ->where('class_teacher', $teacher->name)
+            ->get();
+        $contentCount = Content::where('institute', $teacher->institute)
+            ->whereHas('course', function ($query) use ($assignedClassNames) {
+                $query->whereIn('assigned_class', $assignedClassNames);
+            })
+            ->count();
+        $assessmentCount = Assessment::where('institute', $teacher->institute)
+            ->where('teacher_id', $teacher->id)
+            ->count();
+        $monthlyAssessmentCount = Assessment::where('institute', $teacher->institute)
+            ->where('teacher_id', $teacher->id)
+            ->where('assessment_category', 'Monthly')
+            ->count();
+        $annualAssessmentCount = Assessment::where('institute', $teacher->institute)
+            ->where('teacher_id', $teacher->id)
+            ->where('assessment_category', 'Annual')
+            ->count();
         $notificationCount = Notification::where('institute', $teacher->institute)->count();
-        $assignedClasses = SchoolClass::where('class_teacher',$teacher->name)->count();
-        $totalStudents = Student::where('institute',$teacher->institute)->count();
+        $assignedClasses = $classes->count();
+        $totalStudents = $this->teacherAssignedStudentsQuery($teacher)->count();
 
         return view('teacher.teacher-dashboard', compact(
             'teacherName',
             'contentCount',
             'assessmentCount',
+            'monthlyAssessmentCount',
+            'annualAssessmentCount',
             'notificationCount',
             'assignedClasses',
             'totalStudents',
@@ -383,7 +437,8 @@ class PageController extends Controller
             ])
             ->where('session_date', $today)
             ->whereHas('schoolClass', function ($q) use ($teacher) {
-                $q->where('institute', $teacher->institute);
+                $q->where('institute', $teacher->institute)
+                    ->where('class_teacher', $teacher->name);
             })
             ->orderBy('from_time')
             ->get();
@@ -408,8 +463,12 @@ class PageController extends Controller
     public function teacherContent()
     {
         $teacher = User::find(session('user_id'));
+        $assignedClasses = $this->teacherAssignedClassNames($teacher);
 
         $contents = Content::where('institute', $teacher->institute)
+            ->whereHas('course', function ($query) use ($assignedClasses) {
+                $query->whereIn('assigned_class', $assignedClasses);
+            })
             ->latest()
             ->get();
 
@@ -419,8 +478,11 @@ class PageController extends Controller
     public function teacherAssessments()
     {
         $teacher = User::find(session('user_id'));
+        $assignedClasses = $this->teacherAssignedClassNames($teacher);
 
         $assessments = Assessment::where('institute', $teacher->institute)
+            ->where('teacher_id', $teacher->id)
+            ->whereIn('assigned_class', $assignedClasses)
             ->latest()
             ->get();
 
@@ -430,36 +492,57 @@ class PageController extends Controller
    public function teacherReports()
     {
         $teacher = User::find(session('user_id'));
+        $assignedClassNames = $this->teacherAssignedClassNames($teacher);
+        $studentIds = $this->teacherAssignedStudentIds($teacher);
 
-        $studentCount = Student::where('institute', $teacher->institute)->count();
+        $studentCount = $studentIds->count();
 
-        $classCount = SchoolClass::where('institute', $teacher->institute)->count();
+        $classCount = SchoolClass::where('institute', $teacher->institute)
+            ->where('class_teacher', $teacher->name)
+            ->count();
 
-        $contentCount = Content::where('institute', $teacher->institute)->count();
+        $contentCount = Content::where('institute', $teacher->institute)
+            ->whereHas('course', function ($query) use ($assignedClassNames) {
+                $query->whereIn('assigned_class', $assignedClassNames);
+            })
+            ->count();
 
-        $assessmentCount = Assessment::where('institute', $teacher->institute)->count();
+        $assessmentCount = Assessment::where('institute', $teacher->institute)
+            ->where('teacher_id', $teacher->id)
+            ->count();
 
-        $completedResults = AssessmentResult::whereHas('student', function ($q) use ($teacher) {
-                $q->where('institute', $teacher->institute);
+        $monthlyAssessmentCount = Assessment::where('institute', $teacher->institute)
+            ->where('teacher_id', $teacher->id)
+            ->where('assessment_category', 'Monthly')
+            ->count();
+
+        $annualAssessmentCount = Assessment::where('institute', $teacher->institute)
+            ->where('teacher_id', $teacher->id)
+            ->where('assessment_category', 'Annual')
+            ->count();
+
+        $completedResults = AssessmentResult::whereIn('student_id', $studentIds)
+            ->whereHas('assessment', function ($query) use ($teacher) {
+                $query->where('teacher_id', $teacher->id);
             })
             ->where('status', 'Completed')
             ->count();
 
-        $pendingReviewCount = AssessmentAnswer::whereHas('student', function ($q) use ($teacher) {
-                $q->where('institute', $teacher->institute);
+        $pendingReviewCount = AssessmentResult::whereIn('student_id', $studentIds)
+            ->whereHas('assessment', function ($query) use ($teacher) {
+                $query->where('teacher_id', $teacher->id);
             })
-            ->where('review_status', 'Pending Review')
+            ->where('status', 'Pending Review')
             ->count();
 
-        $averageScore = AssessmentResult::whereHas('student', function ($q) use ($teacher) {
-                $q->where('institute', $teacher->institute);
+        $averageScore = AssessmentResult::whereIn('student_id', $studentIds)
+            ->whereHas('assessment', function ($query) use ($teacher) {
+                $query->where('teacher_id', $teacher->id);
             })
             ->where('status', 'Completed')
             ->avg('percentage') ?? 0;
 
-        $certificateCount = Certificate::whereHas('student', function ($q) use ($teacher) {
-                $q->where('institute', $teacher->institute);
-            })
+        $certificateCount = Certificate::whereIn('student_id', $studentIds)
             ->count();
 
         return view('teacher.teacher-reports', compact(
@@ -467,6 +550,8 @@ class PageController extends Controller
             'classCount',
             'contentCount',
             'assessmentCount',
+            'monthlyAssessmentCount',
+            'annualAssessmentCount',
             'completedResults',
             'pendingReviewCount',
             'averageScore',
@@ -482,27 +567,25 @@ class PageController extends Controller
         $sort = $request->sort;
 
         $teacher = User::find(session('user_id'));
+        $studentIds = $this->teacherAssignedStudentIds($teacher);
 
         $results = AssessmentResult::with(['assessment', 'student'])
-            ->whereHas('student', function ($query) use ($teacher) {
-                $query->where('institute', $teacher->institute);
+            ->whereIn('student_id', $studentIds)
+            ->whereHas('assessment', function ($query) use ($teacher) {
+                $query->where('teacher_id', $teacher->id);
             })
             ->when($search, function ($query, $search) {
 
-                $query->whereHas('student', function ($q) use ($search) {
-
-                    $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('student_id', 'like', "%{$search}%");
-
-                })
-
-                ->orWhereHas('assessment', function ($q) use ($search) {
-
-                    $q->where('assessment_title', 'like', "%{$search}%");
-
-                })
-
-                ->orWhere('badge', 'like', "%{$search}%");
+                $query->where(function ($searchQuery) use ($search) {
+                    $searchQuery->whereHas('student', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                            ->orWhere('student_id', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('assessment', function ($q) use ($search) {
+                        $q->where('assessment_title', 'like', "%{$search}%");
+                    })
+                    ->orWhere('badge', 'like', "%{$search}%");
+                });
 
             })
 
@@ -558,9 +641,7 @@ class PageController extends Controller
         $teacher = User::find(session('user_id'));
 
         $certificates = Certificate::with(['student', 'course'])
-            ->whereHas('student', function ($query) use ($teacher) {
-                $query->where('institute', $teacher->institute);
-            })
+            ->whereIn('student_id', $this->teacherAssignedStudentIds($teacher))
             ->latest()
             ->get();
 
@@ -661,13 +742,23 @@ class PageController extends Controller
         $attemptedAssessmentIds = AssessmentResult::where('student_id', $studentId)
             ->pluck('assessment_id');
 
-        $pendingAssessmentCount = Assessment::where('status', 1)
+        $assignedClass = $this->studentClassName($student);
+
+        $assessmentBaseQuery = Assessment::where('status', 1)
             ->where('institute', $student->institute)
+            ->where('question_paper_status', 'Approved')
+            ->whereNotNull('file_path')
+            ->whereRaw(
+                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                [$assignedClass]
+            );
+
+        $pendingAssessmentCount = (clone $assessmentBaseQuery)
+            ->whereDate('assessment_date', '<=', today())
             ->whereNotIn('id', $attemptedAssessmentIds)
             ->count();
 
-        $totalAssessmentCount = Assessment::where('status', 1)
-            ->where('institute', $student->institute)
+        $totalAssessmentCount = (clone $assessmentBaseQuery)
             ->count();
 
         $notifications = Notification::where('institute', $student->institute)
@@ -676,10 +767,10 @@ class PageController extends Controller
             ->take(3)
             ->get();
 
-        $upcomingAssessments = Assessment::where('status', 1)
-            ->where('institute', $student->institute)
+        $upcomingAssessments = (clone $assessmentBaseQuery)
+            ->whereDate('assessment_date', '>', today())
             ->whereNotIn('id', $attemptedAssessmentIds)
-            ->latest()
+            ->orderBy('assessment_date')
             ->take(5)
             ->get();
 
@@ -700,6 +791,18 @@ class PageController extends Controller
         $userType = session('student_id') ? 'Student' : 'Teacher';
 
         $userId = session('student_id') ?? session('user_id');
+
+        if ($userType == 'Student' && !$this->studentCanAccessAssessment($assessmentId, $userId)) {
+            abort(403, 'This assessment is not assigned to your class.');
+        }
+
+        if ($userType == 'Teacher') {
+            $teacher = User::findOrFail($userId);
+
+            if (!$this->teacherCanAccessAssessment($teacher, $assessmentId)) {
+                abort(403, 'You can only start assessments created for your assigned classes.');
+            }
+        }
 
         $session = AssessmentSession::where('assessment_id', $assessmentId)
             ->where('user_id', $userId)
@@ -723,6 +826,12 @@ class PageController extends Controller
             'active_assessment_session_id' => $session->id,
             'active_assessment_id' => $assessmentId,
         ]);
+
+        if ($userType == 'Student') {
+            return redirect()
+                ->route('student.assessment.take', $assessmentId)
+                ->with('success', 'Assessment session started.');
+        }
 
         return redirect()
             ->route('student.assessment', ['assessment_id' => $assessmentId])
@@ -779,40 +888,88 @@ class PageController extends Controller
         return redirect()->back()
             ->with('success', 'Assessment submitted successfully.');
     }
+    private function teacherAssignedClassNames(User $teacher)
+    {
+        return SchoolClass::where('institute', $teacher->institute)
+            ->where('class_teacher', $teacher->name)
+            ->get()
+            ->map(function ($class) {
+                return trim($class->class_name . ' ' . $class->section);
+            })
+            ->values();
+    }
+
+    private function teacherAssignedStudentsQuery(User $teacher)
+    {
+        $classes = SchoolClass::where('institute', $teacher->institute)
+            ->where('class_teacher', $teacher->name)
+            ->get(['class_name', 'section']);
+
+        $query = Student::where('institute', $teacher->institute);
+
+        if ($classes->isEmpty()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($studentQuery) use ($classes) {
+            foreach ($classes as $class) {
+                $studentQuery->orWhere(function ($q) use ($class) {
+                    $q->where('class', $class->class_name)
+                        ->where('section', $class->section);
+                });
+            }
+        });
+    }
+
+    private function teacherAssignedStudentIds(User $teacher)
+    {
+        return $this->teacherAssignedStudentsQuery($teacher)->pluck('id');
+    }
+
+    private function teacherCanAccessStudent(User $teacher, Student $student)
+    {
+        return $this->teacherAssignedStudentsQuery($teacher)
+            ->where('id', $student->id)
+            ->exists();
+    }
+
+    private function teacherCanAccessAssessment(User $teacher, $assessmentId)
+    {
+        return Assessment::where('id', $assessmentId)
+            ->where('institute', $teacher->institute)
+            ->where('teacher_id', $teacher->id)
+            ->whereIn('assigned_class', $this->teacherAssignedClassNames($teacher))
+            ->exists();
+    }
+
     public function studentTakeAssessment(Request $request)
     {
         $studentId = session('student_id');
 
-        $completedLessons = LessonProgress::where(
-            'student_id',
-            $studentId
-        )
-        ->where('is_completed', true)
-        ->pluck('content_id');
+        $student = Student::findOrFail($studentId);
+        $assignedClass = $this->studentClassName($student);
 
-        $availableAssessments = Assessment::whereIn(
-            'content_id',
-            $completedLessons
-        )
-        ->where('status', 1)
-        ->pluck('id');
+        $availableAssessments = Assessment::where('status', 1)
+            ->where('institute', $student->institute)
+            ->where('question_paper_status', 'Approved')
+            ->whereNotNull('file_path')
+            ->whereDate('assessment_date', '<=', today())
+            ->whereRaw(
+                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                [$assignedClass]
+            )
+            ->pluck('id');
 
         $attemptedAssessmentIds = AssessmentResult::where(
             'student_id',
             $studentId
         )->pluck('assessment_id');
 
-        $assessments = Assessment::with('questions')
-            ->whereIn('id', $availableAssessments)
+        $assessments = Assessment::whereIn('id', $availableAssessments)
             ->whereNotIn('id', $attemptedAssessmentIds)
-            ->get()
-            ->filter(function ($assessment) {
-                return $assessment->questions->count() > 0;
-            });
+            ->get();
 
         $selectedAssessment = null;
-
-        $questions = collect();
 
         if ($request->assessment_id) {
 
@@ -847,7 +1004,7 @@ class PageController extends Controller
                     ->route('student.assessment')
                     ->with(
                         'error',
-                        'Complete the lesson before accessing this assessment.'
+                        'This assessment is not available for your class yet.'
                     );
             }
 
@@ -865,30 +1022,70 @@ class PageController extends Controller
                     );
             }
 
-            $questions = AssessmentQuestion::where(
-                'assessment_id',
-                $request->assessment_id
-            )->get();
 
-            if ($questions->count() == 0) {
-
-                return redirect()
-                    ->route('student.assessment')
-                    ->with(
-                        'error',
-                        'This assessment is not ready yet.'
-                    );
-            }
         }
 
         return view(
             'student.student-assessment',
             compact(
                 'assessments',
-                'selectedAssessment',
-                'questions'
+                'selectedAssessment'
             )
         );
+    }
+
+    public function studentAssessmentTaking(Assessment $assessment)
+    {
+        $studentId = session('student_id');
+
+        if (!$studentId || !$this->studentCanAccessAssessment($assessment->id, $studentId)) {
+            abort(403, 'This assessment is not assigned to your class.');
+        }
+
+        if ((int) session('active_assessment_id') !== (int) $assessment->id) {
+            return redirect()
+                ->route('student.assessment', ['assessment_id' => $assessment->id])
+                ->with('error', 'Please start the assessment before opening the assessment page.');
+        }
+
+        $sessionId = session('active_assessment_session_id');
+        $assessmentSession = AssessmentSession::where('id', $sessionId)
+            ->where('assessment_id', $assessment->id)
+            ->where('user_id', $studentId)
+            ->where('user_type', 'Student')
+            ->whereIn('status', ['Started', 'AutoSubmitted'])
+            ->first();
+
+        if (!$assessmentSession) {
+            session()->forget([
+                'active_assessment_session_id',
+                'active_assessment_id',
+            ]);
+
+            return redirect()
+                ->route('student.assessment')
+                ->with('error', 'Assessment session is no longer active.');
+        }
+
+        $alreadySubmitted = AssessmentResult::where('student_id', $studentId)
+            ->where('assessment_id', $assessment->id)
+            ->exists();
+
+        if ($alreadySubmitted) {
+            session()->forget([
+                'active_assessment_session_id',
+                'active_assessment_id',
+            ]);
+
+            return redirect()
+                ->route('student.history')
+                ->with('error', 'Assessment already completed.');
+        }
+
+        return view('student.student-assessment-taking', compact(
+            'assessment',
+            'assessmentSession'
+        ));
     }
 
     public function studentProfile()
@@ -922,7 +1119,8 @@ class PageController extends Controller
     {
         $studentId = session('student_id');
 
-        $results = AssessmentResult::where('student_id', $studentId)
+        $results = AssessmentResult::with('assessment')
+            ->where('student_id', $studentId)
             ->whereNotNull('badge')
             ->latest()
             ->get();
@@ -933,7 +1131,14 @@ class PageController extends Controller
 
         $bronzeCount = $results->where('badge', 'Bronze')->count();
 
-        $certificateEligible = $results->count() >= 5;
+        $certificateEligible = $results
+            ->filter(function ($result) {
+                return $result->assessment &&
+                    $result->assessment->assessment_category == 'Annual' &&
+                    $result->status == 'Completed' &&
+                    !is_null($result->evaluated_at);
+            })
+            ->isNotEmpty();
 
         $certificates = Certificate::with('course')
             ->where('student_id', $studentId)
@@ -976,29 +1181,65 @@ class PageController extends Controller
     }
     public function disqualifyResult($id)
     {
-        $result = AssessmentResult::findOrFail($id);
+        $result = AssessmentResult::with(['student', 'assessment'])->findOrFail($id);
+
+        if (session('user_role') == 'Teacher') {
+            $teacher = User::findOrFail(session('user_id'));
+
+            if (
+                !$result->student ||
+                !$this->teacherCanAccessStudent($teacher, $result->student) ||
+                !$result->assessment ||
+                $result->assessment->teacher_id != $teacher->id
+            ) {
+                abort(403, 'You can only disqualify results for students assigned to your class.');
+            }
+        }
+
+        if ($result->assessment && $result->assessment->assessment_category == 'Annual') {
+            $this->deleteAnnualCertificatesForStudent($result->student_id);
+        }
 
         $result->delete();
 
         return redirect()->back()->with('success', 'Student result disqualified successfully');
     }
-    public function studentCertificate()
+    private function deleteAnnualCertificatesForStudent($studentId)
     {
-        $student = Student::find(session('student_id'));
+        $certificates = Certificate::where('student_id', $studentId)
+            ->where('certificate_type', 'Annual')
+            ->get();
 
-        $certificate = Certificate::where('student_id', session('student_id'))->first();
-
-        if (!$certificate) {
-            return redirect()->route('student.badges')
-                ->with('error', 'Certificate is not available yet.');
-        }
-        if ($certificate->status == 'Revoked') {
-            return redirect()
-                ->route('student.badges')
-                ->with('error', 'Your certificate has been revoked.');
+        if ($certificates->isEmpty()) {
+            return;
         }
 
-        return view('student.student-certificate', compact('student', 'certificate'));
+        $certificateIds = $certificates->pluck('id');
+        $certificateCodes = $certificates->pluck('certificate_code')->filter();
+
+        foreach ($certificates as $certificate) {
+            foreach (['file_path', 'certificate_file', 'pdf_path', 'download_path'] as $field) {
+                $path = $certificate->getAttribute($field);
+
+                if (!$path) {
+                    continue;
+                }
+
+                foreach (['public', 'local'] as $disk) {
+                    if (Storage::disk($disk)->exists($path)) {
+                        Storage::disk($disk)->delete($path);
+                    }
+                }
+            }
+        }
+
+        CertificateVerificationLog::whereIn('certificate_id', $certificateIds)
+            ->when($certificateCodes->isNotEmpty(), function ($query) use ($certificateCodes) {
+                $query->orWhereIn('certificate_code', $certificateCodes);
+            })
+            ->delete();
+
+        Certificate::whereIn('id', $certificateIds)->delete();
     }
     public function verifyCertificate()
     {
@@ -1022,14 +1263,7 @@ class PageController extends Controller
                 ->with('error', 'Content is locked while your assessment is in progress.');
         }
 
-        $assignedClass = trim($student->class . ' ' . $student->section);
-
-        $course = Course::where('institute', $student->institute)
-            ->whereRaw(
-                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                [$assignedClass]
-            )
-            ->first();
+        $course = $this->studentAssignedCourse($student);
 
         $contents = collect();
 
@@ -1037,6 +1271,7 @@ class PageController extends Controller
             $contents = Content::where('course_id', $course->id)
                 ->where('status', 1)
                 ->where('is_released', true)
+                ->whereNotNull('student_file_path')
                 ->orderBy('lesson_order')
                 ->get();
         }
@@ -1074,14 +1309,18 @@ class PageController extends Controller
         )->first();
 
         $revoked = false;
+        $inactive = false;
         $verificationStatus = 'failed';
 
         if ($certificate) {
             if ($certificate->status == 'Revoked') {
                 $revoked = true;
                 $verificationStatus = 'revoked';
-            } else {
+            } elseif ($certificate->status == 'Issued') {
                 $verificationStatus = 'verified';
+            } else {
+                $inactive = true;
+                $verificationStatus = 'pending_approval';
             }
         }
 
@@ -1097,7 +1336,8 @@ class PageController extends Controller
 
         return view('certificate.verify-certificate', compact(
             'certificate',
-            'revoked'
+            'revoked',
+            'inactive'
         ));
     }
 
@@ -1112,13 +1352,81 @@ class PageController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        $finalScore = $certificate->final_score ?? $certificate->badge_count ?? 0;
+
+        if ($finalScore < 40) {
+            return redirect()->back()
+                ->with('error', 'Students below 40% are not eligible for certificate reissue.');
+        }
+
         $certificate->update([
             'status' => 'Issued',
             'issued_date' => now(),
+            'final_score' => $finalScore,
+            'final_grade' => $this->calculateCertificateGrade($finalScore),
+            'final_classification' => $this->calculateCertificateClassification($finalScore),
         ]);
 
         return redirect()->back()
             ->with('success', 'Certificate reissued successfully.');
+    }
+
+    private function calculateCertificateGrade($percentage)
+    {
+        if ($percentage >= 90) {
+            return 'A+';
+        }
+
+        if ($percentage >= 80) {
+            return 'A';
+        }
+
+        if ($percentage >= 70) {
+            return 'B+';
+        }
+
+        if ($percentage >= 60) {
+            return 'B';
+        }
+
+        if ($percentage >= 50) {
+            return 'C+';
+        }
+
+        if ($percentage >= 40) {
+            return 'C';
+        }
+
+        return 'F';
+    }
+
+    private function calculateCertificateClassification($percentage)
+    {
+        if ($percentage >= 90) {
+            return 'Outstanding';
+        }
+
+        if ($percentage >= 80) {
+            return 'Distinction';
+        }
+
+        if ($percentage >= 70) {
+            return 'First Class';
+        }
+
+        if ($percentage >= 60) {
+            return 'Second Class';
+        }
+
+        if ($percentage >= 50) {
+            return 'Pass';
+        }
+
+        if ($percentage >= 40) {
+            return 'Satisfactory';
+        }
+
+        return 'Fail';
     }
 
     public function exportResults(Request $request)
@@ -1129,15 +1437,25 @@ class PageController extends Controller
         $sort = $request->sort;
 
         $results = AssessmentResult::with(['student', 'assessment'])
+            ->when(session('user_role') == 'Teacher', function ($query) {
+                $teacher = User::findOrFail(session('user_id'));
+
+                $query->whereIn('student_id', $this->teacherAssignedStudentIds($teacher))
+                    ->whereHas('assessment', function ($q) use ($teacher) {
+                        $q->where('teacher_id', $teacher->id);
+                    });
+            })
             ->when($search, function ($query, $search) {
-                $query->whereHas('student', function ($q) use ($search) {
-                    $q->where('student_name', 'like', "%{$search}%")
-                    ->orWhere('student_id', 'like', "%{$search}%");
-                })
-                ->orWhereHas('assessment', function ($q) use ($search) {
-                    $q->where('assessment_title', 'like', "%{$search}%");
-                })
-                ->orWhere('badge', 'like', "%{$search}%");
+                $query->where(function ($searchQuery) use ($search) {
+                    $searchQuery->whereHas('student', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                            ->orWhere('student_id', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('assessment', function ($q) use ($search) {
+                        $q->where('assessment_title', 'like', "%{$search}%");
+                    })
+                    ->orWhere('badge', 'like', "%{$search}%");
+                });
             })
             ->when($badge, function ($query, $badge) {
                 $query->where('badge', $badge);
@@ -1173,6 +1491,8 @@ class PageController extends Controller
                 'Student Name',
                 'Student ID',
                 'Assessment',
+                'Category',
+                'Assessment Date',
                 'Score',
                 'Total Marks',
                 'Percentage',
@@ -1186,6 +1506,10 @@ class PageController extends Controller
                     $result->student->student_name ?? 'Student Deleted',
                     $result->student->student_id ?? 'N/A',
                     $result->assessment->assessment_title ?? 'Assessment Deleted',
+                    $result->assessment->assessment_category ?? 'N/A',
+                    $result->assessment && $result->assessment->assessment_date
+                        ? $result->assessment->assessment_date
+                        : 'N/A',
                     $result->score,
                     $result->total_marks,
                     $result->percentage . '%',
@@ -1459,6 +1783,17 @@ class PageController extends Controller
     public function completeLesson($id)
     {
         $studentId = session('student_id');
+        $student = Student::findOrFail($studentId);
+        $course = $this->studentAssignedCourse($student);
+        $content = Content::where('id', $id)
+            ->where('status', 1)
+            ->where('is_released', true)
+            ->whereNotNull('student_file_path')
+            ->first();
+
+        if (!$course || !$content || $content->course_id != $course->id) {
+            abort(403, 'This lesson is not assigned to your class.');
+        }
 
         LessonProgress::updateOrCreate(
 
@@ -1476,6 +1811,53 @@ class PageController extends Controller
 
         return redirect()->back()
             ->with('success', 'Lesson marked as completed');
+    }
+
+    private function studentAssignedCourse(Student $student)
+    {
+        $assignedClass = trim($student->class . ' ' . $student->section);
+
+        return Course::where('institute', $student->institute)
+            ->whereRaw(
+                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                [$assignedClass]
+            )
+            ->first();
+    }
+
+    private function studentClassName(Student $student)
+    {
+        return preg_replace('/\s+/', ' ', trim($student->class . ' ' . $student->section));
+    }
+
+    private function studentCanAccessAssessment($assessmentId, $studentId)
+    {
+        $student = Student::find($studentId);
+
+        if (!$student) {
+            return false;
+        }
+
+        $assessment = Assessment::query()
+            ->where('id', $assessmentId)
+            ->where('institute', $student->institute)
+            ->where('status', 1)
+            ->where('question_paper_status', 'Approved')
+            ->whereNotNull('file_path')
+            ->first();
+
+        if (
+            !$assessment ||
+            (
+                $assessment->assessment_date &&
+                $assessment->assessment_date > today()->toDateString()
+            )
+        ) {
+            return false;
+        }
+
+        return $this->studentClassName($student) ==
+            preg_replace('/\s+/', ' ', trim((string) $assessment->assigned_class));
     }
 
     public function assessmentMonitoring()
@@ -1502,8 +1884,18 @@ class PageController extends Controller
 
     public function startClassSession($timetableId)
     {
+        $teacher = User::findOrFail(session('user_id'));
+
         $timetable = ClassTimetable::with(['schoolClass', 'content'])
             ->findOrFail($timetableId);
+
+        if (
+            !$timetable->schoolClass ||
+            $timetable->schoolClass->class_teacher != $teacher->name ||
+            $timetable->schoolClass->institute != $teacher->institute
+        ) {
+            abort(403, 'This class session is assigned to another STEM Engineer.');
+        }
 
         $existingSession = ClassContentSession::where('timetable_id', $timetable->id)
             ->where('stem_engineer_id', session('user_id'))
@@ -1535,7 +1927,20 @@ class PageController extends Controller
 
     public function teacherSessionContent($contentId)
     {
+        $teacher = User::findOrFail(session('user_id'));
+
         $content = Content::findOrFail($contentId);
+
+        $hasAssignedSession = ClassTimetable::where('content_id', $content->id)
+            ->whereHas('schoolClass', function ($query) use ($teacher) {
+                $query->where('institute', $teacher->institute)
+                    ->where('class_teacher', $teacher->name);
+            })
+            ->exists();
+
+        if (!$hasAssignedSession) {
+            abort(403, 'This content session is assigned to another STEM Engineer.');
+        }
 
         return view('teacher.session-content-viewer', compact('content'));
     }
@@ -1543,8 +1948,18 @@ class PageController extends Controller
 
     public function endClassSession($sessionId)
     {
-        $session = ClassContentSession::findOrFail($sessionId);
+        $teacher = User::findOrFail(session('user_id'));
 
+        $session = ClassContentSession::with('schoolClass')->findOrFail($sessionId);
+
+        if (
+            $session->stem_engineer_id != $teacher->id ||
+            !$session->schoolClass ||
+            $session->schoolClass->class_teacher != $teacher->name ||
+            $session->schoolClass->institute != $teacher->institute
+        ) {
+            abort(403, 'This class session is assigned to another STEM Engineer.');
+        }
 
         if ($session->status == 'Completed') {
 
@@ -1644,12 +2059,14 @@ class PageController extends Controller
         $student = Student::findOrFail(session('student_id'));
 
         $certificate = Certificate::where('student_id', $student->id)
+            ->where('status', 'Issued')
             ->latest()
             ->firstOrFail();
 
-        $pdf = Pdf::loadView('student.student-certificate-pdf',
-        compact('student', 'certificate'))
-            ->setPaper('a4', 'landscape');
+        $pdf = Pdf::loadView('student.student-certificate-pdf', [
+            'certificate' => $certificate,
+            'student' => $student,
+        ])->setPaper('a4', 'landscape');
 
         return $pdf->stream('certificate-' . $certificate->certificate_code . '.pdf');
     }

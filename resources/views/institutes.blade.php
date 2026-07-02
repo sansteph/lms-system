@@ -31,7 +31,7 @@
                 <div class="col-md-3"><div class="dashboard-card"><h6>Total Institutes</h6><h2>{{ $institutes->count() }}</h2></div></div>
                 <div class="col-md-3"><div class="dashboard-card"><h6>Active Institutes</h6><h2>{{ $institutes->where('status', 1)->count() }}</h2></div></div>
                 <div class="col-md-3"><div class="dashboard-card"><h6>Total Branches</h6><h2>{{ $institutes->count() }}</h2></div></div>
-                <div class="col-md-3"><div class="dashboard-card"><h6>Total Students</h6><h2>250</h2></div></div>
+                <div class="col-md-3"><div class="dashboard-card"><h6>Total Students</h6><h2>{{ $studentCount }}</h2></div></div>
             </div>
 
             <div class="card shadow border-0">

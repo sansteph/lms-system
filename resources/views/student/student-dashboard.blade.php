@@ -67,7 +67,8 @@
                                     <tr>
                                         <th>Sl. No</th>
                                         <th>Assessment</th>
-                                        <th>Subject</th>
+                                        <th>Category</th>
+                                        <th>Date</th>
                                         <th>Duration</th>
                                         <th>Status</th>
                                         <th width="160">Action</th>
@@ -79,20 +80,19 @@
                                         <tr>
                                             <td>{{ $index + 1 }}</td>
                                             <td>{{ $assessment->assessment_title }}</td>
-                                            <td>{{ $assessment->assessment_type ?? 'General' }}</td>
+                                            <td>{{ $assessment->assessment_category ?? 'Monthly' }}</td>
+                                            <td>{{ $assessment->assessment_date ? \Carbon\Carbon::parse($assessment->assessment_date)->format('d M Y') : 'Not Set' }}</td>
                                             <td>{{ $assessment->duration }} mins</td>
                                             <td>
                                                 <span class="badge bg-warning text-dark">Pending</span>
                                             </td>
                                             <td>
-                                                <a href="{{ route('student.assessment') }}" class="btn btn-sm btn-primary">
-                                                    Start
-                                                </a>
+                                                <button class="btn btn-sm btn-secondary" disabled>Scheduled</button>
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="text-center text-muted">
+                                            <td colspan="7" class="text-center text-muted">
                                                 No upcoming assessments found.
                                             </td>
                                         </tr>
