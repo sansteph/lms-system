@@ -21,9 +21,6 @@
                     </p>
                 </div>
 
-                <a href="{{ route('student.achievements.create') }}" class="btn btn-primary">
-                    <i class="fa fa-plus me-2"></i> Upload Achievement
-                </a>
             </div>
 
             @if(session('success'))
