@@ -493,20 +493,20 @@ body {
         <table class="footer-table">
             <tr>
                 <td class="signature">
-                    <div class="signature-placeholder">Director Signature</div>
+                    <img src="{{ public_path('images/signature.png') }}" alt="Signature" class="signature-placeholder">
                     <div class="signature-line"></div>
-                    <div class="sign-name">Director</div>
-                    <div class="sign-role">TinkEdge</div>
+                    <div class="sign-name"><h2>Director</h2></div>
+                    <div class="sign-role"><h3>TinkEdge</h3></div>
                 </td>
 
                 <td class="seal-wrap">
-                    <div class="stamp-placeholder">Stamp</div>
+                    <img src="{{ public_path('images/seal.png') }}" alt="Seal" class="stamp-placeholder">
                 </td>
 
                 <td class="issue">
-                    <strong>Date of Issue</strong><br>
-                    {{ $issueDate }}<br>
-                    Certificate ID: {{ $certificateCode }}
+                    <strong><h2>Date of Issue</h2></strong><br>
+                    <h3>{{ $issueDate }}</h3><br>
+                    <h4>Certificate ID: {{ $certificateCode }}</h4>
                 </td>
             </tr>
         </table>
