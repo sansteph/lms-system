@@ -559,6 +559,94 @@ class PageController extends Controller
         ));
     }
 
+    public function exportTeacherReports()
+    {
+        $teacher = User::findOrFail(session('user_id'));
+        $assignedClassNames = $this->teacherAssignedClassNames($teacher);
+        $studentIds = $this->teacherAssignedStudentIds($teacher);
+
+        $studentCount = $studentIds->count();
+
+        $classCount = SchoolClass::where('institute', $teacher->institute)
+            ->where('class_teacher', $teacher->name)
+            ->count();
+
+        $contentCount = Content::where('institute', $teacher->institute)
+            ->whereHas('course', function ($query) use ($assignedClassNames) {
+                $query->whereIn('assigned_class', $assignedClassNames);
+            })
+            ->count();
+
+        $assessmentCount = Assessment::where('institute', $teacher->institute)
+            ->where('teacher_id', $teacher->id)
+            ->count();
+
+        $monthlyAssessmentCount = Assessment::where('institute', $teacher->institute)
+            ->where('teacher_id', $teacher->id)
+            ->where('assessment_category', 'Monthly')
+            ->count();
+
+        $annualAssessmentCount = Assessment::where('institute', $teacher->institute)
+            ->where('teacher_id', $teacher->id)
+            ->where('assessment_category', 'Annual')
+            ->count();
+
+        $completedResults = AssessmentResult::whereIn('student_id', $studentIds)
+            ->whereHas('assessment', function ($query) use ($teacher) {
+                $query->where('teacher_id', $teacher->id);
+            })
+            ->where('status', 'Completed')
+            ->count();
+
+        $pendingReviewCount = AssessmentResult::whereIn('student_id', $studentIds)
+            ->whereHas('assessment', function ($query) use ($teacher) {
+                $query->where('teacher_id', $teacher->id);
+            })
+            ->where('status', 'Pending Review')
+            ->count();
+
+        $averageScore = AssessmentResult::whereIn('student_id', $studentIds)
+            ->whereHas('assessment', function ($query) use ($teacher) {
+                $query->where('teacher_id', $teacher->id);
+            })
+            ->where('status', 'Completed')
+            ->avg('percentage') ?? 0;
+
+        $certificateCount = Certificate::whereIn('student_id', $studentIds)
+            ->count();
+
+        $filename = 'stem_engineer_report_' . now()->format('Ymd_His') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $rows = [
+            ['Report Area', 'Metric', 'Current Value', 'Status'],
+            ['Students', 'Students in Assigned Classes', $studentCount, 'Live'],
+            ['Classes', 'Assigned Classes', $classCount, 'Live'],
+            ['Content', 'Assigned Content', $contentCount, 'Live'],
+            ['Assessments', 'Your Assessments', $assessmentCount . ' total | ' . $monthlyAssessmentCount . ' monthly | ' . $annualAssessmentCount . ' annual', 'Live'],
+            ['Assessment Results', 'Completed Results', $completedResults, 'Completed'],
+            ['Manual Reviews', 'Pending Written Answers', $pendingReviewCount, 'Pending'],
+            ['Performance', 'Average Assessment Score', number_format($averageScore, 2) . '%', 'Calculated'],
+            ['Certificates', 'Total Certificates Issued', $certificateCount, 'Live'],
+        ];
+
+        $callback = function () use ($rows) {
+            $file = fopen('php://output', 'w');
+
+            foreach ($rows as $row) {
+                fputcsv($file, $row);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
     public function teacherResults(Request $request)
     {
         $search = $request->search;
@@ -2063,7 +2151,7 @@ class PageController extends Controller
             ->latest()
             ->firstOrFail();
 
-        $pdf = Pdf::loadView('student.student-certificate-pdf', [
+        $pdf = Pdf::loadView('student.student-certificate', [
             'certificate' => $certificate,
             'student' => $student,
         ])->setPaper('a4', 'landscape');

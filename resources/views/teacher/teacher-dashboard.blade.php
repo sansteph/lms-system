@@ -19,10 +19,6 @@
                     </p>                
                 </div>
 
-                <button class="btn btn-primary btn-sm">
-                    View Schedule
-                </button>
-
             </div>
 
             <div class="row g-4 mb-4">

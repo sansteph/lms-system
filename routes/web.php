@@ -178,6 +178,7 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::get('/teacher/content', [PageController::class, 'teacherContent'])->name('teacher.content');
 
     Route::get('/teacher/reports', [PageController::class, 'teacherReports'])->name('teacher.reports');
+    Route::get('/teacher/reports/export', [PageController::class, 'exportTeacherReports'])->name('teacher.reports.export');
 
     Route::get('/teacher/certificates', [PageController::class, 'teacherCertificates'])->name('teacher.certificates');
 

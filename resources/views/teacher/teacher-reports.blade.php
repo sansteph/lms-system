@@ -17,9 +17,10 @@
                     </p>
                 </div>
 
-                <button class="btn report-btn btn-sm">
+                <a href="{{ route('teacher.reports.export') }}"
+                   class="btn report-btn btn-sm">
                     Export Report
-                </button>
+                </a>
             </div>
 
             <div class="row g-4 mb-4">

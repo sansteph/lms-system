@@ -425,7 +425,7 @@
                                     <td>
                                         <form method="POST"
                                             action="{{ route('teacher.results.disqualify', $result->id) }}"
-                                            onsubmit="return confirm('Disqualify {{ $result->student->name ?? 'Student' }} from {{ $result->assessment->assessment_title ?? 'Assessment' }}? This will remove history, badges, and certificate eligibility.')">
+                                            onsubmit="return confirm('Disqualify this result? This will remove history, badges, and certificate eligibility.')">
 
                                             @csrf
                                             @method('DELETE')
