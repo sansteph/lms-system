@@ -224,17 +224,36 @@
 
                                     <div class="mb-4">
 
-                                        <small class="text-muted d-block mb-2">
-                                            Student Document
-                                        </small>
+                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                            <div>
+                                                <small class="text-muted d-block">
+                                                    Student Document
+                                                </small>
+                                                <strong class="small">
+                                                    Secure view-only material
+                                                </strong>
+                                            </div>
+
+                                            @if($extension == 'pdf' || $streamVariant == 'preview')
+                                                <a href="{{ $previewUrl }}"
+                                                   target="_blank"
+                                                   rel="noopener"
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="fa fa-expand me-1"></i>
+                                                    Open full screen
+                                                </a>
+                                            @endif
+                                        </div>
 
                                         @if($extension == 'pdf' || $streamVariant == 'preview')
 
-                                            <iframe src="{{ $previewUrl }}"
-                                                    width="100%"
-                                                    height="320"
-                                                    style="border: 0; border-radius: 8px; background: #f8f9fa;">
-                                            </iframe>
+                                            <div class="border rounded overflow-hidden bg-dark shadow-sm">
+                                                <iframe src="{{ $previewUrl }}"
+                                                        width="100%"
+                                                        height="360"
+                                                        style="border: 0; background: #111827;">
+                                                </iframe>
+                                            </div>
 
                                         @elseif(in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
 

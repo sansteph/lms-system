@@ -12,6 +12,14 @@
 
                 <div class="card-body p-5">
 
+                    <div class="mb-4">
+                        <a href="{{ url()->previous() != url()->current() ? url()->previous() : route('home') }}"
+                           class="btn btn-outline-secondary">
+                            <i class="fa fa-arrow-left me-2"></i>
+                            Back
+                        </a>
+                    </div>
+
                     <div class="text-center mb-4">
 
                         <i class="fa fa-certificate text-primary"
