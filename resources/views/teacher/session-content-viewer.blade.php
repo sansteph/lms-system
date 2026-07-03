@@ -35,27 +35,43 @@
                 <div class="card-body">
 
                     @if($extension == 'pdf' || $streamVariant == 'preview')
-                        <iframe src="{{ $previewUrl }}"
-                                width="100%"
-                                height="750"
-                                style="border: none;">
-                        </iframe>
+                        <div class="protected-preview-surface"
+                             data-watermark="TinkEdge LMS&#10;View Only"
+                             data-preview-scope="content-{{ $content->id }}-teacher">
+                            <div class="protected-preview-content">
+                                <iframe src="{{ $previewUrl }}"
+                                        width="100%"
+                                        height="750"
+                                        style="border: none;">
+                                </iframe>
+                            </div>
+                        </div>
 
                     @elseif(in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
-                        <div class="text-center">
-                            <img src="{{ $fileUrl }}"
-                                 class="img-fluid rounded"
-                                 alt="Content Preview">
+                        <div class="text-center protected-preview-surface"
+                             data-watermark="TinkEdge LMS&#10;View Only"
+                             data-preview-scope="content-{{ $content->id }}-teacher">
+                            <div class="protected-preview-content">
+                                <img src="{{ $fileUrl }}"
+                                     class="img-fluid rounded"
+                                     alt="Content Preview">
+                            </div>
                         </div>
 
                     @elseif(in_array($extension, ['mp4', 'webm', 'ogg', 'mov']))
-                        <video width="100%"
-                               height="650"
-                               controls
-                               controlsList="nodownload">
-                            <source src="{{ $fileUrl }}">
-                            Your browser does not support video preview.
-                        </video>
+                        <div class="protected-preview-surface"
+                             data-watermark="TinkEdge LMS&#10;View Only"
+                             data-preview-scope="content-{{ $content->id }}-teacher">
+                            <div class="protected-preview-content">
+                                <video width="100%"
+                                       height="650"
+                                       controls
+                                       controlsList="nodownload">
+                                    <source src="{{ $fileUrl }}">
+                                    Your browser does not support video preview.
+                                </video>
+                            </div>
+                        </div>
 
                     @elseif(in_array($extension, ['mp3', 'wav']))
                         <audio controls controlsList="nodownload" class="w-100">
@@ -77,5 +93,6 @@
     </div>
 </div>
 
-@endsection
+@include('content.preview-protection')
 
+@endsection

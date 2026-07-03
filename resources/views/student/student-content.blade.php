@@ -243,28 +243,44 @@
 
                                         @if($extension == 'pdf' || $streamVariant == 'preview')
 
-                                            <div class="border rounded overflow-hidden bg-dark shadow-sm">
-                                                <iframe src="{{ $previewUrl }}"
-                                                        width="100%"
-                                                        height="360"
-                                                        style="border: 0; background: #111827;">
-                                                </iframe>
+                                            <div class="border rounded overflow-hidden bg-dark shadow-sm protected-preview-surface"
+                                                 data-watermark="TinkEdge LMS&#10;View Only"
+                                                 data-preview-scope="content-{{ $content->id }}-student">
+                                                <div class="protected-preview-content">
+                                                    <iframe src="{{ $previewUrl }}"
+                                                            width="100%"
+                                                            height="360"
+                                                            style="border: 0; background: #111827;">
+                                                    </iframe>
+                                                </div>
                                             </div>
 
                                         @elseif(in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
 
-                                            <img src="{{ $fileUrl }}"
-                                                 class="img-fluid rounded border"
-                                                 alt="Content Preview">
+                                            <div class="protected-preview-surface"
+                                                 data-watermark="TinkEdge LMS&#10;View Only"
+                                                 data-preview-scope="content-{{ $content->id }}-student">
+                                                <div class="protected-preview-content">
+                                                    <img src="{{ $fileUrl }}"
+                                                         class="img-fluid rounded border"
+                                                         alt="Content Preview">
+                                                </div>
+                                            </div>
 
                                         @elseif(in_array($extension, ['mp4', 'webm', 'ogg', 'mov']))
 
-                                            <video width="100%"
-                                                   height="260"
-                                                   controls
-                                                   controlsList="nodownload">
-                                                <source src="{{ $fileUrl }}">
-                                            </video>
+                                            <div class="protected-preview-surface"
+                                                 data-watermark="TinkEdge LMS&#10;View Only"
+                                                 data-preview-scope="content-{{ $content->id }}-student">
+                                                <div class="protected-preview-content">
+                                                    <video width="100%"
+                                                           height="260"
+                                                           controls
+                                                           controlsList="nodownload">
+                                                        <source src="{{ $fileUrl }}">
+                                                    </video>
+                                                </div>
+                                            </div>
 
                                         @else
 
@@ -385,5 +401,6 @@
 
 </div>
 
-@endsection
+@include('content.preview-protection')
 
+@endsection

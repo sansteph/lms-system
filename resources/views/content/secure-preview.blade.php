@@ -85,6 +85,12 @@
             font-weight: 700;
         }
 
+        .preview-warning {
+            color: #b91c1c;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
 
         .preview-frame-wrap {
             flex: 1;
@@ -191,18 +197,21 @@
             <div class="preview-heading">
                 <div class="preview-title-wrap">
                     <div class="preview-title">{{ $content->content_title }}</div>
-                    <div class="preview-subtitle">Secure student preview</div>
+                    <div class="preview-subtitle">Secure Preview</div>
                 </div>
             </div>
 
             <div class="preview-actions">
+                <span class="preview-warning">Screenshots and recording are not allowed</span>
                 <span class="preview-pill">View only</span>
             </div>
         </div>
 
         <div class="preview-frame-wrap">
-            <div class="preview-stage">
-                <div class="preview-frame-holder">
+            <div class="preview-stage protected-preview-surface"
+                 data-watermark="TinkEdge LMS&#10;View Only"
+                 data-preview-scope="content-{{ $content->id }}-{{ $audience }}">
+                <div class="preview-frame-holder protected-preview-content">
                     <iframe class="preview-frame"
                             src="{{ $sourceUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
                             allow="fullscreen"
@@ -212,8 +221,7 @@
             </div>
         </div>
     </div>
+
+    @include('content.preview-protection')
 </body>
 </html>
-
-
-
