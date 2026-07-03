@@ -90,11 +90,11 @@
                                         <form method="POST"
                                               action="{{ route('admin.independent.learners.toggle-status', $learner->id) }}">
                                             @csrf
-                                            <a href="{{ route('admin.independent.learners.show', $learner->id) }}"class="btn btn-sm btn-primary mb-2">
+                                            <a href="{{ route('admin.independent.learners.show', $learner->id) }}" class="btn btn-sm btn-outline-primary mb-2">
                                                 View
                                             </a>
                                             <button type="submit"
-                                                    class="btn btn-sm {{ $learner->status ? 'btn-danger' : 'btn-success' }}">
+                                                    class="btn btn-sm {{ $learner->status ? 'btn-outline-danger' : 'btn-success' }}">
                                                 {{ $learner->status ? 'Deactivate' : 'Activate' }}
                                             </button>
                                         </form>

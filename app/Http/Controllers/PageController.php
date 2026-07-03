@@ -1591,7 +1591,7 @@ class PageController extends Controller
 
             foreach ($results as $result) {
                 fputcsv($file, [
-                    $result->student->student_name ?? 'Student Deleted',
+                    $result->student->name ?? 'Student Deleted',
                     $result->student->student_id ?? 'N/A',
                     $result->assessment->assessment_title ?? 'Assessment Deleted',
                     $result->assessment->assessment_category ?? 'N/A',

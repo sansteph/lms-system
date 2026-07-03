@@ -130,7 +130,7 @@
                     </p>
 
                     <a href="{{ route('independent.certificates') }}"
-                    class="btn btn-warning text-white">
+                    class="btn btn-success">
 
                         View Certificates
 

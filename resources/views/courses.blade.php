@@ -171,14 +171,14 @@
                                         <td>
                                             <div class="d-flex flex-column gap-2">
 
-                                                <button class="btn btn-sm btn-warning"
+                                                <button class="btn btn-sm btn-outline-primary"
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#editCourseModal{{ $course->id }}">
                                                     Edit
                                                 </button>
 
                                                 <a href="{{ route('courses.delete', $course->id) }}"
-                                                   class="btn btn-sm btn-danger"
+                                                   class="btn btn-sm btn-outline-danger"
                                                    onclick="return confirm('Delete this course?')">
                                                     Delete
                                                 </a>
@@ -348,13 +348,13 @@
 
                 <div class="modal-footer">
                     <button type="button"
-                            class="btn btn-light"
+                            class="btn btn-outline-secondary"
                             data-bs-dismiss="modal">
                         Cancel
                     </button>
 
                     <button type="submit"
-                            class="btn btn-success">
+                        class="btn btn-primary">
                         Update Course
                     </button>
                 </div>

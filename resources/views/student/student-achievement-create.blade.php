@@ -208,7 +208,7 @@
                         <div class="d-flex justify-content-end gap-3 mt-4">
 
                             <a href="{{ route('student.achievements.create') }}"
-                               class="btn btn-light border">
+                               class="btn btn-outline-secondary">
 
                                 Cancel
 

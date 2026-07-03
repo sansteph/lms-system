@@ -147,7 +147,7 @@
                                             @csrf
 
                                             <button type="submit"
-                                                    class="btn btn-sm btn-danger">
+                                                    class="btn btn-sm btn-outline-danger">
 
                                                 End Session
 
@@ -169,7 +169,7 @@
                                             @csrf
 
                                             <button type="submit"
-                                                    class="btn btn-sm btn-primary">
+                                                    class="btn btn-sm btn-success">
 
                                                 Mark Topic Complete
 
@@ -189,7 +189,7 @@
                                             action="{{ route('teacher.class-session.start', $schedule->id) }}">
                                             @csrf
 
-                                            <button type="submit" class="btn btn-sm btn-success">
+                                            <button type="submit" class="btn btn-sm btn-primary">
                                                 Start Session
                                             </button>
                                         </form>
@@ -289,3 +289,4 @@
 </div>
 
 @endsection
+

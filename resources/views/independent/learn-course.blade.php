@@ -55,11 +55,16 @@
 
                     </div>
 
-                    <div class="progress" style="height: 12px;">
-                        <div class="progress-bar"
-                            style="width: {{ $progressPercentage }}%;">
-                        </div>
-                    </div>
+                    @php
+                        $progressWidth = max(0, min(100, (float) $progressPercentage));
+                    @endphp
+
+                    <progress class="w-100"
+                              value="{{ $progressWidth }}"
+                              max="100"
+                              aria-label="Course progress"
+                              style="height: 12px;">
+                    </progress>
 
                     <p class="text-muted mt-2 mb-0">
                             {{ $completedLessons }} of {{ $totalLessons }} lessons completed.
@@ -220,3 +225,4 @@
 </div>
 
 @endsection
+

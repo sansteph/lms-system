@@ -141,7 +141,7 @@
 
                                                     @csrf
 
-                                                    <button class="btn btn-danger btn-sm">
+                                                    <button class="btn btn-sm btn-outline-danger">
 
                                                         Reject
 

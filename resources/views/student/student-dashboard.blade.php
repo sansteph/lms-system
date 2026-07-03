@@ -84,7 +84,7 @@
                                                 <span class="badge bg-warning text-dark">Pending</span>
                                             </td>
                                             <td>
-                                                <button class="btn btn-sm btn-secondary" disabled>Scheduled</button>
+                                                <button class="btn btn-sm btn-outline-secondary" disabled>Scheduled</button>
                                             </td>
                                         </tr>
                                     @empty
@@ -110,10 +110,10 @@
                                 <a href="{{ route('student.assessment') }}" class="btn btn-primary">
                                     Take Assessment
                                 </a>
-                                <a href="{{ route('student.history') }}" class="btn btn-success">
+                                    <a href="{{ route('student.history') }}" class="btn btn-outline-primary">
                                     View Results
                                 </a>
-                                <a href="{{ route('student.badges') }}" class="btn btn-warning">
+                                    <a href="{{ route('student.badges') }}" class="btn btn-outline-primary">
                                     View Achievements
                                 </a>
                             </div>
@@ -155,3 +155,4 @@
 </div>
 
 @endsection
+

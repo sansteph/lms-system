@@ -280,7 +280,7 @@
                             <div class="col-md-1">
 
                                 <a href="{{ route('teacher.results') }}"
-                                   class="btn btn-light w-100">
+                                   class="btn btn-outline-secondary w-100">
 
                                     Clear
 
@@ -467,3 +467,4 @@
 </div>
 
 @endsection
+

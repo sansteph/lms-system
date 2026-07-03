@@ -294,7 +294,7 @@
                                         <div class="d-flex gap-2 mt-3">
 
                                             @if($achievement->verification_status != 'Approved')
-                                                <button class="btn btn-warning btn-sm flex-fill"
+                                                <button class="btn btn-sm btn-outline-primary flex-fill"
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#editAchievement{{ $achievement->id }}">
                                                     Edit
@@ -307,7 +307,7 @@
                                                   onsubmit="return confirm('Delete this achievement?')">
                                                 @csrf
 
-                                                <button type="submit" class="btn btn-danger btn-sm w-100">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger w-100">
                                                     Delete
                                                 </button>
                                             </form>
@@ -404,12 +404,12 @@
 
                                                 <div class="modal-footer">
                                                     <button type="button"
-                                                            class="btn btn-light"
+                                                            class="btn btn-outline-secondary"
                                                             data-bs-dismiss="modal">
                                                         Cancel
                                                     </button>
 
-                                                    <button type="submit" class="btn btn-success">
+                                                        <button type="submit" class="btn btn-primary">
                                                         Update Achievement
                                                     </button>
                                                 </div>
@@ -449,3 +449,4 @@
 </div>
 
 @endsection
+

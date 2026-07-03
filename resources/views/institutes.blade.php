@@ -84,7 +84,7 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-warning"
+                                        <button class="btn btn-sm btn-outline-primary"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#editInstituteModal{{ $institute->id }}">
                                             Edit
@@ -168,8 +168,8 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success">Save Institute</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Institute</button>
                 </div>
 
             </form>
@@ -236,8 +236,8 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success">Update Institute</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Institute</button>
                 </div>
 
             </form>
@@ -248,3 +248,4 @@
 @endforeach
 
 @endsection
+

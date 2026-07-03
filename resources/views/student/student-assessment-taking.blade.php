@@ -153,7 +153,7 @@
                                 Copy/paste, tab switching, refresh, right-click, and selection shortcuts are restricted during the assessment.
                             </div>
 
-                            <button type="submit" class="btn btn-success btn-lg w-100">
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
                                 Submit Assessment
                             </button>
                         </div>
@@ -267,3 +267,4 @@
 </script>
 
 @endsection
+

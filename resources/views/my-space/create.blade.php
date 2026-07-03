@@ -108,12 +108,12 @@
 
                         @if(session('user_role') == 'Teacher')
                             <a href="{{ route('teacher.my-space') }}"
-                               class="btn btn-secondary">
+                               class="btn btn-outline-secondary">
                                 Cancel
                             </a>
                         @else
                             <a href="{{ route('student.my-space') }}"
-                               class="btn btn-secondary">
+                               class="btn btn-outline-secondary">
                                 Cancel
                             </a>
                         @endif

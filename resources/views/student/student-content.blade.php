@@ -84,16 +84,12 @@
 
                     </div>
 
-                    <div class="progress"
-                         style="height: 14px; border-radius: 10px;">
-
-                        <div class="progress-bar"
-                             role="progressbar"
-                             style="width: {{ $progressPercentage }}%">
-
-                        </div>
-
-                    </div>
+                    <progress class="w-100"
+                              value="{{ $progressPercentage }}"
+                              max="100"
+                              aria-label="Lesson progress"
+                              style="height: 14px;">
+                    </progress>
 
                 </div>
 
@@ -298,7 +294,7 @@
 
                                     @if($isLocked)
 
-                                        <button class="btn btn-secondary w-100"
+                                        <button class="btn btn-outline-secondary w-100"
                                                 disabled>
 
                                             <i class="fa fa-lock me-2"></i>
@@ -326,7 +322,7 @@
                                             @csrf
 
                                             <button type="submit"
-                                                    class="btn btn-primary w-100">
+                                                    class="btn btn-success w-100">
 
                                                 <i class="fa fa-check me-2"></i>
 
@@ -390,3 +386,4 @@
 </div>
 
 @endsection
+

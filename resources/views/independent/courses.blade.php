@@ -32,7 +32,7 @@
                         </h5>
 
                         <a href="{{ route('independent.courses.show', $course->id) }}"
-                           class="btn btn-primary mt-3">
+                           class="btn btn-outline-primary mt-3">
                             View Course
                         </a>
 

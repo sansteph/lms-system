@@ -82,7 +82,7 @@
                                                 <form method="POST" action="{{ route('admin.certificates.revoke', $certificate->id) }}">
                                                     @csrf
                                                     <button type="submit"
-                                                            class="btn btn-sm btn-danger"
+                                                            class="btn btn-sm btn-outline-danger"
                                                             onclick="return confirm('Revoke this certificate?')">
                                                         Revoke
                                                     </button>
@@ -117,3 +117,4 @@
 </div>
 
 @endsection
+

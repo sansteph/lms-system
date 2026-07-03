@@ -290,11 +290,34 @@
     </div>
 </div>
 
+@php
+    $analyticsChartData = [
+        'badges' => [(int) $goldCount, (int) $silverCount, (int) $bronzeCount],
+        'participation' => [(int) $attemptedCount, (int) $notAttemptedCount],
+        'performance' => [(int) $passedCount, (int) $failedCount],
+        'assessmentLabels' => $assessmentAverages
+            ->map(fn ($item) => $item->assessment->assessment_title ?? 'Deleted')
+            ->values(),
+        'assessmentScores' => $assessmentAverages
+            ->map(fn ($item) => round((float) $item->average_percentage, 1))
+            ->values(),
+    ];
+@endphp
+
+<div id="analyticsChartData"
+     data-chart-data="{{ e(json_encode($analyticsChartData)) }}">
+</div>
+
 <script>
+
+    const analyticsChartDataElement = document.getElementById('analyticsChartData');
+    const analyticsChartData = JSON.parse(analyticsChartDataElement.dataset.chartData || '{}');
 
     const badgeChart = document.getElementById('badgeChart');
 
-    new Chart(badgeChart, {
+    if (badgeChart) {
+
+        new Chart(badgeChart, {
 
         type: 'bar',
 
@@ -306,11 +329,7 @@
 
                 label: 'Badge Distribution',
 
-                data: [
-                    {{ $goldCount }},
-                    {{ $silverCount }},
-                    {{ $bronzeCount }}
-                ],
+                data: analyticsChartData.badges || [],
 
                 backgroundColor: [
                     '#facc15',
@@ -350,11 +369,15 @@
 
         }
 
-    });
+        });
+
+    }
 
     const participationChart = document.getElementById('participationChart');
 
-    new Chart(participationChart, {
+    if (participationChart) {
+
+        new Chart(participationChart, {
 
         type: 'doughnut',
 
@@ -364,10 +387,7 @@
 
             datasets: [{
 
-                data: [
-                    {{ $attemptedCount }},
-                    {{ $notAttemptedCount }}
-                ],
+                data: analyticsChartData.participation || [],
 
                 backgroundColor: [
                     '#2563eb',
@@ -387,11 +407,15 @@
 
         }
 
-    });
+        });
+
+    }
 
     const performanceChart = document.getElementById('performanceChart');
 
-    new Chart(performanceChart, {
+    if (performanceChart) {
+
+        new Chart(performanceChart, {
 
         type: 'pie',
 
@@ -401,10 +425,7 @@
 
             datasets: [{
 
-                data: [
-                    {{ $passedCount }},
-                    {{ $failedCount }}
-                ],
+                data: analyticsChartData.performance || [],
 
                 backgroundColor: [
                     '#22c55e',
@@ -421,40 +442,28 @@
             responsive: true
         }
 
-    });
+        });
+
+    }
 
     const assessmentAverageChart =
         document.getElementById('assessmentAverageChart');
 
-    new Chart(assessmentAverageChart, {
+    if (assessmentAverageChart) {
+
+        new Chart(assessmentAverageChart, {
 
         type: 'line',
 
         data: {
 
-            labels: [
-
-                @foreach($assessmentAverages as $item)
-
-                    "{{ $item->assessment->assessment_title ?? 'Deleted' }}",
-
-                @endforeach
-
-            ],
+            labels: analyticsChartData.assessmentLabels || [],
 
             datasets: [{
 
                 label: 'Average Score %',
 
-                data: [
-
-                    @foreach($assessmentAverages as $item)
-
-                        {{ number_format($item->average_percentage, 1) }},
-
-                    @endforeach
-
-                ],
+                data: analyticsChartData.assessmentScores || [],
 
                 borderColor: '#2563eb',
                 backgroundColor: 'rgba(37,99,235,0.1)',
@@ -480,7 +489,9 @@
 
         }
 
-    });
+        });
+
+    }
     
 </script>
 

@@ -6,7 +6,7 @@
         <input type="text" class="form-control mb-2" placeholder="Institute ID"> 
         <input type="text" class="form-control mb-2" placeholder="Student ID"> 
         <input type="text" class="form-control mb-3" placeholder="Assessment ID"> 
-        <button class="btn btn-success w-100">Start Assessment</button> 
+        <button class="btn btn-primary w-100">Start Assessment</button> 
     </div> 
 </div> 
 @endsection

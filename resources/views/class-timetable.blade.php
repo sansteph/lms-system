@@ -21,7 +21,7 @@
                 <div class="d-flex gap-2 flex-wrap">
 
                     <a href="{{ route('timetable.copy.week', ['week' => $weekOffset]) }}"
-                       class="btn btn-success">
+                    class="btn btn-primary">
                         Copy To Next Week
                     </a>
 
@@ -217,14 +217,14 @@
                                             <td>
                                                 <div class="d-flex flex-column gap-2">
 
-                                                    <button class="btn btn-sm btn-warning"
+                                                    <button class="btn btn-sm btn-outline-primary"
                                                             data-bs-toggle="modal"
                                                             data-bs-target="#editTimetableModal{{ $row->id }}">
                                                         Edit
                                                     </button>
 
                                                     <a href="{{ route('timetable.delete', $row->id) }}"
-                                                       class="btn btn-sm btn-danger"
+                                                       class="btn btn-sm btn-outline-danger"
                                                        onclick="return confirm('Delete timetable entry?')">
                                                         Delete
                                                     </a>
@@ -423,13 +423,13 @@
                 <div class="modal-footer">
 
                     <button type="button"
-                            class="btn btn-light"
+                            class="btn btn-outline-secondary"
                             data-bs-dismiss="modal">
                         Cancel
                     </button>
 
                     <button type="submit"
-                            class="btn btn-success">
+                    class="btn btn-primary">
                         Save
                     </button>
 
@@ -599,13 +599,13 @@
                     <div class="modal-footer">
 
                         <button type="button"
-                                class="btn btn-light"
+                                class="btn btn-outline-secondary"
                                 data-bs-dismiss="modal">
                             Cancel
                         </button>
 
                         <button type="submit"
-                                class="btn btn-success">
+                                class="btn btn-primary">
                             Update
                         </button>
 

@@ -283,7 +283,7 @@
 
                                     <td>
 
-                                        <button class="btn btn-sm btn-outline-warning"
+                                        <button class="btn btn-sm btn-outline-primary"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#editContentModal{{ $content->id }}">
 
@@ -531,7 +531,7 @@
                 <div class="modal-footer">
 
                     <button type="button"
-                            class="btn btn-light"
+                            class="btn btn-outline-secondary"
                             data-bs-dismiss="modal">
 
                         Cancel
@@ -539,7 +539,7 @@
                     </button>
 
                     <button type="submit"
-                            class="btn btn-success">
+                        class="btn btn-primary">
 
                         Upload Lesson
 
@@ -774,7 +774,7 @@
                 <div class="modal-footer">
 
                     <button type="button"
-                            class="btn btn-light"
+                            class="btn btn-outline-secondary"
                             data-bs-dismiss="modal">
 
                         Cancel
@@ -782,7 +782,7 @@
                     </button>
 
                     <button type="submit"
-                            class="btn btn-success">
+                        class="btn btn-primary">
 
                         Update Lesson
 
@@ -801,3 +801,4 @@
 @endforeach
 
 @endsection
+

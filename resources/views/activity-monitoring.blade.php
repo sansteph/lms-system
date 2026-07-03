@@ -714,13 +714,29 @@
 
 </div>
 
+@php
+    $sectionUsageLabels = $sectionDurations->pluck('section_name')->values();
+    $sectionUsageData = $sectionDurations
+        ->map(fn ($section) => round(($section->total_duration ?? 0) / 60, 2))
+        ->values();
+@endphp
+
+<div id="sectionUsageChartData"
+     data-labels="{{ e($sectionUsageLabels->toJson()) }}"
+     data-values="{{ e($sectionUsageData->toJson()) }}">
+</div>
+
 <script>
 
 document.addEventListener('DOMContentLoaded', function () {
 
     const sectionUsageChart = document.getElementById('sectionUsageChart');
+    const sectionUsageChartData = document.getElementById('sectionUsageChartData');
 
-    if (sectionUsageChart) {
+    if (sectionUsageChart && sectionUsageChartData) {
+
+        const labels = JSON.parse(sectionUsageChartData.dataset.labels || '[]');
+        const values = JSON.parse(sectionUsageChartData.dataset.values || '[]');
 
         new Chart(sectionUsageChart, {
 
@@ -728,23 +744,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
             data: {
 
-                labels: [
-                    @foreach($sectionDurations as $section)
-                        "{{ $section->section_name }}"
-                        @if(!$loop->last),@endif
-                    @endforeach
-                ],
+                labels: labels,
 
                 datasets: [{
 
                     label: 'Time Spent (Minutes)',
 
-                    data: [
-                        @foreach($sectionDurations as $section)
-                            {{ round(($section->total_duration ?? 0) / 60, 2) }}
-                            @if(!$loop->last),@endif
-                        @endforeach
-                    ]
+                    data: values
 
                 }]
 

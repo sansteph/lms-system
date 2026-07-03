@@ -79,7 +79,7 @@
 
                                                 <form method="POST" action="{{ route('admin.question-papers.reject', $assessment->id) }}">
                                                     @csrf
-                                                    <button type="submit" class="btn btn-sm btn-danger">Reject</button>
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
                                                 </form>
                                             </div>
                                         </td>
@@ -127,3 +127,4 @@
 @endforeach
 
 @endsection
+

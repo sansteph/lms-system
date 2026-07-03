@@ -152,7 +152,7 @@
 
                                     <td>
 
-                                       <button class="btn btn-sm btn-outline-warning"
+                                       <button class="btn btn-sm btn-outline-primary"
                                             data-bs-toggle="modal"
                                             data-bs-target="#editNotificationModal{{ $notification->id }}">
                                             Edit
@@ -315,7 +315,7 @@
                 <div class="modal-footer">
 
                     <button type="button"
-                            class="btn btn-light"
+                            class="btn btn-outline-secondary"
                             data-bs-dismiss="modal">
 
                         Cancel
@@ -323,7 +323,7 @@
                     </button>
 
                     <button type="submit"
-                            class="btn btn-success">
+                            class="btn btn-primary">
 
                         Send Notification
 
@@ -417,8 +417,8 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success">Update Notification</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Notification</button>
                 </div>
 
             </form>

@@ -117,7 +117,7 @@
                                                 @if(session('user_role') == 'Teacher')
 
                                                     <a href="{{ route('teacher.my-space.edit', $item->id) }}"
-                                                    class="btn btn-sm btn-warning">
+                                                    class="btn btn-sm btn-outline-primary">
                                                         Edit
                                                     </a>
 
@@ -126,7 +126,7 @@
                                                         @csrf
 
                                                         <button type="submit"
-                                                                class="btn btn-sm btn-danger"
+                                                                class="btn btn-sm btn-outline-danger"
                                                                 onclick="return confirm('Delete this submission?')">
                                                             Delete
                                                         </button>
@@ -135,7 +135,7 @@
                                                 @else
 
                                                     <a href="{{ route('student.my-space.edit', $item->id) }}"
-                                                    class="btn btn-sm btn-warning">
+                                                    class="btn btn-sm btn-outline-primary">
                                                         Edit
                                                     </a>
 
@@ -144,7 +144,7 @@
                                                         @csrf
 
                                                         <button type="submit"
-                                                                class="btn btn-sm btn-danger"
+                                                                class="btn btn-sm btn-outline-danger"
                                                                 onclick="return confirm('Delete this submission?')">
                                                             Delete
                                                         </button>

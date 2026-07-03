@@ -117,7 +117,7 @@
                                                       action="{{ route('admin.my-space.reject', $item->id) }}">
                                                     @csrf
                                                     <button type="submit"
-                                                            class="btn btn-sm btn-danger">
+                                                            class="btn btn-sm btn-outline-danger">
                                                         Reject
                                                     </button>
                                                 </form>
@@ -126,7 +126,7 @@
                                                       action="{{ route('admin.my-space.feature', $item->id) }}">
                                                     @csrf
                                                     <button type="submit"
-                                                            class="btn btn-sm btn-warning">
+                                                            class="btn btn-sm btn-outline-primary">
                                                         Feature
                                                     </button>
                                                 </form>

@@ -109,8 +109,6 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::post('/admin/certificates/revoke/{id}', [PageController::class, 'revokeCertificate'])->name('admin.certificates.revoke');
     Route::post('/admin/certificates/reissue/{id}', [PageController::class, 'reissueCertificate'])->name('admin.certificates.reissue');
 
-    Route::get('/results/export', [PageController::class, 'exportResults'])->name('results.export');
-
     Route::get('/admin/analytics', [PageController::class, 'adminAnalytics'])->name('admin.analytics');
 
     Route::get('/admin/achievements', [StudentAchievementController::class, 'adminIndex'])->name('admin.achievements');

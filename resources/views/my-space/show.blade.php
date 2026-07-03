@@ -99,7 +99,7 @@
 
                                     <a href="{{ asset('storage/'.$item->blueprint_pdf) }}"
                                        target="_blank"
-                                       class="btn btn-primary">
+                                       class="btn btn-outline-primary">
 
                                         View Blueprint PDF
 
@@ -109,7 +109,7 @@
 
                                     <a href="{{ $item->repository_link }}"
                                        target="_blank"
-                                       class="btn btn-success">
+                                       class="btn btn-outline-primary">
 
                                         Open Repository
 

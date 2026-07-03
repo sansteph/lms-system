@@ -142,17 +142,17 @@
                                 </a>
 
                                 <a href="{{ route('teacher.assessments') }}"
-                                class="btn btn-success">
+                                    class="btn btn-primary">
                                     Create Assessment
                                 </a>
 
                                 <a href="{{ route('assessment.review') }}"
-                                class="btn btn-warning">
+                                    class="btn btn-primary">
                                     Evaluate Assessments
                                 </a>
 
                                 <a href="{{ route('teacher.reports') }}"
-                                class="btn btn-secondary">
+                                class="btn btn-primary">
                                     View Reports
                                 </a>
 
@@ -171,3 +171,4 @@
 </div>
 
 @endsection
+

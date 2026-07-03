@@ -105,8 +105,8 @@
                                         </td>
                                         <td class="text-nowrap">
                                             <div class="d-flex flex-column gap-2">
-                                                <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editAssessmentModal{{ $assessment->id }}">Edit</button>
-                                                <a href="{{ route('teacher.assessments.delete', $assessment->id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this assessment?')">Delete</a>
+                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editAssessmentModal{{ $assessment->id }}">Edit</button>
+                                                <a href="{{ route('teacher.assessments.delete', $assessment->id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this assessment?')">Delete</a>
                                             </div>
                                         </td>
                                     </tr>
@@ -143,7 +143,7 @@
                     <div class="col-md-6"><label class="form-label">Approved Question Paper</label><input type="file" name="file" class="form-control" required><small class="text-muted">Admin approval is required before students can access it.</small></div>
                     <div class="col-md-6"><label class="form-label">Status</label><select name="status" class="form-control" required><option value="1">Active after approval</option><option value="0">Inactive</option></select></div>
                 </div></div>
-                <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Send for Approval</button></div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Send for Approval</button></div>
             </form>
         </div>
     </div>
@@ -168,7 +168,7 @@
                     <div class="col-md-6"><label class="form-label">Replace Question Paper</label><input type="file" name="file" class="form-control"><small class="text-muted">Replacing the paper sends it back for approval.</small></div>
                     <div class="col-md-6"><label class="form-label">Status</label><select name="status" class="form-control" required><option value="1" {{ $assessment->status == 1 ? 'selected' : '' }}>Active after approval</option><option value="0" {{ $assessment->status == 0 ? 'selected' : '' }}>Inactive</option></select></div>
                 </div></div>
-                <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Update Assessment</button></div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Update Assessment</button></div>
             </form>
         </div>
     </div>
@@ -176,3 +176,4 @@
 @endforeach
 
 @endsection
+

@@ -255,7 +255,7 @@
                                                 </div>
 
                                                 <div class="col-12">
-                                                    <button type="submit" class="btn btn-success btn-lg w-100">
+                                                    <button type="submit" class="btn btn-primary btn-lg w-100">
                                                         Submit Evaluation
                                                     </button>
                                                 </div>
@@ -279,3 +279,4 @@
 </div>
 
 @endsection
+

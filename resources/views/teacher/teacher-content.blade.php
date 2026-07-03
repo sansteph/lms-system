@@ -96,13 +96,13 @@
                                             @endphp
 
                                             <button type="button"
-                                                    class="btn btn-sm btn-primary"
+                                                    class="btn btn-sm btn-outline-primary"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#contentPreviewModal{{ $content->id }}">
                                                 View
                                             </button>
                                         @else
-                                            <button class="btn btn-sm btn-secondary" disabled>
+                                            <button class="btn btn-sm btn-outline-secondary" disabled>
                                                 Locked
                                             </button>
                                         @endif
@@ -193,3 +193,4 @@
 @endforeach
 
 @endsection
+

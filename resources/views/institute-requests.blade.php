@@ -148,7 +148,7 @@
                                                     @csrf
 
                                                     <button type="submit"
-                                                            class="btn btn-danger btn-sm">
+                                                            class="btn btn-sm btn-outline-danger">
 
                                                         Reject
 
