@@ -58,7 +58,7 @@
                 <div class="mt-3 d-flex flex-wrap gap-2">
                     <a href="{{ route('students') }}" class="btn btn-primary">Add Student</a>
                     <a href="{{ route('users') }}" class="btn btn-primary">Add STEM Engineer</a>
-                    <a href="{{ route('content') }}" class="btn btn-primary">Upload Content</a>
+                    <a href="{{ route('courses') }}" class="btn btn-primary">Upload Content</a>
                 </div>
             </div>
         </main>

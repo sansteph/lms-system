@@ -11,7 +11,7 @@
             <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                 <div>
                     <h2 class="mb-1">Institute Management</h2>
-                    <p class="text-muted mb-0">Manage institutes, branches, contacts, and status.</p>
+                    <p class="text-muted mb-0">Manage institutes, branches, contacts, status, and direct admin credentials.</p>
                 </div>
 
                 <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addInstituteModal">
@@ -24,7 +24,7 @@
             @endif
 
             @if($errors->any())
-                <div class="alert alert-danger">Please fill all required fields correctly.</div>
+                <div class="alert alert-danger">{{ $errors->first() }}</div>
             @endif
 
             <div class="row g-4 mb-4">
@@ -162,6 +162,29 @@
                                 <option value="1">Active</option>
                                 <option value="0">Inactive</option>
                             </select>
+                        </div>
+
+                        <div class="col-12">
+                            <hr>
+                            <h6 class="mb-1">Institute Admin Login</h6>
+                            <p class="text-muted small mb-0">
+                                Set a password here to create the Institute Admin account directly.
+                            </p>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Admin Name</label>
+                            <input type="text" name="admin_name" class="form-control" placeholder="Defaults to contact person">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Admin Login Email</label>
+                            <input type="email" name="admin_email" class="form-control" placeholder="Required only if password is set">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Admin Password</label>
+                            <input type="password" name="admin_password" class="form-control" placeholder="Minimum 6 characters">
                         </div>
 
                     </div>

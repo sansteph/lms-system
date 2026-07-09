@@ -48,11 +48,6 @@
         Certificates
     </a>
 
-    <a href="{{ route('teacher.notifications') }}"
-    class="sidebar-link {{ request()->routeIs('teacher.notifications') ? 'active' : '' }}">
-        Notifications
-    </a>
-
     <a href="{{ route('teacher.my-space') }}"
     class="sidebar-link {{ request()->routeIs('teacher.my-space') ? 'active' : '' }}">
         My Space

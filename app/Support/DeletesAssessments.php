@@ -15,9 +15,6 @@ trait DeletesAssessments
 {
     protected function deleteAssessmentCompletely(Assessment $assessment): void
     {
-        $resultIds = AssessmentResult::where('assessment_id', $assessment->id)
-            ->pluck('id');
-
         $studentIds = AssessmentResult::where('assessment_id', $assessment->id)
             ->pluck('student_id')
             ->filter()
@@ -26,28 +23,59 @@ trait DeletesAssessments
 
         $this->deleteAssessmentLinkedCertificates($assessment, $studentIds);
 
-        $submissionFiles = AssessmentResult::where('assessment_id', $assessment->id)
-            ->whereNotNull('answer_file_path')
-            ->pluck('answer_file_path');
-
-        foreach ($submissionFiles as $submissionFile) {
-            $this->deleteStoredFile($submissionFile);
-        }
-
-        AssessmentAnswer::where('assessment_id', $assessment->id)
-            ->when($resultIds->isNotEmpty(), function ($query) use ($resultIds) {
-                $query->orWhereIn('assessment_result_id', $resultIds);
-            })
-            ->delete();
+        $this->deleteAssessmentResultsForAssessment($assessment);
 
         AssessmentSession::where('assessment_id', $assessment->id)->delete();
-        AssessmentResult::where('assessment_id', $assessment->id)->delete();
         AssessmentQuestion::where('assessment_id', $assessment->id)->delete();
 
         $this->deleteStoredFile($assessment->file_path);
         $this->deleteStoredFile($assessment->question_paper_preview_path);
 
         $assessment->delete();
+    }
+
+    protected function deleteAssessmentResultsForAssessment(Assessment $assessment): void
+    {
+        AssessmentResult::where('assessment_id', $assessment->id)
+            ->get()
+            ->each(function (AssessmentResult $result) {
+                $this->deleteAssessmentResultCompletely($result);
+            });
+
+        AssessmentAnswer::where('assessment_id', $assessment->id)->delete();
+    }
+
+    protected function deleteAssessmentResultsForStudent($studentId): void
+    {
+        AssessmentResult::where('student_id', $studentId)
+            ->get()
+            ->each(function (AssessmentResult $result) {
+                $this->deleteAssessmentResultCompletely($result);
+            });
+
+        AssessmentAnswer::where('student_id', $studentId)->delete();
+
+        AssessmentSession::where('user_type', 'Student')
+            ->where('user_id', $studentId)
+            ->delete();
+    }
+
+    protected function deleteAssessmentResultCompletely(AssessmentResult $result): void
+    {
+        $answerQuery = AssessmentAnswer::where('assessment_result_id', $result->id);
+
+        if ($result->assessment_id && $result->student_id) {
+            $answerQuery->orWhere(function ($query) use ($result) {
+                $query->where('assessment_id', $result->assessment_id)
+                    ->where('student_id', $result->student_id);
+            });
+        }
+
+        $answerQuery->delete();
+
+        $this->deleteStoredFile($result->answer_file_path);
+
+        $result->delete();
     }
 
     protected function deleteAssessmentLinkedCertificates(Assessment $assessment, $studentIds): void

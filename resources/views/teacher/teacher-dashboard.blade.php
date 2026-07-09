@@ -15,7 +15,7 @@
                     <h2 class="mb-1">STEM Engineer Dashboard</h2>
 
                     <p class="text-muted mb-0">
-                        Welcome back, {{ $teacherName }}! Manage your classes, content, and assessments.
+                        Welcome back, {{ $teacherName }}! Manage institute classes, approved content, and assessments.
                     </p>                
                 </div>
 
@@ -25,14 +25,14 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Assigned Classes</h6>
+                        <h6>Institute Classes</h6>
                         <h2>{{ $assignedClasses }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Assigned Students</h6>
+                        <h6>Institute Students</h6>
                         <h2>{{ $totalStudents }}</h2>
                     </div>
                 </div>
@@ -47,7 +47,7 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Assigned Content</h6>
+                        <h6>Approved Content</h6>
                         <h2>{{ $contentCount }}</h2>
                     </div>
                 </div>
@@ -61,7 +61,7 @@
                     <div class="card shadow border-0">
                         <div class="card-body">
 
-                            <h5 class="mb-3">My Classes</h5>
+                            <h5 class="mb-3">Institute Classes</h5>
 
                             <table class="table table-hover align-middle">
 
@@ -111,7 +111,7 @@
                                     <tr>
 
                                         <td colspan="4" class="text-center">
-                                            No classes assigned.
+                                            No institute classes found.
                                         </td>
 
                                     </tr>
@@ -171,4 +171,3 @@
 </div>
 
 @endsection
-

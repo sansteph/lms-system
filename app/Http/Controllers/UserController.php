@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Models\InstituteRegistrationRequest;
 use App\Models\Content;
+use App\Models\TeachingPlanItem;
 use Illuminate\Support\Facades\DB;
 use App\Models\SchoolClass;
 use App\Models\ClassContentSession;
@@ -43,7 +44,7 @@ class UserController extends Controller
         $request->validate([
             'user_id' => 'required|string|max:50|unique:users,user_id',
             'name' => 'required|string|max:100',
-            'email' => 'required|email|unique:users,email',
+            'email' => 'required|email',
             'password' => 'required|min:6',
             'status' => 'required|boolean',
             'institute' => session('user_role') == 'Admin'
@@ -72,7 +73,7 @@ class UserController extends Controller
         $request->validate([
             'user_id' => 'required|string|max:50|unique:users,user_id,' . $id,
             'name' => 'required|string|max:100',
-            'email' => 'required|email|unique:users,email,' . $id,
+            'email' => 'required|email',
             'status' => 'required|boolean',
             'institute' => session('user_role') == 'InstituteAdmin'
                 ? session('user_institute')
@@ -142,9 +143,12 @@ class UserController extends Controller
         $user = User::where('email', $request->email)
             ->whereIn('role', ['Admin', 'InstituteAdmin'])
             ->where('status', 1)
-            ->first();
+            ->get()
+            ->first(function ($user) use ($request) {
+                return Hash::check($request->password, $user->password);
+            });
 
-        if ($user && Hash::check($request->password, $user->password)) {
+        if ($user) {
 
             session([
                 'user_id' => $user->id,
@@ -182,9 +186,12 @@ class UserController extends Controller
         $user = User::where('email', $request->email)
             ->where('role', 'Teacher')
             ->where('status', 1)
-            ->first();
+            ->get()
+            ->first(function ($user) use ($request) {
+                return Hash::check($request->password, $user->password);
+            });
 
-        if ($user && Hash::check($request->password, $user->password)) {
+        if ($user) {
 
             session([
                 'user_id' => $user->id,
@@ -245,7 +252,7 @@ class UserController extends Controller
     {
         $request->validate([
             'admin_name' => 'required|string|max:255',
-            'admin_email' => 'required|email|max:255|unique:institute_registration_requests,admin_email|unique:users,email',
+            'admin_email' => 'required|email|max:255',
             'institute_name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
             'location' => 'required|string|max:255',
@@ -338,11 +345,6 @@ class UserController extends Controller
         $slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $instituteName));
         $customEmail = $slug . '.admin@tinkedge.local';
 
-        if (User::where('email', $customEmail)->exists()) {
-            return redirect()->back()
-                ->with('error', 'A login email already exists for this institute.');
-        }
-
         $temporaryPassword = Str::random(10);
 
         do {
@@ -424,23 +426,20 @@ class UserController extends Controller
         $teacher = User::findOrFail(session('user_id'));
         $content = Content::with('course')->findOrFail($contentId);
 
-        if ($content->institute != $teacher->institute || !$content->student_file_path) {
+        if ($content->institute != $teacher->institute || !$content->file_path) {
             abort(403, 'This topic cannot be released to students.');
         }
 
-        $assignedClasses = SchoolClass::where('institute', $teacher->institute)
-            ->where('class_teacher', $teacher->name)
-            ->get()
-            ->map(function ($class) {
-                return trim($class->class_name . ' ' . $class->section);
-            });
+        $hasReleasedPlanItem = TeachingPlanItem::where('status', 'released')
+            ->whereHas('plan', function ($query) use ($teacher) {
+                $query->where('institute', $teacher->institute)
+                    ->where('status', 'active');
+            })
+            ->where('content_id', $content->id)
+            ->exists();
 
-        $contentClass = $content->course
-            ? $content->course->assigned_class
-            : $content->assigned_class;
-
-        if (!$assignedClasses->contains($contentClass)) {
-            abort(403, 'You can only release content assigned to your class.');
+        if (!$hasReleasedPlanItem) {
+            abort(403, 'You can only release currently released Teaching Plan content from your institute.');
         }
 
         $content->update([

@@ -206,15 +206,19 @@
 
                                 {{-- FILE SECTION --}}
 
-                                @if($content->student_file_path && !$isLocked)
+                                @if(($content->student_file_path || $content->file_path) && !$isLocked)
 
                                     @php
-                                        $extension = strtolower(pathinfo($content->student_file_path, PATHINFO_EXTENSION));
-                                        $previewExtensions = ['doc', 'docx'];
-                                        $streamVariant = in_array($extension, $previewExtensions) && $content->student_preview_pdf_path
+                                        $studentMaterialPath = $content->student_file_path ?: $content->file_path;
+                                        $studentPreviewPath = $content->student_preview_pdf_path ?: $content->preview_pdf_path;
+                                        $materialLabel = $content->student_file_path ? 'Student Document' : 'Student PPT';
+                                        $extension = strtolower(pathinfo($studentMaterialPath, PATHINFO_EXTENSION));
+                                        $previewExtensions = ['doc', 'docx', 'ppt', 'pptx'];
+                                        $streamVariant = in_array($extension, $previewExtensions) && $studentPreviewPath
                                             ? 'preview'
                                             : 'file';
                                         $previewUrl = route('content.preview', [$content->id, 'student']);
+                                        $streamUrl = route('content.preview.stream', [$content->id, 'student']);
                                         $fileUrl = route('content.file.audience', [$content->id, 'student', $streamVariant]);
                                     @endphp
 
@@ -223,7 +227,7 @@
                                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
                                             <div>
                                                 <small class="text-muted d-block">
-                                                    Student Document
+                                                    {{ $materialLabel }}
                                                 </small>
                                                 <strong class="small">
                                                     Secure view-only material
@@ -245,13 +249,17 @@
 
                                             <div class="border rounded overflow-hidden bg-dark shadow-sm protected-preview-surface"
                                                  data-watermark="TinkEdge LMS&#10;View Only"
-                                                 data-preview-scope="content-{{ $content->id }}-student">
+                                                 data-preview-scope="content-{{ $content->id }}">
                                                 <div class="protected-preview-content">
-                                                    <iframe src="{{ $previewUrl }}"
+                                                    <iframe src="{{ $streamUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
                                                             width="100%"
                                                             height="360"
-                                                            style="border: 0; background: #111827;">
+                                                            style="border: 0; background: #111827;"
+                                                            oncontextmenu="return false;">
                                                     </iframe>
+                                                    <div class="protected-preview-mouse-shield"
+                                                         aria-hidden="true">
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -259,7 +267,7 @@
 
                                             <div class="protected-preview-surface"
                                                  data-watermark="TinkEdge LMS&#10;View Only"
-                                                 data-preview-scope="content-{{ $content->id }}-student">
+                                                 data-preview-scope="content-{{ $content->id }}">
                                                 <div class="protected-preview-content">
                                                     <img src="{{ $fileUrl }}"
                                                          class="img-fluid rounded border"
@@ -271,7 +279,7 @@
 
                                             <div class="protected-preview-surface"
                                                  data-watermark="TinkEdge LMS&#10;View Only"
-                                                 data-preview-scope="content-{{ $content->id }}-student">
+                                                 data-preview-scope="content-{{ $content->id }}">
                                                 <div class="protected-preview-content">
                                                     <video width="100%"
                                                            height="260"
@@ -292,7 +300,7 @@
 
                                     </div>
 
-                                @elseif($content->student_file_path && $isLocked)
+                                @elseif(($content->student_file_path || $content->file_path) && $isLocked)
 
                                     <div class="mb-4">
                                         <div class="border rounded p-3 bg-light text-muted small">

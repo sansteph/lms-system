@@ -27,14 +27,14 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Assigned Students</h6>
+                        <h6>Institute Students</h6>
                         <h2>{{ $studentCount }}</h2>
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Assigned Classes</h6>
+                        <h6>Institute Classes</h6>
                         <h2>{{ $classCount }}</h2>
                     </div>
                 </div>
@@ -77,7 +77,7 @@
                             <tr>
                                 <td>1</td>
                                 <td>Students</td>
-                                <td>Students in Assigned Classes</td>
+                                <td>Students in Institute</td>
                                 <td>{{ $studentCount }}</td>
                                 <td><span class="badge bg-primary">Live</span></td>
                             </tr>
@@ -85,7 +85,7 @@
                             <tr>
                                 <td>2</td>
                                 <td>Classes</td>
-                                <td>Assigned Classes</td>
+                                <td>Institute Classes</td>
                                 <td>{{ $classCount }}</td>
                                 <td><span class="badge bg-info">Live</span></td>
                             </tr>
@@ -93,13 +93,21 @@
                             <tr>
                                 <td>3</td>
                                 <td>Content</td>
-                                <td>Assigned Content</td>
+                                <td>Approved Planned Content</td>
                                 <td>{{ $contentCount }}</td>
                                 <td><span class="badge bg-info">Live</span></td>
                             </tr>
 
                             <tr>
                                 <td>4</td>
+                                <td>Sessions</td>
+                                <td>Sessions Conducted By You</td>
+                                <td>{{ $sessionCount }} total | {{ $completedSessionCount }} completed</td>
+                                <td><span class="badge bg-success">Live</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>5</td>
                                 <td>Assessments</td>
                                 <td>Your Assessments</td>
                                 <td>{{ $assessmentCount }} total | {{ $monthlyAssessmentCount }} monthly | {{ $annualAssessmentCount }} annual</td>
@@ -107,7 +115,7 @@
                             </tr>
 
                             <tr>
-                                <td>5</td>
+                                <td>6</td>
                                 <td>Assessment Results</td>
                                 <td>Completed Results</td>
                                 <td>{{ $completedResults }}</td>
@@ -115,7 +123,7 @@
                             </tr>
 
                             <tr>
-                                <td>6</td>
+                                <td>7</td>
                                 <td>Manual Reviews</td>
                                 <td>Pending Written Answers</td>
                                 <td>{{ $pendingReviewCount }}</td>
@@ -123,7 +131,7 @@
                             </tr>
 
                             <tr>
-                                <td>7</td>
+                                <td>8</td>
                                 <td>Performance</td>
                                 <td>Average Assessment Score</td>
                                 <td>{{ number_format($averageScore, 2) }}%</td>
@@ -131,7 +139,7 @@
                             </tr>
 
                             <tr>
-                                <td>8</td>
+                                <td>9</td>
                                 <td>Certificates</td>
                                 <td>Total Certificates Issued</td>
                                 <td>{{ $certificateCount }}</td>
@@ -152,4 +160,3 @@
 </div>
 
 @endsection
-

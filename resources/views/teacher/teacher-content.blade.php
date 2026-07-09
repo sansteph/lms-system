@@ -139,6 +139,7 @@
                 ? 'preview'
                 : 'file';
             $previewUrl = route('content.preview', [$content->id, 'teacher']);
+            $streamUrl = route('content.preview.stream', [$content->id, 'teacher']);
             $fileUrl = route('content.file.audience', [$content->id, 'teacher', $streamVariant]);
         @endphp
 
@@ -160,19 +161,23 @@
                         @if($extension == 'pdf' || $streamVariant == 'preview')
                             <div class="protected-preview-surface"
                                  data-watermark="TinkEdge LMS&#10;View Only"
-                                 data-preview-scope="content-{{ $content->id }}-teacher">
+                                 data-preview-scope="content-{{ $content->id }}">
                                 <div class="protected-preview-content">
-                                    <iframe src="{{ $previewUrl }}"
+                                    <iframe src="{{ $streamUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
                                             width="100%"
                                             height="720"
-                                            style="border: 0; border-radius: 8px; background: #f8f9fa;">
+                                            style="border: 0; border-radius: 8px; background: #f8f9fa;"
+                                            oncontextmenu="return false;">
                                     </iframe>
+                                    <div class="protected-preview-mouse-shield"
+                                         aria-hidden="true">
+                                    </div>
                                 </div>
                             </div>
                         @elseif(in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
                             <div class="text-center protected-preview-surface"
                                  data-watermark="TinkEdge LMS&#10;View Only"
-                                 data-preview-scope="content-{{ $content->id }}-teacher">
+                                 data-preview-scope="content-{{ $content->id }}">
                                 <div class="protected-preview-content">
                                 <img src="{{ $fileUrl }}"
                                      class="img-fluid rounded border"
@@ -182,7 +187,7 @@
                         @elseif(in_array($extension, ['mp4', 'webm', 'ogg', 'mov']))
                             <div class="protected-preview-surface"
                                  data-watermark="TinkEdge LMS&#10;View Only"
-                                 data-preview-scope="content-{{ $content->id }}-teacher">
+                                 data-preview-scope="content-{{ $content->id }}">
                                 <div class="protected-preview-content">
                                     <video width="100%"
                                            height="620"

@@ -58,7 +58,6 @@ class TrackUserActivity
             'teacher.assessments', 'student.assessment' => 'Assessment',
             'teacher.results', 'student.history' => 'Results / History',
             'teacher.reports' => 'Reports',
-            'teacher.notifications', 'student.notifications' => 'Notifications',
             'teacher.profile', 'student.student-profile' => 'Profile',
             'student.badges' => 'Achievements',
             'student.certificate.download' => 'Certificate',

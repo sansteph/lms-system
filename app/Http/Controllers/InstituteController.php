@@ -7,6 +7,7 @@ use App\Models\Institute;
 use Illuminate\Support\Facades\DB;
 use App\Support\DeletesAssessments;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use App\Models\Student;
 use App\Models\SchoolClass;
@@ -20,8 +21,11 @@ use App\Models\LessonProgress;
 use App\Models\UserSession;
 use App\Models\ClassTimetable;
 use App\Models\ClassContentSession;
-use App\Models\Notification;
 use App\Models\InstituteRegistrationRequest;
+use App\Models\CourseContent;
+use App\Models\TeachingPlan;
+use App\Models\TeachingPlanItem;
+use App\Models\TeachingPlanWeek;
 
 class InstituteController extends Controller
 {
@@ -47,15 +51,46 @@ class InstituteController extends Controller
     {
         $request->validate([
             'institute_id' => 'required|string|max:50|unique:institutes,institute_id',
-            'institute_name' => 'required|string|max:150',
+            'institute_name' => 'required|string|max:150|unique:institutes,institute_name',
             'location' => 'required|string|max:100',
             'contact_person' => 'required|string|max:100',
-            'email' => 'required|email|unique:institutes,email',
+            'email' => 'required|email',
             'phone' => 'required|string|max:20',
             'status' => 'required|boolean',
+            'admin_name' => 'nullable|string|max:100',
+            'admin_email' => 'required_with:admin_password|nullable|email|max:255',
+            'admin_password' => 'nullable|string|min:6',
         ]);
 
-        Institute::create($request->all());
+        DB::transaction(function () use ($request) {
+            Institute::create($request->only([
+                'institute_id',
+                'institute_name',
+                'location',
+                'contact_person',
+                'email',
+                'phone',
+                'status',
+            ]));
+
+            if ($request->filled('admin_password')) {
+                do {
+                    $adminUserId = 'ADM' . rand(100000, 999999);
+                } while (User::where('user_id', $adminUserId)->exists());
+
+                User::create([
+                    'user_id' => $adminUserId,
+                    'name' => $request->admin_name ?: $request->contact_person,
+                    'email' => $request->admin_email,
+                    'phone' => $request->phone,
+                    'institute' => $request->institute_name,
+                    'role' => 'InstituteAdmin',
+                    'password' => Hash::make($request->admin_password),
+                    'status' => $request->status,
+                    'password_changed_at' => now(),
+                ]);
+            }
+        });
 
         return redirect()->back()->with('success', 'Institute added successfully');
     }
@@ -63,10 +98,10 @@ class InstituteController extends Controller
     {
         $request->validate([
             'institute_id' => 'required|string|max:50|unique:institutes,institute_id,' . $id,
-            'institute_name' => 'required|string|max:150',
+            'institute_name' => 'required|string|max:150|unique:institutes,institute_name,' . $id,
             'location' => 'required|string|max:100',
             'contact_person' => 'required|string|max:100',
-            'email' => 'required|email|unique:institutes,email,' . $id,
+            'email' => 'required|email',
             'phone' => 'required|string|max:20',
             'status' => 'required|boolean',
         ]);
@@ -89,7 +124,7 @@ class InstituteController extends Controller
 
             foreach ($students as $student) {
 
-                AssessmentResult::where('student_id', $student->id)->delete();
+                $this->deleteAssessmentResultsForStudent($student->id);
 
                 LessonProgress::where('student_id', $student->id)->delete();
 
@@ -134,6 +169,10 @@ class InstituteController extends Controller
 
                 ClassTimetable::where('content_id', $content->id)->delete();
 
+                $this->deleteTeachingPlansByContent($content->id);
+
+                CourseContent::where('content_id', $content->id)->delete();
+
                 $content->delete();
             }
 
@@ -158,9 +197,13 @@ class InstituteController extends Controller
                 ->whereIn('role', ['Teacher', 'InstituteAdmin'])
                 ->delete();
 
-            Course::where('institute', $instituteName)->delete();
+            $courses = Course::where('institute', $instituteName)->get();
 
-            Notification::where('institute', $instituteName)->delete();
+            foreach ($courses as $course) {
+                $this->deleteTeachingPlansByCourse($course->id);
+                CourseContent::where('course_id', $course->id)->delete();
+                $course->delete();
+            }
 
             InstituteRegistrationRequest::where('institute_name', $instituteName)->delete();
 
@@ -182,6 +225,40 @@ class InstituteController extends Controller
                 Storage::disk($disk)->delete($path);
             }
         }
+    }
+
+    private function deleteTeachingPlansByCourse(int $courseId): void
+    {
+        TeachingPlan::where('course_id', $courseId)
+            ->get()
+            ->each(function (TeachingPlan $plan) {
+                $this->deleteTeachingPlanGraph($plan);
+            });
+    }
+
+    private function deleteTeachingPlansByContent(int $contentId): void
+    {
+        TeachingPlan::where('content_id', $contentId)
+            ->get()
+            ->each(function (TeachingPlan $plan) {
+                $this->deleteTeachingPlanGraph($plan);
+            });
+
+        TeachingPlanItem::where('content_id', $contentId)->delete();
+    }
+
+    private function deleteTeachingPlanGraph(TeachingPlan $plan): void
+    {
+        ClassContentSession::where('teaching_plan_id', $plan->id)
+            ->update([
+                'teaching_plan_id' => null,
+                'teaching_plan_week_id' => null,
+                'teaching_plan_item_id' => null,
+            ]);
+
+        TeachingPlanItem::where('teaching_plan_id', $plan->id)->delete();
+        TeachingPlanWeek::where('teaching_plan_id', $plan->id)->delete();
+        $plan->delete();
     }
 
 }

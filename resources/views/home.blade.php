@@ -308,17 +308,6 @@
                         </div>
 
                         <div class="footer-action-card">
-                            <div class="footer-action-icon blue">
-                                <i class="fa fa-user-shield"></i>
-                            </div>
-
-                            <div>
-                                <a href="{{ route('coordinator.login') }}">Coordinator Login</a>
-                                <span>Secure coordinator access</span>
-                            </div>
-                        </div>
-
-                        <div class="footer-action-card">
                             <div class="footer-action-icon orange">
                                 <i class="fa fa-certificate"></i>
                             </div>

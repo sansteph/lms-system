@@ -403,7 +403,7 @@ body {
         <div class="footer-rule"></div>
 
         <div class="brand">
-            <img src="{{ public_path('images/TinkEdgeLogo.png') }}" alt="TinkEdge Logo" style="top: 20mm; left: 20mm; width: 40mm">
+            <img src="{{ public_path('images/TinkEdgeLogo.png') }}" alt="TinkEdge Logo" style="top: 20mm; left: 20mm; width: 50mm">
         </div>
 
         <div class="title">CERTIFICATE</div>
@@ -461,4 +461,3 @@ body {
 </div>
 </body>
 </html>
-

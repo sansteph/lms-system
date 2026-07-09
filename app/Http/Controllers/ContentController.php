@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Content;
 use App\Models\Course;
+use App\Models\CourseContent;
 use App\Models\User;
 use App\Models\Student;
 use App\Models\SchoolClass;
@@ -15,7 +16,10 @@ use App\Models\AssessmentResult;
 use App\Models\LessonProgress;
 use App\Models\ClassContentSession;
 use App\Models\ClassTimetable;
+use App\Models\TeachingPlan;
+use App\Models\TeachingPlanItem;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use App\Support\DeletesAssessments;
 
 class ContentController extends Controller
@@ -24,86 +28,232 @@ class ContentController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
+        $selectedCourseId = $request->course_id;
 
         $courses = Course::where('status', 1)
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->where(function ($q) {
-                    $q->where('availability_type', 'Institute')
-                      ->orWhere('availability_type', 'Both');
-                });
+                $query->where('institute', session('user_institute'));
             })
+            ->orderBy('course_title')
             ->get();
 
-        $contents = Content::when(session('user_role') == 'InstituteAdmin', function ($query) {
+        $contents = Content::with(['course', 'courseContent'])
+            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
+            })
+            ->when($selectedCourseId, function ($query, $courseId) {
+                $query->where('course_id', $courseId);
             })
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('content_title', 'like', "%{$search}%")
                       ->orWhere('content_type', 'like', "%{$search}%")
-                      ->orWhere('assigned_class', 'like', "%{$search}%");
+                      ->orWhere('assigned_class', 'like', "%{$search}%")
+                      ->orWhereHas('course', function ($courseQuery) use ($search) {
+                          $courseQuery->where('course_title', 'like', "%{$search}%");
+                      });
                 });
             })
+            ->orderBy('course_id')
+            ->orderBy('lesson_order')
             ->get();
 
-        return view('content', compact('contents', 'courses'));
+        return view('content', compact('contents', 'courses', 'selectedCourseId'));
     }
 
-    public function store(Request $request)
+    public function bulkStore(Request $request)
     {
         $request->validate([
-            'content_title' => 'required|string|max:255',
             'course_id' => 'required|exists:courses,id',
-            'lesson_order' => 'required|integer|min:1',
-            'assigned_class' => 'required|string|max:255',
-            'file' => 'required|file|mimes:ppt,pptx|max:51200',
-            'student_file' => 'required|file|mimes:doc,docx|max:51200',
-            'status' => 'required|boolean',
-            'institute' => session('user_role') == 'Admin'
-                ? 'required|string|max:255'
-                : 'nullable|string|max:255',
+            'institute' => 'nullable|string|max:255',
+            'contents' => 'required|array|min:1',
+            'contents.*.content_title' => 'required|string|max:255',
+            'contents.*.description' => 'nullable|string',
+            'contents.*.content_type' => 'required|string|max:100',
+            'contents.*.assigned_class' => 'nullable|string|max:255',
+            'contents.*.section' => 'nullable|string|max:50',
+            'contents.*.lesson_order' => 'required|integer|min:1',
+            'contents.*.status' => 'required|in:active,draft,archived',
+            'contents.*.file' => 'required|file|mimes:ppt,pptx,doc,docx,pdf|max:51200',
+            'contents.*.student_file' => 'nullable|file|mimes:doc,docx,ppt,pptx,pdf|max:51200',
         ]);
 
-        [$filePath, $previewPdfPath] = $this->storePrivateContentFile($request->file('file'));
-        [$studentFilePath, $studentPreviewPdfPath] = $this->storePrivateContentFile($request->file('student_file'));
+        $course = Course::findOrFail($request->course_id);
+        $this->authorizeCourseManagement($course);
 
-        Content::create([
-            'institute' => session('user_role') == 'InstituteAdmin'
+        if (
+            session('user_role') == 'Admin' &&
+            !$course->is_template_source &&
+            blank($request->institute)
+        ) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['institute' => 'Institute is required for institute courses.']);
+        }
+
+        $this->validateUniqueSortOrders($course->id, collect($request->input('contents'))->pluck('lesson_order')->all());
+
+        $institute = $course->is_template_source
+            ? null
+            : (session('user_role') == 'InstituteAdmin'
                 ? session('user_institute')
-                : $request->institute,
+                : $request->institute);
 
-            'content_title' => $request->content_title,
-            'course_id' => $request->course_id,
-            'lesson_order' => $request->lesson_order,
-            'content_type' => 'PPT',
-            'assigned_class' => $request->assigned_class,
-            'file_path' => $filePath,
-            'preview_pdf_path' => $previewPdfPath,
-            'student_file_path' => $studentFilePath,
-            'student_preview_pdf_path' => $studentPreviewPdfPath,
+        $storedPaths = [];
+
+        try {
+            DB::transaction(function () use ($request, $course, $institute, &$storedPaths) {
+                foreach ($request->input('contents', []) as $index => $contentData) {
+                    $teacherFile = $request->file("contents.{$index}.file");
+                    [$filePath, $previewPdfPath] = $this->storePrivateContentFile($teacherFile);
+                    $storedPaths[] = $filePath;
+                    $storedPaths[] = $previewPdfPath;
+
+                    $studentFilePath = null;
+                    $studentPreviewPdfPath = null;
+                    $studentFile = $request->file("contents.{$index}.student_file");
+
+                    if ($studentFile) {
+                        [$studentFilePath, $studentPreviewPdfPath] = $this->storePrivateContentFile($studentFile);
+                        $storedPaths[] = $studentFilePath;
+                        $storedPaths[] = $studentPreviewPdfPath;
+                    }
+
+                    $content = Content::create([
+                        'course_id' => $course->id,
+                        'institute' => $institute,
+                        'content_title' => $contentData['content_title'],
+                        'description' => $contentData['description'] ?? null,
+                        'lesson_order' => (int) $contentData['lesson_order'],
+                        'content_type' => $contentData['content_type'],
+                        'assigned_class' => $contentData['assigned_class'] ?? $course->assigned_class,
+                        'file_path' => $filePath,
+                        'preview_pdf_path' => $previewPdfPath,
+                        'student_file_path' => $studentFilePath,
+                        'student_preview_pdf_path' => $studentPreviewPdfPath,
+                        'original_file_name' => $teacherFile->getClientOriginalName(),
+                        'uploaded_by' => session('user_id'),
+                        'is_released' => 0,
+                        'status' => $contentData['status'] == 'active',
+                    ]);
+
+                    CourseContent::create([
+                        'course_id' => $course->id,
+                        'content_id' => $content->id,
+                        'sort_order' => (int) $contentData['lesson_order'],
+                        'status' => $contentData['status'],
+                        'created_by' => session('user_id'),
+                    ]);
+                }
+            });
+        } catch (\Throwable $exception) {
+            foreach ($storedPaths as $path) {
+                $this->deleteContentStoragePath($path);
+            }
+
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['bulk_upload' => 'Bulk upload failed. Please check the files and try again.']);
+        }
+
+        return redirect()->back()
+            ->with('success', count($request->input('contents', [])) . ' lessons uploaded successfully.');
+    }
+
+    public function updateCourseContentOrder(Request $request, CourseContent $courseContent)
+    {
+        $courseContent->load('course');
+        $this->authorizeCourseManagement($courseContent->course);
+
+        $request->validate([
+            'sort_order' => 'required|integer|min:1',
+            'status' => 'required|in:active,draft,archived',
+        ]);
+
+        $conflict = CourseContent::where('course_id', $courseContent->course_id)
+            ->where('sort_order', $request->sort_order)
+            ->where('id', '!=', $courseContent->id)
+            ->exists();
+
+        if ($conflict) {
+            return redirect()->back()
+                ->withErrors(['sort_order' => 'Another content item already uses this lesson order for the selected course.']);
+        }
+
+        $courseContent->update([
+            'sort_order' => $request->sort_order,
             'status' => $request->status,
         ]);
 
+        if ($courseContent->content) {
+            $courseContent->content->update([
+                'lesson_order' => $request->sort_order,
+                'status' => $request->status == 'active',
+            ]);
+        }
+
         return redirect()->back()
-            ->with('success', 'Content uploaded successfully');
+            ->with('success', 'Course content order updated successfully.');
+    }
+
+    public function detachCourseContent(CourseContent $courseContent)
+    {
+        $courseContent->load(['course', 'content']);
+        $this->authorizeCourseManagement($courseContent->course);
+
+        DB::transaction(function () use ($courseContent) {
+            if ($courseContent->content) {
+                Assessment::where('content_id', $courseContent->content_id)
+                    ->update(['content_id' => null]);
+
+                LessonProgress::where('content_id', $courseContent->content_id)->delete();
+                ClassContentSession::where('content_id', $courseContent->content_id)->delete();
+                TeachingPlan::where('content_id', $courseContent->content_id)->delete();
+                TeachingPlan::where('course_content_id', $courseContent->id)->delete();
+
+                $this->deleteContentStoragePath($courseContent->content->file_path);
+                $this->deleteContentStoragePath($courseContent->content->preview_pdf_path);
+                $this->deleteContentStoragePath($courseContent->content->student_file_path);
+                $this->deleteContentStoragePath($courseContent->content->student_preview_pdf_path);
+
+                $courseContent->content->delete();
+            }
+
+            $courseContent->delete();
+        });
+
+        return redirect()->back()
+            ->with('success', 'Content detached from course successfully.');
     }
 
     public function update(Request $request, $id)
     {
         $request->validate([
             'content_title' => 'required|string|max:255',
+            'description' => 'nullable|string|max:2000',
             'course_id' => 'required|exists:courses,id',
             'lesson_order' => 'required|integer|min:1',
+            'content_type' => 'required|string|max:100',
             'assigned_class' => 'required|string|max:255',
-            'file' => 'nullable|file|mimes:ppt,pptx|max:51200',
-            'student_file' => 'nullable|file|mimes:doc,docx|max:51200',
+            'file' => 'nullable|file|mimes:ppt,pptx,doc,docx,pdf|max:51200',
+            'student_file' => 'nullable|file|mimes:doc,docx,ppt,pptx,pdf|max:51200',
             'status' => 'required|boolean',
-            'institute' => session('user_role') == 'Admin'
-                ? 'required|string|max:255'
-                : 'nullable|string|max:255',
+            'institute' => 'nullable|string|max:255',
         ]);
 
         $content = Content::findOrFail($id);
+        $course = Course::findOrFail($request->course_id);
+        $this->authorizeCourseManagement($course);
+
+        if (
+            session('user_role') == 'Admin' &&
+            !$course->is_template_source &&
+            blank($request->institute)
+        ) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['institute' => 'Institute is required for institute course content.']);
+        }
 
         if (
             session('user_role') == 'InstituteAdmin' &&
@@ -134,17 +284,27 @@ class ContentController extends Controller
         $content->update([
             'institute' => session('user_role') == 'InstituteAdmin'
                 ? session('user_institute')
-                : $request->institute,
+                : ($course->is_template_source ? null : $request->institute),
             'content_title' => $request->content_title,
+            'description' => $request->description,
             'course_id' => $request->course_id,
             'lesson_order' => $request->lesson_order,
-            'content_type' => 'PPT',
+            'content_type' => $request->content_type,
             'assigned_class' => $request->assigned_class,
             'file_path' => $filePath,
             'preview_pdf_path' => $previewPdfPath,
             'student_file_path' => $studentFilePath,
             'student_preview_pdf_path' => $studentPreviewPdfPath,
+            'original_file_name' => $request->hasFile('file')
+                ? $request->file('file')->getClientOriginalName()
+                : $content->original_file_name,
+            'uploaded_by' => $content->uploaded_by ?: session('user_id'),
             'status' => $request->status,
+        ]);
+
+        CourseContent::where('content_id', $content->id)->update([
+            'sort_order' => $request->lesson_order,
+            'status' => $request->status ? 'active' : 'archived',
         ]);
 
         return redirect()->back()
@@ -334,6 +494,10 @@ class ContentController extends Controller
 
             ClassTimetable::where('content_id', $id)->delete();
 
+            TeachingPlan::where('content_id', $id)->delete();
+
+            CourseContent::where('content_id', $id)->delete();
+
             $this->deleteContentStoragePath($content->file_path);
             $this->deleteContentStoragePath($content->preview_pdf_path);
             $this->deleteContentStoragePath($content->student_file_path);
@@ -344,6 +508,43 @@ class ContentController extends Controller
 
         return redirect()->back()
             ->with('success', 'Content and all related records deleted successfully.');
+    }
+
+    private function authorizeCourseManagement(Course $course): void
+    {
+        if (session('user_role') == 'Admin') {
+            return;
+        }
+
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $course->institute == session('user_institute')
+        ) {
+            return;
+        }
+
+        abort(403, 'You are not authorized to manage contents for this course.');
+    }
+
+    private function validateUniqueSortOrders(int $courseId, array $sortOrders): void
+    {
+        $sortOrders = array_map('intval', $sortOrders);
+
+        if (count($sortOrders) !== count(array_unique($sortOrders))) {
+            throw ValidationException::withMessages([
+                'sort_order' => 'Lesson orders must be unique in this upload.',
+            ]);
+        }
+
+        $existing = CourseContent::where('course_id', $courseId)
+            ->whereIn('sort_order', $sortOrders)
+            ->exists();
+
+        if ($existing) {
+            throw ValidationException::withMessages([
+                'sort_order' => 'One or more lesson orders are already used in the selected course.',
+            ]);
+        }
     }
 
     private function storePrivateContentFile($file)
@@ -409,8 +610,8 @@ class ContentController extends Controller
     {
         if ($audience == 'student') {
             return [
-                'file' => $content->student_file_path,
-                'preview' => $content->student_preview_pdf_path,
+                'file' => $content->student_file_path ?: $content->file_path,
+                'preview' => $content->student_preview_pdf_path ?: $content->preview_pdf_path,
             ];
         }
 
@@ -457,10 +658,10 @@ class ContentController extends Controller
 
             return $content->status == 1 &&
                 $content->is_released &&
-                $content->student_file_path &&
+                ($content->student_file_path || $content->file_path) &&
                 CourseEnrollment::where('learner_id', session('independent_learner_id'))
-                ->where('course_id', $content->course_id)
-                ->exists();
+                    ->where('course_id', $content->course_id)
+                    ->exists();
         }
 
         return false;
@@ -472,18 +673,13 @@ class ContentController extends Controller
             return false;
         }
 
-        $assignedClasses = SchoolClass::where('institute', $teacher->institute)
-            ->where('class_teacher', $teacher->name)
-            ->get()
-            ->map(function ($class) {
-                return trim($class->class_name . ' ' . $class->section);
-            });
-
-        $contentClass = $content->course
-            ? $content->course->assigned_class
-            : $content->assigned_class;
-
-        return $assignedClasses->contains($contentClass);
+        return TeachingPlanItem::where('status', 'released')
+            ->whereHas('plan', function ($query) use ($teacher) {
+                $query->where('institute', $teacher->institute)
+                    ->where('status', 'active');
+            })
+            ->where('content_id', $content->id)
+            ->exists();
     }
 
     private function studentCanViewContent(Student $student, Content $content)
@@ -495,7 +691,7 @@ class ContentController extends Controller
             $content->course_id != $course->id ||
             $content->status != 1 ||
             !$content->is_released ||
-            !$content->student_file_path
+            !($content->student_file_path || $content->file_path)
         ) {
             return false;
         }
@@ -516,7 +712,7 @@ class ContentController extends Controller
 
     private function studentAssignedCourse(Student $student)
     {
-        $assignedClass = trim($student->class . ' ' . $student->section);
+        $assignedClass = preg_replace('/\s+/', ' ', trim($student->class . ' ' . $student->section));
 
         return Course::where('institute', $student->institute)
             ->whereRaw(

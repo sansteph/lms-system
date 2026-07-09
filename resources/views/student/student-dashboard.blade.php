@@ -102,7 +102,7 @@
                 </div>
 
                 <div class="col-lg-4">
-                    <div class="card shadow border-0 mb-4">
+                    <div class="card shadow border-0">
                         <div class="card-body">
                             <h5 class="mb-3">Quick Actions</h5>
 
@@ -110,40 +110,14 @@
                                 <a href="{{ route('student.assessment') }}" class="btn btn-primary">
                                     Take Assessment
                                 </a>
-                                    <a href="{{ route('student.history') }}" class="btn btn-outline-primary">
+                                    <a href="{{ route('student.history') }}" class="btn btn-primary">
                                     View Results
                                 </a>
-                                    <a href="{{ route('student.badges') }}" class="btn btn-outline-primary">
+                                    <a href="{{ route('student.badges') }}" class="btn btn-primary">
                                     View Achievements
                                 </a>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="card shadow border-0">
-                            <div class="card-body">
-                                <h5 class="mb-3">Latest Updates</h5>
-                                @forelse($notifications as $notification)
-
-                                    <div class="border-bottom pb-2 mb-2">
-
-                                        <strong>{{ $notification->title }}</strong>
-
-                                        <p class="text-muted mb-0 small">
-                                            {{ $notification->message }}
-                                        </p>
-
-                                    </div>
-
-                                @empty
-
-                                    <p class="text-muted mb-0 small">
-                                        No latest updates available.
-                                    </p>
-
-                                @endforelse
-
-                            </div>
                     </div>
                 </div>
 
@@ -155,4 +129,3 @@
 </div>
 
 @endsection
-

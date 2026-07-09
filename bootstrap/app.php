@@ -20,7 +20,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'student.profile.completed' => EnsureStudentProfileCompleted::class,
             'super.admin' => \App\Http\Middleware\SuperAdminOnly::class,
             'independent.auth' => \App\Http\Middleware\IndependentAuth::class,
-            'coordinator.auth' => \App\Http\Middleware\CoordinatorAuth::class,
 
         ]);
 

@@ -19,16 +19,12 @@
         Class Management
     </a>
 
-    <a href="{{ route('timetable') }}"class="sidebar-link {{ request()->routeIs('timetable*') ? 'active' : '' }}">
-        Weekly Timetable
+    <a href="{{ route('teaching-plans') }}"class="sidebar-link {{ request()->routeIs('teaching-plans*') ? 'active' : '' }}">
+        Teaching Plans
     </a>
 
     <a href="{{ route('courses') }}"class="sidebar-link {{ request()->routeIs('courses*') ? 'active' : '' }}">
         Courses Management
-    </a>
-
-    <a href="{{ route('content') }}" class="sidebar-link {{ request()->routeIs('content') ? 'active' : '' }}">
-        Content Management
     </a>
 
     <a href="{{ route('students') }}" class="sidebar-link {{ request()->routeIs('students') ? 'active' : '' }}">
@@ -41,10 +37,6 @@
 
     <a href="{{ route('admin.analytics') }}" class="sidebar-link {{ request()->routeIs('admin.analytics') ? 'active' : '' }}">
         Analytics
-    </a>
-
-    <a href="{{ route('notifications') }}" class="sidebar-link {{ request()->routeIs('notifications') ? 'active' : '' }}">
-        Notifications
     </a>
 
     <a href="{{ route('admin.certificates') }}"class="sidebar-link {{ request()->routeIs('admin.certificates') ? 'active' : '' }}">

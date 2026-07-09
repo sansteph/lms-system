@@ -37,8 +37,7 @@
     !request()->routeIs('independent.register') &&
     !request()->routeIs('independent.login') &&
     !request()->routeIs('coming.soon') &&
-    !request()->routeIs('admin.institute.register') &&
-    !request()->routeIs('coordinator.login'))
+    !request()->routeIs('admin.institute.register'))
 
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
 
@@ -52,8 +51,6 @@
                 {{ route('student.dashboard') }}
             @elseif(session('independent_learner_id'))
                 {{ route('independent.dashboard') }}
-            @elseif(session('user_role') == 'Coordinator')
-                {{ route('coordinator.dashboard') }}
             @else
                 {{ route('home') }}
             @endif
@@ -93,10 +90,6 @@
                     @elseif(session('independent_learner_id'))
 
                         (Hybrid Learner)
-
-                    @elseif(session('user_role') == 'Coordinator')
-
-                        (Coordinator)
 
                     @endif
 

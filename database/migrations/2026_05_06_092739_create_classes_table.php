@@ -15,7 +15,7 @@ return new class extends Migration
         $table->id();
         $table->string('class_name');
         $table->string('section');
-        $table->string('class_teacher');
+        $table->string('class_teacher')->nullable();
         $table->string('academic_year');
         $table->boolean('status')->default(1);
         $table->timestamps();

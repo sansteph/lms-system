@@ -5,7 +5,6 @@ use App\Models\Student;
 use Illuminate\Http\Request;
 use App\Models\Content;
 use App\Models\Assessment;
-use App\Models\Notification;
 use App\Models\SchoolClass;
 use Illuminate\Support\Facades\Hash;
 use App\Models\AssessmentResult;
@@ -21,18 +20,24 @@ use App\Models\AssessmentSession;
 use App\Models\User;
 use App\Models\Course;
 use App\Models\ClassContentSession;
+use App\Models\TeachingPlan;
+use App\Models\TeachingPlanItem;
+use App\Services\TeachingPlanReleaseService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\ClassTimetable;
 use App\Models\Institute;
 use App\Models\IndependentLearner;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use App\Support\DeletesAssessments;
 
 
 
 
 class PageController extends Controller
 {
+    use DeletesAssessments;
+
     public function home()
     {
         $institutionalLearners = Student::where('status', 1)->count();
@@ -197,10 +202,6 @@ class PageController extends Controller
     {
         return view('reports');
     }
-    public function notifications()
-    {
-        return view('notifications');
-    }
     public function storeStudent(Request $request)
     {
         $request->validate([
@@ -283,7 +284,7 @@ class PageController extends Controller
 
         DB::transaction(function () use ($student, $id) {
 
-            AssessmentResult::where('student_id', $id)->delete();
+            $this->deleteAssessmentResultsForStudent($id);
 
             LessonProgress::where('student_id', $id)->delete();
 
@@ -354,8 +355,11 @@ class PageController extends Controller
         }
 
         $certificate->update([
-            'status' => 'Issued',
+            'status' => 'approved',
             'issued_date' => now(),
+            'approved_by' => session('user_id'),
+            'approved_at' => now(),
+            'rejection_reason' => null,
             'final_score' => $finalScore,
             'final_grade' => $this->calculateCertificateGrade($finalScore),
             'final_classification' => $this->calculateCertificateClassification($finalScore),
@@ -384,17 +388,39 @@ class PageController extends Controller
         return redirect()->back()->with('success', 'Certificate revoked successfully.');
     }
 
+    public function rejectCertificate(Request $request, $id)
+    {
+        $certificate = Certificate::with('student')->findOrFail($id);
+
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $certificate->student &&
+            $certificate->student->institute != session('user_institute')
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $certificate->update([
+            'status' => 'rejected',
+            'approved_by' => session('user_id'),
+            'approved_at' => now(),
+            'rejection_reason' => $request->rejection_reason,
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'Certificate request rejected.');
+    }
+
     public function teacherDashboard()
     {
         $teacherName = session('user_name');
         $teacher = User::find(session('user_id'));
-        $assignedClassNames = $this->teacherAssignedClassNames($teacher);
         $classes = SchoolClass::where('institute', $teacher->institute)
-            ->where('class_teacher', $teacher->name)
             ->get();
-        $contentCount = Content::where('institute', $teacher->institute)
-            ->whereHas('course', function ($query) use ($assignedClassNames) {
-                $query->whereIn('assigned_class', $assignedClassNames);
+        $contentCount = TeachingPlanItem::where('status', 'released')
+            ->whereHas('plan', function ($query) use ($teacher) {
+                $query->where('institute', $teacher->institute)
+                    ->where('status', 'active');
             })
             ->count();
         $assessmentCount = Assessment::where('institute', $teacher->institute)
@@ -408,9 +434,8 @@ class PageController extends Controller
             ->where('teacher_id', $teacher->id)
             ->where('assessment_category', 'Annual')
             ->count();
-        $notificationCount = Notification::where('institute', $teacher->institute)->count();
         $assignedClasses = $classes->count();
-        $totalStudents = $this->teacherAssignedStudentsQuery($teacher)->count();
+        $totalStudents = Student::where('institute', $teacher->institute)->count();
 
         return view('teacher.teacher-dashboard', compact(
             'teacherName',
@@ -418,7 +443,6 @@ class PageController extends Controller
             'assessmentCount',
             'monthlyAssessmentCount',
             'annualAssessmentCount',
-            'notificationCount',
             'assignedClasses',
             'totalStudents',
             'classes',
@@ -431,30 +455,28 @@ class PageController extends Controller
 
         $today = now()->format('Y-m-d');
 
-        $scheduledClasses = ClassTimetable::with([
-                'schoolClass',
-                'content'
-            ])
-            ->where('session_date', $today)
-            ->whereHas('schoolClass', function ($q) use ($teacher) {
-                $q->where('institute', $teacher->institute)
-                    ->where('class_teacher', $teacher->name);
+        $releasedItems = TeachingPlanItem::with(['plan', 'week', 'course', 'content', 'courseContent'])
+            ->where('status', 'released')
+            ->whereHas('plan', function ($query) use ($teacher) {
+                $query->where('institute', $teacher->institute)
+                    ->where('status', 'active');
             })
-            ->orderBy('from_time')
+            ->orderBy('sort_order')
             ->get();
 
-        $activeSessions = ClassContentSession::where(
-                'stem_engineer_id',
-                session('user_id')
-            )
-            ->where('status', 'Started')
-            ->get()
-            ->keyBy('timetable_id');
+        $sessions = ClassContentSession::with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
+            ->where('stem_engineer_id', $teacher->id)
+            ->whereDate('session_date', $today)
+            ->latest()
+            ->get();
+
+        $activeSessions = $sessions->where('status', 'in_progress');
 
         return view(
             'teacher.my-classes',
             compact(
-                'scheduledClasses',
+                'releasedItems',
+                'sessions',
                 'activeSessions'
             )
         );
@@ -463,12 +485,16 @@ class PageController extends Controller
     public function teacherContent()
     {
         $teacher = User::find(session('user_id'));
-        $assignedClasses = $this->teacherAssignedClassNames($teacher);
 
-        $contents = Content::where('institute', $teacher->institute)
-            ->whereHas('course', function ($query) use ($assignedClasses) {
-                $query->whereIn('assigned_class', $assignedClasses);
+        $approvedContentIds = TeachingPlanItem::where('status', 'released')
+            ->whereHas('plan', function ($query) use ($teacher) {
+                $query->where('institute', $teacher->institute)
+                    ->where('status', 'active');
             })
+            ->whereNotNull('content_id')
+            ->pluck('content_id');
+
+        $contents = Content::whereIn('id', $approvedContentIds)
             ->latest()
             ->get();
 
@@ -492,19 +518,27 @@ class PageController extends Controller
    public function teacherReports()
     {
         $teacher = User::find(session('user_id'));
-        $assignedClassNames = $this->teacherAssignedClassNames($teacher);
-        $studentIds = $this->teacherAssignedStudentIds($teacher);
+        $studentIds = Student::where('institute', $teacher->institute)->pluck('id');
 
         $studentCount = $studentIds->count();
 
         $classCount = SchoolClass::where('institute', $teacher->institute)
-            ->where('class_teacher', $teacher->name)
             ->count();
 
-        $contentCount = Content::where('institute', $teacher->institute)
-            ->whereHas('course', function ($query) use ($assignedClassNames) {
-                $query->whereIn('assigned_class', $assignedClassNames);
+        $contentCount = TeachingPlanItem::where('status', 'released')
+            ->whereHas('plan', function ($query) use ($teacher) {
+                $query->where('institute', $teacher->institute)
+                    ->where('status', 'active');
             })
+            ->count();
+
+        $sessionCount = ClassContentSession::where('institute', $teacher->institute)
+            ->where('stem_engineer_id', $teacher->id)
+            ->count();
+
+        $completedSessionCount = ClassContentSession::where('institute', $teacher->institute)
+            ->where('stem_engineer_id', $teacher->id)
+            ->whereIn('status', ['completed', 'partially_completed'])
             ->count();
 
         $assessmentCount = Assessment::where('institute', $teacher->institute)
@@ -555,26 +589,36 @@ class PageController extends Controller
             'completedResults',
             'pendingReviewCount',
             'averageScore',
-            'certificateCount'
+            'certificateCount',
+            'sessionCount',
+            'completedSessionCount'
         ));
     }
 
     public function exportTeacherReports()
     {
         $teacher = User::findOrFail(session('user_id'));
-        $assignedClassNames = $this->teacherAssignedClassNames($teacher);
-        $studentIds = $this->teacherAssignedStudentIds($teacher);
+        $studentIds = Student::where('institute', $teacher->institute)->pluck('id');
 
         $studentCount = $studentIds->count();
 
         $classCount = SchoolClass::where('institute', $teacher->institute)
-            ->where('class_teacher', $teacher->name)
             ->count();
 
-        $contentCount = Content::where('institute', $teacher->institute)
-            ->whereHas('course', function ($query) use ($assignedClassNames) {
-                $query->whereIn('assigned_class', $assignedClassNames);
+        $contentCount = TeachingPlanItem::where('status', 'released')
+            ->whereHas('plan', function ($query) use ($teacher) {
+                $query->where('institute', $teacher->institute)
+                    ->where('status', 'active');
             })
+            ->count();
+
+        $sessionCount = ClassContentSession::where('institute', $teacher->institute)
+            ->where('stem_engineer_id', $teacher->id)
+            ->count();
+
+        $completedSessionCount = ClassContentSession::where('institute', $teacher->institute)
+            ->where('stem_engineer_id', $teacher->id)
+            ->whereIn('status', ['completed', 'partially_completed'])
             ->count();
 
         $assessmentCount = Assessment::where('institute', $teacher->institute)
@@ -624,9 +668,10 @@ class PageController extends Controller
 
         $rows = [
             ['Report Area', 'Metric', 'Current Value', 'Status'],
-            ['Students', 'Students in Assigned Classes', $studentCount, 'Live'],
-            ['Classes', 'Assigned Classes', $classCount, 'Live'],
-            ['Content', 'Assigned Content', $contentCount, 'Live'],
+            ['Students', 'Students in Institute', $studentCount, 'Live'],
+            ['Classes', 'Institute Classes', $classCount, 'Live'],
+            ['Content', 'Approved Planned Content', $contentCount, 'Live'],
+            ['Sessions', 'Sessions Conducted By You', $sessionCount . ' total | ' . $completedSessionCount . ' completed', 'Live'],
             ['Assessments', 'Your Assessments', $assessmentCount . ' total | ' . $monthlyAssessmentCount . ' monthly | ' . $annualAssessmentCount . ' annual', 'Live'],
             ['Assessment Results', 'Completed Results', $completedResults, 'Completed'],
             ['Manual Reviews', 'Pending Written Answers', $pendingReviewCount, 'Pending'],
@@ -750,17 +795,6 @@ class PageController extends Controller
             'revokedCertificates'
         ));
     }
-    public function teacherNotifications()
-    {
-        $teacher = User::find(session('user_id'));
-
-        $notifications = Notification::where('institute', $teacher->institute)
-            ->whereIn('target', ['Teachers', 'Class'])
-            ->latest()
-            ->get();
-
-        return view('teacher.teacher-notifications', compact('notifications'));
-    }
    public function teacherProfile()
     {
         $teacher = User::find(session('user_id'));
@@ -849,12 +883,6 @@ class PageController extends Controller
         $totalAssessmentCount = (clone $assessmentBaseQuery)
             ->count();
 
-        $notifications = Notification::where('institute', $student->institute)
-            ->whereIn('target', ['Students', 'Class'])
-            ->latest()
-            ->take(3)
-            ->get();
-
         $upcomingAssessments = (clone $assessmentBaseQuery)
             ->whereDate('assessment_date', '>', today())
             ->whereNotIn('id', $attemptedAssessmentIds)
@@ -867,7 +895,6 @@ class PageController extends Controller
             'studentCode',
             'results',
             'badgeCount',
-            'notifications',
             'pendingAssessmentCount',
             'totalAssessmentCount',
             'upcomingAssessments',
@@ -888,7 +915,7 @@ class PageController extends Controller
             $teacher = User::findOrFail($userId);
 
             if (!$this->teacherCanAccessAssessment($teacher, $assessmentId)) {
-                abort(403, 'You can only start assessments created for your assigned classes.');
+                abort(403, 'You can only start assessments created by you in your institute.');
             }
         }
 
@@ -979,7 +1006,6 @@ class PageController extends Controller
     private function teacherAssignedClassNames(User $teacher)
     {
         return SchoolClass::where('institute', $teacher->institute)
-            ->where('class_teacher', $teacher->name)
             ->get()
             ->map(function ($class) {
                 return trim($class->class_name . ' ' . $class->section);
@@ -989,24 +1015,7 @@ class PageController extends Controller
 
     private function teacherAssignedStudentsQuery(User $teacher)
     {
-        $classes = SchoolClass::where('institute', $teacher->institute)
-            ->where('class_teacher', $teacher->name)
-            ->get(['class_name', 'section']);
-
-        $query = Student::where('institute', $teacher->institute);
-
-        if ($classes->isEmpty()) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        return $query->where(function ($studentQuery) use ($classes) {
-            foreach ($classes as $class) {
-                $studentQuery->orWhere(function ($q) use ($class) {
-                    $q->where('class', $class->class_name)
-                        ->where('section', $class->section);
-                });
-            }
-        });
+        return Student::where('institute', $teacher->institute);
     }
 
     private function teacherAssignedStudentIds(User $teacher)
@@ -1026,7 +1035,6 @@ class PageController extends Controller
         return Assessment::where('id', $assessmentId)
             ->where('institute', $teacher->institute)
             ->where('teacher_id', $teacher->id)
-            ->whereIn('assigned_class', $this->teacherAssignedClassNames($teacher))
             ->exists();
     }
 
@@ -1230,6 +1238,7 @@ class PageController extends Controller
 
         $certificates = Certificate::with('course')
             ->where('student_id', $studentId)
+            ->where('status', 'approved')
             ->latest()
             ->get();
 
@@ -1256,17 +1265,6 @@ class PageController extends Controller
 
         ));
     }
-    public function studentNotifications()
-    {
-        $student = Student::find(session('student_id'));
-
-        $notifications = Notification::where('institute', $student->institute)
-            ->whereIn('target', ['Students', 'Class'])
-            ->latest()
-            ->get();
-
-        return view('student.student-notifications', compact('notifications'));
-    }
     public function disqualifyResult($id)
     {
         $result = AssessmentResult::with(['student', 'assessment'])->findOrFail($id);
@@ -1280,7 +1278,7 @@ class PageController extends Controller
                 !$result->assessment ||
                 $result->assessment->teacher_id != $teacher->id
             ) {
-                abort(403, 'You can only disqualify results for students assigned to your class.');
+                abort(403, 'You can only disqualify results from your institute and your own assessments.');
             }
         }
 
@@ -1288,7 +1286,7 @@ class PageController extends Controller
             $this->deleteAnnualCertificatesForStudent($result->student_id);
         }
 
-        $result->delete();
+        $this->deleteAssessmentResultCompletely($result);
 
         return redirect()->back()->with('success', 'Student result disqualified successfully');
     }
@@ -1359,7 +1357,6 @@ class PageController extends Controller
             $contents = Content::where('course_id', $course->id)
                 ->where('status', 1)
                 ->where('is_released', true)
-                ->whereNotNull('student_file_path')
                 ->orderBy('lesson_order')
                 ->get();
         }
@@ -1876,7 +1873,6 @@ class PageController extends Controller
         $content = Content::where('id', $id)
             ->where('status', 1)
             ->where('is_released', true)
-            ->whereNotNull('student_file_path')
             ->first();
 
         if (!$course || !$content || $content->course_id != $course->id) {
@@ -1970,46 +1966,57 @@ class PageController extends Controller
         return view('assessment-monitoring', compact('sessions'));
     }
 
-    public function startClassSession($timetableId)
+    public function startClassSession(Request $request)
     {
+        $request->validate([
+            'teaching_plan_item_id' => 'required|exists:teaching_plan_items,id',
+            'session_day' => 'required|string|max:20',
+            'session_date' => 'required|date',
+            'start_time' => 'required',
+        ]);
+
         $teacher = User::findOrFail(session('user_id'));
 
-        $timetable = ClassTimetable::with(['schoolClass', 'content'])
-            ->findOrFail($timetableId);
+        $item = TeachingPlanItem::with(['plan', 'week', 'course', 'content', 'courseContent'])
+            ->where('status', 'released')
+            ->whereHas('plan', function ($query) use ($teacher) {
+                $query->where('institute', $teacher->institute)
+                    ->where('status', 'active');
+            })
+            ->findOrFail($request->teaching_plan_item_id);
 
-        if (
-            !$timetable->schoolClass ||
-            $timetable->schoolClass->class_teacher != $teacher->name ||
-            $timetable->schoolClass->institute != $teacher->institute
-        ) {
-            abort(403, 'This class session is assigned to another STEM Engineer.');
-        }
+        $plan = $item->plan;
 
-        $existingSession = ClassContentSession::where('timetable_id', $timetable->id)
-            ->where('stem_engineer_id', session('user_id'))
-            ->where('status', 'Started')
+        $existingSession = ClassContentSession::where('stem_engineer_id', $teacher->id)
+            ->where('status', 'in_progress')
             ->first();
 
         if ($existingSession) {
             return redirect()->back()
-                ->with('error', 'A session is already running for this timetable.');
+                ->with('error', 'A session is already running.');
         }
 
-        ClassContentSession::create([
-            'timetable_id' => $timetable->id,
-            'class_id' => $timetable->class_id,
-            'content_id' => $timetable->content_id,
-            'stem_engineer_id' => session('user_id'),
+        $session = ClassContentSession::create([
+            'institute' => $teacher->institute,
+            'course_id' => $item->course_id,
+            'course_content_id' => $item->course_content_id,
+            'teaching_plan_id' => $plan->id,
+            'teaching_plan_week_id' => $item->teaching_plan_week_id,
+            'teaching_plan_item_id' => $item->id,
+            'content_id' => $item->content_id,
+            'stem_engineer_id' => $teacher->id,
+            'class' => $plan->class,
+            'section' => $plan->section,
+            'session_day' => $request->session_day ?: \Carbon\Carbon::parse($request->session_date)->format('l'),
+            'session_date' => $request->session_date,
+            'start_time' => $request->start_time,
             'started_at' => now(),
-            'status' => 'Started',
-        ]);
-
-        $timetable->update([
-            'status' => 'Started',
+            'status' => 'in_progress',
+            'planned_topic' => $item->content->content_title ?? null,
         ]);
 
         return redirect()
-            ->route('teacher.session.content', $timetable->content_id)
+            ->route('teacher.session.content', $session->content_id)
             ->with('success', 'Class session started successfully.');
     }
 
@@ -2019,11 +2026,8 @@ class PageController extends Controller
 
         $content = Content::findOrFail($contentId);
 
-        $hasAssignedSession = ClassTimetable::where('content_id', $content->id)
-            ->whereHas('schoolClass', function ($query) use ($teacher) {
-                $query->where('institute', $teacher->institute)
-                    ->where('class_teacher', $teacher->name);
-            })
+        $hasAssignedSession = ClassContentSession::where('content_id', $content->id)
+            ->where('stem_engineer_id', $teacher->id)
             ->exists();
 
         if (!$hasAssignedSession) {
@@ -2038,18 +2042,16 @@ class PageController extends Controller
     {
         $teacher = User::findOrFail(session('user_id'));
 
-        $session = ClassContentSession::with('schoolClass')->findOrFail($sessionId);
+        $session = ClassContentSession::with('teachingPlanItem')->findOrFail($sessionId);
 
         if (
             $session->stem_engineer_id != $teacher->id ||
-            !$session->schoolClass ||
-            $session->schoolClass->class_teacher != $teacher->name ||
-            $session->schoolClass->institute != $teacher->institute
+            $session->institute != $teacher->institute
         ) {
             abort(403, 'This class session is assigned to another STEM Engineer.');
         }
 
-        if ($session->status == 'Completed') {
+        if (in_array($session->status, ['completed', 'partially_completed', 'cancelled'])) {
 
             return redirect()->back()
                 ->with(
@@ -2063,31 +2065,28 @@ class PageController extends Controller
         $duration = strtotime($endedAt) -
                     strtotime($session->started_at);
 
+        $status = request('status', 'completed');
+
         $session->update([
 
             'ended_at' => $endedAt,
+            'end_time' => now()->format('H:i:s'),
 
             'duration_seconds' => $duration,
 
-            'status' => 'Completed',
+            'status' => $status,
+
+            'delivered_topic' => request('delivered_topic', $session->planned_topic),
+
+            'delivered_content_id' => $session->content_id,
+
+            'remarks' => request('remarks'),
 
         ]);
 
-        ClassTimetable::where(
-                'class_id',
-                $session->class_id
-            )
-            ->where(
-                'content_id',
-                $session->content_id
-            )
-            ->whereDate(
-                'session_date',
-                today()
-            )
-            ->update([
-                'status' => 'Completed'
-            ]);
+        if ($status == 'completed' && $session->teachingPlanItem) {
+            app(TeachingPlanReleaseService::class)->markItemCompleted($session->teachingPlanItem);
+        }
 
         return redirect()->back()
             ->with(
@@ -2102,12 +2101,12 @@ class PageController extends Controller
         $sessions = ClassContentSession::with([
                 'schoolClass',
                 'content',
+                'course',
+                'teachingPlan',
                 'stemEngineer',
             ])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->whereHas('schoolClass', function ($q) {
-                    $q->where('institute', session('user_institute'));
-                });
+                $query->where('institute', session('user_institute'));
             })
             ->latest()
             ->get();
@@ -2147,7 +2146,7 @@ class PageController extends Controller
         $student = Student::findOrFail(session('student_id'));
 
         $certificate = Certificate::where('student_id', $student->id)
-            ->where('status', 'Issued')
+            ->where('status', 'approved')
             ->latest()
             ->firstOrFail();
 
@@ -2159,37 +2158,4 @@ class PageController extends Controller
         return $pdf->stream('certificate-' . $certificate->certificate_code . '.pdf');
     }
 
-    public function coordinatorLogin()
-    {
-        return view('coordinator.login');
-    }
-
-    public function coordinatorLoginSubmit(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
-
-        $user = User::where('email', $request->email)
-            ->where('role', 'Coordinator')
-            ->where('status', 1)
-            ->first();
-
-        if ($user && Hash::check($request->password, $user->password)) {
-
-            session([
-                'user_id' => $user->id,
-                'user_name' => $user->name,
-                'user_role' => $user->role,
-                'user_institute' => $user->institute,
-            ]);
-
-            return redirect()->route('coordinator.dashboard');
-        }
-
-        return redirect()
-            ->back()
-            ->with('error', 'Invalid coordinator login credentials.');
-    }
 }

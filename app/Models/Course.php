@@ -28,11 +28,18 @@ class Course extends Model
         
         'is_active',
 
+        'is_template_source',
+
     ];
 
     public function contents()
     {
         return $this->hasMany(Content::class);
+    }
+
+    public function courseContents()
+    {
+        return $this->hasMany(CourseContent::class);
     }
 
 }

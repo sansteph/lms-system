@@ -32,4 +32,5 @@ class ClassTimetable extends Model
             'content_id'
         );
     }
+
 }

@@ -6,10 +6,12 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
+    {
+        Schema::dropIfExists('notifications');
+    }
+
+    public function down(): void
     {
         Schema::create('notifications', function (Blueprint $table) {
             $table->id();
@@ -17,15 +19,9 @@ return new class extends Migration
             $table->text('message');
             $table->string('target');
             $table->date('notification_date');
+            $table->string('status')->default('Active');
+            $table->string('institute')->nullable();
             $table->timestamps();
         });
-    }
-
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('notifications');
     }
 };

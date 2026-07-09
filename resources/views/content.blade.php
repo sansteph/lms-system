@@ -2,6 +2,62 @@
 
 @section('content')
 
+<style>
+    .bulk-upload-modal {
+        height: calc(100vh - 32px);
+        margin-top: 16px;
+        margin-bottom: 16px;
+        align-items: stretch;
+    }
+
+    .bulk-upload-modal .modal-content {
+        height: 100%;
+        max-height: none;
+        overflow: hidden;
+    }
+
+    .bulk-upload-modal form {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+    }
+
+    .bulk-upload-modal .modal-header,
+    .bulk-upload-modal .modal-footer {
+        flex: 0 0 auto;
+        background: #fff;
+        z-index: 2;
+    }
+
+    .bulk-upload-modal .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .bulk-upload-lesson-scroll {
+        max-height: 340px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 4px 8px 4px 4px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #f8fafc;
+    }
+
+    .bulk-upload-lesson-scroll .bulk-content-row:last-child {
+        margin-bottom: 0 !important;
+    }
+
+    @media (max-height: 760px) {
+        .bulk-upload-lesson-scroll {
+            max-height: 240px;
+        }
+    }
+</style>
+
 <div class="container-fluid">
 
     <div class="row">
@@ -15,22 +71,25 @@
                 <div>
 
                     <h2 class="mb-1">
-                        Content Management
+                        Course Contents
                     </h2>
 
                     <p class="text-muted mb-0">
-                        Upload STEM Engineer PPTs with linked Student Word documents.
+                        Upload course contents, manage lesson order, and control content status.
                     </p>
 
                 </div>
 
-                <button class="btn btn-primary btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#uploadContentModal">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#bulkUploadContentModal">
 
-                    Upload Lesson
+                        Attach Contents
 
-                </button>
+                    </button>
+
+                </div>
 
             </div>
 
@@ -61,7 +120,7 @@
                     <div class="dashboard-card">
 
                         <h6>
-                            Total Lessons
+                            Attached Contents
                         </h6>
 
                         <h2>
@@ -136,7 +195,7 @@
 
                     <form method="GET"
                           action="{{ route('content') }}"
-                          class="row mb-3">
+                          class="row g-3 mb-3">
 
                         <div class="col-md-4">
 
@@ -148,6 +207,19 @@
 
                         </div>
 
+                        <div class="col-md-4">
+
+                            <select name="course_id" class="form-control">
+                                <option value="">All Courses</option>
+                                @foreach($courses as $course)
+                                    <option value="{{ $course->id }}" {{ (string) $selectedCourseId === (string) $course->id ? 'selected' : '' }}>
+                                        {{ $course->course_title }}
+                                    </option>
+                                @endforeach
+                            </select>
+
+                        </div>
+
                         <div class="col-md-2">
 
                             <button type="submit"
@@ -156,6 +228,15 @@
                                 Search
 
                             </button>
+
+                        </div>
+
+                        <div class="col-md-2">
+
+                            <a href="{{ route('content') }}"
+                               class="btn btn-outline-secondary w-100">
+                                Reset
+                            </a>
 
                         </div>
 
@@ -188,7 +269,7 @@
                                 </th>
 
                                 <th>
-                                    Lesson Order
+                                    Lesson Order / Status
                                 </th>
 
                                 <th>
@@ -253,7 +334,36 @@
 
                                     <td>
 
-                                        {{ $content->lesson_order }}
+                                        @if($content->courseContent)
+                                            <form method="POST"
+                                                  action="{{ route('content.course-content.order', $content->courseContent->id) }}"
+                                                  class="d-flex gap-2 align-items-center">
+                                                @csrf
+                                                <input type="number"
+                                                       name="sort_order"
+                                                       class="form-control form-control-sm"
+                                                       value="{{ $content->courseContent->sort_order }}"
+                                                       min="1"
+                                                       style="width: 82px"
+                                                       required>
+                                                <select name="status"
+                                                        class="form-control form-control-sm"
+                                                        style="width: 105px"
+                                                        required>
+                                                    @foreach(['active', 'draft', 'archived'] as $status)
+                                                        <option value="{{ $status }}" {{ $content->courseContent->status == $status ? 'selected' : '' }}>
+                                                            {{ ucfirst($status) }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                <button type="submit"
+                                                        class="btn btn-sm btn-outline-primary">
+                                                    Save
+                                                </button>
+                                            </form>
+                                        @else
+                                            {{ $content->lesson_order }}
+                                        @endif
 
                                     </td>
 
@@ -265,16 +375,26 @@
 
                                     <td>
 
-                                        @if($content->status == 1)
+                                        @php
+                                            $displayStatus = $content->courseContent->status ?? ($content->status == 1 ? 'active' : 'draft');
+                                        @endphp
+
+                                        @if($displayStatus == 'active')
 
                                             <span class="badge bg-success">
                                                 Active
                                             </span>
 
+                                        @elseif($displayStatus == 'archived')
+
+                                            <span class="badge bg-secondary">
+                                                Archived
+                                            </span>
+
                                         @else
 
-                                            <span class="badge bg-danger">
-                                                Inactive
+                                            <span class="badge bg-warning text-dark">
+                                                Draft
                                             </span>
 
                                         @endif
@@ -291,13 +411,26 @@
 
                                         </button>
 
-                                        <a href="{{ route('content.delete', $content->id) }}"
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Are you sure you want to delete this content?')">
+                                        @if($content->courseContent)
+                                            <form method="POST"
+                                                  action="{{ route('content.course-content.detach', $content->courseContent->id) }}"
+                                                  class="d-inline"
+                                                  onsubmit="return confirm('Remove this content from the course? The uploaded file will be deleted.');">
+                                                @csrf
+                                                <button type="submit"
+                                                        class="btn btn-sm btn-outline-danger">
+                                                    Detach
+                                                </button>
+                                            </form>
+                                        @else
+                                            <a href="{{ route('content.delete', $content->id) }}"
+                                               class="btn btn-sm btn-outline-danger"
+                                               onclick="return confirm('Are you sure you want to delete this content?')">
 
-                                            Delete
+                                                Delete
 
-                                        </a>
+                                            </a>
+                                        @endif
 
                                     </td>
 
@@ -332,18 +465,18 @@
 
 </div>
 
-<!-- Upload Modal -->
+<!-- Bulk Upload Modal -->
 
 <div class="modal fade"
-     id="uploadContentModal"
+     id="bulkUploadContentModal"
      tabindex="-1">
 
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-xl bulk-upload-modal">
 
         <div class="modal-content">
 
             <form method="POST"
-                  action="{{ route('content.store') }}"
+                  action="{{ route('content.bulk-store') }}"
                   enctype="multipart/form-data">
 
                 @csrf
@@ -351,7 +484,7 @@
                 <div class="modal-header">
 
                     <h5 class="modal-title">
-                        Upload Lesson
+                        Bulk Upload Course Contents
                     </h5>
 
                     <button type="button"
@@ -363,20 +496,7 @@
 
                 <div class="modal-body">
 
-                    <div class="row g-3">
-
-                        <div class="col-md-6">
-
-                            <label class="form-label">
-                                Lesson Title
-                            </label>
-
-                            <input type="text"
-                                   name="content_title"
-                                   class="form-control"
-                                   required>
-
-                        </div>
+                    <div class="row g-3 mb-4">
 
                         <div class="col-md-6">
                             <label class="form-label">Institute</label>
@@ -384,20 +504,20 @@
                             @if(session('user_role') == 'InstituteAdmin')
 
                                 <input type="hidden"
-                                    name="institute"
-                                    value="{{ session('user_institute') }}">
+                                       name="institute"
+                                       value="{{ session('user_institute') }}">
 
                                 <input type="text"
-                                    class="form-control"
-                                    value="{{ session('user_institute') }}"
-                                    readonly>
+                                       class="form-control"
+                                       value="{{ session('user_institute') }}"
+                                       readonly>
 
                             @else
 
                                 <input type="text"
-                                    name="institute"
-                                    class="form-control"
-                                    required>
+                                       name="institute"
+                                       class="form-control"
+                                       required>
 
                             @endif
                         </div>
@@ -409,6 +529,7 @@
                             </label>
 
                             <select name="course_id"
+                                    id="bulkCourseSelect"
                                     class="form-control"
                                     required>
 
@@ -418,7 +539,8 @@
 
                                 @foreach($courses as $course)
 
-                                    <option value="{{ $course->id }}">
+                                    <option value="{{ $course->id }}"
+                                            data-class="{{ $course->assigned_class }}">
 
                                         {{ $course->course_title }}
 
@@ -433,97 +555,128 @@
                         <div class="col-md-6">
 
                             <label class="form-label">
-                                STEM Engineer Material
-                            </label>
-
-                            <select name="content_type"
-                                    class="form-control"
-                                    required>
-
-                                <option value="PPT">
-                                    PPT
-                                </option>
-
-                            </select>
-
-                        </div>
-
-                        <div class="col-md-6">
-
-                            <label class="form-label">
-                                Lesson Order
-                            </label>
-
-                            <input type="number"
-                                   name="lesson_order"
-                                   class="form-control"
-                                   required>
-
-                        </div>
-
-                        <div class="col-md-6">
-
-                            <label class="form-label">
                                 Assigned Class
                             </label>
 
                             <input type="text"
-                                   name="assigned_class"
+                                   id="bulkAssignedClass"
                                    class="form-control"
-                                   required>
+                                   readonly>
 
                         </div>
 
                         <div class="col-md-6">
-
-                            <label class="form-label">
-                                Upload STEM Engineer PPT
-                            </label>
-
-                            <input type="file"
-                                   name="file"
-                                   class="form-control"
-                                   accept=".ppt,.pptx"
-                                   required>
+                            <div class="alert alert-info mb-0">
+                                Each row below can use its own class, section, content type, order, and status.
+                            </div>
 
                         </div>
 
-                        <div class="col-md-6">
+                    </div>
 
-                            <label class="form-label">
-                                Upload Linked Student Word Document
-                            </label>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
 
-                            <input type="file"
-                                   name="student_file"
-                                   class="form-control"
-                                   accept=".doc,.docx"
-                                   required>
-
+                        <div>
+                            <h6 class="mb-1">
+                                Lesson Files
+                            </h6>
+                            <small class="text-muted">
+                                Each row becomes a course content item for the selected course.
+                            </small>
                         </div>
 
-                        <div class="col-md-6">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                id="addBulkContentRow">
+                            Add Lesson
+                        </button>
 
-                            <label class="form-label">
-                                Status
-                            </label>
+                    </div>
 
-                            <select name="status"
-                                    class="form-control"
-                                    required>
-
-                                <option value="1">
-                                    Active
-                                </option>
-
-                                <option value="0">
-                                    Inactive
-                                </option>
-
-                            </select>
-
+                    <div class="bulk-upload-lesson-scroll">
+                        <div id="bulkContentRows">
+                        <div class="border rounded p-3 mb-3 bulk-content-row"
+                             data-row-index="0">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label">Lesson Title</label>
+                                    <input type="text"
+                                           name="contents[0][content_title]"
+                                           class="form-control"
+                                           required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Description</label>
+                                    <input type="text"
+                                           name="contents[0][description]"
+                                           class="form-control">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Content Type</label>
+                                    <select name="contents[0][content_type]"
+                                            class="form-control"
+                                            required>
+                                        <option value="PPT">PPT</option>
+                                        <option value="Document">Document</option>
+                                        <option value="PDF">PDF</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Lesson Order</label>
+                                    <input type="number"
+                                           name="contents[0][lesson_order]"
+                                           class="form-control"
+                                           min="1"
+                                           required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Class</label>
+                                    <input type="text"
+                                           name="contents[0][assigned_class]"
+                                           class="form-control"
+                                           placeholder="Defaults to course class">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Section</label>
+                                    <input type="text"
+                                           name="contents[0][section]"
+                                           class="form-control">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Status</label>
+                                    <select name="contents[0][status]"
+                                            class="form-control"
+                                            required>
+                                        <option value="active">Active</option>
+                                        <option value="draft">Draft</option>
+                                        <option value="archived">Archived</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Content File</label>
+                                    <input type="file"
+                                           name="contents[0][file]"
+                                           class="form-control"
+                                           accept=".ppt,.pptx,.doc,.docx,.pdf"
+                                           required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Student File <span class="text-muted">(Optional)</span></label>
+                                    <input type="file"
+                                           name="contents[0][student_file]"
+                                           class="form-control"
+                                           accept=".doc,.docx,.ppt,.pptx,.pdf">
+                                </div>
+                                <div class="col-12 text-end">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger remove-bulk-content-row"
+                                            disabled>
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-
+                        </div>
                     </div>
 
                 </div>
@@ -539,9 +692,9 @@
                     </button>
 
                     <button type="submit"
-                        class="btn btn-primary">
+                            class="btn btn-primary">
 
-                        Upload Lesson
+                        Upload Course Contents
 
                     </button>
 
@@ -574,7 +727,7 @@
                 <div class="modal-header">
 
                     <h5 class="modal-title">
-                        Edit Lesson
+                        Edit Attached Lesson
                     </h5>
 
                     <button type="button"
@@ -599,6 +752,18 @@
                                    class="form-control"
                                    value="{{ $content->content_title }}"
                                    required>
+
+                        </div>
+
+                        <div class="col-md-12">
+
+                            <label class="form-label">
+                                Description
+                            </label>
+
+                            <textarea name="description"
+                                      class="form-control"
+                                      rows="2">{{ $content->description }}</textarea>
 
                         </div>
 
@@ -655,27 +820,6 @@
                         <div class="col-md-6">
 
                             <label class="form-label">
-                                STEM Engineer Material
-                            </label>
-
-                            <select name="content_type"
-                                    class="form-control"
-                                    required>
-
-                                <option value="PPT"
-                                    {{ $content->content_type == 'PPT' ? 'selected' : '' }}>
-
-                                    PPT
-
-                                </option>
-
-                            </select>
-
-                        </div>
-
-                        <div class="col-md-6">
-
-                            <label class="form-label">
                                 Lesson Order
                             </label>
 
@@ -710,7 +854,7 @@
                             <input type="file"
                                    name="file"
                                    class="form-control"
-                                   accept=".ppt,.pptx">
+                                   accept=".ppt,.pptx,.doc,.docx,.pdf">
 
                             <small class="text-muted">
 
@@ -724,12 +868,13 @@
 
                             <label class="form-label">
                                 Replace Linked Student Word Document
+                                <span class="text-muted">(Optional)</span>
                             </label>
 
                             <input type="file"
                                    name="student_file"
                                    class="form-control"
-                                   accept=".doc,.docx">
+                                   accept=".doc,.docx,.ppt,.pptx,.pdf">
 
                             <small class="text-muted">
 
@@ -800,5 +945,154 @@
 
 @endforeach
 
-@endsection
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const rowsContainer = document.getElementById('bulkContentRows');
+        const addRowButton = document.getElementById('addBulkContentRow');
+        const bulkCourseSelect = document.getElementById('bulkCourseSelect');
+        const bulkAssignedClass = document.getElementById('bulkAssignedClass');
+        let rowIndex = 1;
 
+        function syncBulkAssignedClass() {
+            if (!bulkCourseSelect || !bulkAssignedClass) {
+                return;
+            }
+
+            const selectedOption = bulkCourseSelect.options[bulkCourseSelect.selectedIndex];
+            bulkAssignedClass.value = selectedOption ? (selectedOption.dataset.class || '') : '';
+        }
+
+        function updateRemoveButtons() {
+            const rows = rowsContainer.querySelectorAll('.bulk-content-row');
+
+            rows.forEach(function (row) {
+                const removeButton = row.querySelector('.remove-bulk-content-row');
+
+                if (removeButton) {
+                    removeButton.disabled = rows.length === 1;
+                }
+            });
+        }
+
+        function createBulkRow(index) {
+            const row = document.createElement('div');
+            row.className = 'border rounded p-3 mb-3 bulk-content-row';
+            row.dataset.rowIndex = index;
+            row.innerHTML = `
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Lesson Title</label>
+                        <input type="text"
+                               name="contents[${index}][content_title]"
+                               class="form-control"
+                               required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Description</label>
+                        <input type="text"
+                               name="contents[${index}][description]"
+                               class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Content Type</label>
+                        <select name="contents[${index}][content_type]"
+                                class="form-control"
+                                required>
+                            <option value="PPT">PPT</option>
+                            <option value="Document">Document</option>
+                            <option value="PDF">PDF</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Lesson Order</label>
+                        <input type="number"
+                               name="contents[${index}][lesson_order]"
+                               class="form-control"
+                               min="1"
+                               required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Class</label>
+                        <input type="text"
+                               name="contents[${index}][assigned_class]"
+                               class="form-control"
+                               placeholder="Defaults to course class">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Section</label>
+                        <input type="text"
+                               name="contents[${index}][section]"
+                               class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Status</label>
+                        <select name="contents[${index}][status]"
+                                class="form-control"
+                                required>
+                            <option value="active">Active</option>
+                            <option value="draft">Draft</option>
+                            <option value="archived">Archived</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Content File</label>
+                        <input type="file"
+                               name="contents[${index}][file]"
+                               class="form-control"
+                               accept=".ppt,.pptx,.doc,.docx,.pdf"
+                               required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Student File <span class="text-muted">(Optional)</span></label>
+                        <input type="file"
+                               name="contents[${index}][student_file]"
+                               class="form-control"
+                               accept=".doc,.docx,.ppt,.pptx,.pdf">
+                    </div>
+                    <div class="col-12 text-end">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-danger remove-bulk-content-row">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            return row;
+        }
+
+        if (addRowButton && rowsContainer) {
+            addRowButton.addEventListener('click', function () {
+                rowsContainer.appendChild(createBulkRow(rowIndex));
+                rowIndex += 1;
+                updateRemoveButtons();
+            });
+
+            rowsContainer.addEventListener('click', function (event) {
+                const removeButton = event.target.closest('.remove-bulk-content-row');
+
+                if (!removeButton) {
+                    return;
+                }
+
+                const rows = rowsContainer.querySelectorAll('.bulk-content-row');
+
+                if (rows.length <= 1) {
+                    return;
+                }
+
+                removeButton.closest('.bulk-content-row').remove();
+                updateRemoveButtons();
+            });
+
+            updateRemoveButtons();
+        }
+
+        if (bulkCourseSelect) {
+            bulkCourseSelect.addEventListener('change', syncBulkAssignedClass);
+            syncBulkAssignedClass();
+        }
+    });
+</script>
+
+@endsection

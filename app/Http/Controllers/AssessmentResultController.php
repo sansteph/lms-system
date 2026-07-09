@@ -99,7 +99,9 @@ class AssessmentResultController extends Controller
             ->when(session('user_role') == 'Teacher', function ($query) {
                 $teacher = User::findOrFail(session('user_id'));
 
-                $query->whereIn('student_id', $this->teacherAssignedStudentsQuery($teacher)->pluck('id'))
+                $query->whereHas('student', function ($q) use ($teacher) {
+                        $q->where('institute', $teacher->institute);
+                    })
                     ->whereHas('assessment', function ($q) use ($teacher) {
                         $q->where('teacher_id', $teacher->id);
                     });
@@ -132,9 +134,9 @@ class AssessmentResultController extends Controller
                 !$result->assessment ||
                 $result->assessment->teacher_id != $teacher->id ||
                 !$result->student ||
-                !$this->teacherCanAccessStudent($teacher, $result->student)
+                $result->student->institute != $teacher->institute
             ) {
-                abort(403, 'You can only evaluate students assigned to your class.');
+                abort(403, 'You can only evaluate students from your institute.');
             }
         }
 
@@ -217,7 +219,7 @@ class AssessmentResultController extends Controller
                 $result->assessment &&
                 $result->assessment->teacher_id == $teacher->id &&
                 $result->student &&
-                $this->teacherCanAccessStudent($teacher, $result->student);
+                $result->student->institute == $teacher->institute;
         }
 
         if (session('student_id')) {
@@ -229,24 +231,7 @@ class AssessmentResultController extends Controller
 
     private function teacherAssignedStudentsQuery(User $teacher)
     {
-        $classes = SchoolClass::where('institute', $teacher->institute)
-            ->where('class_teacher', $teacher->name)
-            ->get(['class_name', 'section']);
-
-        $query = Student::where('institute', $teacher->institute);
-
-        if ($classes->isEmpty()) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        return $query->where(function ($studentQuery) use ($classes) {
-            foreach ($classes as $class) {
-                $studentQuery->orWhere(function ($q) use ($class) {
-                    $q->where('class', $class->class_name)
-                        ->where('section', $class->section);
-                });
-            }
-        });
+        return Student::where('institute', $teacher->institute);
     }
 
     private function teacherCanAccessStudent(User $teacher, Student $student)
@@ -379,7 +364,7 @@ class AssessmentResultController extends Controller
             'final_grade' => $this->calculateFinalGrade($averageScore),
             'final_classification' => $this->calculateFinalClassification($averageScore),
             'issued_date' => null,
-            'status' => 'Pending Approval',
+            'status' => 'pending_admin_approval',
             'certificate_type' => 'Annual',
         ]);
     }

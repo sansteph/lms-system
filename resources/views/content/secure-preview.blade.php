@@ -210,13 +210,17 @@
         <div class="preview-frame-wrap">
             <div class="preview-stage protected-preview-surface"
                  data-watermark="TinkEdge LMS&#10;View Only"
-                 data-preview-scope="content-{{ $content->id }}-{{ $audience }}">
+                 data-preview-scope="content-{{ $content->id }}">
                 <div class="preview-frame-holder protected-preview-content">
                     <iframe class="preview-frame"
                             src="{{ $sourceUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
                             allow="fullscreen"
-                            allowfullscreen>
+                            allowfullscreen
+                            oncontextmenu="return false;">
                     </iframe>
+                    <div class="protected-preview-mouse-shield"
+                         aria-hidden="true">
+                    </div>
                 </div>
             </div>
         </div>

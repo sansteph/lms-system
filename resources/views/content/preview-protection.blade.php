@@ -5,11 +5,27 @@
             user-select: none;
             -webkit-user-select: none;
             -webkit-touch-callout: none;
+            --restriction-message: "Screen capture, right click, saving, printing, and inspection are restricted for this content.";
         }
 
         .protected-preview-content {
             position: relative;
             z-index: 1;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .protected-preview-mouse-shield {
+            position: absolute;
+            inset: 0;
+            z-index: 8;
+            cursor: default;
+            background: transparent;
+            pointer-events: auto;
+        }
+
+        .protected-preview-surface.allow-scroll-through .protected-preview-mouse-shield {
+            pointer-events: none;
         }
 
         .protected-preview-surface::before {
@@ -57,7 +73,7 @@
 
         .protected-preview-surface.capture-guard::after,
         .protected-preview-surface.capture-warning::after {
-            content: "Screen capture restricted";
+            content: var(--restriction-message);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -85,7 +101,7 @@
         }
 
         .protected-preview-surface.capture-closed::after {
-            content: "Content preview closed because screen capture is restricted.";
+            content: var(--restriction-message);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -102,19 +118,49 @@
     <script>
         (function () {
             const protectedSelector = '.protected-preview-surface';
-            const captureLockKey = 'tinkedge_content_preview_capture_lock_until';
-            const alertCooldownKey = 'tinkedge_content_preview_alert_until';
-            const captureLockDurationMs = 5 * 60 * 1000;
-            let previewClosed = false;
+            const captureLockKey = 'tinkedge_content_preview_capture_lock_until_v3';
+            const legacyCaptureLockPrefix = 'tinkedge_content_preview_capture_lock_until';
+            const captureLockDurationMs = 3 * 60 * 1000;
+            const warningDisplayMs = 1400;
+            const closedPreviewScopes = new Set();
             let guardTimer = null;
+            let scrollThroughTimer = null;
             let currentPreviewScope = null;
 
             function protectedSurfaces() {
                 return document.querySelectorAll(protectedSelector);
             }
 
+            function isSurfaceVisible(surface) {
+                if (!surface) {
+                    return false;
+                }
+
+                if (document.getElementById('previewShell')) {
+                    return true;
+                }
+
+                const modalElement = surface.closest('.modal');
+
+                if (modalElement) {
+                    return modalElement.classList.contains('show');
+                }
+
+                return !!(surface.offsetWidth || surface.offsetHeight || surface.getClientRects().length);
+            }
+
+            function visibleProtectedSurfaces() {
+                return Array.from(protectedSurfaces()).filter(isSurfaceVisible);
+            }
+
             function hasProtectedTarget(event) {
-                return event.target && event.target.closest(protectedSelector);
+                const surface = event.target && event.target.closest(protectedSelector);
+
+                return surface && isSurfaceVisible(surface);
+            }
+
+            function hasProtectedPreview() {
+                return visibleProtectedSurfaces().length > 0;
             }
 
             function previewScope(surface) {
@@ -123,23 +169,11 @@
                     : 'global';
             }
 
-            function scopedKey(baseKey, scope) {
-                return baseKey + '_' + (scope || 'global');
-            }
-
             function rememberPreviewScope(event) {
                 const surface = event.target && event.target.closest(protectedSelector);
 
                 if (surface) {
                     currentPreviewScope = previewScope(surface);
-                }
-            }
-
-            function sharedRestrictionWindow() {
-                try {
-                    return window.top || window;
-                } catch (error) {
-                    return window;
                 }
             }
 
@@ -151,38 +185,30 @@
                 }
             }
 
-            function canShowRestrictionAlert(scope) {
-                const sharedWindow = sharedRestrictionWindow();
-                const storage = lockStorage();
-                const now = Date.now();
-                const scopedAlertKey = scopedKey(alertCooldownKey, scope);
-                const storedAlertUntil = storage ? Number(storage.getItem(scopedAlertKey) || 0) : 0;
-
-                sharedWindow.__tinkedgePreviewRestrictionAlertUntil =
-                    sharedWindow.__tinkedgePreviewRestrictionAlertUntil || {};
-
-                if (
-                    sharedWindow.__tinkedgePreviewRestrictionAlertUntil[scope] > now ||
-                    storedAlertUntil > now
-                ) {
-                    return false;
-                }
-
-                sharedWindow.__tinkedgePreviewRestrictionAlertUntil[scope] = now + 3000;
-
-                if (storage) {
-                    storage.setItem(scopedAlertKey, String(now + 3000));
-                }
-
-                return true;
-            }
-
             function lockStorage() {
                 try {
                     return window.localStorage;
                 } catch (error) {
                     return null;
                 }
+            }
+
+            function scopedKey(baseKey, scope) {
+                return baseKey + '_' + (scope || 'global');
+            }
+
+            function clearStoredCaptureLocks() {
+                const storage = lockStorage();
+
+                if (!storage) {
+                    return;
+                }
+
+                Object.keys(storage).forEach(function (key) {
+                    if (key.indexOf(legacyCaptureLockPrefix) === 0 && key.indexOf(captureLockKey) !== 0) {
+                        storage.removeItem(key);
+                    }
+                });
             }
 
             function setCaptureLock(scope) {
@@ -218,6 +244,14 @@
                 return document.querySelector('.modal.show');
             }
 
+            function scopeFromContainer(container) {
+                const surface = container
+                    ? container.querySelector(protectedSelector)
+                    : null;
+
+                return previewScope(surface);
+            }
+
             function activePreviewScope() {
                 if (currentPreviewScope) {
                     return currentPreviewScope;
@@ -236,11 +270,15 @@
                 const modalElement = activeModalElement();
                 const surfaces = modalElement
                     ? modalElement.querySelectorAll(protectedSelector)
-                    : protectedSurfaces();
+                    : visibleProtectedSurfaces();
 
                 return Array.from(surfaces).filter(function (surface) {
                     return previewScope(surface) === selectedScope;
                 });
+            }
+
+            function isPreviewClosed(scope) {
+                return closedPreviewScopes.has(scope || activePreviewScope());
             }
 
             function clearProtectedSurface(surface) {
@@ -266,15 +304,21 @@
             }
 
             function resetProtectedPreviews(scope) {
-                previewClosed = false;
                 const selectedScope = scope || null;
 
-                protectedSurfaces().forEach(function (surface) {
+                if (selectedScope) {
+                    closedPreviewScopes.delete(selectedScope);
+                } else {
+                    closedPreviewScopes.clear();
+                }
+
+                visibleProtectedSurfaces().forEach(function (surface) {
                     if (selectedScope && previewScope(surface) !== selectedScope) {
                         return;
                     }
 
                     surface.classList.remove('capture-guard', 'capture-warning', 'capture-closed');
+                    surface.style.removeProperty('--restriction-message');
 
                     surface.querySelectorAll('iframe').forEach(function (frame) {
                         if (frame.dataset.protectedSrc) {
@@ -293,6 +337,13 @@
 
             function setCaptureGuard(isGuarded, scope) {
                 activeProtectedSurfaces(scope).forEach(function (surface) {
+                    if (isGuarded) {
+                        surface.style.setProperty(
+                            '--restriction-message',
+                            '"Screen capture shortcuts are restricted for this content."'
+                        );
+                    }
+
                     surface.classList.toggle('capture-guard', isGuarded);
                 });
             }
@@ -301,7 +352,7 @@
                 window.clearTimeout(guardTimer);
 
                 guardTimer = window.setTimeout(function () {
-                    if (!previewClosed) {
+                    if (!isPreviewClosed(scope)) {
                         setCaptureGuard(false, scope);
                     }
                 }, 500);
@@ -310,18 +361,21 @@
             function closeProtectedPreview(reason, shouldLock, scope) {
                 const selectedScope = scope || activePreviewScope();
 
-                if (previewClosed) {
+                if (isPreviewClosed(selectedScope)) {
                     return;
                 }
 
-                previewClosed = true;
+                closedPreviewScopes.add(selectedScope);
                 window.clearTimeout(guardTimer);
 
                 if (shouldLock !== false) {
                     setCaptureLock(selectedScope);
                 }
 
+                const displayMessage = reason || 'This content preview was closed because a restricted action was detected.';
+
                 activeProtectedSurfaces(selectedScope).forEach(function (surface) {
+                    surface.style.setProperty('--restriction-message', '"' + displayMessage.replace(/"/g, '\\"') + '"');
                     surface.classList.remove('capture-guard');
                     surface.classList.add('capture-warning');
                 });
@@ -339,10 +393,6 @@
                         } catch (error) {}
 
                         return;
-                    }
-
-                    if (canShowRestrictionAlert(selectedScope)) {
-                        window.alert(reason || 'Screen capture is restricted. This content preview will be closed.');
                     }
 
                     const modalElement = activeModalElement();
@@ -380,20 +430,138 @@
                             window.location.replace('about:blank');
                         }, 250);
                     }
-                }, 80);
+                }, warningDisplayMs);
             }
 
             function blockProtectedEvent(event) {
-                if (!hasProtectedTarget(event)) {
+                if (!hasProtectedTarget(event) && event.type !== 'contextmenu') {
+                    return;
+                }
+
+                if (event.type === 'contextmenu' && !hasProtectedPreview()) {
                     return;
                 }
 
                 event.preventDefault();
                 event.stopPropagation();
+
+                if (event.type === 'contextmenu') {
+                    closeProtectedPreview(
+                        'Right click, saving, printing, and inspection are restricted for this content. The preview will now close.',
+                        true,
+                        activePreviewScope()
+                    );
+                }
             }
 
             ['contextmenu', 'copy', 'cut', 'dragstart', 'selectstart'].forEach(function (eventName) {
                 document.addEventListener(eventName, blockProtectedEvent, true);
+            });
+
+            function handleShieldMouseAttempt(event) {
+                const shield = event.target && event.target.closest('.protected-preview-mouse-shield');
+
+                if (!shield) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                const surface = shield.closest(protectedSelector);
+                const selectedScope = previewScope(surface);
+                currentPreviewScope = selectedScope;
+
+                if (event.button === 2) {
+                    closeProtectedPreview(
+                        'Right click, saving, printing, and inspection are restricted for this content. The preview will now close.',
+                        true,
+                        selectedScope
+                    );
+                }
+            }
+
+            document.addEventListener('pointerdown', handleShieldMouseAttempt, true);
+            document.addEventListener('mousedown', handleShieldMouseAttempt, true);
+
+            function scrollProtectedFrame(event) {
+                const shield = event.target && event.target.closest('.protected-preview-mouse-shield');
+
+                if (!shield) {
+                    return;
+                }
+
+                const surface = shield.closest(protectedSelector);
+
+                if (!isSurfaceVisible(surface)) {
+                    return;
+                }
+
+                surface.classList.add('allow-scroll-through');
+                window.clearTimeout(scrollThroughTimer);
+                scrollThroughTimer = window.setTimeout(function () {
+                    surface.classList.remove('allow-scroll-through');
+                }, 1200);
+            }
+
+            document.addEventListener('wheel', scrollProtectedFrame, { capture: true, passive: true });
+
+            document.addEventListener('contextmenu', function (event) {
+                const shield = event.target && event.target.closest('.protected-preview-mouse-shield');
+
+                if (!shield) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                const surface = shield.closest(protectedSelector);
+                const selectedScope = previewScope(surface);
+                currentPreviewScope = selectedScope;
+
+                closeProtectedPreview(
+                    'Right click, saving, printing, and inspection are restricted for this content. The preview will now close.',
+                    true,
+                    selectedScope
+                );
+            }, true);
+
+            function installFrameProtection(frame) {
+                try {
+                    const frameDocument = frame.contentDocument || frame.contentWindow.document;
+
+                    if (!frameDocument || !frameDocument.documentElement) {
+                        return;
+                    }
+
+                    if (frameDocument.documentElement.dataset.tinkedgeProtectionInstalled) {
+                        return;
+                    }
+
+                    frameDocument.documentElement.dataset.tinkedgeProtectionInstalled = 'true';
+                    frameDocument.addEventListener('contextmenu', function (event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+
+                        const surface = frame.closest(protectedSelector);
+                        const selectedScope = previewScope(surface);
+                        currentPreviewScope = selectedScope;
+
+                        closeProtectedPreview(
+                            'Right click, saving, printing, and inspection are restricted for this content. The preview will now close.',
+                            true,
+                            selectedScope
+                        );
+                    }, true);
+                } catch (error) {}
+            }
+
+            document.querySelectorAll(protectedSelector + ' iframe').forEach(function (frame) {
+                frame.addEventListener('load', function () {
+                    installFrameProtection(frame);
+                });
+                installFrameProtection(frame);
             });
 
             ['pointerdown', 'pointerenter', 'focusin', 'mouseover'].forEach(function (eventName) {
@@ -407,6 +575,7 @@
                 const blocksWindowsPrintScreen = event.metaKey && key === 'printscreen';
                 const blocksWindowsSnippingTool = event.metaKey && event.shiftKey && key === 's';
                 const blocksSaveOrPrint = (event.ctrlKey || event.metaKey) && ['p', 's'].includes(key);
+                const blocksViewSourceOrOpen = (event.ctrlKey || event.metaKey) && ['o', 'u'].includes(key);
                 const blocksDevTools = key === 'f12' ||
                     ((event.ctrlKey || event.metaKey) && event.shiftKey && ['c', 'i', 'j', 's'].includes(key));
 
@@ -414,6 +583,7 @@
                     blocksWindowsPrintScreen ||
                     blocksWindowsSnippingTool ||
                     blocksSaveOrPrint ||
+                    blocksViewSourceOrOpen ||
                     blocksDevTools;
             }
 
@@ -428,6 +598,10 @@
             }
 
             function handleRestrictedShortcut(event) {
+                if (!hasProtectedPreview()) {
+                    return;
+                }
+
                 const selectedScope = activePreviewScope();
 
                 if (event.type === 'keydown' && isModifierOrCapturePreparation(event)) {
@@ -456,26 +630,46 @@
                 );
             }
 
-            function enforceCaptureLock() {
-                const selectedScope = activePreviewScope();
+            function lockedPreviewMessage(remainingSeconds) {
+                const remainingMinutes = Math.max(1, Math.ceil(remainingSeconds / 60));
+
+                return 'This content is temporarily inaccessible because a restricted action was detected. Please try again in about ' +
+                    remainingMinutes +
+                    ' minute(s).';
+            }
+
+            function enforceCaptureLock(event) {
+                const selectedScope = event && event.target
+                    ? scopeFromContainer(event.target)
+                    : activePreviewScope();
                 const remainingSeconds = captureLockRemainingSeconds(selectedScope);
 
-                if (!remainingSeconds || !protectedSurfaces().length || previewClosed) {
+                if (!remainingSeconds || !activeProtectedSurfaces(selectedScope).length || isPreviewClosed(selectedScope)) {
                     return;
                 }
 
                 closeProtectedPreview(
-                    'Content preview is temporarily unavailable because a restricted screen-capture attempt was detected. Please try again in about ' +
-                        Math.ceil(remainingSeconds / 60) +
-                        ' minute(s).',
+                    lockedPreviewMessage(remainingSeconds),
                     false,
                     selectedScope
                 );
             }
 
+            clearStoredCaptureLocks();
             document.addEventListener('keydown', handleRestrictedShortcut, true);
             document.addEventListener('keyup', handleRestrictedShortcut, true);
-            document.addEventListener('shown.bs.modal', enforceCaptureLock);
+            window.addEventListener('beforeprint', function (event) {
+                if (!hasProtectedPreview()) {
+                    return;
+                }
+
+                event.preventDefault();
+                closeProtectedPreview(
+                    'Printing is restricted for this content. The preview will now close.',
+                    true,
+                    activePreviewScope()
+                );
+            });
             window.addEventListener('message', function (event) {
                 if (event.origin !== window.location.origin) {
                     return;
@@ -492,10 +686,17 @@
                 );
             });
 
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', enforceCaptureLock);
-            } else {
-                enforceCaptureLock();
+            document.addEventListener('shown.bs.modal', function (event) {
+                currentPreviewScope = scopeFromContainer(event.target);
+                enforceCaptureLock(event);
+            });
+
+            if (document.getElementById('previewShell')) {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', enforceCaptureLock);
+                } else {
+                    enforceCaptureLock();
+                }
             }
         })();
     </script>

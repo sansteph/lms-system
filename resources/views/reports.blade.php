@@ -53,7 +53,7 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Today's Classes</h6>
+                        <h6>Today's Sessions</h6>
                         <h2>{{ $todayClassCount }}</h2>
                     </div>
                 </div>
@@ -67,7 +67,7 @@
 
                 <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Live Sessions</h6>
+                        <h6>Active Sessions</h6>
                         <h2>{{ $activeSessions }}</h2>
                     </div>
                 </div>
@@ -83,24 +83,63 @@
 
             <div class="row g-4 mb-4">
 
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Active Plans</h6>
+                        <h2>{{ $approvedTeachingPlans }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Inactive Plans</h6>
+                        <h2>{{ $pendingTeachingPlans }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Released Lessons</h6>
                         <h2>{{ $contentReleasedCount }}</h2>
                     </div>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Certificates Issued</h6>
                         <h2>{{ $certificateCount }}</h2>
                     </div>
                 </div>
 
-                <div class="col-md-4">
+            </div>
+
+            <div class="row g-4 mb-4">
+
+                <div class="col-md-3">
                     <div class="dashboard-card">
-                        <h6>Average Score</h6>
-                        <h2>{{ number_format($averageScore, 1) }}%</h2>
+                        <h6>Released Weeks</h6>
+                        <h2>{{ $releasedTeachingWeeks }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Locked Weeks</h6>
+                        <h2>{{ $lockedTeachingWeeks }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Completed Weeks</h6>
+                        <h2>{{ $completedTeachingWeeks }}</h2>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Pending Plan Items</h6>
+                        <h2>{{ $pendingTeachingItems }}</h2>
                     </div>
                 </div>
 

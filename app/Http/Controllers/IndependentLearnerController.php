@@ -205,7 +205,10 @@ class IndependentLearnerController extends Controller
         $contents = \App\Models\Content::where('course_id', $id)
             ->where('status', 1)
             ->where('is_released', true)
-            ->whereNotNull('student_file_path')
+            ->where(function ($query) {
+                $query->whereNotNull('student_file_path')
+                    ->orWhereNotNull('file_path');
+            })
             ->orderBy('lesson_order')
             ->get();
 

@@ -2,73 +2,95 @@
 
 @section('content')
 
+<style>
+    .course-content-list {
+        max-height: 340px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #f8fafc;
+        padding: 8px;
+    }
+
+    .course-upload-list {
+        max-height: 320px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #f8fafc;
+        padding: 8px;
+    }
+</style>
+
 <div class="container-fluid">
     <div class="row">
-
         @include('layouts.sidebar')
 
         <div class="col-md-10 col-lg-10 p-4">
-
-            <h2 class="mb-4">
-                Courses Management
-            </h2>
+            <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                <div>
+                    <h2 class="mb-1">Courses Management</h2>
+                    <p class="text-muted mb-0">
+                        Create courses, upload lessons, and manage lesson order.
+                    </p>
+                </div>
+            </div>
 
             @if(session('success'))
-                <div class="alert alert-success">
-                    {{ session('success') }}
-                </div>
+                <div class="alert alert-success">{{ session('success') }}</div>
             @endif
 
             @if($errors->any())
-                <div class="alert alert-danger">
-                    {{ $errors->first() }}
-                </div>
+                <div class="alert alert-danger">{{ $errors->first() }}</div>
             @endif
 
             <div class="card mb-4 shadow border-0">
                 <div class="card-body">
+                    <h5 class="mb-3">Create Course</h5>
 
-                    <form action="{{ route('courses.store') }}" method="POST">
+                    <form action="{{ route('courses.store') }}" method="POST" enctype="multipart/form-data">
                         @csrf
 
                         <div class="row g-3">
-
                             <div class="col-md-6">
                                 <label class="form-label">Course Title</label>
-                                <input type="text"
-                                       name="course_title"
-                                       class="form-control"
-                                       required>
+                                <input type="text" name="course_title" class="form-control" required>
                             </div>
 
                             <div class="col-md-6">
                                 <label class="form-label">Institute</label>
-
                                 @if(session('user_role') == 'InstituteAdmin')
-                                    <input type="hidden"
-                                           name="institute"
-                                           value="{{ session('user_institute') }}">
-
-                                    <input type="text"
-                                           class="form-control"
-                                           value="{{ session('user_institute') }}"
-                                           readonly>
+                                    <input type="hidden" name="institute" value="{{ session('user_institute') }}">
+                                    <input type="text" class="form-control" value="{{ session('user_institute') }}" readonly>
                                 @else
-                                    <input type="text"
-                                           name="institute"
-                                           class="form-control"
-                                           required>
+                                    <input type="text" name="institute" id="createCourseInstitute" class="form-control" required>
                                 @endif
                             </div>
 
+                            @if(session('user_role') == 'Admin')
+                                <div class="col-md-12">
+                                    <label class="form-check">
+                                        <input type="checkbox"
+                                               name="is_template_source"
+                                               value="1"
+                                               id="createTemplateSourceToggle"
+                                               class="form-check-input">
+                                        <span class="form-check-label">
+                                            Use as reusable Template Source course
+                                        </span>
+                                    </label>
+                                    <small class="text-muted d-block">
+                                        Template Source courses are not tied to an institute. Use them to create Teaching Plan Templates, then deploy copies to institutes.
+                                    </small>
+                                </div>
+                            @endif
+
                             <div class="col-md-12">
                                 <label class="form-label">Description</label>
-                                <textarea name="description"
-                                          class="form-control"
-                                          rows="3"></textarea>
+                                <textarea name="description" class="form-control" rows="3"></textarea>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Target</label>
                                 <select name="target" class="form-select">
                                     <option value="Student">Student</option>
@@ -77,296 +99,577 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Assigned Class</label>
-                                <input type="text"
-                                       name="assigned_class"
-                                       class="form-control">
+                                <input type="text" name="assigned_class" class="form-control">
                             </div>
 
-                            <div class="col-md-4">
-                                <label class="form-label">Course Price (₹)</label>
-                                <input type="number"
-                                       step="0.01"
-                                       name="price"
-                                       class="form-control"
-                                       value="0"
-                                       required>
+                            <div class="col-md-3">
+                                <label class="form-label">Course Price</label>
+                                <input type="number" step="0.01" name="price" class="form-control" value="0" required>
                             </div>
 
-                            <div class="col-md-6">
+                            <div class="col-md-3">
                                 <label class="form-label">Availability</label>
-                                <select name="availability_type"
-                                        class="form-select"
-                                        required>
+                                <select name="availability_type" class="form-select" required>
                                     <option value="Institute">Institute Only</option>
                                     <option value="Independent">Hybrid Learners Only</option>
                                     <option value="Both">Both</option>
                                 </select>
                             </div>
 
-                            <div class="col-md-6">
+                            <div class="col-md-3">
                                 <label class="form-label">Active Status</label>
-                                <select name="is_active"
-                                        class="form-select"
-                                        required>
+                                <select name="is_active" class="form-select" required>
                                     <option value="1">Active</option>
                                     <option value="0">Inactive</option>
                                 </select>
                             </div>
 
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <label class="form-label mb-0">Initial Course Contents <span class="text-muted">(Optional)</span></label>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="addCreateCourseContentRow">
+                                        Add File
+                                    </button>
+                                </div>
+                                <div class="course-upload-list">
+                                    <div id="createCourseContentRows">
+                                        <div class="course-upload-row border rounded p-3 mb-3 bg-white">
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Title</label>
+                                                    <input type="text" name="contents[0][title]" class="form-control" placeholder="Auto from filename">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Description</label>
+                                                    <input type="text" name="contents[0][description]" class="form-control">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Type</label>
+                                                    <input type="text" name="contents[0][content_type]" class="form-control" placeholder="Auto">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Order</label>
+                                                    <input type="number" name="contents[0][sort_order]" class="form-control" min="1">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Status</label>
+                                                    <select name="contents[0][status]" class="form-select">
+                                                        <option value="active">Active</option>
+                                                        <option value="draft">Draft</option>
+                                                        <option value="archived">Archived</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">STEM Engineer File</label>
+                                                    <input type="file" name="contents[0][file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Student File</label>
+                                                    <input type="file" name="contents[0][student_file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary mt-4">
-                            Create Course
-                        </button>
-
+                        <button type="submit" class="btn btn-primary mt-4">Create Course</button>
                     </form>
-
                 </div>
             </div>
 
-            <div class="card shadow border-0">
-                <div class="card-body">
+            <div class="row g-4">
+                @forelse($courses as $course)
+                    <div class="col-12">
+                        <div class="card shadow border-0">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                                    <div>
+                                        <h5 class="mb-1">{{ $course->course_title }}</h5>
+                                        <div class="text-muted small">
+                                            {{ $course->is_template_source ? 'Template Source' : ($course->institute ?? 'N/A') }} |
+                                            {{ $course->assigned_class ?? 'No class set' }} |
+                                            {{ $course->availability_type ?? 'Institute' }}
+                                        </div>
+                                    </div>
 
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover align-middle">
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editCourseModal{{ $course->id }}">
+                                            Edit Course
+                                        </button>
+                                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal{{ $course->id }}">
+                                            Upload Content
+                                        </button>
+                                        <a href="{{ route('courses.delete', $course->id) }}"
+                                           class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('Delete this course? Related course links and teaching plans will be removed.')">
+                                            Delete
+                                        </a>
+                                    </div>
+                                </div>
 
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Course</th>
-                                    <th>Institute</th>
-                                    <th>Target</th>
-                                    <th>Class</th>
-                                    <th>Price</th>
-                                    <th>Availability</th>
-                                    <th>Status</th>
-                                    <th style="width: 120px;">Actions</th>
-                                </tr>
-                            </thead>
+                                <div class="course-content-list">
+                                    <table class="table table-sm table-bordered align-middle mb-0 bg-white">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 90px;">Order</th>
+                                                <th>Content</th>
+                                                <th>Type</th>
+                                                <th>Status</th>
+                                                <th style="width: 280px;">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($course->courseContents->sortBy('sort_order') as $courseContent)
+                                                <tr>
+                                                    <td>{{ $courseContent->sort_order }}</td>
+                                                    <td>
+                                                        <strong>{{ $courseContent->content->content_title ?? 'Content' }}</strong>
+                                                        <div class="text-muted small">
+                                                            {{ $courseContent->content->assigned_class ?? $course->assigned_class ?? 'No class set' }}
+                                                        </div>
+                                                    </td>
+                                                    <td>{{ $courseContent->content->content_type ?? '-' }}</td>
+                                                    <td>{{ ucfirst($courseContent->status) }}</td>
+                                                    <td>
+                                                        @if($courseContent->content)
+                                                            <button type="button"
+                                                                    class="btn btn-sm btn-outline-secondary w-100 mb-2"
+                                                                    data-bs-toggle="modal"
+                                                                    data-bs-target="#editCourseContentModal{{ $courseContent->id }}">
+                                                                Edit Content
+                                                            </button>
+                                                        @endif
 
-                            <tbody>
-                                @forelse($courses as $course)
-                                    <tr>
-                                        <td>{{ $course->course_title }}</td>
+                                                        <form method="POST"
+                                                              action="{{ route('courses.contents.order', [$course->id, $courseContent->id]) }}"
+                                                              class="d-flex gap-2 mb-2">
+                                                            @csrf
+                                                            <input type="number" name="sort_order" class="form-control form-control-sm" value="{{ $courseContent->sort_order }}" min="1" required>
+                                                            <select name="status" class="form-select form-select-sm">
+                                                                @foreach(['active', 'draft', 'archived'] as $status)
+                                                                    <option value="{{ $status }}" {{ $courseContent->status == $status ? 'selected' : '' }}>
+                                                                        {{ ucfirst($status) }}
+                                                                    </option>
+                                                                @endforeach
+                                                            </select>
+                                                            <button class="btn btn-sm btn-outline-primary">Save</button>
+                                                        </form>
 
-                                        <td>{{ $course->institute ?? 'N/A' }}</td>
-
-                                        <td>{{ $course->target }}</td>
-
-                                        <td>{{ $course->assigned_class ?? '-' }}</td>
-
-                                        <td>₹{{ number_format($course->price ?? 0, 2) }}</td>
-
-                                        <td>{{ $course->availability_type ?? 'Institute' }}</td>
-
-                                        <td>
-                                            @if($course->is_active)
-                                                <span class="badge bg-success">Active</span>
-                                            @else
-                                                <span class="badge bg-danger">Inactive</span>
-                                            @endif
-                                        </td>
-
-                                        <td>
-                                            <div class="d-flex flex-column gap-2">
-
-                                                <button class="btn btn-sm btn-outline-primary"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#editCourseModal{{ $course->id }}">
-                                                    Edit
-                                                </button>
-
-                                                <a href="{{ route('courses.delete', $course->id) }}"
-                                                   class="btn btn-sm btn-outline-danger"
-                                                   onclick="return confirm('Delete this course?')">
-                                                    Delete
-                                                </a>
-
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="8" class="text-center text-muted">
-                                            No courses created
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-
-                        </table>
+                                                        <form method="POST"
+                                                              action="{{ route('courses.contents.detach', [$course->id, $courseContent->id]) }}"
+                                                              onsubmit="return confirm('Remove this content from the course? The uploaded file will be deleted.');">
+                                                            @csrf
+                                                            <button class="btn btn-sm btn-outline-danger w-100">Detach</button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                            @empty
+                                                <tr>
+                                                    <td colspan="5" class="text-center text-muted">
+                                                        No content attached yet.
+                                                    </td>
+                                                </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-
-                </div>
+                @empty
+                    <div class="col-12">
+                        <div class="card shadow border-0">
+                            <div class="card-body text-center text-muted">
+                                No courses created.
+                            </div>
+                        </div>
+                    </div>
+                @endforelse
             </div>
-
         </div>
-
     </div>
 </div>
 
 @foreach($courses as $course)
-
-<div class="modal fade"
-     id="editCourseModal{{ $course->id }}"
-     tabindex="-1">
-
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-
-        <div class="modal-content">
-
-            <form method="POST"
-                  action="{{ route('courses.update', $course->id) }}">
-
-                @csrf
-
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        Edit Course
-                    </h5>
-
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal">
-                    </button>
-                </div>
-
-                <div class="modal-body">
-
-                    <div class="row g-3">
-
-                        <div class="col-md-6">
-                            <label class="form-label">Course Title</label>
-                            <input type="text"
-                                   name="course_title"
-                                   class="form-control"
-                                   value="{{ $course->course_title }}"
-                                   required>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Institute</label>
-
-                            @if(session('user_role') == 'InstituteAdmin')
-                                <input type="hidden"
-                                       name="institute"
-                                       value="{{ session('user_institute') }}">
-
-                                <input type="text"
-                                       class="form-control"
-                                       value="{{ session('user_institute') }}"
-                                       readonly>
-                            @else
-                                <input type="text"
-                                       name="institute"
-                                       class="form-control"
-                                       value="{{ $course->institute }}"
-                                       required>
-                            @endif
-                        </div>
-
-                        <div class="col-md-12">
-                            <label class="form-label">Description</label>
-                            <textarea name="description"
-                                      class="form-control"
-                                      rows="3">{{ $course->description }}</textarea>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label">Target</label>
-                            <select name="target" class="form-select">
-                                <option value="Student" {{ $course->target == 'Student' ? 'selected' : '' }}>
-                                    Student
-                                </option>
-
-                                <option value="Teacher" {{ $course->target == 'Teacher' ? 'selected' : '' }}>
-                                    STEM Engineer
-                                </option>
-
-                                <option value="Both" {{ $course->target == 'Both' ? 'selected' : '' }}>
-                                    Both
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label">Assigned Class</label>
-                            <input type="text"
-                                   name="assigned_class"
-                                   class="form-control"
-                                   value="{{ $course->assigned_class }}">
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label">Course Price (₹)</label>
-                            <input type="number"
-                                   step="0.01"
-                                   name="price"
-                                   class="form-control"
-                                   value="{{ $course->price ?? 0 }}"
-                                   required>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Availability</label>
-                            <select name="availability_type"
-                                    class="form-select"
-                                    required>
-                                <option value="Institute" {{ $course->availability_type == 'Institute' ? 'selected' : '' }}>
-                                    Institute Only
-                                </option>
-
-                                <option value="Independent" {{ $course->availability_type == 'Independent' ? 'selected' : '' }}>
-                                    Hybrid Learners Only
-                                </option>
-
-                                <option value="Both" {{ $course->availability_type == 'Both' ? 'selected' : '' }}>
-                                    Both
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Active Status</label>
-                            <select name="is_active"
-                                    class="form-select"
-                                    required>
-                                <option value="1" {{ $course->is_active == 1 ? 'selected' : '' }}>
-                                    Active
-                                </option>
-
-                                <option value="0" {{ $course->is_active == 0 ? 'selected' : '' }}>
-                                    Inactive
-                                </option>
-                            </select>
-                        </div>
-
+    <div class="modal fade" id="editCourseModal{{ $course->id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('courses.update', $course->id) }}">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Course</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button"
-                            class="btn btn-outline-secondary"
-                            data-bs-dismiss="modal">
-                        Cancel
-                    </button>
-
-                    <button type="submit"
-                        class="btn btn-primary">
-                        Update Course
-                    </button>
-                </div>
-
-            </form>
-
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Course Title</label>
+                                <input type="text" name="course_title" class="form-control" value="{{ $course->course_title }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Institute</label>
+                                @if(session('user_role') == 'InstituteAdmin')
+                                    <input type="hidden" name="institute" value="{{ session('user_institute') }}">
+                                    <input type="text" class="form-control" value="{{ session('user_institute') }}" readonly>
+                                @else
+                                    <input type="text"
+                                           name="institute"
+                                           id="editCourseInstitute{{ $course->id }}"
+                                           class="form-control"
+                                           value="{{ $course->institute }}"
+                                           {{ $course->is_template_source ? '' : 'required' }}>
+                                @endif
+                            </div>
+                            @if(session('user_role') == 'Admin')
+                                <div class="col-md-12">
+                                    <label class="form-check">
+                                        <input type="checkbox"
+                                               name="is_template_source"
+                                               value="1"
+                                               class="form-check-input edit-template-source-toggle"
+                                               data-institute-field="editCourseInstitute{{ $course->id }}"
+                                               {{ $course->is_template_source ? 'checked' : '' }}>
+                                        <span class="form-check-label">
+                                            Use as reusable Template Source course
+                                        </span>
+                                    </label>
+                                    <small class="text-muted d-block">
+                                        Template Source courses can be used to create Teaching Plan Templates and deploy institute copies.
+                                    </small>
+                                </div>
+                            @endif
+                            <div class="col-md-12">
+                                <label class="form-label">Description</label>
+                                <textarea name="description" class="form-control" rows="3">{{ $course->description }}</textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Target</label>
+                                <select name="target" class="form-select">
+                                    @foreach(['Student' => 'Student', 'Teacher' => 'STEM Engineer', 'Both' => 'Both'] as $value => $label)
+                                        <option value="{{ $value }}" {{ $course->target == $value ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Assigned Class</label>
+                                <input type="text" name="assigned_class" class="form-control" value="{{ $course->assigned_class }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Course Price</label>
+                                <input type="number" step="0.01" name="price" class="form-control" value="{{ $course->price ?? 0 }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Availability</label>
+                                <select name="availability_type" class="form-select" required>
+                                    @foreach(['Institute' => 'Institute Only', 'Independent' => 'Hybrid Learners Only', 'Both' => 'Both'] as $value => $label)
+                                        <option value="{{ $value }}" {{ $course->availability_type == $value ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Active Status</label>
+                                <select name="is_active" class="form-select" required>
+                                    <option value="1" {{ $course->is_active == 1 ? 'selected' : '' }}>Active</option>
+                                    <option value="0" {{ $course->is_active == 0 ? 'selected' : '' }}>Inactive</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Course</button>
+                    </div>
+                </form>
+            </div>
         </div>
-
     </div>
 
-</div>
+    <div class="modal fade" id="uploadContentModal{{ $course->id }}" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('courses.upload-content', $course->id) }}" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title">Upload Content to {{ $course->course_title }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="text-muted small">
+                                Uploaded files are stored directly as course contents.
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary add-course-upload-row" data-course="{{ $course->id }}">
+                                Add File
+                            </button>
+                        </div>
 
+                        <div class="course-upload-list">
+                            <div id="courseUploadRows{{ $course->id }}">
+                                <div class="course-upload-row border rounded p-3 mb-3 bg-white">
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <label class="form-label">Title</label>
+                                            <input type="text" name="contents[0][title]" class="form-control" placeholder="Auto from filename">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Description</label>
+                                            <input type="text" name="contents[0][description]" class="form-control">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Type</label>
+                                            <input type="text" name="contents[0][content_type]" class="form-control" placeholder="Auto">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Order</label>
+                                            <input type="number" name="contents[0][sort_order]" class="form-control" min="1">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Class</label>
+                                            <input type="text" name="contents[0][assigned_class]" class="form-control" value="{{ $course->assigned_class }}">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Section</label>
+                                            <input type="text" name="contents[0][section]" class="form-control">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Status</label>
+                                            <select name="contents[0][status]" class="form-select">
+                                                <option value="active">Active</option>
+                                                <option value="draft">Draft</option>
+                                                <option value="archived">Archived</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">STEM Engineer File</label>
+                                            <input type="file" name="contents[0][file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Student File</label>
+                                            <input type="file" name="contents[0][student_file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Upload and Attach</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @foreach($course->courseContents as $courseContent)
+        @if($courseContent->content)
+            @php
+                $content = $courseContent->content;
+            @endphp
+            <div class="modal fade" id="editCourseContentModal{{ $courseContent->id }}" tabindex="-1">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <form method="POST"
+                              action="{{ route('content.update', $content->id) }}"
+                              enctype="multipart/form-data">
+                            @csrf
+                            <input type="hidden" name="course_id" value="{{ $course->id }}">
+                            <input type="hidden" name="institute" value="{{ $course->is_template_source ? '' : ($course->institute ?? session('user_institute')) }}">
+
+                            <div class="modal-header">
+                                <h5 class="modal-title">Edit Content</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+
+                            <div class="modal-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Title</label>
+                                        <input type="text"
+                                               name="content_title"
+                                               class="form-control"
+                                               value="{{ $content->content_title }}"
+                                               required>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label">Type</label>
+                                        <input type="text"
+                                               name="content_type"
+                                               class="form-control"
+                                               value="{{ $content->content_type }}"
+                                               required>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label">Lesson Order</label>
+                                        <input type="number"
+                                               name="lesson_order"
+                                               class="form-control"
+                                               value="{{ $content->lesson_order ?? $courseContent->sort_order }}"
+                                               min="1"
+                                               required>
+                                    </div>
+
+                                    <div class="col-md-12">
+                                        <label class="form-label">Description</label>
+                                        <textarea name="description"
+                                                  class="form-control"
+                                                  rows="3">{{ $content->description }}</textarea>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Assigned Class</label>
+                                        <input type="text"
+                                               name="assigned_class"
+                                               class="form-control"
+                                               value="{{ $content->assigned_class ?? $course->assigned_class }}"
+                                               required>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Status</label>
+                                        <select name="status" class="form-select" required>
+                                            <option value="1" {{ $content->status ? 'selected' : '' }}>Active</option>
+                                            <option value="0" {{ !$content->status ? 'selected' : '' }}>Inactive</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Replace STEM Engineer File</label>
+                                        <input type="file"
+                                               name="file"
+                                               class="form-control"
+                                               accept=".ppt,.pptx,.doc,.docx,.pdf">
+                                        <small class="text-muted">Leave empty to keep the current file.</small>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Replace Student File</label>
+                                        <input type="file"
+                                               name="student_file"
+                                               class="form-control"
+                                               accept=".ppt,.pptx,.doc,.docx,.pdf">
+                                        <small class="text-muted">Leave empty to keep the current student file.</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Update Content</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        @endif
+    @endforeach
 @endforeach
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const rowCounts = {};
+        let createCourseContentIndex = 1;
+        const createRows = document.getElementById('createCourseContentRows');
+        const addCreateRowButton = document.getElementById('addCreateCourseContentRow');
+        const createTemplateToggle = document.getElementById('createTemplateSourceToggle');
+        const createInstituteField = document.getElementById('createCourseInstitute');
+
+        function syncTemplateSourceField(toggle, instituteField) {
+            if (!toggle || !instituteField) {
+                return;
+            }
+
+            if (toggle.checked) {
+                instituteField.value = '';
+                instituteField.required = false;
+                instituteField.disabled = true;
+                instituteField.placeholder = 'Not required for Template Source';
+            } else {
+                instituteField.disabled = false;
+                instituteField.required = true;
+                instituteField.placeholder = '';
+            }
+        }
+
+        syncTemplateSourceField(createTemplateToggle, createInstituteField);
+
+        if (createTemplateToggle && createInstituteField) {
+            createTemplateToggle.addEventListener('change', function () {
+                syncTemplateSourceField(createTemplateToggle, createInstituteField);
+            });
+        }
+
+        document.querySelectorAll('.edit-template-source-toggle').forEach(function (toggle) {
+            const instituteField = document.getElementById(toggle.dataset.instituteField);
+            syncTemplateSourceField(toggle, instituteField);
+
+            toggle.addEventListener('change', function () {
+                syncTemplateSourceField(toggle, instituteField);
+            });
+        });
+
+        if (createRows && addCreateRowButton) {
+            addCreateRowButton.addEventListener('click', function () {
+                const index = createCourseContentIndex;
+                const row = document.createElement('div');
+                row.className = 'course-upload-row border rounded p-3 mb-3 bg-white';
+                row.innerHTML = `
+                    <div class="row g-3">
+                        <div class="col-md-3"><label class="form-label">Title</label><input type="text" name="contents[${index}][title]" class="form-control" placeholder="Auto from filename"></div>
+                        <div class="col-md-3"><label class="form-label">Description</label><input type="text" name="contents[${index}][description]" class="form-control"></div>
+                        <div class="col-md-2"><label class="form-label">Type</label><input type="text" name="contents[${index}][content_type]" class="form-control" placeholder="Auto"></div>
+                        <div class="col-md-2"><label class="form-label">Order</label><input type="number" name="contents[${index}][sort_order]" class="form-control" min="1"></div>
+                        <div class="col-md-2"><label class="form-label">Status</label><select name="contents[${index}][status]" class="form-select"><option value="active">Active</option><option value="draft">Draft</option><option value="archived">Archived</option></select></div>
+                        <div class="col-md-6"><label class="form-label">STEM Engineer File</label><input type="file" name="contents[${index}][file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf"></div>
+                        <div class="col-md-6"><label class="form-label">Student File</label><input type="file" name="contents[${index}][student_file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf"></div>
+                        <div class="col-md-12 text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-course-upload-row">Remove</button></div>
+                    </div>
+                `;
+                createRows.appendChild(row);
+                createCourseContentIndex += 1;
+            });
+        }
+
+        document.querySelectorAll('.add-course-upload-row').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const courseId = button.dataset.course;
+                const rows = document.getElementById('courseUploadRows' + courseId);
+                rowCounts[courseId] = (rowCounts[courseId] || 1);
+                const index = rowCounts[courseId];
+                const row = document.createElement('div');
+                row.className = 'course-upload-row border rounded p-3 mb-3 bg-white';
+                row.innerHTML = `
+                    <div class="row g-3">
+                        <div class="col-md-3"><label class="form-label">Title</label><input type="text" name="contents[${index}][title]" class="form-control" placeholder="Auto from filename"></div>
+                        <div class="col-md-3"><label class="form-label">Description</label><input type="text" name="contents[${index}][description]" class="form-control"></div>
+                        <div class="col-md-2"><label class="form-label">Type</label><input type="text" name="contents[${index}][content_type]" class="form-control" placeholder="Auto"></div>
+                        <div class="col-md-2"><label class="form-label">Order</label><input type="number" name="contents[${index}][sort_order]" class="form-control" min="1"></div>
+                        <div class="col-md-3"><label class="form-label">Class</label><input type="text" name="contents[${index}][assigned_class]" class="form-control"></div>
+                        <div class="col-md-2"><label class="form-label">Section</label><input type="text" name="contents[${index}][section]" class="form-control"></div>
+                        <div class="col-md-2"><label class="form-label">Status</label><select name="contents[${index}][status]" class="form-select"><option value="active">Active</option><option value="draft">Draft</option><option value="archived">Archived</option></select></div>
+                        <div class="col-md-3"><label class="form-label">STEM Engineer File</label><input type="file" name="contents[${index}][file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf" required></div>
+                        <div class="col-md-2"><label class="form-label">Student File</label><input type="file" name="contents[${index}][student_file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf"></div>
+                        <div class="col-md-12 text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-course-upload-row">Remove</button></div>
+                    </div>
+                `;
+                rows.appendChild(row);
+                rowCounts[courseId] += 1;
+            });
+        });
+
+        document.addEventListener('click', function (event) {
+            const removeButton = event.target.closest('.remove-course-upload-row');
+            if (removeButton) {
+                removeButton.closest('.course-upload-row').remove();
+            }
+        });
+    });
+</script>
 
 @endsection

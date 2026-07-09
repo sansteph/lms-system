@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\User;
 
@@ -68,23 +67,6 @@ class TeacherStudentProfileController extends Controller
 
     private function teacherAssignedStudentsQuery(User $teacher)
     {
-        $classes = SchoolClass::where('institute', $teacher->institute)
-            ->where('class_teacher', $teacher->name)
-            ->get(['class_name', 'section']);
-
-        $query = Student::where('institute', $teacher->institute);
-
-        if ($classes->isEmpty()) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        return $query->where(function ($studentQuery) use ($classes) {
-            foreach ($classes as $class) {
-                $studentQuery->orWhere(function ($q) use ($class) {
-                    $q->where('class', $class->class_name)
-                        ->where('section', $class->section);
-                });
-            }
-        });
+        return Student::where('institute', $teacher->institute);
     }
 }

@@ -7,7 +7,6 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\InstituteController;
 use App\Http\Controllers\ContentController;
 use App\Http\Controllers\AssessmentController;
-use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\AssessmentResultController;
 use App\Http\Controllers\AIController;
@@ -19,8 +18,7 @@ use App\Http\Controllers\MySpaceController;
 use App\Http\Controllers\TeacherStudentProfileController;
 use App\Http\Controllers\IndependentLearnerController;
 use Illuminate\Support\Facades\Mail;
-use App\Http\Controllers\ClassTimetableController;
-use  App\Http\Controllers\CoordinatorController;
+use App\Http\Controllers\TeachingPlanController;
 
 
 //Public Routes
@@ -75,6 +73,9 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::get('/courses', [CourseController::class, 'index'])->name('courses');
     Route::post('/courses/store', [CourseController::class, 'store'])->name('courses.store');
     Route::post('/courses/update/{id}',[CourseController::class, 'update'])->name('courses.update');
+    Route::post('/courses/{id}/upload-content', [CourseController::class, 'uploadCourseContent'])->name('courses.upload-content');
+    Route::post('/courses/{id}/contents/{courseContent}/order', [CourseController::class, 'updateContentOrder'])->name('courses.contents.order');
+    Route::post('/courses/{id}/contents/{courseContent}/detach', [CourseController::class, 'detachContent'])->name('courses.contents.detach');
     Route::get('/courses/delete/{id}', [CourseController::class, 'delete'])->name('courses.delete');
 
     Route::get('/students', [PageController::class, 'students'])->name('students');
@@ -92,20 +93,20 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::post('/users/update/{id}', [UserController::class, 'update'])->name('users.update');
     Route::get('/users/delete/{id}', [UserController::class, 'delete'])->name('users.delete');
 
-    Route::get('/content', [ContentController::class, 'index'])->name('content');
-    Route::post('/content/store', [ContentController::class, 'store'])->name('content.store');
+    Route::get('/content', function () {
+        return redirect()->route('courses');
+    })->name('content');
+    Route::post('/content/bulk-store', [ContentController::class, 'bulkStore'])->name('content.bulk-store');
+    Route::post('/content/course-content/{courseContent}/order', [ContentController::class, 'updateCourseContentOrder'])->name('content.course-content.order');
+    Route::post('/content/course-content/{courseContent}/detach', [ContentController::class, 'detachCourseContent'])->name('content.course-content.detach');
     Route::post('/content/update/{id}', [ContentController::class, 'update'])->name('content.update');
     Route::get('/content/delete/{id}', [ContentController::class, 'delete'])->name('content.delete');
-
-    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
-    Route::post('/notifications/store', [NotificationController::class, 'store'])->name('notifications.store');
-    Route::post('/notifications/update/{id}', [NotificationController::class, 'update'])->name('notifications.update');
-    Route::get('/notifications/delete/{id}', [NotificationController::class, 'delete'])->name('notifications.delete');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports');
 
     Route::get('/admin/certificates', [PageController::class, 'adminCertificates'])->name('admin.certificates');
     Route::post('/admin/certificates/approve/{id}', [PageController::class, 'approveCertificate'])->name('admin.certificates.approve');
+    Route::post('/admin/certificates/reject/{id}', [PageController::class, 'rejectCertificate'])->name('admin.certificates.reject');
     Route::post('/admin/certificates/revoke/{id}', [PageController::class, 'revokeCertificate'])->name('admin.certificates.revoke');
     Route::post('/admin/certificates/reissue/{id}', [PageController::class, 'reissueCertificate'])->name('admin.certificates.reissue');
 
@@ -125,11 +126,16 @@ Route::middleware(['admin.auth'])->group(function () {
 
     Route::get('/admin/class-session-report', [PageController::class, 'classSessionReport'])->name('admin.class-session.report');
 
-    Route::get('/class-timetable',[ClassTimetableController::class, 'index'])->name('timetable');
-    Route::post('/class-timetable/store',[ClassTimetableController::class, 'store'])->name('timetable.store');
-    Route::get('/class-timetable/copy-week',[ClassTimetableController::class, 'copyWeekToNext'])->name('timetable.copy.week');
-    Route::post('/class-timetable/update/{id}', [ClassTimetableController::class, 'update'])->name('timetable.update');
-    Route::get('/class-timetable/delete/{id}',[ClassTimetableController::class, 'delete'])->name('timetable.delete');
+    Route::get('/teaching-plans', [TeachingPlanController::class, 'index'])->name('teaching-plans');
+    Route::post('/teaching-plans/store', [TeachingPlanController::class, 'store'])->name('teaching-plans.store');
+    Route::post('/teaching-plan-templates/store', [TeachingPlanController::class, 'storeTemplate'])->name('teaching-plan-templates.store');
+    Route::post('/teaching-plan-templates/deploy', [TeachingPlanController::class, 'deployTemplates'])->name('teaching-plan-templates.deploy');
+    Route::post('/teaching-plans/update/{id}', [TeachingPlanController::class, 'update'])->name('teaching-plans.update');
+    Route::post('/teaching-plans/{id}/release-next', [TeachingPlanController::class, 'releaseNext'])->name('teaching-plans.release-next');
+    Route::post('/teaching-plans/{id}/weeks/{week}', [TeachingPlanController::class, 'updateWeek'])->name('teaching-plans.weeks.update');
+    Route::post('/teaching-plans/{id}/items/{item}/complete', [TeachingPlanController::class, 'completeItem'])->name('teaching-plans.items.complete');
+    Route::post('/teaching-plans/run-release-check', [TeachingPlanController::class, 'runReleaseCheck'])->name('teaching-plans.run-release-check');
+    Route::get('/teaching-plans/delete/{id}', [TeachingPlanController::class, 'delete'])->name('teaching-plans.delete');
 
     Route::get('/admin/assessment-review-monitoring',[PageController::class, 'assessmentReviewMonitoring'])->name('admin.assessment.review.monitoring');
 
@@ -180,8 +186,6 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
 
     Route::get('/teacher/certificates', [PageController::class, 'teacherCertificates'])->name('teacher.certificates');
 
-    Route::get('/teacher/notifications', [PageController::class, 'teacherNotifications'])->name('teacher.notifications');
-
     Route::get('/teacher/profile', [PageController::class, 'teacherProfile'])->name('teacher.profile');
 
     Route::get('/teacher-results', [PageController::class, 'teacherResults'])->name('teacher.results');
@@ -203,7 +207,7 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::post('/assessment-session/violation/{sessionId}', [PageController::class, 'recordAssessmentViolation'])->name('assessment.session.violation');
     Route::post('/assessment-session/submit/{sessionId}', [PageController::class, 'submitAssessmentSession'])->name('assessment.session.submit');
 
-    Route::post('/teacher/class-session/start/{timetableId}',[PageController::class, 'startClassSession'])->name('teacher.class-session.start');
+    Route::post('/teacher/class-session/start',[PageController::class, 'startClassSession'])->name('teacher.class-session.start');
     Route::post('/teacher/class-session/end/{sessionId}',[PageController::class, 'endClassSession'])->name('teacher.class-session.end');
 
     Route::get('/assessment-review', [AssessmentResultController::class, 'reviewResults'])->name('assessment.review');
@@ -236,8 +240,6 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
 
     Route::get('/student/badges',[PageController::class, 'studentBadges'])->name('student.badges');
 
-    Route::get('/student/notifications',[PageController::class, 'studentNotifications'])->name('student.notifications');
-
     Route::get('/student/profile',[PageController::class, 'studentProfile'])->name('student.profile');
 
     Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
@@ -266,20 +268,4 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::post('/assessment-session/start/{assessmentId}', [PageController::class, 'startAssessmentSession'])->name('assessment.session.start');
     Route::post('/assessment-session/violation/{sessionId}', [PageController::class, 'recordAssessmentViolation'])->name('assessment.session.violation');
     Route::post('/assessment-session/submit/{sessionId}', [PageController::class, 'submitAssessmentSession'])->name('assessment.session.submit');
-});
-
-
-//Coordinator public routes
-Route::get('/coordinator/login', [PageController::class, 'coordinatorLogin'])->name('coordinator.login');
-Route::post('/coordinator/login', [PageController::class, 'coordinatorLoginSubmit'])->name('coordinator.login.submit');
-
-//Coordinator protected routes
-Route::middleware(['coordinator.auth'])->group(function () {
-
-    Route::get('/coordinator/dashboard',[CoordinatorController::class, 'dashboard'])->name('coordinator.dashboard');
-    Route::get('/coordinator/live-sessions',[CoordinatorController::class, 'liveSessions'])->name('coordinator.live-sessions');
-    Route::get('/coordinator/daily-report',[CoordinatorController::class, 'dailyReport'])->name('coordinator.daily-report');
-    Route::get('/coordinator/content-tracker',[CoordinatorController::class, 'contentTracker'])->name('coordinator.content-tracker');
-    Route::get('/coordinator/assessment-monitoring',[CoordinatorController::class, 'assessmentMonitoring'])->name('coordinator.assessment-monitoring');
-
 });

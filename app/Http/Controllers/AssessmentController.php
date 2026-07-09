@@ -18,12 +18,14 @@ class AssessmentController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
-        $teacherClassNames = $this->teacherAssignedClassNames();
+        $teacherClassNames = $this->teacherInstituteClassNames();
 
         $assessments = Assessment::with(['teacher', 'questionPaperReviewer'])
-            ->when(session('user_role') == 'Teacher', function ($query) use ($teacherClassNames) {
+            ->when(session('user_role') == 'Teacher', function ($query) {
+                $teacher = User::find(session('user_id'));
+
                 $query->where('teacher_id', session('user_id'))
-                    ->whereIn('assigned_class', $teacherClassNames);
+                    ->where('institute', $teacher?->institute);
             })
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
@@ -64,7 +66,7 @@ class AssessmentController extends Controller
         ]);
 
         $teacher = User::findOrFail(session('user_id'));
-        $teacherClassNames = $this->teacherAssignedClassNames();
+        $teacherClassNames = $this->teacherInstituteClassNames();
 
         $this->authorizeTeacherAssessmentScope(
             $request->assigned_class,
@@ -123,7 +125,7 @@ class AssessmentController extends Controller
             abort(403, 'You can only edit assessments created by you.');
         }
 
-        $teacherClassNames = $this->teacherAssignedClassNames();
+        $teacherClassNames = $this->teacherInstituteClassNames();
 
         $this->authorizeTeacherAssessmentScope(
             $request->assigned_class,
@@ -282,7 +284,7 @@ class AssessmentController extends Controller
         ]);
     }
 
-    private function teacherAssignedClassNames()
+    private function teacherInstituteClassNames()
     {
         if (session('user_role') != 'Teacher') {
             return collect();
@@ -295,7 +297,6 @@ class AssessmentController extends Controller
         }
 
         return SchoolClass::where('institute', $teacher->institute)
-            ->where('class_teacher', $teacher->name)
             ->get()
             ->map(function ($class) {
                 return trim($class->class_name . ' ' . $class->section);
@@ -306,7 +307,7 @@ class AssessmentController extends Controller
     private function authorizeTeacherAssessmentScope($assignedClass, $teacherClassNames)
     {
         if (!$teacherClassNames->contains($assignedClass)) {
-            abort(403, 'You can only create assessments for your assigned classes.');
+            abort(403, 'You can only create assessments for classes in your institute.');
         }
     }
 

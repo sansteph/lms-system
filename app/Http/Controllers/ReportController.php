@@ -8,11 +8,12 @@ use App\Models\User;
 use App\Models\Institute;
 use App\Models\Content;
 use App\Models\Assessment;
-use App\Models\Notification;
 use App\Models\AssessmentResult;
 use App\Models\Certificate;
 use App\Models\ClassContentSession;
-use App\Models\ClassTimetable;
+use App\Models\TeachingPlan;
+use App\Models\TeachingPlanItem;
+use App\Models\TeachingPlanWeek;
 
 class ReportController extends Controller
 {
@@ -38,8 +39,6 @@ class ReportController extends Controller
 
             $assessmentCount = Assessment::where('institute', $institute)->count();
 
-            $notificationCount = Notification::where('institute', $institute)->count();
-
             $completedResults = AssessmentResult::whereHas('student', function ($q) use ($institute) {
                     $q->where('institute', $institute);
                 })
@@ -63,35 +62,55 @@ class ReportController extends Controller
                 })
                 ->count();
 
-            $classSessionCount = ClassContentSession::whereHas('schoolClass', function ($q) use ($institute) {
-                    $q->where('institute', $institute);
-                })
+            $classSessionCount = ClassContentSession::where('institute', $institute)
                 ->count();
 
-            // New Analytics
+            $approvedTeachingPlans = TeachingPlan::where('institute', $institute)
+                ->where('status', 'active')
+                ->count();
 
-            $todayClassCount = ClassTimetable::whereHas('schoolClass', function ($q) use ($institute) {
-                    $q->where('institute', $institute);
+            $pendingTeachingPlans = TeachingPlan::where('institute', $institute)
+                ->where('status', 'inactive')
+                ->count();
+
+            $releasedTeachingWeeks = TeachingPlanWeek::whereHas('plan', function ($query) use ($institute) {
+                    $query->where('institute', $institute);
                 })
+                ->where('status', 'released')
+                ->count();
+
+            $lockedTeachingWeeks = TeachingPlanWeek::whereHas('plan', function ($query) use ($institute) {
+                    $query->where('institute', $institute);
+                })
+                ->where('status', 'locked')
+                ->count();
+
+            $completedTeachingWeeks = TeachingPlanWeek::whereHas('plan', function ($query) use ($institute) {
+                    $query->where('institute', $institute);
+                })
+                ->where('status', 'completed')
+                ->count();
+
+            $pendingTeachingItems = TeachingPlanItem::whereHas('plan', function ($query) use ($institute) {
+                    $query->where('institute', $institute);
+                })
+                ->whereIn('status', ['locked', 'released'])
+                ->count();
+
+            $todayClassCount = ClassContentSession::where('institute', $institute)
                 ->where('session_date', $today)
                 ->count();
 
-            $todayCompletedSessions = ClassTimetable::whereHas('schoolClass', function ($q) use ($institute) {
-                    $q->where('institute', $institute);
-                })
+            $todayCompletedSessions = ClassContentSession::where('institute', $institute)
                 ->where('session_date', $today)
-                ->where('status', 'Completed')
+                ->whereIn('status', ['completed', 'partially_completed'])
                 ->count();
 
-            $activeSessions = ClassContentSession::whereHas('schoolClass', function ($q) use ($institute) {
-                    $q->where('institute', $institute);
-                })
-                ->where('status', 'Started')
+            $activeSessions = ClassContentSession::where('institute', $institute)
+                ->where('status', 'in_progress')
                 ->count();
 
-            $totalTeachingHours = ClassContentSession::whereHas('schoolClass', function ($q) use ($institute) {
-                    $q->where('institute', $institute);
-                })
+            $totalTeachingHours = ClassContentSession::where('institute', $institute)
                 ->sum('duration_seconds');
 
             $totalTeachingHours = round($totalTeachingHours / 3600, 1);
@@ -114,8 +133,6 @@ class ReportController extends Controller
 
             $assessmentCount = Assessment::count();
 
-            $notificationCount = Notification::count();
-
             $completedResults = AssessmentResult::where('status', 'Completed')->count();
 
             $pendingReviewResults = AssessmentResult::where('status', 'Pending Review')->count();
@@ -127,14 +144,26 @@ class ReportController extends Controller
 
             $classSessionCount = ClassContentSession::count();
 
-            $todayClassCount = ClassTimetable::where('session_date', $today)
+            $approvedTeachingPlans = TeachingPlan::where('status', 'active')->count();
+
+            $pendingTeachingPlans = TeachingPlan::where('status', 'inactive')->count();
+
+            $releasedTeachingWeeks = TeachingPlanWeek::where('status', 'released')->count();
+
+            $lockedTeachingWeeks = TeachingPlanWeek::where('status', 'locked')->count();
+
+            $completedTeachingWeeks = TeachingPlanWeek::where('status', 'completed')->count();
+
+            $pendingTeachingItems = TeachingPlanItem::whereIn('status', ['locked', 'released'])->count();
+
+            $todayClassCount = ClassContentSession::where('session_date', $today)
                 ->count();
 
-            $todayCompletedSessions = ClassTimetable::where('session_date', $today)
-                ->where('status', 'Completed')
+            $todayCompletedSessions = ClassContentSession::where('session_date', $today)
+                ->whereIn('status', ['completed', 'partially_completed'])
                 ->count();
 
-            $activeSessions = ClassContentSession::where('status', 'Started')
+            $activeSessions = ClassContentSession::where('status', 'in_progress')
                 ->count();
 
             $totalTeachingHours = round(
@@ -153,7 +182,6 @@ class ReportController extends Controller
             'instituteCount',
             'contentCount',
             'assessmentCount',
-            'notificationCount',
             'completedResults',
             'pendingReviewResults',
             'averageScore',
@@ -163,7 +191,13 @@ class ReportController extends Controller
             'todayCompletedSessions',
             'activeSessions',
             'totalTeachingHours',
-            'contentReleasedCount'
+            'contentReleasedCount',
+            'approvedTeachingPlans',
+            'pendingTeachingPlans',
+            'releasedTeachingWeeks',
+            'lockedTeachingWeeks',
+            'completedTeachingWeeks',
+            'pendingTeachingItems'
         ));
     }
 }

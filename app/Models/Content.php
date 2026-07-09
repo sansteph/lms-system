@@ -11,13 +11,18 @@ class Content extends Model
     {
         return $this->belongsTo(Course::class);
     }
+
+    public function courseContent()
+    {
+        return $this->hasOne(CourseContent::class, 'content_id');
+    }
     protected $fillable = [
 
         'content_title',
 
-        'course_id',
+        'description',
 
-        'course_category',
+        'course_id',
 
         'lesson_order',
 
@@ -34,6 +39,10 @@ class Content extends Model
         'student_file_path',
 
         'student_preview_pdf_path',
+
+        'original_file_name',
+
+        'uploaded_by',
 
         'is_released',
 

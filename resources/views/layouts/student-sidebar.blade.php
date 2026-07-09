@@ -23,10 +23,6 @@
         Achievements
     </a>
 
-    <a href="{{ route('student.notifications') }}"class="sidebar-link {{ request()->routeIs('student.notifications') ? 'active' : '' }}">
-        Notifications
-    </a>
-
     <a href="{{ route('student.my-space') }}"class="sidebar-link {{ request()->routeIs('student.my-space') ? 'active' : '' }}">
         My Space
     </a>

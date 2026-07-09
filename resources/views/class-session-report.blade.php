@@ -25,10 +25,11 @@
                             <tr>
                                 <th>Class</th>
                                 <th>Institute</th>
-                                <th>Content</th>
+                                <th>Course</th>
+                                <th>Planned Content</th>
+                                <th>Delivered Content</th>
                                 <th>STEM Engineer</th>
-                                <th>Started At</th>
-                                <th>Ended At</th>
+                                <th>Date / Time</th>
                                 <th>Duration</th>
                                 <th>Status</th>
                             </tr>
@@ -40,17 +41,24 @@
 
                                 <tr>
                                     <td>
-                                        {{ $session->schoolClass->class_name ?? 'Deleted Class' }}
-                                        -
-                                        {{ $session->schoolClass->section ?? '' }}
+                                        {{ $session->class ?? $session->schoolClass->class_name ?? 'N/A' }}
+                                        {{ $session->section ?? $session->schoolClass->section ?? '' }}
                                     </td>
 
                                     <td>
-                                        {{ $session->schoolClass->institute ?? 'N/A' }}
+                                        {{ $session->institute ?? $session->schoolClass->institute ?? 'N/A' }}
                                     </td>
 
                                     <td>
-                                        {{ $session->content->content_title ?? 'No Content' }}
+                                        {{ $session->course->course_title ?? 'N/A' }}
+                                    </td>
+
+                                    <td>
+                                        {{ $session->planned_topic ?? $session->content->content_title ?? 'No Content' }}
+                                    </td>
+
+                                    <td>
+                                        {{ $session->delivered_topic ?? 'Not recorded' }}
                                     </td>
 
                                     <td>
@@ -58,11 +66,14 @@
                                     </td>
 
                                     <td>
-                                        {{ $session->started_at }}
-                                    </td>
-
-                                    <td>
-                                        {{ $session->ended_at ?? 'In Progress' }}
+                                        {{ $session->session_date ? \Carbon\Carbon::parse($session->session_date)->format('d M Y') : '-' }}
+                                        <br>
+                                        <small class="text-muted">
+                                            {{ $session->start_time ? \Carbon\Carbon::parse($session->start_time)->format('h:i A') : '-' }}
+                                            @if($session->end_time)
+                                                - {{ \Carbon\Carbon::parse($session->end_time)->format('h:i A') }}
+                                            @endif
+                                        </small>
                                     </td>
 
                                     <td>
@@ -70,18 +81,16 @@
                                     </td>
 
                                     <td>
-                                        @if($session->status == 'Started')
-                                            <span class="badge bg-warning text-dark">Started</span>
-                                        @else
-                                            <span class="badge bg-success">Completed</span>
-                                        @endif
+                                        <span class="badge bg-{{ $session->status == 'in_progress' ? 'warning text-dark' : ($session->status == 'cancelled' ? 'danger' : 'success') }}">
+                                            {{ ucwords(str_replace('_', ' ', $session->status)) }}
+                                        </span>
                                     </td>
                                 </tr>
 
                             @empty
 
                                 <tr>
-                                    <td colspan="8" class="text-center text-muted">
+                                    <td colspan="9" class="text-center text-muted">
                                         No class sessions found.
                                     </td>
                                 </tr>

@@ -37,7 +37,6 @@ class ClassController extends Controller
 
                     $q->where('class_name', 'like', "%{$search}%")
                     ->orWhere('section', 'like', "%{$search}%")
-                    ->orWhere('class_teacher', 'like', "%{$search}%")
                     ->orWhere('academic_year', 'like', "%{$search}%");
 
                 });
@@ -45,22 +44,10 @@ class ClassController extends Controller
             ->orderBy('class_name')
             ->get();
 
-        $stemEngineers = \App\Models\User::where('role', 'Teacher')
-            ->where('status', 1)
-            ->when(
-                session('user_role') == 'InstituteAdmin',
-                function ($query) {
-                    $query->where('institute', session('user_institute'));
-                }
-            )
-            ->orderBy('name')
-            ->get();
-
         return view(
             'classes',
             compact(
-                'classes',
-                'stemEngineers'
+                'classes'
             )
         );
     }
@@ -71,7 +58,6 @@ class ClassController extends Controller
         $request->validate([
             'class_name' => 'required|string|max:50',
             'section' => 'required|string|max:20',
-            'class_teacher' => 'required|string|max:100',
             'academic_year' => 'required|string|max:20',
             'status' => 'required|boolean',
             'content_id' => 'nullable|exists:contents,id',
@@ -87,7 +73,7 @@ class ClassController extends Controller
 
             'class_name' => $request->class_name,
             'section' => $request->section,
-            'class_teacher' => $request->class_teacher,
+            'class_teacher' => null,
             'academic_year' => $request->academic_year,
             'content_id' => $request->content_id,
             'status' => $request->status,
@@ -101,7 +87,6 @@ class ClassController extends Controller
         $request->validate([
             'class_name' => 'required|string|max:50',
             'section' => 'required|string|max:20',
-            'class_teacher' => 'required|string|max:100',
             'academic_year' => 'required|string|max:20',
             'content_id' => 'nullable|exists:contents,id',
             'status' => 'required|boolean',
@@ -126,7 +111,7 @@ class ClassController extends Controller
 
             'class_name' => $request->class_name,
             'section' => $request->section,
-            'class_teacher' => $request->class_teacher,
+            'class_teacher' => null,
             'academic_year' => $request->academic_year,
             'content_id' => $request->content_id,
             'status' => $request->status,
@@ -155,7 +140,7 @@ class ClassController extends Controller
 
             foreach ($students as $student) {
 
-                AssessmentResult::where('student_id', $student->id)->delete();
+                $this->deleteAssessmentResultsForStudent($student->id);
 
                 LessonProgress::where('student_id', $student->id)->delete();
 
