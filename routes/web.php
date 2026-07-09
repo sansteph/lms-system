@@ -9,7 +9,6 @@ use App\Http\Controllers\ContentController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\AssessmentResultController;
-use App\Http\Controllers\AIController;
 use App\Http\Controllers\StudentAchievementController;
 use App\Http\Controllers\LessonProgressController;
 use App\Http\Controllers\CourseController;
