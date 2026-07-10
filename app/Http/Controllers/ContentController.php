@@ -333,8 +333,8 @@ class ContentController extends Controller
         $extension = strtolower(pathinfo($paths['file'], PATHINFO_EXTENSION));
         $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
 
-        if (in_array($extension, $previewExtensions, true) && !$this->resolvePreviewPdfPath($content, $audience, $paths)) {
-            $previewUnavailableMessage = 'Preview is not available because this Office file has not been converted to PDF yet. Please ask an administrator to verify LibreOffice conversion on the server.';
+        if (in_array($extension, $previewExtensions, true) && !$this->existingPreviewPdfPath($paths)) {
+            $previewUnavailableMessage = 'Preview is being prepared. Please try again after the server finishes converting this Office file.';
 
             return view('content.secure-preview', compact(
                 'content',
@@ -383,7 +383,7 @@ class ContentController extends Controller
         $extension = strtolower(pathinfo($paths['file'], PATHINFO_EXTENSION));
         $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
         $storagePath = in_array($extension, $previewExtensions, true)
-            ? $this->resolvePreviewPdfPath($content, $audience, $paths)
+            ? $this->existingPreviewPdfPath($paths)
             : $paths['file'];
 
         if (!$storagePath) {
@@ -621,6 +621,13 @@ class ContentController extends Controller
         }
 
         return $generatedPath;
+    }
+
+    private function existingPreviewPdfPath(array $paths): ?string
+    {
+        return app(ContentPreviewService::class)->previewExists($paths['preview'])
+            ? $paths['preview']
+            : null;
     }
 
     private function canViewContent(Content $content, $audience)

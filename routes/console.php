@@ -3,6 +3,8 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
+use App\Models\Content;
+use App\Services\ContentPreviewService;
 use App\Services\TeachingPlanReleaseService;
 
 Artisan::command('inspire', function () {
@@ -14,5 +16,66 @@ Artisan::command('teaching-plans:release-weekly', function (TeachingPlanReleaseS
     $this->info("Teaching Plan release check completed. Released {$released} week(s).");
 })->purpose('Release the next weekly Teaching Plan batch when previous week is completed');
 
+Artisan::command('content-previews:generate {--limit=10}', function (ContentPreviewService $previewService) {
+    $limit = max(1, (int) $this->option('limit'));
+    $generated = 0;
+    $failed = 0;
+
+    Content::where('status', 1)
+        ->where(function ($query) {
+            $query->where(function ($teacherQuery) {
+                $teacherQuery->whereNotNull('file_path')
+                    ->whereNull('preview_pdf_path')
+                    ->where(function ($extensionQuery) {
+                        $extensionQuery->whereRaw('LOWER(file_path) LIKE ?', ['%.ppt'])
+                            ->orWhereRaw('LOWER(file_path) LIKE ?', ['%.pptx'])
+                            ->orWhereRaw('LOWER(file_path) LIKE ?', ['%.doc'])
+                            ->orWhereRaw('LOWER(file_path) LIKE ?', ['%.docx']);
+                    });
+            })->orWhere(function ($studentQuery) {
+                $studentQuery->whereNotNull('student_file_path')
+                    ->whereNull('student_preview_pdf_path')
+                    ->where(function ($extensionQuery) {
+                        $extensionQuery->whereRaw('LOWER(student_file_path) LIKE ?', ['%.ppt'])
+                            ->orWhereRaw('LOWER(student_file_path) LIKE ?', ['%.pptx'])
+                            ->orWhereRaw('LOWER(student_file_path) LIKE ?', ['%.doc'])
+                            ->orWhereRaw('LOWER(student_file_path) LIKE ?', ['%.docx']);
+                    });
+            });
+        })
+        ->orderBy('id')
+        ->limit($limit)
+        ->get()
+        ->each(function (Content $content) use ($previewService, &$generated, &$failed) {
+            if ($previewService->isOfficeFile($content->file_path) && !$previewService->previewExists($content->preview_pdf_path)) {
+                $previewPath = $previewService->generatePreviewPdf($content->file_path);
+
+                if ($previewPath) {
+                    $content->update(['preview_pdf_path' => $previewPath]);
+                    $generated++;
+                } else {
+                    $failed++;
+                }
+            }
+
+            if ($previewService->isOfficeFile($content->student_file_path) && !$previewService->previewExists($content->student_preview_pdf_path)) {
+                $previewPath = $previewService->generatePreviewPdf($content->student_file_path);
+
+                if ($previewPath) {
+                    $content->update(['student_preview_pdf_path' => $previewPath]);
+                    $generated++;
+                } else {
+                    $failed++;
+                }
+            }
+        });
+
+    $this->info("Content preview generation completed. Generated {$generated}, failed {$failed}.");
+})->purpose('Generate missing PDF previews for uploaded Office content');
+
 Schedule::command('teaching-plans:release-weekly')
     ->weeklyOn(5, '08:00');
+
+Schedule::command('content-previews:generate --limit=20')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
