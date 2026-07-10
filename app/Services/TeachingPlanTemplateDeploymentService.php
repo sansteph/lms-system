@@ -152,7 +152,7 @@ class TeachingPlanTemplateDeploymentService
             'assigned_class' => $course->assigned_class,
             'institute' => $course->institute,
             'file_path' => $filePath,
-            'preview_pdf_path' => $previewPath ?: app(ContentPreviewService::class)->generatePreviewPdf($filePath),
+            'preview_pdf_path' => $previewPath,
             'student_file_path' => $studentFilePath,
             'student_preview_pdf_path' => $studentPreviewPath,
             'original_file_name' => $templateContent->original_file_name ?: basename((string) $templateContent->file_path),

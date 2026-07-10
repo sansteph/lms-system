@@ -401,9 +401,8 @@ class CourseController extends Controller
     {
         $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
         $filePath = $file->storeAs('contents', $fileName, 'local');
-        $previewPdfPath = app(ContentPreviewService::class)->generatePreviewPdf($filePath);
 
-        return [$filePath, $previewPdfPath];
+        return [$filePath, null];
     }
 
     private function ensureCourseContentFilesWereReceived(Request $request, bool $fileRequired): void
