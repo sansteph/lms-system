@@ -166,10 +166,11 @@ class ClassController extends Controller
                 $student->delete();
             }
 
+            $this->deleteClassSessionsForSchoolClass($class);
+
             $timetables = ClassTimetable::where('class_id', $class->id)->get();
 
             foreach ($timetables as $timetable) {
-                ClassContentSession::where('class_id', $class->id)->delete();
                 $timetable->delete();
             }
 
@@ -188,5 +189,18 @@ class ClassController extends Controller
 
         return redirect()->back()
             ->with('success', 'Class and all related records deleted successfully.');
+    }
+
+    private function deleteClassSessionsForSchoolClass(SchoolClass $class): void
+    {
+        ClassContentSession::where(function ($query) use ($class) {
+                $query->where('class_id', $class->id)
+                    ->orWhere(function ($nested) use ($class) {
+                        $nested->where('institute', $class->institute)
+                            ->where('class', $class->class_name)
+                            ->where('section', $class->section);
+                    });
+            })
+            ->delete();
     }
 }

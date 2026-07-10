@@ -186,7 +186,7 @@ class InstituteController extends Controller
 
             foreach ($classes as $class) {
 
-                ClassContentSession::where('class_id', $class->id)->delete();
+                $this->deleteClassSessionsForSchoolClass($class);
 
                 ClassTimetable::where('class_id', $class->id)->delete();
 
@@ -259,6 +259,19 @@ class InstituteController extends Controller
         TeachingPlanItem::where('teaching_plan_id', $plan->id)->delete();
         TeachingPlanWeek::where('teaching_plan_id', $plan->id)->delete();
         $plan->delete();
+    }
+
+    private function deleteClassSessionsForSchoolClass(SchoolClass $class): void
+    {
+        ClassContentSession::where(function ($query) use ($class) {
+                $query->where('class_id', $class->id)
+                    ->orWhere(function ($nested) use ($class) {
+                        $nested->where('institute', $class->institute)
+                            ->where('class', $class->class_name)
+                            ->where('section', $class->section);
+                    });
+            })
+            ->delete();
     }
 
 }

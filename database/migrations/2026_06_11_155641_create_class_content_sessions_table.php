@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('class_content_sessions', function (Blueprint $table) {
             $table->id();
 
-            $table->unsignedBigInteger('class_id');
+            $table->unsignedBigInteger('class_id')->nullable();
             $table->unsignedBigInteger('content_id')->nullable();
             $table->unsignedBigInteger('stem_engineer_id');
 
