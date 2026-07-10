@@ -25,7 +25,7 @@ class ContentPreviewService
         return filled($path) && Storage::disk('local')->exists($path);
     }
 
-    public function generatePreviewPdf(?string $filePath): ?string
+    public function generatePreviewPdf(?string $filePath, ?int $timeout = null): ?string
     {
         if (!$filePath || !$this->isOfficeFile($filePath)) {
             return null;
@@ -67,7 +67,7 @@ class ContentPreviewService
                 $inputPath,
             ]);
 
-            $process->setTimeout((int) config('content_preview.timeout', 90));
+            $process->setTimeout($timeout ?: (int) config('content_preview.timeout', 90));
             $process->run();
 
             $convertedPath = $outputDir . DIRECTORY_SEPARATOR . pathinfo($inputPath, PATHINFO_FILENAME) . '.pdf';
