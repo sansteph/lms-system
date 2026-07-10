@@ -17,6 +17,11 @@
                     </p>
                 </div>
 
+                <a href="{{ route('reports.export') }}" class="btn btn-success btn-sm">
+                    <i class="fa fa-file-csv me-1"></i>
+                    Export CSV
+                </a>
+
             </div>
 
             <div class="row g-4 mb-4">

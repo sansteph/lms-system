@@ -102,6 +102,7 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::get('/content/delete/{id}', [ContentController::class, 'delete'])->name('content.delete');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports');
+    Route::get('/reports/export', [ReportController::class, 'exportCsv'])->name('reports.export');
 
     Route::get('/admin/certificates', [PageController::class, 'adminCertificates'])->name('admin.certificates');
     Route::post('/admin/certificates/approve/{id}', [PageController::class, 'approveCertificate'])->name('admin.certificates.approve');
