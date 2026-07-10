@@ -29,6 +29,7 @@ use App\Models\Institute;
 use App\Models\IndependentLearner;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use App\Support\DeletesAssessments;
 
 
@@ -204,8 +205,17 @@ class PageController extends Controller
     }
     public function storeStudent(Request $request)
     {
+        $institute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : $request->institute;
+
         $request->validate([
-            'student_id' => 'required|string|max:50|unique:students,student_id',
+            'student_id' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('students', 'student_id')->where(fn ($query) => $query->where('institute', $institute)),
+            ],
             'name' => 'required|string|max:100',
             'institute' => session('user_role') == 'Admin'
                 ? 'required|string|max:100'
@@ -215,10 +225,6 @@ class PageController extends Controller
             'contact' => 'required|string|max:20',
             'password' => 'required|min:6',
         ]);
-
-        $institute = session('user_role') == 'InstituteAdmin'
-            ? session('user_institute')
-            : $request->institute;
 
         Student::create([
             'student_id' => $request->student_id,
@@ -235,8 +241,20 @@ class PageController extends Controller
     }
     public function updateStudent(Request $request, $id)
     {
+        $student = Student::findOrFail($id);
+        $institute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : $request->institute;
+
         $request->validate([
-            'student_id' => 'required|string|max:50',
+            'student_id' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('students', 'student_id')
+                    ->where(fn ($query) => $query->where('institute', $institute))
+                    ->ignore($student->id),
+            ],
             'name' => 'required|string|max:100',
             'institute' => 'required|string|max:100',
             'class' => 'required|string|max:50',
@@ -245,8 +263,6 @@ class PageController extends Controller
             'password' => 'nullable|min:6',
             'status' => 'required|boolean',
         ]);
-
-        $student = Student::findOrFail($id);
 
         if (
             session('user_role') == 'InstituteAdmin' &&
@@ -259,7 +275,7 @@ class PageController extends Controller
         $studentData = [
             'student_id' => $request->student_id,
             'name' => $request->name,
-            'institute' => session('user_role') == 'InstituteAdmin'? session('user_institute'): $request->institute,
+            'institute' => $institute,
             'class' => $request->class,
             'section' => $request->section,
             'contact' => $request->contact,
@@ -840,10 +856,13 @@ class PageController extends Controller
         ]);
 
         $student = Student::where('student_id', $request->student_id)
-                        ->where('status', 1)
-                        ->first();
+            ->where('status', 1)
+            ->get()
+            ->first(function ($student) use ($request) {
+                return Hash::check($request->password, $student->password);
+            });
 
-        if ($student && Hash::check($request->password, $student->password)) {
+        if ($student) {
 
             session([
                 'student_id' => $student->id,
