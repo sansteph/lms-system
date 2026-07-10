@@ -1425,17 +1425,13 @@ class PageController extends Controller
                 ->with('error', 'Content is locked while your assessment is in progress.');
         }
 
-        $course = $this->studentAssignedCourse($student);
+        $contentIds = $this->studentAvailableContentIds($student);
 
-        $contents = collect();
-
-        if ($course) {
-            $contents = Content::where('course_id', $course->id)
-                ->where('status', 1)
-                ->where('is_released', true)
-                ->orderBy('lesson_order')
-                ->get();
-        }
+        $contents = Content::whereIn('id', $contentIds)
+            ->where('status', 1)
+            ->orderBy('course_id')
+            ->orderBy('lesson_order')
+            ->get();
 
         $totalLessons = $contents->count();
 
@@ -1945,13 +1941,12 @@ class PageController extends Controller
     {
         $studentId = session('student_id');
         $student = Student::findOrFail($studentId);
-        $course = $this->studentAssignedCourse($student);
+        $contentIds = $this->studentAvailableContentIds($student);
         $content = Content::where('id', $id)
             ->where('status', 1)
-            ->where('is_released', true)
             ->first();
 
-        if (!$course || !$content || $content->course_id != $course->id) {
+        if (!$content || !$contentIds->contains((int) $content->id)) {
             abort(403, 'This lesson is not assigned to your class.');
         }
 
@@ -1983,6 +1978,53 @@ class PageController extends Controller
                 [$assignedClass]
             )
             ->first();
+    }
+
+    private function studentAvailableContentIds(Student $student)
+    {
+        $assignedClass = $this->studentClassName($student);
+
+        $teachingPlanContentIds = TeachingPlanItem::where('status', 'completed')
+            ->whereNotNull('content_id')
+            ->whereHas('plan', function ($query) use ($student, $assignedClass) {
+                $query->where('is_template', false)
+                    ->where('institute', $student->institute)
+                    ->whereIn('status', ['active', 'completed'])
+                    ->where(function ($classQuery) use ($assignedClass) {
+                        $classQuery
+                            ->whereRaw(
+                                "REPLACE(TRIM(class), '  ', ' ') = ?",
+                                [$assignedClass]
+                            )
+                            ->orWhereRaw(
+                                "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                                [$assignedClass]
+                            );
+                    });
+            })
+            ->whereHas('content', function ($query) {
+                $query->where('status', 1);
+            })
+            ->pluck('content_id')
+            ->unique()
+            ->values();
+
+        $legacyCourseIds = Course::where('institute', $student->institute)
+            ->whereRaw(
+                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                [$assignedClass]
+            )
+            ->pluck('id');
+
+        $legacyReleasedContentIds = Content::whereIn('course_id', $legacyCourseIds)
+            ->where('status', 1)
+            ->where('is_released', true)
+            ->pluck('id');
+
+        return $teachingPlanContentIds
+            ->merge($legacyReleasedContentIds)
+            ->unique()
+            ->values();
     }
 
     private function studentClassName(Student $student)

@@ -687,19 +687,17 @@ class ContentController extends Controller
 
     private function studentCanViewContent(Student $student, Content $content)
     {
-        $course = $this->studentAssignedCourse($student);
+        $contentIds = $this->studentAvailableContentIds($student);
 
         if (
-            !$course ||
-            $content->course_id != $course->id ||
             $content->status != 1 ||
-            !$content->is_released ||
-            !($content->student_file_path || $content->file_path)
+            !($content->student_file_path || $content->file_path) ||
+            !$contentIds->contains((int) $content->id)
         ) {
             return false;
         }
 
-        $previousLesson = Content::where('course_id', $course->id)
+        $previousLesson = Content::where('course_id', $content->course_id)
             ->where('lesson_order', $content->lesson_order - 1)
             ->first();
 
@@ -711,6 +709,53 @@ class ContentController extends Controller
             ->where('content_id', $previousLesson->id)
             ->where('is_completed', true)
             ->exists();
+    }
+
+    private function studentAvailableContentIds(Student $student)
+    {
+        $assignedClass = preg_replace('/\s+/', ' ', trim($student->class . ' ' . $student->section));
+
+        $teachingPlanContentIds = TeachingPlanItem::where('status', 'completed')
+            ->whereNotNull('content_id')
+            ->whereHas('plan', function ($query) use ($student, $assignedClass) {
+                $query->where('is_template', false)
+                    ->where('institute', $student->institute)
+                    ->whereIn('status', ['active', 'completed'])
+                    ->where(function ($classQuery) use ($assignedClass) {
+                        $classQuery
+                            ->whereRaw(
+                                "REPLACE(TRIM(class), '  ', ' ') = ?",
+                                [$assignedClass]
+                            )
+                            ->orWhereRaw(
+                                "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                                [$assignedClass]
+                            );
+                    });
+            })
+            ->whereHas('content', function ($query) {
+                $query->where('status', 1);
+            })
+            ->pluck('content_id')
+            ->unique()
+            ->values();
+
+        $legacyCourseIds = Course::where('institute', $student->institute)
+            ->whereRaw(
+                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                [$assignedClass]
+            )
+            ->pluck('id');
+
+        $legacyReleasedContentIds = Content::whereIn('course_id', $legacyCourseIds)
+            ->where('status', 1)
+            ->where('is_released', true)
+            ->pluck('id');
+
+        return $teachingPlanContentIds
+            ->merge($legacyReleasedContentIds)
+            ->unique()
+            ->values();
     }
 
     private function studentAssignedCourse(Student $student)

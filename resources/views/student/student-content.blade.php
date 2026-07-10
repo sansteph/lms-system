@@ -105,6 +105,7 @@
                     @php
 
                         $previousLesson = $contents
+                            ->where('course_id', $content->course_id)
                             ->where('lesson_order', $content->lesson_order - 1)
                             ->first();
 
