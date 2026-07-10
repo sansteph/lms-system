@@ -528,19 +528,50 @@ class PageController extends Controller
     {
         $teacher = User::find(session('user_id'));
 
-        $approvedContentIds = TeachingPlanItem::where('status', 'released')
+        $teachingItems = TeachingPlanItem::whereIn('status', ['released', 'completed'])
             ->whereHas('plan', function ($query) use ($teacher) {
                 $query->where('institute', $teacher->institute)
-                    ->where('status', 'active');
+                    ->whereIn('status', ['active', 'completed']);
             })
             ->whereNotNull('content_id')
-            ->pluck('content_id');
+            ->get();
+
+        $approvedContentIds = $teachingItems
+            ->pluck('content_id')
+            ->unique()
+            ->values();
+
+        $teachingStatusByContentId = $teachingItems
+            ->groupBy('content_id')
+            ->map(function ($items) {
+                if ($items->contains('status', 'released')) {
+                    return 'released';
+                }
+
+                if ($items->contains('status', 'completed')) {
+                    return 'completed';
+                }
+
+                return $items->first()->status;
+            });
 
         $contents = Content::whereIn('id', $approvedContentIds)
             ->latest()
             ->get();
 
-        return view('teacher.teacher-content', compact('contents'));
+        $inProgressContentIds = ClassContentSession::where('institute', $teacher->institute)
+            ->where('stem_engineer_id', $teacher->id)
+            ->where('status', 'in_progress')
+            ->whereNotNull('content_id')
+            ->pluck('content_id')
+            ->unique()
+            ->values();
+
+        return view('teacher.teacher-content', compact(
+            'contents',
+            'teachingStatusByContentId',
+            'inProgressContentIds'
+        ));
     }
 
     public function teacherAssessments()
@@ -2141,7 +2172,14 @@ class PageController extends Controller
         ]);
 
         if ($status == 'completed' && $session->teachingPlanItem) {
-            app(TeachingPlanReleaseService::class)->markItemCompleted($session->teachingPlanItem);
+            $itemCompleted = app(TeachingPlanReleaseService::class)
+                ->markItemCompleted($session->teachingPlanItem);
+
+            if ($itemCompleted && $session->content_id) {
+                Content::where('id', $session->content_id)
+                    ->where('institute', $teacher->institute)
+                    ->update(['is_released' => true]);
+            }
         }
 
         return redirect()->back()

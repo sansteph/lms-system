@@ -65,6 +65,9 @@
 
                         <tbody>
                             @forelse($contents as $index => $content)
+                                @php
+                                    $teachingStatus = $teachingStatusByContentId[$content->id] ?? null;
+                                @endphp
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
                                     <td>{{ $content->content_title }}</td>
@@ -84,6 +87,20 @@
                                         @else
                                             <span class="badge bg-secondary">Unavailable</span>
                                         @endif
+
+                                        <div class="mt-2">
+                                            @if($inProgressContentIds->contains($content->id))
+                                                <span class="badge bg-info text-dark">In Progress</span>
+                                            @elseif($teachingStatus === 'completed')
+                                                <span class="badge bg-primary">Completed</span>
+                                            @elseif($teachingStatus === 'released')
+                                                <span class="badge bg-warning text-dark">Released</span>
+                                            @endif
+                                        </div>
+
+                                        <div class="small text-muted mt-1">
+                                            {{ $content->is_released ? 'Student access enabled' : 'Not released to students' }}
+                                        </div>
                                     </td>
                                     <td>
                                         @if($content->file_path && $content->status == 1)

@@ -450,7 +450,7 @@ class UserController extends Controller
             $item &&
             $completedSession->institute === $teacher->institute &&
             $plan->institute === $teacher->institute &&
-            $plan->status === 'active' &&
+            in_array($plan->status, ['active', 'completed'], true) &&
             in_array($week->status, ['released', 'completed'], true) &&
             $item->status === 'completed' &&
             (int) $item->teaching_plan_id === (int) $plan->id &&
