@@ -72,15 +72,12 @@
                         </div>
 
                         <div class="hero-stats">
-                            <div class="hero-stat-item w-100">
-                                <div class="stat-icon blue overflow-hidden">
+                            <div class="hero-stat-item w-100 justify-content-center">
+                                <div class="overflow-hidden rounded-3 border bg-light"
+                                     style="width: 100%; max-width: 420px; aspect-ratio: 16 / 9;">
                                     <img src="{{ asset('images/InstitutionalLogo.png') }}"
-                                         alt="Learning illustration"
+                                         alt="Company image placeholder"
                                          style="width: 100%; height: 100%; object-fit: cover;">
-                                </div>
-                                <div class="stat-content">
-                                    <h4>STEM Learning</h4>
-                                    <span>Structured classroom programs, secure assessments, and verified certificates.</span>
                                 </div>
                             </div>
                         </div>

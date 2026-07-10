@@ -133,6 +133,33 @@
             background: #ffffff;
         }
 
+        .preview-unavailable {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 34px;
+            text-align: center;
+            color: #334155;
+            background: #f8fafc;
+        }
+
+        .preview-unavailable-card {
+            max-width: 520px;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 28px;
+            background: #ffffff;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.1);
+        }
+
+        .preview-unavailable-title {
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
         .preview-shell:fullscreen .preview-toolbar {
             min-height: 58px;
             padding: 10px 18px;
@@ -212,15 +239,24 @@
                  data-watermark="InnovatEdge&#10;View Only"
                  data-preview-scope="content-{{ $content->id }}">
                 <div class="preview-frame-holder protected-preview-content">
-                    <iframe class="preview-frame"
-                            src="{{ $sourceUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
-                            allow="fullscreen"
-                            allowfullscreen
-                            oncontextmenu="return false;">
-                    </iframe>
-                    <div class="protected-preview-mouse-shield"
-                         aria-hidden="true">
-                    </div>
+                    @if(!empty($previewUnavailableMessage))
+                        <div class="preview-unavailable">
+                            <div class="preview-unavailable-card">
+                                <div class="preview-unavailable-title">Preview unavailable</div>
+                                <div>{{ $previewUnavailableMessage }}</div>
+                            </div>
+                        </div>
+                    @else
+                        <iframe class="preview-frame"
+                                src="{{ $sourceUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
+                                allow="fullscreen"
+                                allowfullscreen
+                                oncontextmenu="return false;">
+                        </iframe>
+                        <div class="protected-preview-mouse-shield"
+                             aria-hidden="true">
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

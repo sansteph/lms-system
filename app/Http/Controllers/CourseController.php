@@ -19,6 +19,7 @@ use App\Models\TeachingPlanItem;
 use App\Models\TeachingPlanWeek;
 use App\Models\Institute;
 use Illuminate\Validation\ValidationException;
+use App\Services\ContentPreviewService;
 
 class CourseController extends Controller
 {
@@ -400,11 +401,7 @@ class CourseController extends Controller
     {
         $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
         $filePath = $file->storeAs('contents', $fileName, 'local');
-        $previewPdfPath = $this->createPrivatePreviewPdf(
-            $filePath,
-            $fileName,
-            strtolower($file->getClientOriginalExtension())
-        );
+        $previewPdfPath = app(ContentPreviewService::class)->generatePreviewPdf($filePath);
 
         return [$filePath, $previewPdfPath];
     }
@@ -486,35 +483,7 @@ class CourseController extends Controller
 
     private function createPrivatePreviewPdf($filePath, $fileName, $extension): ?string
     {
-        if (!in_array($extension, ['ppt', 'pptx', 'doc', 'docx'])) {
-            return null;
-        }
-
-        $inputPath = Storage::disk('local')->path($filePath);
-        $outputDir = Storage::disk('local')->path('content-previews');
-
-        if (!file_exists($outputDir)) {
-            mkdir($outputDir, 0775, true);
-        }
-
-        $libreOfficePath = '"C:\\Program Files\\LibreOffice\\program\\soffice.exe"';
-
-        $command = $libreOfficePath
-            . ' --headless'
-            . ' --convert-to pdf'
-            . ' --outdir ' . escapeshellarg($outputDir)
-            . ' ' . escapeshellarg($inputPath);
-
-        exec($command, $output, $resultCode);
-
-        $pdfFileName = pathinfo($fileName, PATHINFO_FILENAME) . '.pdf';
-        $convertedPdfPath = $outputDir . DIRECTORY_SEPARATOR . $pdfFileName;
-
-        if ($resultCode === 0 && file_exists($convertedPdfPath)) {
-            return 'content-previews/' . $pdfFileName;
-        }
-
-        return null;
+        return app(ContentPreviewService::class)->generatePreviewPdf($filePath);
     }
 
     private function titleFromFileName(string $fileName): string

@@ -281,24 +281,6 @@ class TeachingPlanController extends Controller
             ->with('success', 'Teaching Plan week updated.');
     }
 
-    public function completeItem($id, TeachingPlanItem $item, TeachingPlanReleaseService $releaseService)
-    {
-        $plan = TeachingPlan::findOrFail($id);
-        $this->authorizePlan($plan);
-
-        if ($item->teaching_plan_id != $plan->id) {
-            abort(404);
-        }
-
-        if (!$releaseService->markItemCompleted($item)) {
-            return redirect()->back()
-                ->with('error', 'Only released Teaching Plan items can be marked completed.');
-        }
-
-        return redirect()->back()
-            ->with('success', 'Teaching Plan item marked completed.');
-    }
-
     public function runReleaseCheck(TeachingPlanReleaseService $releaseService)
     {
         if (app()->environment('production')) {

@@ -173,17 +173,9 @@
                                                     <td>
                                                         @foreach($week->items->sortBy('sort_order') as $item)
                                                             <div class="border rounded p-2 mb-2">
-                                                                <div class="d-flex justify-content-between gap-2">
-                                                                    <div>
-                                                                        <strong>{{ $item->content->content_title ?? 'Content' }}</strong>
-                                                                        <div class="text-muted small">Order {{ $item->sort_order }} | {{ ucfirst($item->status) }}</div>
-                                                                    </div>
-                                                                    @if($item->status != 'completed')
-                                                                        <form method="POST" action="{{ route('teaching-plans.items.complete', [$plan->id, $item->id]) }}">
-                                                                            @csrf
-                                                                            <button class="btn btn-sm btn-outline-success">Mark Complete</button>
-                                                                        </form>
-                                                                    @endif
+                                                                <div>
+                                                                    <strong>{{ $item->content->content_title ?? 'Content' }}</strong>
+                                                                    <div class="text-muted small">Order {{ $item->sort_order }} | {{ ucfirst($item->status) }}</div>
                                                                 </div>
                                                             </div>
                                                         @endforeach

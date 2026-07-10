@@ -9,6 +9,7 @@ use App\Models\Institute;
 use App\Models\TeachingPlan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ContentPreviewService;
 
 class TeachingPlanTemplateDeploymentService
 {
@@ -151,7 +152,7 @@ class TeachingPlanTemplateDeploymentService
             'assigned_class' => $course->assigned_class,
             'institute' => $course->institute,
             'file_path' => $filePath,
-            'preview_pdf_path' => $previewPath ?: $this->createPreviewPdf($filePath),
+            'preview_pdf_path' => $previewPath ?: app(ContentPreviewService::class)->generatePreviewPdf($filePath),
             'student_file_path' => $studentFilePath,
             'student_preview_pdf_path' => $studentPreviewPath,
             'original_file_name' => $templateContent->original_file_name ?: basename((string) $templateContent->file_path),
@@ -171,37 +172,7 @@ class TeachingPlanTemplateDeploymentService
 
     private function createPreviewPdf(?string $filePath): ?string
     {
-        if (!$filePath) {
-            return null;
-        }
-
-        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-
-        if (!in_array($extension, ['ppt', 'pptx', 'doc', 'docx'])) {
-            return null;
-        }
-
-        $inputPath = Storage::disk('local')->path($filePath);
-        $outputDir = Storage::disk('local')->path('content-previews');
-
-        if (!file_exists($outputDir)) {
-            mkdir($outputDir, 0775, true);
-        }
-
-        $command = '"C:\\Program Files\\LibreOffice\\program\\soffice.exe"'
-            . ' --headless'
-            . ' --convert-to pdf'
-            . ' --outdir ' . escapeshellarg($outputDir)
-            . ' ' . escapeshellarg($inputPath);
-
-        exec($command, $output, $resultCode);
-
-        $pdfFileName = pathinfo($filePath, PATHINFO_FILENAME) . '.pdf';
-        $convertedPdfPath = $outputDir . DIRECTORY_SEPARATOR . $pdfFileName;
-
-        return $resultCode === 0 && file_exists($convertedPdfPath)
-            ? 'content-previews/' . $pdfFileName
-            : null;
+        return app(ContentPreviewService::class)->generatePreviewPdf($filePath);
     }
 
     private function copyStoredFile(?string $sourcePath, string $targetDirectory): ?string

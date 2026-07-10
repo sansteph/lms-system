@@ -132,7 +132,6 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::post('/teaching-plans/update/{id}', [TeachingPlanController::class, 'update'])->name('teaching-plans.update');
     Route::post('/teaching-plans/{id}/release-next', [TeachingPlanController::class, 'releaseNext'])->name('teaching-plans.release-next');
     Route::post('/teaching-plans/{id}/weeks/{week}', [TeachingPlanController::class, 'updateWeek'])->name('teaching-plans.weeks.update');
-    Route::post('/teaching-plans/{id}/items/{item}/complete', [TeachingPlanController::class, 'completeItem'])->name('teaching-plans.items.complete');
     Route::post('/teaching-plans/run-release-check', [TeachingPlanController::class, 'runReleaseCheck'])->name('teaching-plans.run-release-check');
     Route::get('/teaching-plans/delete/{id}', [TeachingPlanController::class, 'delete'])->name('teaching-plans.delete');
 

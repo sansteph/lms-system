@@ -24,23 +24,21 @@
             @php
                 $extension = strtolower(pathinfo($content->file_path, PATHINFO_EXTENSION));
                 $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
-                $streamVariant = in_array($extension, $previewExtensions) && $content->preview_pdf_path
-                    ? 'preview'
-                    : 'file';
                 $previewUrl = route('content.preview', [$content->id, 'teacher']);
                 $streamUrl = route('content.preview.stream', [$content->id, 'teacher']);
-                $fileUrl = route('content.file.audience', [$content->id, 'teacher', $streamVariant]);
+                $fileVariant = in_array($extension, $previewExtensions) ? 'preview' : 'file';
+                $fileUrl = route('content.file.audience', [$content->id, 'teacher', $fileVariant]);
             @endphp
 
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    @if($extension == 'pdf' || $streamVariant == 'preview')
+                    @if($extension == 'pdf' || in_array($extension, $previewExtensions))
                         <div class="protected-preview-surface"
                              data-watermark="InnovatEdge&#10;View Only"
                              data-preview-scope="content-{{ $content->id }}">
                             <div class="protected-preview-content">
-                                <iframe src="{{ $streamUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
+                                <iframe src="{{ $previewUrl }}"
                                         width="100%"
                                         height="750"
                                         style="border: none;"

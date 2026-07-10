@@ -21,6 +21,7 @@ use App\Models\TeachingPlanItem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Support\DeletesAssessments;
+use App\Services\ContentPreviewService;
 
 class ContentController extends Controller
 {
@@ -332,8 +333,15 @@ class ContentController extends Controller
         $extension = strtolower(pathinfo($paths['file'], PATHINFO_EXTENSION));
         $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
 
-        if (in_array($extension, $previewExtensions) && !$paths['preview']) {
-            abort(404);
+        if (in_array($extension, $previewExtensions, true) && !$this->resolvePreviewPdfPath($content, $audience, $paths)) {
+            $previewUnavailableMessage = 'Preview is not available because this Office file has not been converted to PDF yet. Please ask an administrator to verify LibreOffice conversion on the server.';
+
+            return view('content.secure-preview', compact(
+                'content',
+                'audience',
+                'extension',
+                'previewUnavailableMessage'
+            ));
         }
 
         $sourceUrl = route('content.preview.stream', [$content->id, $audience]);
@@ -374,8 +382,8 @@ class ContentController extends Controller
 
         $extension = strtolower(pathinfo($paths['file'], PATHINFO_EXTENSION));
         $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
-        $storagePath = in_array($extension, $previewExtensions)
-            ? $paths['preview']
+        $storagePath = in_array($extension, $previewExtensions, true)
+            ? $this->resolvePreviewPdfPath($content, $audience, $paths)
             : $paths['file'];
 
         if (!$storagePath) {
@@ -551,46 +559,14 @@ class ContentController extends Controller
     {
         $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
         $filePath = $file->storeAs('contents', $fileName, 'local');
-        $previewPdfPath = $this->createPrivatePreviewPdf(
-            $filePath,
-            $fileName,
-            strtolower($file->getClientOriginalExtension())
-        );
+        $previewPdfPath = app(ContentPreviewService::class)->generatePreviewPdf($filePath);
 
         return [$filePath, $previewPdfPath];
     }
 
     private function createPrivatePreviewPdf($filePath, $fileName, $extension)
     {
-        if (!in_array($extension, ['ppt', 'pptx', 'doc', 'docx'])) {
-            return null;
-        }
-
-        $inputPath = Storage::disk('local')->path($filePath);
-        $outputDir = Storage::disk('local')->path('content-previews');
-
-        if (!file_exists($outputDir)) {
-            mkdir($outputDir, 0775, true);
-        }
-
-        $libreOfficePath = '"C:\\Program Files\\LibreOffice\\program\\soffice.exe"';
-
-        $command = $libreOfficePath
-            . ' --headless'
-            . ' --convert-to pdf'
-            . ' --outdir ' . escapeshellarg($outputDir)
-            . ' ' . escapeshellarg($inputPath);
-
-        exec($command, $output, $resultCode);
-
-        $pdfFileName = pathinfo($fileName, PATHINFO_FILENAME) . '.pdf';
-        $convertedPdfPath = $outputDir . DIRECTORY_SEPARATOR . $pdfFileName;
-
-        if ($resultCode === 0 && file_exists($convertedPdfPath)) {
-            return 'content-previews/' . $pdfFileName;
-        }
-
-        return null;
+        return app(ContentPreviewService::class)->generatePreviewPdf($filePath);
     }
 
     private function resolveContentAudience($audience)
@@ -619,6 +595,33 @@ class ContentController extends Controller
             'file' => $content->file_path,
             'preview' => $content->preview_pdf_path,
         ];
+    }
+
+    private function resolvePreviewPdfPath(Content $content, string $audience, array $paths): ?string
+    {
+        $previewService = app(ContentPreviewService::class);
+
+        if ($previewService->previewExists($paths['preview'])) {
+            return $paths['preview'];
+        }
+
+        if (!$previewService->isOfficeFile($paths['file'])) {
+            return null;
+        }
+
+        $generatedPath = $previewService->generatePreviewPdf($paths['file']);
+
+        if (!$generatedPath) {
+            return null;
+        }
+
+        if ($audience === 'student' && $content->student_file_path) {
+            $content->update(['student_preview_pdf_path' => $generatedPath]);
+        } else {
+            $content->update(['preview_pdf_path' => $generatedPath]);
+        }
+
+        return $generatedPath;
     }
 
     private function canViewContent(Content $content, $audience)
@@ -725,6 +728,10 @@ class ContentController extends Controller
     private function resolveContentStoragePath($path)
     {
         if (!Storage::disk('local')->exists($path)) {
+            logger()->warning('Protected content preview file is missing from storage.', [
+                'storage_path' => $path,
+            ]);
+
             return null;
         }
 

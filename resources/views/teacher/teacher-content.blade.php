@@ -87,14 +87,6 @@
                                     </td>
                                     <td>
                                         @if($content->file_path && $content->status == 1)
-                                            @php
-                                                $extension = strtolower(pathinfo($content->file_path, PATHINFO_EXTENSION));
-                                                $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
-                                                $streamVariant = in_array($extension, $previewExtensions) && $content->preview_pdf_path
-                                                    ? 'preview'
-                                                    : 'file';
-                                            @endphp
-
                                             <button type="button"
                                                     class="btn btn-sm btn-outline-primary"
                                                     data-bs-toggle="modal"
@@ -135,12 +127,10 @@
         @php
             $extension = strtolower(pathinfo($content->file_path, PATHINFO_EXTENSION));
             $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
-            $streamVariant = in_array($extension, $previewExtensions) && $content->preview_pdf_path
-                ? 'preview'
-                : 'file';
             $previewUrl = route('content.preview', [$content->id, 'teacher']);
             $streamUrl = route('content.preview.stream', [$content->id, 'teacher']);
-            $fileUrl = route('content.file.audience', [$content->id, 'teacher', $streamVariant]);
+            $fileVariant = in_array($extension, $previewExtensions) ? 'preview' : 'file';
+            $fileUrl = route('content.file.audience', [$content->id, 'teacher', $fileVariant]);
         @endphp
 
         <div class="modal fade"
@@ -158,12 +148,12 @@
                         </button>
                     </div>
                     <div class="modal-body">
-                        @if($extension == 'pdf' || $streamVariant == 'preview')
+                        @if($extension == 'pdf' || in_array($extension, $previewExtensions))
                             <div class="protected-preview-surface"
                                  data-watermark="InnovatEdge&#10;View Only"
                                  data-preview-scope="content-{{ $content->id }}">
                                 <div class="protected-preview-content">
-                                    <iframe src="{{ $streamUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
+                                    <iframe src="{{ $previewUrl }}"
                                             width="100%"
                                             height="720"
                                             style="border: 0; border-radius: 8px; background: #f8f9fa;"
