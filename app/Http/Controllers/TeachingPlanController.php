@@ -283,7 +283,10 @@ class TeachingPlanController extends Controller
             abort(404);
         }
 
-        $releaseService->markItemCompleted($item);
+        if (!$releaseService->markItemCompleted($item)) {
+            return redirect()->back()
+                ->with('error', 'Only released Teaching Plan items can be marked completed.');
+        }
 
         return redirect()->back()
             ->with('success', 'Teaching Plan item marked completed.');

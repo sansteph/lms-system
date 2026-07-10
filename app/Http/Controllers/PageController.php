@@ -2067,6 +2067,17 @@ class PageController extends Controller
 
         $status = request('status', 'completed');
 
+        if (
+            $status == 'completed' &&
+            (
+                !$session->teachingPlanItem ||
+                $session->teachingPlanItem->status !== 'released'
+            )
+        ) {
+            return redirect()->back()
+                ->with('error', 'Only released Teaching Plan content can be completed.');
+        }
+
         $session->update([
 
             'ended_at' => $endedAt,

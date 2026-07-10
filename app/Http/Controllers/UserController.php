@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Models\InstituteRegistrationRequest;
 use App\Models\Content;
-use App\Models\TeachingPlanItem;
 use Illuminate\Support\Facades\DB;
 use App\Models\SchoolClass;
 use App\Models\ClassContentSession;
@@ -430,16 +429,41 @@ class UserController extends Controller
             abort(403, 'This topic cannot be released to students.');
         }
 
-        $hasReleasedPlanItem = TeachingPlanItem::where('status', 'released')
-            ->whereHas('plan', function ($query) use ($teacher) {
-                $query->where('institute', $teacher->institute)
-                    ->where('status', 'active');
-            })
+        $completedSession = ClassContentSession::with([
+                'teachingPlan',
+                'teachingPlanWeek',
+                'teachingPlanItem',
+            ])
+            ->where('institute', $teacher->institute)
+            ->where('stem_engineer_id', $teacher->id)
             ->where('content_id', $content->id)
-            ->exists();
+            ->where('status', 'completed')
+            ->latest()
+            ->first();
 
-        if (!$hasReleasedPlanItem) {
-            abort(403, 'You can only release currently released Teaching Plan content from your institute.');
+        $plan = $completedSession?->teachingPlan;
+        $week = $completedSession?->teachingPlanWeek;
+        $item = $completedSession?->teachingPlanItem;
+
+        $isCompletedInstitutePlanContent = $plan &&
+            $week &&
+            $item &&
+            $completedSession->institute === $teacher->institute &&
+            $plan->institute === $teacher->institute &&
+            $plan->status === 'active' &&
+            in_array($week->status, ['released', 'completed'], true) &&
+            $item->status === 'completed' &&
+            (int) $item->teaching_plan_id === (int) $plan->id &&
+            (int) $item->teaching_plan_week_id === (int) $week->id &&
+            (int) $item->content_id === (int) $content->id &&
+            (int) $completedSession->teaching_plan_id === (int) $plan->id &&
+            (int) $completedSession->teaching_plan_week_id === (int) $week->id &&
+            (int) $completedSession->teaching_plan_item_id === (int) $item->id &&
+            (int) $completedSession->course_id === (int) $item->course_id &&
+            (int) $completedSession->content_id === (int) $item->content_id;
+
+        if (!$isCompletedInstitutePlanContent) {
+            abort(403, 'You can only release completed Teaching Plan content from your institute.');
         }
 
         $content->update([

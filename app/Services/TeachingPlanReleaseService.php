@@ -126,8 +126,12 @@ class TeachingPlanReleaseService
         ]);
     }
 
-    public function markItemCompleted(TeachingPlanItem $item): void
+    public function markItemCompleted(TeachingPlanItem $item): bool
     {
+        if ($item->status !== 'released') {
+            return false;
+        }
+
         DB::transaction(function () use ($item) {
             $item->update([
                 'status' => 'completed',
@@ -147,6 +151,8 @@ class TeachingPlanReleaseService
                 $this->releaseNextWeek($item->plan, 'catch_up_release');
             }
         });
+
+        return true;
     }
 
     public function syncWeekCompletion(?TeachingPlanWeek $week): void
