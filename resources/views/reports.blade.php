@@ -17,7 +17,7 @@
                     </p>
                 </div>
 
-                <a href="{{ route('reports.export') }}" class="btn btn-success btn-sm">
+                <a href="{{ url('/reports/export') }}" class="btn btn-success btn-sm">
                     <i class="fa fa-file-csv me-1"></i>
                     Export CSV
                 </a>
