@@ -184,6 +184,7 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::get('/teacher/reports/export', [PageController::class, 'exportTeacherReports'])->name('teacher.reports.export');
 
     Route::get('/teacher/certificates', [PageController::class, 'teacherCertificates'])->name('teacher.certificates');
+    Route::post('/teacher/certificates/approve/{id}', [PageController::class, 'approveCertificate'])->name('teacher.certificates.approve');
 
     Route::get('/teacher/profile', [PageController::class, 'teacherProfile'])->name('teacher.profile');
 

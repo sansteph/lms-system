@@ -56,9 +56,16 @@ class TeachingPlanController extends Controller
             ->orderBy('course_title')
             ->get();
 
-        $templateCourses = Course::withCount('courseContents')
+        $templateCourses = Course::withCount([
+                'courseContents as active_course_contents_count' => function ($query) {
+                    $query->where('status', 'active');
+                },
+            ])
+            ->withCount('courseContents')
             ->where('status', 1)
-            ->where('is_template_source', true)
+            ->whereHas('courseContents', function ($query) {
+                $query->where('status', 'active');
+            })
             ->orderBy('course_title')
             ->get();
 
@@ -141,9 +148,9 @@ class TeachingPlanController extends Controller
         $course = Course::with(['courseContents.content'])
             ->findOrFail($request->course_id);
 
-        if (!$course->is_template_source) {
+        if ($course->status != 1) {
             return redirect()->back()
-                ->withErrors(['course_id' => 'Select a Template Source course to create a reusable Teaching Plan Template.']);
+                ->withErrors(['course_id' => 'Select an active course to create a reusable Teaching Plan Template.']);
         }
 
         if (!$course->courseContents()->where('status', 'active')->exists()) {

@@ -209,7 +209,7 @@
 
         <div class="preview-frame-wrap">
             <div class="preview-stage protected-preview-surface"
-                 data-watermark="TinkEdge LMS&#10;View Only"
+                 data-watermark="InnovatEdge&#10;View Only"
                  data-preview-scope="content-{{ $content->id }}">
                 <div class="preview-frame-holder protected-preview-content">
                     <iframe class="preview-frame"

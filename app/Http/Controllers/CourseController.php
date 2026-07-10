@@ -17,21 +17,36 @@ use App\Models\ClassContentSession;
 use App\Models\TeachingPlan;
 use App\Models\TeachingPlanItem;
 use App\Models\TeachingPlanWeek;
+use App\Models\Institute;
 use Illuminate\Validation\ValidationException;
 
 class CourseController extends Controller
 {
     use DeletesAssessments;
-    public function index()
+    public function index(Request $request)
     {
         $courses = Course::with(['courseContents.content'])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
             })
+            ->when(
+                session('user_role') == 'Admin' && $request->filled('institute'),
+                function ($query) use ($request) {
+                    if ($request->institute == '__template_sources') {
+                        $query->where('is_template_source', true);
+                    } else {
+                        $query->where('institute', $request->institute);
+                    }
+                }
+            )
             ->latest()
             ->get();
 
-        return view('courses', compact('courses'));
+        $institutes = session('user_role') == 'Admin'
+            ? Institute::where('status', 1)->orderBy('institute_name')->get()
+            : collect();
+
+        return view('courses', compact('courses', 'institutes'));
     }
 
     public function store(Request $request)

@@ -248,7 +248,7 @@
                                         @if($extension == 'pdf' || $streamVariant == 'preview')
 
                                             <div class="border rounded overflow-hidden bg-dark shadow-sm protected-preview-surface"
-                                                 data-watermark="TinkEdge LMS&#10;View Only"
+                                                 data-watermark="InnovatEdge&#10;View Only"
                                                  data-preview-scope="content-{{ $content->id }}">
                                                 <div class="protected-preview-content">
                                                     <iframe src="{{ $streamUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
@@ -266,7 +266,7 @@
                                         @elseif(in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
 
                                             <div class="protected-preview-surface"
-                                                 data-watermark="TinkEdge LMS&#10;View Only"
+                                                 data-watermark="InnovatEdge&#10;View Only"
                                                  data-preview-scope="content-{{ $content->id }}">
                                                 <div class="protected-preview-content">
                                                     <img src="{{ $fileUrl }}"
@@ -278,7 +278,7 @@
                                         @elseif(in_array($extension, ['mp4', 'webm', 'ogg', 'mov']))
 
                                             <div class="protected-preview-surface"
-                                                 data-watermark="TinkEdge LMS&#10;View Only"
+                                                 data-watermark="InnovatEdge&#10;View Only"
                                                  data-preview-scope="content-{{ $content->id }}">
                                                 <div class="protected-preview-content">
                                                     <video width="100%"

@@ -56,6 +56,7 @@
                                 <th>Classification</th>
                                 <th>Issued Date</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
 
@@ -79,18 +80,32 @@
                                     </td>
 
                                     <td>
-                                        @if($certificate->status == 'Issued')
+                                        @if(in_array($certificate->status, ['Issued', 'approved']))
                                             <span class="badge bg-success">Issued</span>
                                         @elseif($certificate->status == 'Revoked')
                                             <span class="badge bg-danger">Revoked</span>
+                                        @elseif(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
+                                            <span class="badge bg-warning text-dark">Pending Approval</span>
                                         @else
                                             <span class="badge bg-secondary">{{ $certificate->status }}</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
+                                            <form method="POST" action="{{ route('teacher.certificates.approve', $certificate->id) }}">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-success">
+                                                    Approve
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-muted small">No action</span>
                                         @endif
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="9" class="text-center text-muted">
+                                    <td colspan="10" class="text-center text-muted">
                                         No certificates found.
                                     </td>
                                 </tr>
@@ -100,7 +115,7 @@
                     </table>
 
                     <div class="alert alert-info mt-3 mb-0">
-                        Certificate requests are prepared after Annual Assessment evaluation and issued only after Admin approval.
+                        Certificate requests are prepared after Annual Assessment evaluation and issued only after approval.
                     </div>
 
                 </div>

@@ -403,7 +403,7 @@ body {
         <div class="footer-rule"></div>
 
         <div class="brand">
-            <img src="{{ public_path('images/TinkEdgeLogo.png') }}" alt="TinkEdge Logo" style="top: 20mm; left: 20mm; width: 50mm">
+            <img src="{{ public_path('images/InnovatEdgeLogo.png') }}" alt="InnovatEdge Logo" style="top: 20mm; left: 20mm; width: 50mm">
         </div>
 
         <div class="title">CERTIFICATE</div>
@@ -444,7 +444,7 @@ body {
                         <img src="{{ public_path('images/signature.png') }}" alt="Director's Signature" class="signature-box">
                         <div class="signature-line"></div>
                         <div class="director">Director</div>
-                        <div class="company">TinkEdge</div>
+                        <div class="company">InnovatEdge</div>
                     </td>
                     <td class="stamp-cell">
                         <img src="{{ public_path('images/company-stamp.jpeg') }}" alt="Stamp" class="stamp">

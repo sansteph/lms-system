@@ -16,7 +16,7 @@
             </div>
 
             <div>
-                <h5>TinkEdge LMS</h5>
+                <h5>InnovatEdge</h5>
                 <span>Institute Admin Registration</span>
             </div>
 

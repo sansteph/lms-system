@@ -36,6 +36,33 @@
                 </div>
             </div>
 
+            @if(session('user_role') == 'Admin')
+                <div class="card shadow border-0 mb-4">
+                    <div class="card-body">
+                        <form method="GET" action="{{ route('courses') }}" class="row g-3 align-items-end">
+                            <div class="col-md-6">
+                                <label class="form-label">Filter by Institute</label>
+                                <select name="institute" class="form-select">
+                                    <option value="">All Courses</option>
+                                    <option value="__template_sources" {{ request('institute') == '__template_sources' ? 'selected' : '' }}>
+                                        Template Source Courses
+                                    </option>
+                                    @foreach($institutes as $institute)
+                                        <option value="{{ $institute->institute_name }}" {{ request('institute') == $institute->institute_name ? 'selected' : '' }}>
+                                            {{ $institute->institute_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6 d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">Apply Filter</button>
+                                <a href="{{ route('courses') }}" class="btn btn-outline-secondary">Clear</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            @endif
+
             @if(session('success'))
                 <div class="alert alert-success">{{ session('success') }}</div>
             @endif
@@ -63,7 +90,12 @@
                                     <input type="hidden" name="institute" value="{{ session('user_institute') }}">
                                     <input type="text" class="form-control" value="{{ session('user_institute') }}" readonly>
                                 @else
-                                    <input type="text" name="institute" id="createCourseInstitute" class="form-control" required>
+                                    <select name="institute" id="createCourseInstitute" class="form-select" required>
+                                        <option value="">Select Institute</option>
+                                        @foreach($institutes as $institute)
+                                            <option value="{{ $institute->institute_name }}">{{ $institute->institute_name }}</option>
+                                        @endforeach
+                                    </select>
                                 @endif
                             </div>
 
@@ -236,6 +268,12 @@
                                                     <td>{{ ucfirst($courseContent->status) }}</td>
                                                     <td>
                                                         @if($courseContent->content)
+                                                            <a href="{{ route('content.preview', [$courseContent->content->id, 'teacher']) }}"
+                                                               class="btn btn-sm btn-outline-primary w-100 mb-2"
+                                                               target="_blank"
+                                                               rel="noopener">
+                                                                View
+                                                            </a>
                                                             <button type="button"
                                                                     class="btn btn-sm btn-outline-secondary w-100 mb-2"
                                                                     data-bs-toggle="modal"
@@ -316,12 +354,17 @@
                                     <input type="hidden" name="institute" value="{{ session('user_institute') }}">
                                     <input type="text" class="form-control" value="{{ session('user_institute') }}" readonly>
                                 @else
-                                    <input type="text"
-                                           name="institute"
-                                           id="editCourseInstitute{{ $course->id }}"
-                                           class="form-control"
-                                           value="{{ $course->institute }}"
-                                           {{ $course->is_template_source ? '' : 'required' }}>
+                                    <select name="institute"
+                                            id="editCourseInstitute{{ $course->id }}"
+                                            class="form-select"
+                                            {{ $course->is_template_source ? '' : 'required' }}>
+                                        <option value="">Select Institute</option>
+                                        @foreach($institutes as $institute)
+                                            <option value="{{ $institute->institute_name }}" {{ $course->institute == $institute->institute_name ? 'selected' : '' }}>
+                                                {{ $institute->institute_name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
                                 @endif
                             </div>
                             @if(session('user_role') == 'Admin')

@@ -673,10 +673,10 @@ class ContentController extends Controller
             return false;
         }
 
-        return TeachingPlanItem::where('status', 'released')
+        return TeachingPlanItem::whereIn('status', ['released', 'completed'])
             ->whereHas('plan', function ($query) use ($teacher) {
                 $query->where('institute', $teacher->institute)
-                    ->where('status', 'active');
+                    ->whereIn('status', ['active', 'completed']);
             })
             ->where('content_id', $content->id)
             ->exists();

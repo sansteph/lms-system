@@ -55,7 +55,7 @@
                 {{ route('home') }}
             @endif
             ">
-            TinkEdge Learning Panel
+            InnovatEdge Panel
         </a>
 
         <div class="ms-auto d-flex align-items-center gap-3">

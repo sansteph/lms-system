@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ config('app.name', 'TinkEdge LMS') }}</title>
+    <title>{{ config('app.name', 'InnovatEdge') }}</title>
     <meta http-equiv="refresh" content="0;url={{ route('home') }}">
 </head>
 <body>
     <p>
         Redirecting to
-        <a href="{{ route('home') }}">TinkEdge LMS</a>.
+        <a href="{{ route('home') }}">InnovatEdge</a>.
     </p>
 </body>
 </html>

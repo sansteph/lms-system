@@ -21,11 +21,11 @@
                 <div class="hero-logo">
 
                     <div class="logo-image-placeholder">
-                        <img src="{{ asset('images/TinkEdgeLogo.png') }}" >
+                        <img src="{{ asset('images/InnovatEdgeLogo.png') }}" >
                     </div>
 
                     <div class="logo-text">
-                        <h5>TinkEdge Learning</h5>
+                        <h5>InnovatEdge</h5>
                         <span>Learning Made Easy</span>
                     </div>
 
@@ -72,38 +72,17 @@
                         </div>
 
                         <div class="hero-stats">
-
-                            <div class="hero-stat-item">
-                                <div class="stat-icon purple">
-                                    <i class="fa fa-users"></i>
+                            <div class="hero-stat-item w-100">
+                                <div class="stat-icon blue overflow-hidden">
+                                    <img src="{{ asset('images/InstitutionalLogo.png') }}"
+                                         alt="Learning illustration"
+                                         style="width: 100%; height: 100%; object-fit: cover;">
                                 </div>
                                 <div class="stat-content">
-                                    <h4>{{ number_format($activeLearners) }}</h4>
-                                    <span>Active Learners</span>
+                                    <h4>STEM Learning</h4>
+                                    <span>Structured classroom programs, secure assessments, and verified certificates.</span>
                                 </div>
                             </div>
-
-                            <div class="hero-stat-item">
-                                <div class="stat-icon blue">
-                                    <i class="fa fa-chart-column"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h4>{{ number_format($assessmentCount) }}</h4>
-                                    <span>Assessments</span>
-                                </div>
-                            </div>
-
-                            <div class="hero-stat-item">
-                                <div class="stat-icon orange">
-                                    <i class="fa fa-building-columns"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h4>{{ number_format($institutionCount) }}</h4>
-                                    <span>Institutions</span>
-                                </div>
-                                
-                            </div>
-
                         </div>
 
                     </div>
@@ -116,7 +95,7 @@
                     <div class="hero-image-wrapper text-center">
 
                         <img src="{{ asset('images/Hero_Homepage.png') }}"
-                            alt="TinkEdge Learning"
+                            alt="InnovatEdge"
                             class="img-fluid hero-main-image">
 
                     </div>
@@ -285,11 +264,11 @@
 
                     <div class="footer-brand">
                         <div class="footer-logo-placeholder">
-                            <img src="{{ asset('images/TinkEdgeLogo.png') }}">
+                            <img src="{{ asset('images/InnovatEdgeLogo.png') }}">
                         </div>
 
                         <div>
-                            <h4>TinkEdge Learning</h4>
+                            <h4>InnovatEdge</h4>
                             <p>Advanced Learning Ecosystem</p>
                         </div>
                     </div>
@@ -323,7 +302,7 @@
                 </div>
 
                 <div class="footer-copy">
-                    © {{ date('Y') }} TinkEdge LMS. All rights reserved.
+                    © {{ date('Y') }} InnovatEdge. All rights reserved.
                 </div>
 
             </div>

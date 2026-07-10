@@ -342,7 +342,7 @@ class UserController extends Controller
         }
 
         $slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $instituteName));
-        $customEmail = $slug . '.admin@tinkedge.local';
+        $customEmail = $slug . '.admin@InnovatEdge.local';
 
         $temporaryPassword = Str::random(10);
 
@@ -386,7 +386,7 @@ class UserController extends Controller
         ]);
 
         Mail::raw(
-            "Your TinkEdge LMS Institute Admin account has been approved.\n\n" .
+            "Your InnovatEdge Institute Admin account has been approved.\n\n" .
             "Institute: " . $instituteName . "\n" .
             "Login Email: " . $customEmail . "\n" .
             "Temporary Password: " . $temporaryPassword . "\n\n" .
@@ -394,7 +394,7 @@ class UserController extends Controller
             "Please change your password after login for security.",
             function ($message) use ($requestData) {
                 $message->to($requestData->admin_email)
-                    ->subject('TinkEdge LMS Institute Admin Credentials');
+                    ->subject('InnovatEdge Institute Admin Credentials');
             }
         );
 

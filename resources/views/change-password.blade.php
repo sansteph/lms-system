@@ -12,9 +12,16 @@
 
                 <div class="card-body p-4">
 
-                    <h3 class="mb-4">
-                        Change Password
-                    </h3>
+                    <div class="d-flex justify-content-between align-items-center gap-3 mb-4">
+                        <h3 class="mb-0">
+                            Change Password
+                        </h3>
+                        <button type="button"
+                                class="btn btn-outline-secondary btn-sm"
+                                onclick="window.history.back();">
+                            Back
+                        </button>
+                    </div>
 
                     @if(session('success'))
                         <div class="alert alert-success">

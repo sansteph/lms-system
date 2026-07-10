@@ -23,7 +23,7 @@
                         </form>
                     @endif
                     @if(session('user_role') == 'Admin')
-                        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#deployTeachingPlanTemplatesModal">
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#deployTeachingPlanTemplatesModal">
                             Deploy Templates
                         </button>
                         <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createTeachingPlanTemplateModal">
@@ -241,7 +241,12 @@
                                     <option value="">Select Course</option>
                                     @foreach($templateCourses as $course)
                                         <option value="{{ $course->id }}">
-                                            {{ $course->course_title }} ({{ $course->course_contents_count }} contents)
+                                            {{ $course->course_title }} ({{ $course->active_course_contents_count ?? $course->course_contents_count }} active contents)
+                                            @if($course->is_template_source)
+                                                - Template Source
+                                            @elseif($course->institute)
+                                                - {{ $course->institute }}
+                                            @endif
                                         </option>
                                     @endforeach
                                 </select>
@@ -344,7 +349,7 @@
                             @endforeach
                         </div>
                     </div>
-                    <div class="modal-footer">
+                    <div class="modal-footer flex-wrap gap-2 position-sticky bottom-0 bg-white">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Deploy Templates</button>
                     </div>

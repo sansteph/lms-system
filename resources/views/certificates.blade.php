@@ -59,7 +59,7 @@
                                             : 'Awaiting approval' }}
                                     </td>
                                     <td>
-                                        @if($certificate->status == 'Pending Approval')
+                                        @if(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
                                             <span class="badge bg-warning text-dark">Pending Approval</span>
                                         @elseif($certificate->status == 'Revoked')
                                             <span class="badge bg-danger">Revoked</span>
@@ -69,7 +69,7 @@
                                     </td>
                                     <td>
                                         <div class="d-flex flex-wrap gap-2">
-                                            @if($certificate->status == 'Pending Approval')
+                                            @if(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
                                                 <form method="POST" action="{{ route('admin.certificates.approve', $certificate->id) }}">
                                                     @csrf
                                                     <button type="submit" class="btn btn-sm btn-success">

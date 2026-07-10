@@ -205,8 +205,11 @@ class PageController extends Controller
     public function storeStudent(Request $request)
     {
         $request->validate([
-            'student_id' => 'required|string|max:50',
+            'student_id' => 'required|string|max:50|unique:students,student_id',
             'name' => 'required|string|max:100',
+            'institute' => session('user_role') == 'Admin'
+                ? 'required|string|max:100'
+                : 'nullable|string|max:100',
             'class' => 'required|string|max:50',
             'section' => 'required|string|max:20',
             'contact' => 'required|string|max:20',
@@ -334,13 +337,7 @@ class PageController extends Controller
     {
         $certificate = Certificate::with('student')->findOrFail($id);
 
-        if (
-            session('user_role') == 'InstituteAdmin' &&
-            $certificate->student &&
-            $certificate->student->institute != session('user_institute')
-        ) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->authorizeCertificateApproval($certificate);
 
         if ($certificate->status == 'Revoked') {
             return redirect()->back()
@@ -386,6 +383,35 @@ class PageController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Certificate revoked successfully.');
+    }
+
+    private function authorizeCertificateApproval(Certificate $certificate): void
+    {
+        if (session('user_role') == 'Admin') {
+            return;
+        }
+
+        if (
+            session('user_role') == 'InstituteAdmin' &&
+            $certificate->student &&
+            $certificate->student->institute == session('user_institute')
+        ) {
+            return;
+        }
+
+        if (session('user_role') == 'Teacher') {
+            $teacher = User::find(session('user_id'));
+
+            if (
+                $teacher &&
+                $certificate->student &&
+                $certificate->student->institute == $teacher->institute
+            ) {
+                return;
+            }
+        }
+
+        abort(403, 'Unauthorized action.');
     }
 
     public function rejectCertificate(Request $request, $id)
@@ -781,7 +807,7 @@ class PageController extends Controller
         $totalCertificates = $certificates->count();
 
         $issuedCertificates = $certificates
-            ->where('status', 'Issued')
+            ->whereIn('status', ['Issued', 'approved'])
             ->count();
 
         $revokedCertificates = $certificates
