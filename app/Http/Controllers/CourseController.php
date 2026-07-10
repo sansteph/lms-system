@@ -70,8 +70,8 @@ class CourseController extends Controller
             'contents.*.content_type' => 'nullable|string|max:100',
             'contents.*.sort_order' => 'nullable|integer|min:1',
             'contents.*.status' => 'nullable|in:active,draft,archived',
-            'contents.*.file' => 'nullable|file|mimes:ppt,pptx,doc,docx,pdf|max:51200',
-            'contents.*.student_file' => 'nullable|file|mimes:ppt,pptx,doc,docx,pdf|max:51200',
+            'contents.*.file' => 'nullable|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
+            'contents.*.student_file' => 'nullable|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
         ]);
 
         $this->ensureCourseContentFilesWereReceived($request, false);
@@ -227,8 +227,8 @@ class CourseController extends Controller
             'contents.*.section' => 'nullable|string|max:100',
             'contents.*.sort_order' => 'nullable|integer|min:1',
             'contents.*.status' => 'required|in:active,draft,archived',
-            'contents.*.file' => 'required|file|mimes:ppt,pptx,doc,docx,pdf|max:51200',
-            'contents.*.student_file' => 'nullable|file|mimes:ppt,pptx,doc,docx,pdf|max:51200',
+            'contents.*.file' => 'required|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
+            'contents.*.student_file' => 'nullable|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
         ]);
 
         $this->ensureCourseContentFilesWereReceived($request, true);

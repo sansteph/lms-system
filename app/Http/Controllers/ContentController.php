@@ -75,8 +75,8 @@ class ContentController extends Controller
             'contents.*.section' => 'nullable|string|max:50',
             'contents.*.lesson_order' => 'required|integer|min:1',
             'contents.*.status' => 'required|in:active,draft,archived',
-            'contents.*.file' => 'required|file|mimes:ppt,pptx,doc,docx,pdf|max:51200',
-            'contents.*.student_file' => 'nullable|file|mimes:doc,docx,ppt,pptx,pdf|max:51200',
+            'contents.*.file' => 'required|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
+            'contents.*.student_file' => 'nullable|file|extensions:doc,docx,ppt,pptx,pdf|max:51200',
         ]);
 
         $course = Course::findOrFail($request->course_id);
@@ -236,8 +236,8 @@ class ContentController extends Controller
             'lesson_order' => 'required|integer|min:1',
             'content_type' => 'required|string|max:100',
             'assigned_class' => 'required|string|max:255',
-            'file' => 'nullable|file|mimes:ppt,pptx,doc,docx,pdf|max:51200',
-            'student_file' => 'nullable|file|mimes:doc,docx,ppt,pptx,pdf|max:51200',
+            'file' => 'nullable|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
+            'student_file' => 'nullable|file|extensions:doc,docx,ppt,pptx,pdf|max:51200',
             'status' => 'required|boolean',
             'institute' => 'nullable|string|max:255',
         ]);
