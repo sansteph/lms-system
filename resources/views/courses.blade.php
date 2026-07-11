@@ -20,6 +20,26 @@
         background: #f8fafc;
         padding: 8px;
     }
+
+    .course-edit-modal .modal-content {
+        max-height: calc(100vh - 3rem);
+    }
+
+    .course-edit-modal .modal-body {
+        overflow-y: auto;
+        padding-bottom: 1.25rem;
+    }
+
+    .course-edit-modal .modal-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        background: #ffffff;
+        border-top: 1px solid #e5e7eb;
+        box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.06);
+    }
 </style>
 
 <div class="container-fluid">
@@ -334,7 +354,7 @@
 
 @foreach($courses as $course)
     <div class="modal fade" id="editCourseModal{{ $course->id }}" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable course-edit-modal">
             <div class="modal-content">
                 <form method="POST" action="{{ route('courses.update', $course->id) }}">
                     @csrf
