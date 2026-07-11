@@ -143,11 +143,9 @@
     @if($content->file_path && $content->status == 1)
         @php
             $extension = strtolower(pathinfo($content->file_path, PATHINFO_EXTENSION));
-            $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
             $previewUrl = route('content.preview', [$content->id, 'teacher']);
             $streamUrl = route('content.preview.stream', [$content->id, 'teacher']);
-            $fileVariant = in_array($extension, $previewExtensions) ? 'preview' : 'file';
-            $fileUrl = route('content.file.audience', [$content->id, 'teacher', $fileVariant]);
+            $fileUrl = route('content.file.audience', [$content->id, 'teacher', 'file']);
         @endphp
 
         <div class="modal fade"
@@ -165,7 +163,7 @@
                         </button>
                     </div>
                     <div class="modal-body">
-                        @if($extension == 'pdf' || in_array($extension, $previewExtensions))
+                        @if($extension == 'pdf')
                             <div class="protected-preview-surface"
                                  data-watermark="InnovatEdge&#10;View Only"
                                  data-preview-scope="content-{{ $content->id }}">

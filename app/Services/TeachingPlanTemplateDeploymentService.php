@@ -9,7 +9,6 @@ use App\Models\Institute;
 use App\Models\TeachingPlan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use App\Services\ContentPreviewService;
 
 class TeachingPlanTemplateDeploymentService
 {
@@ -39,11 +38,21 @@ class TeachingPlanTemplateDeploymentService
                 continue;
             }
 
+            $selectedClassLabels = $selectedClasses
+                ->map(fn ($class) => $this->normalizeClassLabel($class))
+                ->all();
+
             $templates = TeachingPlan::with(['course.courseContents.content', 'weeks.items'])
                 ->where('is_template', true)
                 ->where('status', 'active')
-                ->whereIn('class', $selectedClasses->all())
-                ->get();
+                ->get()
+                ->filter(function (TeachingPlan $template) use ($selectedClassLabels) {
+                    return in_array(
+                        $this->normalizeClassLabel($template->class, $template->section),
+                        $selectedClassLabels,
+                        true
+                    );
+                });
 
             if ($templates->isEmpty()) {
                 $summary['skipped']++;
@@ -75,7 +84,15 @@ class TeachingPlanTemplateDeploymentService
                 ->where('parent_template_id', $template->id)
                 ->where('institute', $institute->institute_name)
                 ->where('class', $template->class)
-                ->where('course_id', '!=', null)
+                ->where(function ($query) use ($template) {
+                    if (filled($template->section)) {
+                        $query->where('section', $template->section);
+                    } else {
+                        $query->whereNull('section')
+                            ->orWhere('section', '');
+                    }
+                })
+                ->whereNotNull('course_id')
                 ->first();
 
             if ($existingPlan) {
@@ -87,12 +104,30 @@ class TeachingPlanTemplateDeploymentService
 
             $templateCourse = $template->course()->with('courseContents.content')->firstOrFail();
 
+            $sourceCourseContents = $templateCourse->courseContents()
+                ->with('content')
+                ->where('status', 'active')
+                ->orderBy('sort_order')
+                ->get()
+                ->filter(function ($templateCourseContent) {
+                    return $templateCourseContent->content &&
+                        $templateCourseContent->content->file_path &&
+                        Storage::disk('local')->exists($templateCourseContent->content->file_path);
+                });
+
+            if ($sourceCourseContents->isEmpty()) {
+                return [
+                    'status' => 'skipped',
+                    'message' => 'Skipped ' . ($template->title ?? $templateCourse->course_title ?? 'Template') . ' for ' . $institute->institute_name . ': no usable source content files found.',
+                ];
+            }
+
             $course = Course::create([
                 'institute' => $institute->institute_name,
                 'course_title' => $templateCourse->course_title,
                 'description' => $templateCourse->description,
                 'target' => $templateCourse->target ?? 'Both',
-                'assigned_class' => $template->class,
+                'assigned_class' => $this->normalizeClassLabel($template->class, $template->section),
                 'price' => $templateCourse->price ?? 0,
                 'availability_type' => 'Institute',
                 'is_active' => 1,
@@ -101,14 +136,23 @@ class TeachingPlanTemplateDeploymentService
                 'status' => 1,
             ]);
 
-            foreach ($templateCourse->courseContents()->with('content')->where('status', 'active')->orderBy('sort_order')->get() as $templateCourseContent) {
+            $copiedCount = 0;
+
+            foreach ($sourceCourseContents as $templateCourseContent) {
                 $templateContent = $templateCourseContent->content;
 
-                if (!$templateContent || !$templateContent->file_path) {
-                    continue;
+                if ($this->copyContentToCourse($course, $templateContent, (int) $templateCourseContent->sort_order, $deployedBy)) {
+                    $copiedCount++;
                 }
+            }
 
-                $this->copyContentToCourse($course, $templateContent, (int) $templateCourseContent->sort_order, $deployedBy);
+            if ($copiedCount === 0) {
+                $course->delete();
+
+                return [
+                    'status' => 'skipped',
+                    'message' => 'Skipped ' . ($template->title ?? $templateCourse->course_title ?? 'Template') . ' for ' . $institute->institute_name . ': content files could not be copied.',
+                ];
             }
 
             $plan = app(TeachingPlanBuilderService::class)->buildForCourse(
@@ -131,17 +175,26 @@ class TeachingPlanTemplateDeploymentService
 
             return [
                 'status' => 'deployed',
-                'message' => 'Deployed ' . ($template->title ?? $course->course_title) . ' to ' . $institute->institute_name . ' / ' . $template->class . ' as plan #' . $plan->id,
+                'message' => 'Deployed ' . ($template->title ?? $course->course_title) . ' to ' . $institute->institute_name . ' / ' . $this->normalizeClassLabel($template->class, $template->section) . ' as plan #' . $plan->id,
             ];
         });
     }
 
-    private function copyContentToCourse(Course $course, Content $templateContent, int $sortOrder, ?int $createdBy): CourseContent
+    private function copyContentToCourse(Course $course, Content $templateContent, int $sortOrder, ?int $createdBy): ?CourseContent
     {
         $filePath = $this->copyStoredFile($templateContent->file_path, 'contents');
-        $previewPath = $this->copyStoredFile($templateContent->preview_pdf_path, 'content-previews');
+
+        if (!$filePath) {
+            return null;
+        }
+
+        $previewPath = $templateContent->preview_pdf_path === $templateContent->file_path
+            ? $filePath
+            : $this->copyStoredFile($templateContent->preview_pdf_path, 'content-previews');
         $studentFilePath = $this->copyStoredFile($templateContent->student_file_path, 'contents');
-        $studentPreviewPath = $this->copyStoredFile($templateContent->student_preview_pdf_path, 'content-previews');
+        $studentPreviewPath = $templateContent->student_preview_pdf_path === $templateContent->student_file_path
+            ? $studentFilePath
+            : $this->copyStoredFile($templateContent->student_preview_pdf_path, 'content-previews');
 
         $content = Content::create([
             'course_id' => $course->id,
@@ -170,11 +223,6 @@ class TeachingPlanTemplateDeploymentService
         ]);
     }
 
-    private function createPreviewPdf(?string $filePath): ?string
-    {
-        return app(ContentPreviewService::class)->generatePreviewPdf($filePath);
-    }
-
     private function copyStoredFile(?string $sourcePath, string $targetDirectory): ?string
     {
         if (!$sourcePath || !Storage::disk('local')->exists($sourcePath)) {
@@ -185,5 +233,10 @@ class TeachingPlanTemplateDeploymentService
         Storage::disk('local')->copy($sourcePath, $newPath);
 
         return $newPath;
+    }
+
+    private function normalizeClassLabel(?string $class, ?string $section = null): string
+    {
+        return preg_replace('/\s+/', ' ', trim((string) $class . ' ' . (string) $section));
     }
 }

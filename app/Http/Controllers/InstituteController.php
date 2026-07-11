@@ -244,7 +244,7 @@ class InstituteController extends Controller
                 $this->deleteTeachingPlanGraph($plan);
             });
 
-        TeachingPlanItem::where('content_id', $contentId)->delete();
+        $this->deleteTeachingPlanItemsForContent($contentId);
     }
 
     private function deleteTeachingPlanGraph(TeachingPlan $plan): void
@@ -259,6 +259,43 @@ class InstituteController extends Controller
         TeachingPlanItem::where('teaching_plan_id', $plan->id)->delete();
         TeachingPlanWeek::where('teaching_plan_id', $plan->id)->delete();
         $plan->delete();
+    }
+
+    private function deleteTeachingPlanItemsForContent(int $contentId): void
+    {
+        $items = TeachingPlanItem::where('content_id', $contentId)->get();
+
+        if ($items->isEmpty()) {
+            return;
+        }
+
+        $itemIds = $items->pluck('id');
+        $weekIds = $items->pluck('teaching_plan_week_id')->filter()->unique();
+        $planIds = $items->pluck('teaching_plan_id')->filter()->unique();
+
+        ClassContentSession::whereIn('teaching_plan_item_id', $itemIds)
+            ->update([
+                'teaching_plan_item_id' => null,
+                'teaching_plan_week_id' => null,
+            ]);
+
+        TeachingPlanItem::whereIn('id', $itemIds)->delete();
+
+        TeachingPlanWeek::whereIn('id', $weekIds)
+            ->get()
+            ->each(function (TeachingPlanWeek $week) {
+                if (!$week->items()->exists()) {
+                    $week->delete();
+                }
+            });
+
+        TeachingPlan::whereIn('id', $planIds)
+            ->get()
+            ->each(function (TeachingPlan $plan) {
+                if (!$plan->items()->exists()) {
+                    $this->deleteTeachingPlanGraph($plan);
+                }
+            });
     }
 
     private function deleteClassSessionsForSchoolClass(SchoolClass $class): void

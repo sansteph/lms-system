@@ -2105,6 +2105,16 @@ class PageController extends Controller
 
         $plan = $item->plan;
 
+        if (!$item->content || !$item->content->file_path || $item->content->status != 1) {
+            return redirect()->back()
+                ->with('error', 'This Teaching Plan topic is missing its active content file.');
+        }
+
+        if (!$item->week || $item->week->status !== 'released') {
+            return redirect()->back()
+                ->with('error', 'Only currently released Teaching Plan topics can be started.');
+        }
+
         $existingSession = ClassContentSession::where('stem_engineer_id', $teacher->id)
             ->where('status', 'in_progress')
             ->first();
@@ -2146,6 +2156,7 @@ class PageController extends Controller
 
         $hasAssignedSession = ClassContentSession::where('content_id', $content->id)
             ->where('stem_engineer_id', $teacher->id)
+            ->where('institute', $teacher->institute)
             ->exists();
 
         if (!$hasAssignedSession) {

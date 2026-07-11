@@ -61,7 +61,7 @@ class AssessmentController extends Controller
             'assessment_date' => 'required|date',
             'total_marks' => 'required|integer|min:1',
             'duration' => 'required|string|max:50',
-            'file' => 'required|file|mimes:pdf,ppt,pptx,doc,docx,jpg,jpeg,png,webp|max:51200',
+            'file' => 'required|file|mimes:pdf|max:51200',
             'status' => 'required|boolean',
         ]);
 
@@ -114,7 +114,7 @@ class AssessmentController extends Controller
             'assessment_date' => 'required|date',
             'total_marks' => 'required|integer|min:1',
             'duration' => 'required|string|max:50',
-            'file' => 'nullable|file|mimes:pdf,ppt,pptx,doc,docx,jpg,jpeg,png,webp|max:51200',
+            'file' => 'nullable|file|mimes:pdf|max:51200',
             'status' => 'required|boolean',
         ]);
 
@@ -252,16 +252,6 @@ class AssessmentController extends Controller
         }
 
         $extension = strtolower(pathinfo($assessment->file_path ?? '', PATHINFO_EXTENSION));
-        $previewOnlyExtensions = ['ppt', 'pptx', 'doc', 'docx'];
-
-        if (in_array($extension, $previewOnlyExtensions)) {
-            if (!$assessment->question_paper_preview_path) {
-                abort(404);
-            }
-
-            $variant = 'preview';
-        }
-
         $storagePath = $variant == 'preview'
             ? $assessment->question_paper_preview_path
             : $assessment->file_path;
@@ -379,45 +369,10 @@ class AssessmentController extends Controller
     {
         $fileName = time() . '_' . $file->getClientOriginalName();
         $filePath = $file->storeAs('assessment-papers', $fileName, 'local');
-        $previewPath = $this->createQuestionPaperPreviewPdf(
-            $filePath,
-            $fileName,
-            strtolower($file->getClientOriginalExtension())
-        );
+        $previewPath = strtolower($file->getClientOriginalExtension()) === 'pdf'
+            ? $filePath
+            : null;
 
         return [$filePath, $previewPath];
-    }
-
-    private function createQuestionPaperPreviewPdf($filePath, $fileName, $extension)
-    {
-        if (!in_array($extension, ['ppt', 'pptx', 'doc', 'docx'])) {
-            return null;
-        }
-
-        $inputPath = Storage::disk('local')->path($filePath);
-        $outputDir = Storage::disk('local')->path('assessment-paper-previews');
-
-        if (!file_exists($outputDir)) {
-            mkdir($outputDir, 0775, true);
-        }
-
-        $libreOfficePath = '"C:\\Program Files\\LibreOffice\\program\\soffice.exe"';
-
-        $command = $libreOfficePath
-            . ' --headless'
-            . ' --convert-to pdf'
-            . ' --outdir ' . escapeshellarg($outputDir)
-            . ' ' . escapeshellarg($inputPath);
-
-        exec($command, $output, $resultCode);
-
-        $pdfFileName = pathinfo($fileName, PATHINFO_FILENAME) . '.pdf';
-        $convertedPdfPath = $outputDir . DIRECTORY_SEPARATOR . $pdfFileName;
-
-        if ($resultCode === 0 && file_exists($convertedPdfPath)) {
-            return 'assessment-paper-previews/' . $pdfFileName;
-        }
-
-        return null;
     }
 }

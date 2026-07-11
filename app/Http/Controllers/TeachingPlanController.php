@@ -63,6 +63,7 @@ class TeachingPlanController extends Controller
             ])
             ->withCount('courseContents')
             ->where('status', 1)
+            ->where('is_template_source', true)
             ->whereHas('courseContents', function ($query) {
                 $query->where('status', 'active');
             })
@@ -148,9 +149,9 @@ class TeachingPlanController extends Controller
         $course = Course::with(['courseContents.content'])
             ->findOrFail($request->course_id);
 
-        if ($course->status != 1) {
+        if ($course->status != 1 || !$course->is_template_source) {
             return redirect()->back()
-                ->withErrors(['course_id' => 'Select an active course to create a reusable Teaching Plan Template.']);
+                ->withErrors(['course_id' => 'Select an active Template Source course to create a reusable Teaching Plan Template.']);
         }
 
         if (!$course->courseContents()->where('status', 'active')->exists()) {
@@ -256,24 +257,25 @@ class TeachingPlanController extends Controller
             'status' => 'required|in:locked,released,completed,skipped',
         ]);
 
+        if (
+            $request->status == 'completed' &&
+            $week->items()->where('status', '!=', 'completed')->exists()
+        ) {
+            return redirect()->back()
+                ->with('error', 'A week can only be marked completed after its topics are completed through STEM Engineer sessions.');
+        }
+
         $week->update([
             'status' => $request->status,
             'released_at' => $request->status == 'released' ? ($week->released_at ?: now()) : $week->released_at,
             'completed_at' => $request->status == 'completed' ? ($week->completed_at ?: now()) : null,
         ]);
 
-        if ($request->status == 'released') {
+        if (in_array($request->status, ['locked', 'released', 'skipped'], true)) {
             $week->items()->update([
-                'status' => 'released',
-                'released_at' => now(),
+                'status' => $request->status,
+                'released_at' => $request->status == 'released' ? now() : null,
                 'completed_at' => null,
-            ]);
-        }
-
-        if ($request->status == 'completed') {
-            $week->items()->update([
-                'status' => 'completed',
-                'completed_at' => now(),
             ]);
         }
 

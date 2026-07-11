@@ -18,10 +18,10 @@ use App\Models\ClassContentSession;
 use App\Models\ClassTimetable;
 use App\Models\TeachingPlan;
 use App\Models\TeachingPlanItem;
+use App\Models\TeachingPlanWeek;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Support\DeletesAssessments;
-use App\Services\ContentPreviewService;
 
 class ContentController extends Controller
 {
@@ -75,8 +75,8 @@ class ContentController extends Controller
             'contents.*.section' => 'nullable|string|max:50',
             'contents.*.lesson_order' => 'required|integer|min:1',
             'contents.*.status' => 'required|in:active,draft,archived',
-            'contents.*.file' => 'required|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
-            'contents.*.student_file' => 'nullable|file|extensions:doc,docx,ppt,pptx,pdf|max:51200',
+            'contents.*.file' => 'required|file|extensions:pdf|max:51200',
+            'contents.*.student_file' => 'nullable|file|extensions:pdf|max:51200',
         ]);
 
         $course = Course::findOrFail($request->course_id);
@@ -209,8 +209,10 @@ class ContentController extends Controller
 
                 LessonProgress::where('content_id', $courseContent->content_id)->delete();
                 ClassContentSession::where('content_id', $courseContent->content_id)->delete();
-                TeachingPlan::where('content_id', $courseContent->content_id)->delete();
-                TeachingPlan::where('course_content_id', $courseContent->id)->delete();
+                $this->deleteTeachingPlanItemsForContent(
+                    $courseContent->content_id,
+                    $courseContent->id
+                );
 
                 $this->deleteContentStoragePath($courseContent->content->file_path);
                 $this->deleteContentStoragePath($courseContent->content->preview_pdf_path);
@@ -236,8 +238,8 @@ class ContentController extends Controller
             'lesson_order' => 'required|integer|min:1',
             'content_type' => 'required|string|max:100',
             'assigned_class' => 'required|string|max:255',
-            'file' => 'nullable|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
-            'student_file' => 'nullable|file|extensions:doc,docx,ppt,pptx,pdf|max:51200',
+            'file' => 'nullable|file|extensions:pdf|max:51200',
+            'student_file' => 'nullable|file|extensions:pdf|max:51200',
             'status' => 'required|boolean',
             'institute' => 'nullable|string|max:255',
         ]);
@@ -331,10 +333,8 @@ class ContentController extends Controller
         }
 
         $extension = strtolower(pathinfo($paths['file'], PATHINFO_EXTENSION));
-        $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
-
-        if (in_array($extension, $previewExtensions, true) && !$this->existingPreviewPdfPath($paths)) {
-            $previewUnavailableMessage = 'Preview is being prepared. Please try again after the server finishes converting this Office file.';
+        if ($extension !== 'pdf') {
+            $previewUnavailableMessage = 'Preview is available only for PDF content. Please upload a PDF version of this material.';
 
             return view('content.secure-preview', compact(
                 'content',
@@ -381,12 +381,13 @@ class ContentController extends Controller
         }
 
         $extension = strtolower(pathinfo($paths['file'], PATHINFO_EXTENSION));
-        $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
-        $storagePath = in_array($extension, $previewExtensions, true)
-            ? $this->existingPreviewPdfPath($paths)
-            : $paths['file'];
+        $storagePath = $paths['preview'] ?: $paths['file'];
 
         if (!$storagePath) {
+            abort(404);
+        }
+
+        if (strtolower(pathinfo($storagePath, PATHINFO_EXTENSION)) !== 'pdf') {
             abort(404);
         }
 
@@ -438,13 +439,6 @@ class ContentController extends Controller
         $paths = $this->contentPathsForAudience($content, $audience);
 
         if (!$paths['file']) {
-            abort(404);
-        }
-
-        $originalExtension = strtolower(pathinfo($paths['file'], PATHINFO_EXTENSION));
-        $previewOnlyExtensions = ['ppt', 'pptx', 'doc', 'docx'];
-
-        if (in_array($originalExtension, $previewOnlyExtensions)) {
             abort(404);
         }
 
@@ -502,7 +496,7 @@ class ContentController extends Controller
 
             ClassTimetable::where('content_id', $id)->delete();
 
-            TeachingPlan::where('content_id', $id)->delete();
+            $this->deleteTeachingPlanItemsForContent($id);
 
             CourseContent::where('content_id', $id)->delete();
 
@@ -560,12 +554,63 @@ class ContentController extends Controller
         $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
         $filePath = $file->storeAs('contents', $fileName, 'local');
 
-        return [$filePath, null];
+        $previewPdfPath = strtolower($file->getClientOriginalExtension()) === 'pdf'
+            ? $filePath
+            : null;
+
+        return [$filePath, $previewPdfPath];
     }
 
-    private function createPrivatePreviewPdf($filePath, $fileName, $extension)
+    private function deleteTeachingPlanItemsForContent(int $contentId, ?int $courseContentId = null): void
     {
-        return app(ContentPreviewService::class)->generatePreviewPdf($filePath);
+        $items = TeachingPlanItem::where(function ($query) use ($contentId, $courseContentId) {
+                $query->where('content_id', $contentId);
+
+                if ($courseContentId) {
+                    $query->orWhere('course_content_id', $courseContentId);
+                }
+            })
+            ->get();
+
+        if ($items->isEmpty()) {
+            return;
+        }
+
+        $itemIds = $items->pluck('id');
+        $weekIds = $items->pluck('teaching_plan_week_id')->filter()->unique();
+        $planIds = $items->pluck('teaching_plan_id')->filter()->unique();
+
+        ClassContentSession::whereIn('teaching_plan_item_id', $itemIds)
+            ->update([
+                'teaching_plan_item_id' => null,
+                'teaching_plan_week_id' => null,
+            ]);
+
+        TeachingPlanItem::whereIn('id', $itemIds)->delete();
+
+        TeachingPlanWeek::whereIn('id', $weekIds)
+            ->get()
+            ->each(function (TeachingPlanWeek $week) {
+                if (!$week->items()->exists()) {
+                    $week->delete();
+                }
+            });
+
+        TeachingPlan::whereIn('id', $planIds)
+            ->get()
+            ->each(function (TeachingPlan $plan) {
+                if (!$plan->items()->exists()) {
+                    ClassContentSession::where('teaching_plan_id', $plan->id)
+                        ->update([
+                            'teaching_plan_id' => null,
+                            'teaching_plan_week_id' => null,
+                            'teaching_plan_item_id' => null,
+                        ]);
+
+                    $plan->weeks()->delete();
+                    $plan->delete();
+                }
+            });
     }
 
     private function resolveContentAudience($audience)
@@ -594,40 +639,6 @@ class ContentController extends Controller
             'file' => $content->file_path,
             'preview' => $content->preview_pdf_path,
         ];
-    }
-
-    private function resolvePreviewPdfPath(Content $content, string $audience, array $paths): ?string
-    {
-        $previewService = app(ContentPreviewService::class);
-
-        if ($previewService->previewExists($paths['preview'])) {
-            return $paths['preview'];
-        }
-
-        if (!$previewService->isOfficeFile($paths['file'])) {
-            return null;
-        }
-
-        $generatedPath = $previewService->generatePreviewPdf($paths['file']);
-
-        if (!$generatedPath) {
-            return null;
-        }
-
-        if ($audience === 'student' && $content->student_file_path) {
-            $content->update(['student_preview_pdf_path' => $generatedPath]);
-        } else {
-            $content->update(['preview_pdf_path' => $generatedPath]);
-        }
-
-        return $generatedPath;
-    }
-
-    private function existingPreviewPdfPath(array $paths): ?string
-    {
-        return app(ContentPreviewService::class)->previewExists($paths['preview'])
-            ? $paths['preview']
-            : null;
     }
 
     private function canViewContent(Content $content, $audience)

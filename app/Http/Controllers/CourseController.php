@@ -19,7 +19,6 @@ use App\Models\TeachingPlanItem;
 use App\Models\TeachingPlanWeek;
 use App\Models\Institute;
 use Illuminate\Validation\ValidationException;
-use App\Services\ContentPreviewService;
 
 class CourseController extends Controller
 {
@@ -70,8 +69,8 @@ class CourseController extends Controller
             'contents.*.content_type' => 'nullable|string|max:100',
             'contents.*.sort_order' => 'nullable|integer|min:1',
             'contents.*.status' => 'nullable|in:active,draft,archived',
-            'contents.*.file' => 'nullable|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
-            'contents.*.student_file' => 'nullable|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
+            'contents.*.file' => 'nullable|file|extensions:pdf|max:51200',
+            'contents.*.student_file' => 'nullable|file|extensions:pdf|max:51200',
         ]);
 
         $this->ensureCourseContentFilesWereReceived($request, false);
@@ -227,8 +226,8 @@ class CourseController extends Controller
             'contents.*.section' => 'nullable|string|max:100',
             'contents.*.sort_order' => 'nullable|integer|min:1',
             'contents.*.status' => 'required|in:active,draft,archived',
-            'contents.*.file' => 'required|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
-            'contents.*.student_file' => 'nullable|file|extensions:ppt,pptx,doc,docx,pdf|max:51200',
+            'contents.*.file' => 'required|file|extensions:pdf|max:51200',
+            'contents.*.student_file' => 'nullable|file|extensions:pdf|max:51200',
         ]);
 
         $this->ensureCourseContentFilesWereReceived($request, true);
@@ -369,7 +368,7 @@ class CourseController extends Controller
                 $this->deleteTeachingPlanGraph($plan);
             });
 
-        TeachingPlanItem::where('course_content_id', $courseContentId)->delete();
+        $this->deleteTeachingPlanItemsForContent(null, $courseContentId);
     }
 
     private function deleteTeachingPlansByContent(int $contentId): void
@@ -380,7 +379,7 @@ class CourseController extends Controller
                 $this->deleteTeachingPlanGraph($plan);
             });
 
-        TeachingPlanItem::where('content_id', $contentId)->delete();
+        $this->deleteTeachingPlanItemsForContent($contentId);
     }
 
     private function deleteTeachingPlanGraph(TeachingPlan $plan): void
@@ -397,12 +396,63 @@ class CourseController extends Controller
         $plan->delete();
     }
 
+    private function deleteTeachingPlanItemsForContent(?int $contentId = null, ?int $courseContentId = null): void
+    {
+        $items = TeachingPlanItem::where(function ($query) use ($contentId, $courseContentId) {
+                if ($contentId) {
+                    $query->where('content_id', $contentId);
+                }
+
+                if ($courseContentId) {
+                    $method = $contentId ? 'orWhere' : 'where';
+                    $query->{$method}('course_content_id', $courseContentId);
+                }
+            })
+            ->get();
+
+        if ($items->isEmpty()) {
+            return;
+        }
+
+        $itemIds = $items->pluck('id');
+        $weekIds = $items->pluck('teaching_plan_week_id')->filter()->unique();
+        $planIds = $items->pluck('teaching_plan_id')->filter()->unique();
+
+        ClassContentSession::whereIn('teaching_plan_item_id', $itemIds)
+            ->update([
+                'teaching_plan_item_id' => null,
+                'teaching_plan_week_id' => null,
+            ]);
+
+        TeachingPlanItem::whereIn('id', $itemIds)->delete();
+
+        TeachingPlanWeek::whereIn('id', $weekIds)
+            ->get()
+            ->each(function (TeachingPlanWeek $week) {
+                if (!$week->items()->exists()) {
+                    $week->delete();
+                }
+            });
+
+        TeachingPlan::whereIn('id', $planIds)
+            ->get()
+            ->each(function (TeachingPlan $plan) {
+                if (!$plan->items()->exists()) {
+                    $this->deleteTeachingPlanGraph($plan);
+                }
+            });
+    }
+
     private function storePrivateContentFile($file): array
     {
         $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
         $filePath = $file->storeAs('contents', $fileName, 'local');
 
-        return [$filePath, null];
+        $previewPdfPath = strtolower($file->getClientOriginalExtension()) === 'pdf'
+            ? $filePath
+            : null;
+
+        return [$filePath, $previewPdfPath];
     }
 
     private function ensureCourseContentFilesWereReceived(Request $request, bool $fileRequired): void
@@ -478,11 +528,6 @@ class CourseController extends Controller
             'status' => $status,
             'created_by' => session('user_id'),
         ]);
-    }
-
-    private function createPrivatePreviewPdf($filePath, $fileName, $extension): ?string
-    {
-        return app(ContentPreviewService::class)->generatePreviewPdf($filePath);
     }
 
     private function titleFromFileName(string $fileName): string

@@ -195,11 +195,11 @@
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label class="form-label">STEM Engineer File</label>
-                                                    <input type="file" name="contents[0][file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf">
+                                                    <input type="file" name="contents[0][file]" class="form-control" accept=".pdf">
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label class="form-label">Student File</label>
-                                                    <input type="file" name="contents[0][student_file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf">
+                                                    <input type="file" name="contents[0][student_file]" class="form-control" accept=".pdf">
                                                 </div>
                                             </div>
                                         </div>
@@ -488,11 +488,11 @@
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-label">STEM Engineer File</label>
-                                            <input type="file" name="contents[0][file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf" required>
+                                            <input type="file" name="contents[0][file]" class="form-control" accept=".pdf" required>
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label">Student File</label>
-                                            <input type="file" name="contents[0][student_file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf">
+                                            <input type="file" name="contents[0][student_file]" class="form-control" accept=".pdf">
                                         </div>
                                     </div>
                                 </div>
@@ -587,7 +587,7 @@
                                         <input type="file"
                                                name="file"
                                                class="form-control"
-                                               accept=".ppt,.pptx,.doc,.docx,.pdf">
+                                               accept=".pdf">
                                         <small class="text-muted">Leave empty to keep the current file.</small>
                                     </div>
 
@@ -596,7 +596,7 @@
                                         <input type="file"
                                                name="student_file"
                                                class="form-control"
-                                               accept=".ppt,.pptx,.doc,.docx,.pdf">
+                                               accept=".pdf">
                                         <small class="text-muted">Leave empty to keep the current student file.</small>
                                     </div>
                                 </div>
@@ -669,8 +669,8 @@
                         <div class="col-md-2"><label class="form-label">Type</label><input type="text" name="contents[${index}][content_type]" class="form-control" placeholder="Auto"></div>
                         <div class="col-md-2"><label class="form-label">Order</label><input type="number" name="contents[${index}][sort_order]" class="form-control" min="1"></div>
                         <div class="col-md-2"><label class="form-label">Status</label><select name="contents[${index}][status]" class="form-select"><option value="active">Active</option><option value="draft">Draft</option><option value="archived">Archived</option></select></div>
-                        <div class="col-md-6"><label class="form-label">STEM Engineer File</label><input type="file" name="contents[${index}][file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf"></div>
-                        <div class="col-md-6"><label class="form-label">Student File</label><input type="file" name="contents[${index}][student_file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf"></div>
+                        <div class="col-md-6"><label class="form-label">STEM Engineer File</label><input type="file" name="contents[${index}][file]" class="form-control" accept=".pdf"></div>
+                        <div class="col-md-6"><label class="form-label">Student File</label><input type="file" name="contents[${index}][student_file]" class="form-control" accept=".pdf"></div>
                         <div class="col-md-12 text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-course-upload-row">Remove</button></div>
                     </div>
                 `;
@@ -696,8 +696,8 @@
                         <div class="col-md-3"><label class="form-label">Class</label><input type="text" name="contents[${index}][assigned_class]" class="form-control"></div>
                         <div class="col-md-2"><label class="form-label">Section</label><input type="text" name="contents[${index}][section]" class="form-control"></div>
                         <div class="col-md-2"><label class="form-label">Status</label><select name="contents[${index}][status]" class="form-select"><option value="active">Active</option><option value="draft">Draft</option><option value="archived">Archived</option></select></div>
-                        <div class="col-md-3"><label class="form-label">STEM Engineer File</label><input type="file" name="contents[${index}][file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf" required></div>
-                        <div class="col-md-2"><label class="form-label">Student File</label><input type="file" name="contents[${index}][student_file]" class="form-control" accept=".ppt,.pptx,.doc,.docx,.pdf"></div>
+                        <div class="col-md-3"><label class="form-label">STEM Engineer File</label><input type="file" name="contents[${index}][file]" class="form-control" accept=".pdf" required></div>
+                        <div class="col-md-2"><label class="form-label">Student File</label><input type="file" name="contents[${index}][student_file]" class="form-control" accept=".pdf"></div>
                         <div class="col-md-12 text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-course-upload-row">Remove</button></div>
                     </div>
                 `;

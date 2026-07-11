@@ -140,7 +140,7 @@
                     <div class="col-md-6"><label class="form-label">Assessment Date</label><input type="date" name="assessment_date" class="form-control" required></div>
                     <div class="col-md-3"><label class="form-label">Total Marks</label><input type="number" name="total_marks" class="form-control" min="1" required></div>
                     <div class="col-md-3"><label class="form-label">Duration</label><input type="text" name="duration" class="form-control" placeholder="45" required></div>
-                    <div class="col-md-6"><label class="form-label">Approved Question Paper</label><input type="file" name="file" class="form-control" required><small class="text-muted">Admin approval is required before students can access it.</small></div>
+                    <div class="col-md-6"><label class="form-label">Approved Question Paper</label><input type="file" name="file" class="form-control" accept=".pdf" required><small class="text-muted">Admin approval is required before students can access it.</small></div>
                     <div class="col-md-6"><label class="form-label">Status</label><select name="status" class="form-control" required><option value="1">Active after approval</option><option value="0">Inactive</option></select></div>
                 </div></div>
                 <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Send for Approval</button></div>
@@ -165,7 +165,7 @@
                     <div class="col-md-6"><label class="form-label">Assessment Date</label><input type="date" name="assessment_date" class="form-control" value="{{ $assessment->assessment_date }}" required></div>
                     <div class="col-md-3"><label class="form-label">Total Marks</label><input type="number" name="total_marks" class="form-control" value="{{ $assessment->total_marks }}" min="1" required></div>
                     <div class="col-md-3"><label class="form-label">Duration</label><input type="text" name="duration" class="form-control" value="{{ $assessment->duration }}" required></div>
-                    <div class="col-md-6"><label class="form-label">Replace Question Paper</label><input type="file" name="file" class="form-control"><small class="text-muted">Replacing the paper sends it back for approval.</small></div>
+                    <div class="col-md-6"><label class="form-label">Replace Question Paper</label><input type="file" name="file" class="form-control" accept=".pdf"><small class="text-muted">Replacing the paper sends it back for approval.</small></div>
                     <div class="col-md-6"><label class="form-label">Status</label><select name="status" class="form-control" required><option value="1" {{ $assessment->status == 1 ? 'selected' : '' }}>Active after approval</option><option value="0" {{ $assessment->status == 0 ? 'selected' : '' }}>Inactive</option></select></div>
                 </div></div>
                 <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Update Assessment</button></div>

@@ -144,19 +144,14 @@
 
                         @php
                             $studentMaterialPath = $content->student_file_path ?: $content->file_path;
-                            $studentPreviewPath = $content->student_preview_pdf_path ?: $content->preview_pdf_path;
                             $extension = strtolower(pathinfo($studentMaterialPath, PATHINFO_EXTENSION));
-                            $previewExtensions = ['doc', 'docx', 'ppt', 'pptx'];
-                            $streamVariant = in_array($extension, $previewExtensions) && $studentPreviewPath
-                                ? 'preview'
-                                : 'file';
                             $previewUrl = route('content.preview', [$content->id, 'student']);
                             $streamUrl = route('content.preview.stream', [$content->id, 'student']);
-                            $fileUrl = route('content.file.audience', [$content->id, 'student', $streamVariant]);
+                            $fileUrl = route('content.file.audience', [$content->id, 'student', 'file']);
                         @endphp
 
                         <div class="mb-3">
-                            @if($extension == 'pdf' || $streamVariant == 'preview')
+                            @if($extension == 'pdf')
                                 <div class="protected-preview-surface"
                                      data-watermark="InnovatEdge&#10;View Only"
                                      data-preview-scope="content-{{ $content->id }}">

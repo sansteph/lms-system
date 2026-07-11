@@ -657,7 +657,7 @@
                                     <input type="file"
                                            name="contents[0][file]"
                                            class="form-control"
-                                           accept=".ppt,.pptx,.doc,.docx,.pdf"
+                                           accept=".pdf"
                                            required>
                                 </div>
                                 <div class="col-md-2">
@@ -665,7 +665,7 @@
                                     <input type="file"
                                            name="contents[0][student_file]"
                                            class="form-control"
-                                           accept=".doc,.docx,.ppt,.pptx,.pdf">
+                                           accept=".pdf">
                                 </div>
                                 <div class="col-12 text-end">
                                     <button type="button"
@@ -854,7 +854,7 @@
                             <input type="file"
                                    name="file"
                                    class="form-control"
-                                   accept=".ppt,.pptx,.doc,.docx,.pdf">
+                                   accept=".pdf">
 
                             <small class="text-muted">
 
@@ -874,7 +874,7 @@
                             <input type="file"
                                    name="student_file"
                                    class="form-control"
-                                   accept=".doc,.docx,.ppt,.pptx,.pdf">
+                                   accept=".pdf">
 
                             <small class="text-muted">
 
@@ -1039,7 +1039,7 @@
                         <input type="file"
                                name="contents[${index}][file]"
                                class="form-control"
-                               accept=".ppt,.pptx,.doc,.docx,.pdf"
+                               accept=".pdf"
                                required>
                     </div>
                     <div class="col-md-2">
@@ -1047,7 +1047,7 @@
                         <input type="file"
                                name="contents[${index}][student_file]"
                                class="form-control"
-                               accept=".doc,.docx,.ppt,.pptx,.pdf">
+                               accept=".pdf">
                     </div>
                     <div class="col-12 text-end">
                         <button type="button"
