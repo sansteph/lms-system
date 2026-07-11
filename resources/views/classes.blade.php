@@ -2,6 +2,10 @@
 
 @section('content')
 
+@php
+    $sectionOptions = ['A', 'B', 'C', 'D', 'E'];
+@endphp
+
 <div class="container-fluid">
     <div class="row">
 
@@ -147,11 +151,19 @@
 
                                                         <div class="col-md-6">
                                                             <label class="form-label">Section</label>
-                                                            <input type="text"
-                                                                   name="section"
-                                                                   class="form-control"
-                                                                   value="{{ $class->section }}"
-                                                                   required>
+                                                            <select name="section" class="form-control" required>
+                                                                @if(!in_array($class->section, $sectionOptions))
+                                                                    <option value="{{ $class->section }}" selected>
+                                                                        {{ $class->section }}
+                                                                    </option>
+                                                                @endif
+
+                                                                @foreach($sectionOptions as $sectionOption)
+                                                                    <option value="{{ $sectionOption }}" {{ $class->section == $sectionOption ? 'selected' : '' }}>
+                                                                        {{ $sectionOption }}
+                                                                    </option>
+                                                                @endforeach
+                                                            </select>
                                                         </div>
 
                                                         <div class="col-md-6">
@@ -267,11 +279,13 @@
 
                         <div class="col-md-6">
                             <label class="form-label">Section</label>
-                            <input type="text"
-                                   name="section"
-                                   class="form-control"
-                                   placeholder="Example: A"
-                                   required>
+                            <select name="section" class="form-control" required>
+                                <option value="">Select section</option>
+                                @foreach($sectionOptions as $sectionOption)
+                                    <option value="{{ $sectionOption }}">{{ $sectionOption }}</option>
+                                @endforeach
+                                <option value="combined">Combined (A to E)</option>
+                            </select>
                         </div>
 
                         <div class="col-md-6">

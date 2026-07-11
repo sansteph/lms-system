@@ -66,20 +66,43 @@ class ClassController extends Controller
                 : 'nullable|string|max:255',
         ]);
 
-        SchoolClass::create([
-            'institute' => session('user_role') == 'InstituteAdmin'
-                ? session('user_institute')
-                : $request->institute,
+        $institute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : $request->institute;
 
-            'class_name' => $request->class_name,
-            'section' => $request->section,
-            'class_teacher' => null,
-            'academic_year' => $request->academic_year,
-            'content_id' => $request->content_id,
-            'status' => $request->status,
-        ]);
+        $sections = strtolower($request->section) === 'combined'
+            ? ['A', 'B', 'C', 'D', 'E']
+            : [$request->section];
 
-        return redirect()->back()->with('success', 'Class added successfully');
+        $createdCount = 0;
+
+        DB::transaction(function () use ($request, $institute, $sections, &$createdCount) {
+            foreach ($sections as $section) {
+                $class = SchoolClass::firstOrCreate(
+                    [
+                        'institute' => $institute,
+                        'class_name' => $request->class_name,
+                        'section' => $section,
+                        'academic_year' => $request->academic_year,
+                    ],
+                    [
+                        'class_teacher' => null,
+                        'content_id' => $request->content_id,
+                        'status' => $request->status,
+                    ]
+                );
+
+                if ($class->wasRecentlyCreated) {
+                    $createdCount++;
+                }
+            }
+        });
+
+        if ($createdCount === 0) {
+            return redirect()->back()->with('success', 'No new class sections were added because they already exist.');
+        }
+
+        return redirect()->back()->with('success', $createdCount . ' class section' . ($createdCount === 1 ? '' : 's') . ' added successfully.');
     }
 
     public function update(Request $request, $id)
