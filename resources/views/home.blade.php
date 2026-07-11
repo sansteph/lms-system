@@ -71,17 +71,6 @@
 
                         </div>
 
-                        <div class="hero-stats">
-                            <div class="hero-stat-item w-100 justify-content-center">
-                                <div class="overflow-hidden rounded-3 border bg-light"
-                                     style="width: 100%; max-width: 420px; aspect-ratio: 16 / 9;">
-                                    <img src="{{ asset('images/InstitutionalLogo.png') }}"
-                                         alt="Company image placeholder"
-                                         style="width: 100%; height: 100%; object-fit: cover;">
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
 
                 </div>
@@ -116,6 +105,16 @@
     <section class="feature-section" id="features">
 
         <div class="container">
+
+            <div class="feature-top-images d-flex justify-content-between align-items-start"
+                 style="margin-top: -28px; margin-bottom: 18px;">
+                <img src="{{ asset('images/CupRobot(1).png') }}"
+                     alt="Company image placeholder"
+                     style="width: 100%; max-width: 320px; height: auto; display: block;">
+                <img src="{{ asset('images/CupRobot(2).png') }}"
+                     alt="Company image placeholder"
+                     style="width: 100%; max-width: 320px; height: auto; display: block;">
+            </div>
 
             <div class="section-heading text-center">
 
