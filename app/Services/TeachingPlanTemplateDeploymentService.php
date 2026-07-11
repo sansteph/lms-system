@@ -40,37 +40,57 @@ class TeachingPlanTemplateDeploymentService
 
             $selectedClassLabels = $selectedClasses
                 ->map(fn ($class) => $this->normalizeClassLabel($class))
+                ->unique()
+                ->values()
                 ->all();
 
             $templates = TeachingPlan::with(['course.courseContents.content', 'weeks.items'])
                 ->where('is_template', true)
                 ->where('status', 'active')
-                ->get()
-                ->filter(function (TeachingPlan $template) use ($selectedClassLabels) {
-                    return in_array(
-                        $this->normalizeClassLabel($template->class, $template->section),
-                        $selectedClassLabels,
-                        true
-                    );
-                });
+                ->get();
 
-            if ($templates->isEmpty()) {
+            $matchedAnyTemplate = false;
+
+            foreach ($templates as $template) {
+                $targets = $this->matchingDeploymentTargets($template, $selectedClassLabels);
+
+                if ($targets->isEmpty()) {
+                    continue;
+                }
+
+                $matchedAnyTemplate = true;
+
+                foreach ($targets as $target) {
+                    $result = $this->deployTemplate(
+                        $template,
+                        $institute,
+                        $deployedBy,
+                        $target['class'],
+                        $target['section']
+                    );
+
+                    $summary[$result['status'] === 'deployed' ? 'deployed' : 'skipped']++;
+                    $summary['messages'][] = $result['message'];
+                }
+            }
+
+            if (!$matchedAnyTemplate) {
                 $summary['skipped']++;
                 $summary['messages'][] = 'Skipped ' . $institute->institute_name . ': no matching active templates found.';
                 continue;
-            }
-
-            foreach ($templates as $template) {
-                $result = $this->deployTemplate($template, $institute, $deployedBy);
-                $summary[$result['status'] === 'deployed' ? 'deployed' : 'skipped']++;
-                $summary['messages'][] = $result['message'];
             }
         }
 
         return $summary;
     }
 
-    public function deployTemplate(TeachingPlan $template, Institute $institute, ?int $deployedBy = null): array
+    public function deployTemplate(
+        TeachingPlan $template,
+        Institute $institute,
+        ?int $deployedBy = null,
+        ?string $targetClass = null,
+        ?string $targetSection = null
+    ): array
     {
         if (!$template->is_template) {
             return [
@@ -79,14 +99,18 @@ class TeachingPlanTemplateDeploymentService
             ];
         }
 
-        return DB::transaction(function () use ($template, $institute, $deployedBy) {
+        $targetClass = trim((string) ($targetClass ?: $template->class));
+        $targetSection = trim((string) ($targetSection ?? $template->section ?? ''));
+        $targetLabel = $this->normalizeClassLabel($targetClass, $targetSection);
+
+        return DB::transaction(function () use ($template, $institute, $deployedBy, $targetClass, $targetSection, $targetLabel) {
             $existingPlan = TeachingPlan::where('is_template', false)
                 ->where('parent_template_id', $template->id)
                 ->where('institute', $institute->institute_name)
-                ->where('class', $template->class)
-                ->where(function ($query) use ($template) {
-                    if (filled($template->section)) {
-                        $query->where('section', $template->section);
+                ->where('class', $targetClass)
+                ->where(function ($query) use ($targetSection) {
+                    if (filled($targetSection)) {
+                        $query->where('section', $targetSection);
                     } else {
                         $query->whereNull('section')
                             ->orWhere('section', '');
@@ -98,7 +122,7 @@ class TeachingPlanTemplateDeploymentService
             if ($existingPlan) {
                 return [
                     'status' => 'skipped',
-                    'message' => 'Skipped duplicate deployment: ' . ($template->title ?? $template->course->course_title ?? 'Template') . ' for ' . $institute->institute_name . ' / ' . $template->class,
+                    'message' => 'Skipped duplicate deployment: ' . ($template->title ?? $template->course->course_title ?? 'Template') . ' for ' . $institute->institute_name . ' / ' . $targetLabel,
                 ];
             }
 
@@ -127,7 +151,7 @@ class TeachingPlanTemplateDeploymentService
                 'course_title' => $templateCourse->course_title,
                 'description' => $templateCourse->description,
                 'target' => $templateCourse->target ?? 'Both',
-                'assigned_class' => $this->normalizeClassLabel($template->class, $template->section),
+                'assigned_class' => $targetLabel,
                 'price' => $templateCourse->price ?? 0,
                 'availability_type' => 'Institute',
                 'is_active' => 1,
@@ -161,8 +185,8 @@ class TeachingPlanTemplateDeploymentService
                     'parent_template_id' => $template->id,
                     'title' => $template->title,
                     'institute_id' => $institute->id,
-                    'class' => $template->class,
-                    'section' => $template->section,
+                    'class' => $targetClass,
+                    'section' => $targetSection ?: null,
                     'start_date' => now()->toDateString(),
                     'release_day' => $template->release_day,
                     'contents_per_week' => $template->contents_per_week,
@@ -175,7 +199,7 @@ class TeachingPlanTemplateDeploymentService
 
             return [
                 'status' => 'deployed',
-                'message' => 'Deployed ' . ($template->title ?? $course->course_title) . ' to ' . $institute->institute_name . ' / ' . $this->normalizeClassLabel($template->class, $template->section) . ' as plan #' . $plan->id,
+                'message' => 'Deployed ' . ($template->title ?? $course->course_title) . ' to ' . $institute->institute_name . ' / ' . $targetLabel . ' as plan #' . $plan->id,
             ];
         });
     }
@@ -240,5 +264,39 @@ class TeachingPlanTemplateDeploymentService
     private function normalizeClassLabel(?string $class, ?string $section = null): string
     {
         return preg_replace('/\s+/', ' ', trim((string) $class . ' ' . (string) $section));
+    }
+
+    private function matchingDeploymentTargets(TeachingPlan $template, array $selectedClassLabels)
+    {
+        $templateClass = $this->normalizeClassLabel($template->class);
+        $templateSection = trim((string) ($template->section ?? ''));
+        $templateLabel = $this->normalizeClassLabel($template->class, $templateSection);
+
+        return collect($selectedClassLabels)
+            ->map(fn ($label) => $this->normalizeClassLabel($label))
+            ->filter()
+            ->filter(function ($selectedLabel) use ($templateClass, $templateSection, $templateLabel) {
+                if (filled($templateSection)) {
+                    return $selectedLabel === $templateLabel;
+                }
+
+                return $selectedLabel === $templateClass ||
+                    str_starts_with($selectedLabel, $templateClass . ' ');
+            })
+            ->map(function ($selectedLabel) use ($templateClass, $templateSection) {
+                if (filled($templateSection) || $selectedLabel === $templateClass) {
+                    return [
+                        'class' => $templateClass,
+                        'section' => $templateSection ?: null,
+                    ];
+                }
+
+                return [
+                    'class' => $templateClass,
+                    'section' => trim(substr($selectedLabel, strlen($templateClass))),
+                ];
+            })
+            ->unique(fn ($target) => $this->normalizeClassLabel($target['class'], $target['section']))
+            ->values();
     }
 }
