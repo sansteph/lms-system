@@ -4,6 +4,7 @@
 
 @php
     $sectionOptions = ['A', 'B', 'C', 'D', 'E'];
+    $classSectionOptions = array_merge($sectionOptions, ['Combined']);
 @endphp
 
 <div class="container-fluid">
@@ -152,13 +153,13 @@
                                                         <div class="col-md-6">
                                                             <label class="form-label">Section</label>
                                                             <select name="section" class="form-control" required>
-                                                                @if(!in_array($class->section, $sectionOptions))
+                                                                @if(!in_array($class->section, $classSectionOptions))
                                                                     <option value="{{ $class->section }}" selected>
                                                                         {{ $class->section }}
                                                                     </option>
                                                                 @endif
 
-                                                                @foreach($sectionOptions as $sectionOption)
+                                                                @foreach($classSectionOptions as $sectionOption)
                                                                     <option value="{{ $sectionOption }}" {{ $class->section == $sectionOption ? 'selected' : '' }}>
                                                                         {{ $sectionOption }}
                                                                     </option>
@@ -279,13 +280,33 @@
 
                         <div class="col-md-6">
                             <label class="form-label">Section</label>
-                            <select name="section" class="form-control" required>
-                                <option value="">Select section</option>
-                                @foreach($sectionOptions as $sectionOption)
-                                    <option value="{{ $sectionOption }}">{{ $sectionOption }}</option>
-                                @endforeach
-                                <option value="combined">Combined (A to E)</option>
-                            </select>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-auto-close="outside"
+                                        aria-expanded="false">
+                                    Select section(s)
+                                </button>
+
+                                <div class="dropdown-menu w-100 p-3">
+                                    @foreach($classSectionOptions as $sectionOption)
+                                        <div class="form-check">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   name="sections[]"
+                                                   value="{{ $sectionOption }}"
+                                                   id="addSection{{ $sectionOption }}">
+                                            <label class="form-check-label" for="addSection{{ $sectionOption }}">
+                                                {{ $sectionOption }}
+                                            </label>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="form-text">
+                                Select A and B to create separate class rows. Combined is a separate section.
+                            </div>
                         </div>
 
                         <div class="col-md-6">

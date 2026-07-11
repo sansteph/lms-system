@@ -57,7 +57,8 @@ class ClassController extends Controller
     {
         $request->validate([
             'class_name' => 'required|string|max:50',
-            'section' => 'required|string|max:20',
+            'sections' => 'required|array|min:1',
+            'sections.*' => 'required|string|in:A,B,C,D,E,Combined',
             'academic_year' => 'required|string|max:20',
             'status' => 'required|boolean',
             'content_id' => 'nullable|exists:contents,id',
@@ -70,9 +71,7 @@ class ClassController extends Controller
             ? session('user_institute')
             : $request->institute;
 
-        $sections = strtolower($request->section) === 'combined'
-            ? ['A', 'B', 'C', 'D', 'E']
-            : [$request->section];
+        $sections = array_values(array_unique($request->input('sections', [])));
 
         $createdCount = 0;
 
