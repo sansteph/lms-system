@@ -196,12 +196,14 @@ class TeachingPlanTemplateDeploymentService
             ? $studentFilePath
             : $this->copyStoredFile($templateContent->student_preview_pdf_path, 'content-previews');
 
+        $contentType = $templateContent->content_type ?: strtoupper(pathinfo((string) $filePath, PATHINFO_EXTENSION) ?: 'PDF');
+
         $content = Content::create([
             'course_id' => $course->id,
             'content_title' => $templateContent->content_title,
             'description' => $templateContent->description,
             'lesson_order' => $sortOrder,
-            'content_type' => $templateContent->content_type ?: 'PPT',
+            'content_type' => $contentType,
             'assigned_class' => $course->assigned_class,
             'institute' => $course->institute,
             'file_path' => $filePath,

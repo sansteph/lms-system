@@ -75,8 +75,8 @@ class UserController extends Controller
             'email' => 'required|email',
             'status' => 'required|boolean',
             'institute' => session('user_role') == 'InstituteAdmin'
-                ? session('user_institute')
-                : $request->institute,
+                ? 'nullable|string|max:255'
+                : 'required|string|max:255',
         ]);
 
         $user = User::where('role', 'Teacher')->findOrFail($id);
@@ -92,6 +92,9 @@ class UserController extends Controller
             'user_id' => $request->user_id,
             'name' => $request->name,
             'email' => $request->email,
+            'institute' => session('user_role') == 'InstituteAdmin'
+                ? session('user_institute')
+                : $request->institute,
             'status' => $request->status,
         ]);
 

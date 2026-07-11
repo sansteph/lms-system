@@ -332,7 +332,9 @@ class ContentController extends Controller
             abort(404);
         }
 
-        $extension = strtolower(pathinfo($paths['file'], PATHINFO_EXTENSION));
+        $previewPath = $paths['preview'] ?: $paths['file'];
+        $extension = strtolower(pathinfo($previewPath, PATHINFO_EXTENSION));
+
         if ($extension !== 'pdf') {
             $previewUnavailableMessage = 'Preview is available only for PDF content. Please upload a PDF version of this material.';
 

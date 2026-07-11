@@ -22,7 +22,8 @@
             </div>
 
             @php
-                $extension = strtolower(pathinfo($content->file_path, PATHINFO_EXTENSION));
+                $previewPath = $content->preview_pdf_path ?: $content->file_path;
+                $extension = strtolower(pathinfo($previewPath, PATHINFO_EXTENSION));
                 $previewUrl = route('content.preview', [$content->id, 'teacher']);
                 $streamUrl = route('content.preview.stream', [$content->id, 'teacher']);
                 $fileUrl = route('content.file.audience', [$content->id, 'teacher', 'file']);

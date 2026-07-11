@@ -212,7 +212,8 @@
                                     @php
                                         $studentMaterialPath = $content->student_file_path ?: $content->file_path;
                                         $materialLabel = $content->student_file_path ? 'Student Document' : 'Student PPT';
-                                        $extension = strtolower(pathinfo($studentMaterialPath, PATHINFO_EXTENSION));
+                                        $studentPreviewPath = $content->student_preview_pdf_path ?: $content->preview_pdf_path ?: $studentMaterialPath;
+                                        $extension = strtolower(pathinfo($studentPreviewPath, PATHINFO_EXTENSION));
                                         $previewUrl = route('content.preview', [$content->id, 'student']);
                                         $streamUrl = route('content.preview.stream', [$content->id, 'student']);
                                         $fileUrl = route('content.file.audience', [$content->id, 'student', 'file']);
