@@ -3522,7 +3522,7 @@ class PageController extends Controller
         ]);
 
         return redirect()
-            ->route('teacher.classes')
+            ->route('teacher.session.content', $session->content_id)
             ->with('success', 'Class session started successfully.');
     }
 
