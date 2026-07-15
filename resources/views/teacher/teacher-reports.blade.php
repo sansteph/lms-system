@@ -17,7 +17,7 @@
                     </p>
                 </div>
 
-                <a href="{{ route('teacher.reports.export') }}"class="btn btn-success btn-sm">
+                <a href="{{ route('teacher.reports.export', request()->query()) }}" class="btn btn-success btn-sm">
                     <i class="fa fa-file-csv me-1"></i>
                     Export Report
                 </a>
@@ -53,6 +53,35 @@
                     </div>
                 </div>
 
+            </div>
+
+            <div class="card shadow border-0 mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ route('teacher.reports') }}" class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">Class</label>
+                            <select name="class" class="form-control">
+                                <option value="">All Classes</option>
+                                @foreach($classOptions as $classOption)
+                                    <option value="{{ $classOption }}" {{ $selectedClass == $classOption ? 'selected' : '' }}>
+                                        {{ $classOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">Apply</button>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{{ route('teacher.reports') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{{ route('teacher.reports.export', request()->query()) }}" class="btn btn-success w-100">
+                                Export
+                            </a>
+                        </div>
+                    </form>
+                </div>
             </div>
             
             <div class="card shadow border-0">
@@ -150,6 +179,45 @@
 
                     </table>
 
+                </div>
+            </div>
+
+            <div class="card shadow border-0 mt-4">
+                <div class="card-body">
+                    <h5 class="mb-4">Class-wise Report Summary</h5>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Class</th>
+                                    <th>Students</th>
+                                    <th>Released Content</th>
+                                    <th>Your Sessions</th>
+                                    <th>Completed Results</th>
+                                    <th>Average Score</th>
+                                    <th>Certificates</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($classReportRows as $row)
+                                    <tr>
+                                        <td class="fw-semibold">{{ $row['class'] }}</td>
+                                        <td>{{ $row['students'] }}</td>
+                                        <td>{{ $row['content'] }}</td>
+                                        <td>{{ $row['sessions'] }}</td>
+                                        <td>{{ $row['completed_results'] }}</td>
+                                        <td>{{ number_format($row['average_score'], 2) }}%</td>
+                                        <td>{{ $row['certificates'] }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted">No class-wise report data found.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 

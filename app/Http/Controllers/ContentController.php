@@ -38,7 +38,7 @@ class ContentController extends Controller
             ->orderBy('course_title')
             ->get();
 
-        $contents = Content::with(['course', 'courseContent'])
+        $contents = Content::with(['course', 'courseContent', 'aiSummary'])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
             })
@@ -583,10 +583,7 @@ class ContentController extends Controller
         $planIds = $items->pluck('teaching_plan_id')->filter()->unique();
 
         ClassContentSession::whereIn('teaching_plan_item_id', $itemIds)
-            ->update([
-                'teaching_plan_item_id' => null,
-                'teaching_plan_week_id' => null,
-            ]);
+            ->delete();
 
         TeachingPlanItem::whereIn('id', $itemIds)->delete();
 
@@ -603,11 +600,7 @@ class ContentController extends Controller
             ->each(function (TeachingPlan $plan) {
                 if (!$plan->items()->exists()) {
                     ClassContentSession::where('teaching_plan_id', $plan->id)
-                        ->update([
-                            'teaching_plan_id' => null,
-                            'teaching_plan_week_id' => null,
-                            'teaching_plan_item_id' => null,
-                        ]);
+                        ->delete();
 
                     $plan->weeks()->delete();
                     $plan->delete();

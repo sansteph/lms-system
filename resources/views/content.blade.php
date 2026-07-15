@@ -103,6 +103,16 @@
 
             @endif
 
+            @if(session('error'))
+
+                <div class="alert alert-danger">
+
+                    {{ session('error') }}
+
+                </div>
+
+            @endif
+
             @if($errors->any())
 
                 <div class="alert alert-danger">
@@ -399,6 +409,16 @@
 
                                         @endif
 
+                                        @if($content->aiSummary && $content->aiSummary->status == 'generated')
+                                            <div class="mt-2">
+                                                <span class="badge bg-info text-dark">AI Summary Ready</span>
+                                            </div>
+                                        @elseif($content->aiSummary && $content->aiSummary->status == 'failed')
+                                            <div class="mt-2">
+                                                <span class="badge bg-danger">AI Failed</span>
+                                            </div>
+                                        @endif
+
                                     </td>
 
                                     <td>
@@ -410,6 +430,25 @@
                                             Edit
 
                                         </button>
+
+                                        @if($content->aiSummary && $content->aiSummary->status == 'generated')
+                                            <button class="btn btn-sm btn-outline-info"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#aiSummaryModal{{ $content->id }}">
+                                                AI
+                                            </button>
+                                        @endif
+
+                                        <form method="POST"
+                                              action="{{ route('content.ai-summary.generate', $content->id) }}"
+                                              class="d-inline"
+                                              onsubmit="return confirm('Generate AI summary for this content?');">
+                                            @csrf
+                                            <button type="submit"
+                                                    class="btn btn-sm btn-outline-success">
+                                                {{ $content->aiSummary && $content->aiSummary->status == 'generated' ? 'Refresh AI' : 'Generate AI' }}
+                                            </button>
+                                        </form>
 
                                         @if($content->courseContent)
                                             <form method="POST"
@@ -464,6 +503,79 @@
     </div>
 
 </div>
+
+@foreach($contents as $content)
+    @if($content->aiSummary && $content->aiSummary->status == 'generated')
+        <div class="modal fade"
+             id="aiSummaryModal{{ $content->id }}"
+             tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div>
+                            <h5 class="modal-title">AI Summary</h5>
+                            <div class="small text-muted">{{ $content->content_title }}</div>
+                        </div>
+                        <button type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal">
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-4">
+                            <h6>Summary</h6>
+                            <div class="border rounded p-3 bg-light" style="white-space: pre-line;">
+                                {{ $content->aiSummary->summary }}
+                            </div>
+                        </div>
+
+                        @if(!empty($content->aiSummary->key_points))
+                            <div class="mb-4">
+                                <h6>Key Points</h6>
+                                <ul class="mb-0">
+                                    @foreach($content->aiSummary->key_points as $point)
+                                        <li>{{ $point }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+
+                        @if(!empty($content->aiSummary->quiz_seed))
+                            <div>
+                                <h6>Quiz Seed Questions</h6>
+                                <div class="list-group">
+                                    @foreach($content->aiSummary->quiz_seed as $question)
+                                        <div class="list-group-item">
+                                            <div class="fw-semibold">
+                                                {{ $question['question'] ?? 'Question' }}
+                                            </div>
+                                            <div class="small text-muted mt-1">
+                                                Expected: {{ $question['expected_answer'] ?? 'Not provided' }}
+                                            </div>
+                                            <div class="small text-muted">
+                                                Marks: {{ $question['marks'] ?? 1 }}
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                    <div class="modal-footer">
+                        <div class="small text-muted me-auto">
+                            Generated using {{ $content->aiSummary->model }}
+                        </div>
+                        <button type="button"
+                                class="btn btn-outline-secondary"
+                                data-bs-dismiss="modal">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+@endforeach
 
 <!-- Bulk Upload Modal -->
 

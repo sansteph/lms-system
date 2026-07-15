@@ -116,7 +116,35 @@
                     <div class="alert alert-danger">Please check the marks, status, and feedback fields.</div>
                 @endif
 
-                @forelse($pendingResults as $result)
+                @if(session('user_role') == 'Teacher')
+                    <div class="card review-card mb-4">
+                        <div class="card-body">
+                            <form method="GET" action="{{ route('assessment.review') }}" class="row g-3 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label">Class</label>
+                                    <select name="class" class="form-control">
+                                        <option value="">All Classes</option>
+                                        @foreach($classOptions as $classOption)
+                                            <option value="{{ $classOption }}" {{ $selectedClass == $classOption ? 'selected' : '' }}>
+                                                {{ $classOption }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="submit" class="btn btn-primary w-100">Apply</button>
+                                </div>
+                                <div class="col-md-2">
+                                    <a href="{{ route('assessment.review') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                @endif
+
+                @forelse($pendingResults->groupBy(fn ($result) => $result->student ? trim($result->student->class . ' ' . $result->student->section) : 'Unassigned Class') as $classLabel => $classResults)
+                    <div class="fw-bold text-primary mb-3">{{ $classLabel }}</div>
+                    @foreach($classResults as $result)
                     @php
                         $assessment = $result->assessment;
                         $paperUrl = null;
@@ -266,6 +294,7 @@
                             </div>
                         </div>
                     </div>
+                    @endforeach
                 @empty
                     <div class="card review-card">
                         <div class="card-body text-center text-muted py-5">

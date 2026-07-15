@@ -24,5 +24,7 @@ class Student extends Model
         'guardian_contact',
         'is_robotics_club_member',
         'profile_completed',
+        'linkedin_url',
+        'profile_image',
     ];
 }

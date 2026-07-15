@@ -21,10 +21,38 @@
                     </p>
                 </div>
 
-                <a href="{{ route('results.export', request()->query()) }}" class="btn btn-success">
-                    <i class="fa fa-file-csv me-1"></i>
-                    Export CSV
-                </a>
+                <div class="d-flex gap-2 flex-wrap">
+                    <form method="POST" action="{{ route('teacher.results.ai-insights') }}">
+                        @csrf
+                        <input type="hidden" name="search" value="{{ request('search') }}">
+                        <input type="hidden" name="class" value="{{ request('class') }}">
+                        <input type="hidden" name="badge" value="{{ request('badge') }}">
+                        <input type="hidden" name="status" value="{{ request('status') }}">
+                        <input type="hidden" name="sort" value="{{ request('sort') }}">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-wand-magic-sparkles me-1"></i>
+                            AI Insights
+                        </button>
+                    </form>
+
+                    <form method="POST" action="{{ route('teacher.results.ai-insights.download') }}">
+                        @csrf
+                        <input type="hidden" name="search" value="{{ request('search') }}">
+                        <input type="hidden" name="class" value="{{ request('class') }}">
+                        <input type="hidden" name="badge" value="{{ request('badge') }}">
+                        <input type="hidden" name="status" value="{{ request('status') }}">
+                        <input type="hidden" name="sort" value="{{ request('sort') }}">
+                        <button type="submit" class="btn btn-outline-primary">
+                            <i class="fa fa-file-pdf me-1"></i>
+                            Download AI PDF
+                        </button>
+                    </form>
+
+                    <a href="{{ route('results.export', request()->query()) }}" class="btn btn-success">
+                        <i class="fa fa-file-csv me-1"></i>
+                        Export CSV
+                    </a>
+                </div>
 
             </div>
             
@@ -34,6 +62,71 @@
                     {{ session('success') }}
                 </div>
 
+            @endif
+
+            @if(session('error'))
+
+                <div class="alert alert-danger">
+                    {{ session('error') }}
+                </div>
+
+            @endif
+
+            @php
+                $aiInsights = session('aiInsights');
+            @endphp
+
+            @if($aiInsights)
+                <div class="card shadow border-0 mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                            <div>
+                                <h5 class="mb-1">AI Generated Student Result Insights</h5>
+                                <p class="text-muted mb-0">
+                                    Generated from the currently filtered student result data{{ isset($aiInsights['generated_at']) ? ' at ' . $aiInsights['generated_at'] : '' }}.
+                                </p>
+                            </div>
+                            @if(!empty($aiInsights['model']))
+                                <span class="badge bg-info">{{ $aiInsights['model'] }}</span>
+                            @endif
+                        </div>
+
+                        <p class="mb-3">{{ $aiInsights['summary'] ?? 'No summary returned.' }}</p>
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <h6>Highlights</h6>
+                                <ul class="mb-0">
+                                    @forelse($aiInsights['highlights'] ?? [] as $item)
+                                        <li>{{ $item }}</li>
+                                    @empty
+                                        <li>No highlights returned.</li>
+                                    @endforelse
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Risks</h6>
+                                <ul class="mb-0">
+                                    @forelse($aiInsights['risks'] ?? [] as $item)
+                                        <li>{{ $item }}</li>
+                                    @empty
+                                        <li>No risks returned.</li>
+                                    @endforelse
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Recommendations</h6>
+                                <ul class="mb-0">
+                                    @forelse($aiInsights['recommendations'] ?? [] as $item)
+                                        <li>{{ $item }}</li>
+                                    @empty
+                                        <li>No recommendations returned.</li>
+                                    @endforelse
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             @endif
 
             <div class="row g-4 mb-4">
@@ -194,6 +287,25 @@
 
                             <div class="col-md-2">
 
+                                <select name="class" class="form-control">
+
+                                    <option value="">
+                                        All Classes
+                                    </option>
+
+                                    @foreach($classOptions as $classOption)
+                                        <option value="{{ $classOption }}"
+                                            {{ $selectedClass == $classOption ? 'selected' : '' }}>
+                                            {{ $classOption }}
+                                        </option>
+                                    @endforeach
+
+                                </select>
+
+                            </div>
+
+                            <div class="col-md-2">
+
                                 <select name="badge" class="form-control">
 
                                     <option value="">
@@ -236,7 +348,7 @@
 
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="col-md-2">
 
                                 <select name="sort" class="form-control">
 
@@ -332,12 +444,17 @@
 
                         <tbody>
 
-                            @forelse($results as $index => $result)
+                            @php $rowNumber = 1; @endphp
+                            @forelse($results->groupBy(fn ($result) => $result->student ? trim($result->student->class . ' ' . $result->student->section) : 'Unassigned Class') as $classLabel => $classResults)
+                                <tr class="table-primary">
+                                    <td colspan="10" class="fw-semibold">{{ $classLabel }}</td>
+                                </tr>
+                                @foreach($classResults as $result)
 
                                 <tr>
 
                                     <td>
-                                        {{ $index + 1 }}
+                                        {{ $rowNumber++ }}
                                     </td>
 
                                     <td>
@@ -437,6 +554,7 @@
                                     </td>
 
                                 </tr>
+                                @endforeach
 
                             @empty
 

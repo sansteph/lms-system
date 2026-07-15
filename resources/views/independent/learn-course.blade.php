@@ -153,19 +153,17 @@
 
                         <div class="mb-3">
                             @if($extension == 'pdf')
-                                <div class="protected-preview-surface"
-                                     data-watermark="InnovatEdge&#10;View Only"
-                                     data-preview-scope="content-{{ $content->id }}">
-                                    <div class="protected-preview-content">
-                                        <iframe src="{{ $streamUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
-                                                width="100%"
-                                                height="420"
-                                                style="border: 0; border-radius: 8px; background: #f8f9fa;"
-                                                oncontextmenu="return false;">
-                                        </iframe>
-                                        <div class="protected-preview-mouse-shield"
-                                             aria-hidden="true">
+                                <div class="border rounded p-3 bg-light">
+                                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <div class="small text-muted">
+                                            Open this material in the secure full-screen viewer.
                                         </div>
+                                        <a href="{{ $previewUrl }}"
+                                           target="_blank"
+                                           rel="noopener"
+                                           class="btn btn-sm btn-primary">
+                                            Open Preview
+                                        </a>
                                     </div>
                                 </div>
                             @elseif(in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp']))

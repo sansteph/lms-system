@@ -2,11 +2,19 @@
 
 @section('content')
 
-<div class="container py-5">
+<div class="container-fluid">
+    <div class="row">
+        @if(($sidebar ?? 'admin') == 'teacher')
+            @include('layouts.teacher-sidebar')
+        @else
+            @include('layouts.sidebar')
+        @endif
+
+        <div class="col-md-10 col-lg-10 p-4">
 
     <div class="row justify-content-center">
 
-        <div class="col-md-6">
+        <div class="col-md-7 col-lg-6">
 
             <div class="card shadow border-0">
 
@@ -36,7 +44,7 @@
                     @endif
 
                     <form method="POST"
-                          action="{{ route('admin.change.password.submit') }}">
+                          action="{{ $submitRoute ?? route('admin.change.password.submit') }}">
 
                         @csrf
 
@@ -96,6 +104,8 @@
 
     </div>
 
+        </div>
+    </div>
 </div>
 
 @endsection

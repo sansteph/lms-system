@@ -4,27 +4,49 @@ namespace App\Http\Controllers;
 
 use App\Models\Student;
 use App\Models\User;
+use App\Models\SchoolClass;
+use Illuminate\Http\Request;
 
 class TeacherStudentProfileController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $teacher = User::findOrFail(session('user_id'));
+        $classOptions = $this->teacherClassOptions($teacher);
+        $selectedClass = $request->input('class');
 
         $students = $this->teacherAssignedStudentsQuery($teacher)
             ->where('profile_completed', true)
-            ->latest()
+            ->when($selectedClass, function ($query) use ($selectedClass) {
+                $query->whereRaw(
+                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                    [$selectedClass]
+                );
+            })
+            ->orderBy('class')
+            ->orderBy('section')
+            ->orderBy('name')
             ->get();
 
-        return view('teacher.student-details', compact('students'));
+        return view('teacher.student-details', compact('students', 'classOptions', 'selectedClass'));
     }
 
-    public function export()
+    public function export(Request $request)
     {
         $teacher = User::findOrFail(session('user_id'));
+        $selectedClass = $request->input('class');
 
         $students = $this->teacherAssignedStudentsQuery($teacher)
             ->where('profile_completed', true)
+            ->when($selectedClass, function ($query) use ($selectedClass) {
+                $query->whereRaw(
+                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                    [$selectedClass]
+                );
+            })
+            ->orderBy('class')
+            ->orderBy('section')
+            ->orderBy('name')
             ->get();
 
         $filename = 'student_profiles.csv';
@@ -68,5 +90,15 @@ class TeacherStudentProfileController extends Controller
     private function teacherAssignedStudentsQuery(User $teacher)
     {
         return Student::where('institute', $teacher->institute);
+    }
+
+    private function teacherClassOptions(User $teacher)
+    {
+        return SchoolClass::where('institute', $teacher->institute)
+            ->orderBy('class_name')
+            ->orderBy('section')
+            ->get()
+            ->map(fn ($class) => trim($class->class_name . ' ' . $class->section))
+            ->values();
     }
 }

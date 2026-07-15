@@ -87,8 +87,11 @@ class AssessmentResultController extends Controller
             ->with('success', 'Assessment submitted successfully. It is waiting for manual evaluation.');
     }
 
-    public function reviewResults()
+    public function reviewResults(Request $request)
     {
+        $selectedClass = $request->input('class');
+        $classOptions = collect();
+
         $pendingResults = AssessmentResult::with([
                 'student',
                 'assessment',
@@ -96,14 +99,28 @@ class AssessmentResultController extends Controller
                 'evaluator',
             ])
             ->where('status', 'Pending Review')
-            ->when(session('user_role') == 'Teacher', function ($query) {
+            ->when(session('user_role') == 'Teacher', function ($query) use (&$classOptions, $selectedClass) {
                 $teacher = User::findOrFail(session('user_id'));
+                $classOptions = SchoolClass::where('institute', $teacher->institute)
+                    ->orderBy('class_name')
+                    ->orderBy('section')
+                    ->get()
+                    ->map(fn ($class) => trim($class->class_name . ' ' . $class->section))
+                    ->values();
 
                 $query->whereHas('student', function ($q) use ($teacher) {
                         $q->where('institute', $teacher->institute);
                     })
                     ->whereHas('assessment', function ($q) use ($teacher) {
                         $q->where('teacher_id', $teacher->id);
+                    })
+                    ->when($selectedClass, function ($classQuery) use ($selectedClass) {
+                        $classQuery->whereHas('student', function ($studentQuery) use ($selectedClass) {
+                            $studentQuery->whereRaw(
+                                "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                                [$selectedClass]
+                            );
+                        });
                     });
             })
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
@@ -114,7 +131,7 @@ class AssessmentResultController extends Controller
             ->latest()
             ->get();
 
-        return view('review-assessment-answers', compact('pendingResults'));
+        return view('review-assessment-answers', compact('pendingResults', 'classOptions', 'selectedClass'));
     }
 
     public function reviewAnswer(Request $request, $id)

@@ -7,18 +7,22 @@
     <style>
         html,
         body {
+            width: 100%;
             height: 100%;
             margin: 0;
             background: #111827;
             font-family: Arial, Helvetica, sans-serif;
+            overflow: hidden;
         }
 
         .preview-shell {
             display: flex;
             flex-direction: column;
-            height: 100%;
-            min-height: 100vh;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
             background: #111827;
+            overflow: hidden;
         }
 
         .preview-toolbar {
@@ -95,7 +99,7 @@
         .preview-frame-wrap {
             flex: 1;
             min-height: 0;
-            padding: 28px 32px 32px;
+            padding: 18px 20px 22px;
             background:
                 radial-gradient(circle at top, rgba(59, 130, 246, 0.12), transparent 30%),
                 #111827;
@@ -105,11 +109,11 @@
         .preview-stage {
             width: 100%;
             height: 100%;
-            max-width: 1180px;
+            max-width: none;
             margin: 0 auto;
             overflow: hidden;
             border: 1px solid rgba(148, 163, 184, 0.26);
-            border-radius: 14px;
+            border-radius: 10px;
             background: #1f2937;
             box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
         }
@@ -124,9 +128,11 @@
         .preview-frame-holder {
             height: calc(100% - 8px);
             background: #ffffff;
+            overflow: hidden;
         }
 
         .preview-frame {
+            display: block;
             width: 100%;
             height: 100%;
             border: 0;
@@ -182,8 +188,8 @@
             color: #bfdbfe;
         }
 
-            .preview-shell:fullscreen .preview-frame-wrap {
-            padding: 18px 20px 22px;
+        .preview-shell:fullscreen .preview-frame-wrap {
+            padding: 14px 16px 18px;
         }
 
         .preview-shell:fullscreen .preview-stage {

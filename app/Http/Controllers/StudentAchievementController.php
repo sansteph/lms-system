@@ -10,7 +10,14 @@ class StudentAchievementController extends Controller
 {
     public function adminIndex()
     {
-        $achievements = StudentAchievement::latest()->get();
+        $achievements = StudentAchievement::with('student')
+            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+                $query->whereHas('student', function ($q) {
+                    $q->where('institute', session('user_institute'));
+                });
+            })
+            ->latest()
+            ->get();
 
         return view('admin-achievements', compact('achievements'));
     }

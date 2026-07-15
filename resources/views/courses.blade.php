@@ -40,6 +40,24 @@
         border-top: 1px solid #e5e7eb;
         box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.06);
     }
+
+    .course-institute-section {
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+    }
+
+    .course-institute-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 16px 18px;
+    }
+
+    .course-institute-body {
+        padding: 18px;
+    }
 </style>
 
 <div class="container-fluid">
@@ -233,121 +251,162 @@
                 </div>
             </div>
 
-            <div class="row g-4">
-                @forelse($courses as $course)
-                    <div class="col-12">
-                        <div class="card shadow border-0">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
-                                    <div>
-                                        <h5 class="mb-1">{{ $course->course_title }}</h5>
-                                        <div class="text-muted small">
-                                            {{ $course->is_template_source ? 'Template Source' : ($course->institute ?? 'N/A') }} |
-                                            {{ $course->assigned_class ?? 'No class set' }} |
-                                            {{ $course->availability_type ?? 'Institute' }}
+            @forelse($courseGroups as $instituteName => $instituteCourses)
+                <div class="course-institute-section mb-4">
+                    <div class="course-institute-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <h5 class="mb-1">{{ $instituteName }}</h5>
+                            <div class="text-muted small">
+                                {{ $instituteCourses->count() }} {{ Str::plural('course', $instituteCourses->count()) }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="course-institute-body">
+                        <div class="row g-4">
+                            @foreach($instituteCourses as $course)
+                                <div class="col-12">
+                                    <div class="card shadow-sm border">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                                                <div>
+                                                    <h5 class="mb-1">{{ $course->course_title }}</h5>
+                                                    <div class="text-muted small">
+                                                        {{ $course->assigned_class ?? 'No class set' }} |
+                                                        {{ $course->availability_type ?? 'Institute' }}
+                                                    </div>
+                                                </div>
+
+                                                <div class="d-flex gap-2 flex-wrap">
+                                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editCourseModal{{ $course->id }}">
+                                                        Edit Course
+                                                    </button>
+                                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal{{ $course->id }}">
+                                                        Upload Content
+                                                    </button>
+                                                    <a href="{{ route('courses.delete', $course->id) }}"
+                                                       class="btn btn-sm btn-outline-danger"
+                                                       onclick="return confirm('Delete this course? Related course links and teaching plans will be removed.')">
+                                                        Delete
+                                                    </a>
+                                                </div>
+                                            </div>
+
+                                            <div class="course-content-list">
+                                                <table class="table table-sm table-bordered align-middle mb-0 bg-white">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th style="width: 90px;">Order</th>
+                                                            <th>Content</th>
+                                                            <th>Type</th>
+                                                            <th>Status</th>
+                                                            <th style="width: 280px;">Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @forelse($course->courseContents->sortBy('sort_order') as $courseContent)
+                                                            <tr>
+                                                                <td>{{ $courseContent->sort_order }}</td>
+                                                                <td>
+                                                                    <strong>{{ $courseContent->content->content_title ?? 'Content' }}</strong>
+                                                                    <div class="text-muted small">
+                                                                        {{ $courseContent->content->assigned_class ?? $course->assigned_class ?? 'No class set' }}
+                                                                    </div>
+                                                                </td>
+                                                                <td>{{ $courseContent->content->content_type ?? '-' }}</td>
+                                                                <td>{{ ucfirst($courseContent->status) }}</td>
+                                                                <td>
+                                                                    @if($courseContent->content)
+                                                                        @if($courseContent->content->aiSummary && $courseContent->content->aiSummary->status == 'generated')
+                                                                            <span class="badge bg-info text-dark w-100 mb-2 py-2">
+                                                                                AI Summary Ready
+                                                                            </span>
+                                                                        @elseif($courseContent->content->aiSummary && $courseContent->content->aiSummary->status == 'failed')
+                                                                            <span class="badge bg-danger w-100 mb-2 py-2">
+                                                                                AI Failed
+                                                                            </span>
+                                                                            @if($courseContent->content->aiSummary->error_message)
+                                                                                <div class="alert alert-warning small py-2 px-3 mb-2">
+                                                                                    {{ $courseContent->content->aiSummary->error_message }}
+                                                                                </div>
+                                                                            @endif
+                                                                        @else
+                                                                            <span class="badge bg-secondary w-100 mb-2 py-2">
+                                                                                AI Not Generated
+                                                                            </span>
+                                                                        @endif
+
+                                                                        <form method="POST"
+                                                                              action="{{ route('content.ai-summary.generate', $courseContent->content->id) }}"
+                                                                              class="mb-2"
+                                                                              onsubmit="return confirm('Generate AI summary for this content?');">
+                                                                            @csrf
+                                                                            <button type="submit" class="btn btn-sm btn-outline-success w-100">
+                                                                                {{ $courseContent->content->aiSummary && $courseContent->content->aiSummary->status == 'generated' ? 'Refresh AI' : 'Generate AI' }}
+                                                                            </button>
+                                                                        </form>
+
+                                                                        <a href="{{ route('content.preview', [$courseContent->content->id, 'teacher']) }}"
+                                                                           class="btn btn-sm btn-outline-primary w-100 mb-2"
+                                                                           target="_blank"
+                                                                           rel="noopener">
+                                                                            View
+                                                                        </a>
+                                                                        <button type="button"
+                                                                                class="btn btn-sm btn-outline-secondary w-100 mb-2"
+                                                                                data-bs-toggle="modal"
+                                                                                data-bs-target="#editCourseContentModal{{ $courseContent->id }}">
+                                                                            Edit Content
+                                                                        </button>
+                                                                    @endif
+
+                                                                    <form method="POST"
+                                                                          action="{{ route('courses.contents.order', [$course->id, $courseContent->id]) }}"
+                                                                          class="d-flex gap-2 mb-2">
+                                                                        @csrf
+                                                                        <input type="number" name="sort_order" class="form-control form-control-sm" value="{{ $courseContent->sort_order }}" min="1" required>
+                                                                        <select name="status" class="form-select form-select-sm">
+                                                                            @foreach(['active', 'draft', 'archived'] as $status)
+                                                                                <option value="{{ $status }}" {{ $courseContent->status == $status ? 'selected' : '' }}>
+                                                                                    {{ ucfirst($status) }}
+                                                                                </option>
+                                                                            @endforeach
+                                                                        </select>
+                                                                        <button class="btn btn-sm btn-outline-primary">Save</button>
+                                                                    </form>
+
+                                                                    <form method="POST"
+                                                                          action="{{ route('courses.contents.detach', [$course->id, $courseContent->id]) }}"
+                                                                          onsubmit="return confirm('Remove this content from the course? The uploaded file will be deleted.');">
+                                                                        @csrf
+                                                                        <button class="btn btn-sm btn-outline-danger w-100">Detach</button>
+                                                                    </form>
+                                                                </td>
+                                                            </tr>
+                                                        @empty
+                                                            <tr>
+                                                                <td colspan="5" class="text-center text-muted">
+                                                                    No content attached yet.
+                                                                </td>
+                                                            </tr>
+                                                        @endforelse
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     </div>
-
-                                    <div class="d-flex gap-2 flex-wrap">
-                                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editCourseModal{{ $course->id }}">
-                                            Edit Course
-                                        </button>
-                                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal{{ $course->id }}">
-                                            Upload Content
-                                        </button>
-                                        <a href="{{ route('courses.delete', $course->id) }}"
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Delete this course? Related course links and teaching plans will be removed.')">
-                                            Delete
-                                        </a>
-                                    </div>
                                 </div>
-
-                                <div class="course-content-list">
-                                    <table class="table table-sm table-bordered align-middle mb-0 bg-white">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th style="width: 90px;">Order</th>
-                                                <th>Content</th>
-                                                <th>Type</th>
-                                                <th>Status</th>
-                                                <th style="width: 280px;">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @forelse($course->courseContents->sortBy('sort_order') as $courseContent)
-                                                <tr>
-                                                    <td>{{ $courseContent->sort_order }}</td>
-                                                    <td>
-                                                        <strong>{{ $courseContent->content->content_title ?? 'Content' }}</strong>
-                                                        <div class="text-muted small">
-                                                            {{ $courseContent->content->assigned_class ?? $course->assigned_class ?? 'No class set' }}
-                                                        </div>
-                                                    </td>
-                                                    <td>{{ $courseContent->content->content_type ?? '-' }}</td>
-                                                    <td>{{ ucfirst($courseContent->status) }}</td>
-                                                    <td>
-                                                        @if($courseContent->content)
-                                                            <a href="{{ route('content.preview', [$courseContent->content->id, 'teacher']) }}"
-                                                               class="btn btn-sm btn-outline-primary w-100 mb-2"
-                                                               target="_blank"
-                                                               rel="noopener">
-                                                                View
-                                                            </a>
-                                                            <button type="button"
-                                                                    class="btn btn-sm btn-outline-secondary w-100 mb-2"
-                                                                    data-bs-toggle="modal"
-                                                                    data-bs-target="#editCourseContentModal{{ $courseContent->id }}">
-                                                                Edit Content
-                                                            </button>
-                                                        @endif
-
-                                                        <form method="POST"
-                                                              action="{{ route('courses.contents.order', [$course->id, $courseContent->id]) }}"
-                                                              class="d-flex gap-2 mb-2">
-                                                            @csrf
-                                                            <input type="number" name="sort_order" class="form-control form-control-sm" value="{{ $courseContent->sort_order }}" min="1" required>
-                                                            <select name="status" class="form-select form-select-sm">
-                                                                @foreach(['active', 'draft', 'archived'] as $status)
-                                                                    <option value="{{ $status }}" {{ $courseContent->status == $status ? 'selected' : '' }}>
-                                                                        {{ ucfirst($status) }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                            <button class="btn btn-sm btn-outline-primary">Save</button>
-                                                        </form>
-
-                                                        <form method="POST"
-                                                              action="{{ route('courses.contents.detach', [$course->id, $courseContent->id]) }}"
-                                                              onsubmit="return confirm('Remove this content from the course? The uploaded file will be deleted.');">
-                                                            @csrf
-                                                            <button class="btn btn-sm btn-outline-danger w-100">Detach</button>
-                                                        </form>
-                                                    </td>
-                                                </tr>
-                                            @empty
-                                                <tr>
-                                                    <td colspan="5" class="text-center text-muted">
-                                                        No content attached yet.
-                                                    </td>
-                                                </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                            @endforeach
                         </div>
                     </div>
-                @empty
-                    <div class="col-12">
-                        <div class="card shadow border-0">
-                            <div class="card-body text-center text-muted">
-                                No courses created.
-                            </div>
-                        </div>
+                </div>
+            @empty
+                <div class="card shadow border-0">
+                    <div class="card-body text-center text-muted">
+                        No courses created.
                     </div>
-                @endforelse
-            </div>
+                </div>
+            @endforelse
         </div>
     </div>
 </div>

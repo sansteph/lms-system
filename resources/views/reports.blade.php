@@ -17,12 +17,91 @@
                     </p>
                 </div>
 
-                <a href="{{ url('/reports/export') }}" class="btn btn-success btn-sm">
-                    <i class="fa fa-file-csv me-1"></i>
-                    Export CSV
-                </a>
+                <div class="d-flex gap-2 flex-wrap">
+                    <form method="POST" action="{{ route('reports.ai-insights') }}">
+                        @csrf
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fa fa-wand-magic-sparkles me-1"></i>
+                            Generate AI Insights
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ route('reports.ai-insights.download') }}">
+                        @csrf
+                        <button type="submit" class="btn btn-outline-primary btn-sm">
+                            <i class="fa fa-file-pdf me-1"></i>
+                            Download AI PDF
+                        </button>
+                    </form>
+                    <a href="{{ url('/reports/export') }}" class="btn btn-success btn-sm">
+                        <i class="fa fa-file-csv me-1"></i>
+                        Export CSV
+                    </a>
+                </div>
 
             </div>
+
+            @if(session('error'))
+                <div class="alert alert-danger">
+                    {{ session('error') }}
+                </div>
+            @endif
+
+            @php
+                $aiInsights = session('aiInsights');
+            @endphp
+
+            @if($aiInsights)
+                <div class="card shadow border-0 mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                            <div>
+                                <h5 class="mb-1">AI Generated Report Insights</h5>
+                                <p class="text-muted mb-0">
+                                    Generated from current live LMS data{{ isset($aiInsights['generated_at']) ? ' at ' . $aiInsights['generated_at'] : '' }}.
+                                </p>
+                            </div>
+                            @if(!empty($aiInsights['model']))
+                                <span class="badge bg-info">{{ $aiInsights['model'] }}</span>
+                            @endif
+                        </div>
+
+                        <p class="mb-3">{{ $aiInsights['summary'] ?? 'No summary returned.' }}</p>
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <h6>Highlights</h6>
+                                <ul class="mb-0">
+                                    @forelse($aiInsights['highlights'] ?? [] as $item)
+                                        <li>{{ $item }}</li>
+                                    @empty
+                                        <li>No highlights returned.</li>
+                                    @endforelse
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Risks</h6>
+                                <ul class="mb-0">
+                                    @forelse($aiInsights['risks'] ?? [] as $item)
+                                        <li>{{ $item }}</li>
+                                    @empty
+                                        <li>No risks returned.</li>
+                                    @endforelse
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Recommendations</h6>
+                                <ul class="mb-0">
+                                    @forelse($aiInsights['recommendations'] ?? [] as $item)
+                                        <li>{{ $item }}</li>
+                                    @empty
+                                        <li>No recommendations returned.</li>
+                                    @endforelse
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
 
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
@@ -50,6 +129,40 @@
                     <div class="dashboard-card">
                         <h6>Assessments</h6>
                         <h2>{{ $assessmentCount }}</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-4">
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>AI Reviews</h6>
+                        <h2>{{ $studentAiReviewCount }}</h2>
+                        <small class="text-muted">Progress only</small>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>AI Reviews Passed</h6>
+                        <h2>{{ $studentAiReviewPassedCount }}</h2>
+                        <small class="text-muted">{{ number_format($studentAiReviewAverage, 2) }}% avg</small>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Prep Quizzes</h6>
+                        <h2>{{ $teacherAiPrepCount }}</h2>
+                        <small class="text-muted">STEM Engineer readiness</small>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="dashboard-card">
+                        <h6>Prep Passed</h6>
+                        <h2>{{ $teacherAiPrepPassedCount }}</h2>
+                        <small class="text-muted">{{ number_format($teacherAiPrepAverage, 2) }}% avg</small>
                     </div>
                 </div>
             </div>
@@ -150,6 +263,127 @@
 
             </div>
 
+            <div class="row g-4 mb-4">
+                <div class="col-lg-6">
+                    <div class="card shadow border-0 h-100">
+                        <div class="card-body">
+                            <h5 class="mb-3">Institute Overview</h5>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Institute</th>
+                                            <th>Students</th>
+                                            <th>STEM Engineers</th>
+                                            <th>Classes</th>
+                                            <th>Active Sessions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($instituteBreakdowns as $institute)
+                                            <tr>
+                                                <td>{{ $institute['institute'] }}</td>
+                                                <td>{{ $institute['students'] }}</td>
+                                                <td>{{ $institute['stem_engineers'] }}</td>
+                                                <td>{{ $institute['classes'] }}</td>
+                                                <td>{{ $institute['active_sessions'] }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="5" class="text-center text-muted">No institute data available.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="card shadow border-0 h-100">
+                        <div class="card-body">
+                            <h5 class="mb-3">STEM Engineer Performance</h5>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Institute</th>
+                                            <th>STEM Engineer</th>
+                                            <th>Sessions</th>
+                                            <th>Completed</th>
+                                            <th>Partial</th>
+                                            <th>Hours</th>
+                                            <th>AI Prep</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($teacherPerformance as $teacher)
+                                            <tr>
+                                                <td>{{ $teacher['institute'] }}</td>
+                                                <td>{{ $teacher['name'] }}</td>
+                                                <td>{{ $teacher['sessions'] }}</td>
+                                                <td>{{ $teacher['completed_sessions'] }}</td>
+                                                <td>{{ $teacher['partial_sessions'] }}</td>
+                                                <td>{{ $teacher['hours'] }}</td>
+                                                <td>
+                                                    {{ $teacher['ai_prep'] }} total |
+                                                    {{ $teacher['ai_prep_passed'] }} passed |
+                                                    {{ number_format($teacher['ai_prep_average'], 2) }}%
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="7" class="text-center text-muted">No STEM Engineer session data available.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow border-0 mb-4">
+                <div class="card-body">
+                    <h5 class="mb-3">Class-wise Tracking</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Institute</th>
+                                    <th>Class</th>
+                                    <th>Students</th>
+                                    <th>Sessions</th>
+                                    <th>Active Plans</th>
+                                    <th>AI Reviews</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($classBreakdowns->groupBy('institute') as $instituteName => $classes)
+                                    <tr class="table-primary">
+                                        <td colspan="6" class="fw-semibold">{{ $instituteName }} · {{ $classes->count() }} class section{{ $classes->count() == 1 ? '' : 's' }}</td>
+                                    </tr>
+                                    @foreach($classes as $class)
+                                        <tr>
+                                            <td>{{ $class['institute'] }}</td>
+                                            <td>{{ $class['class_label'] }}</td>
+                                            <td>{{ $class['students'] }}</td>
+                                            <td>{{ $class['sessions'] }}</td>
+                                            <td>{{ $class['active_plans'] }}</td>
+                                            <td>
+                                                {{ $class['ai_reviews'] }} total |
+                                                {{ $class['ai_reviews_passed'] }} passed |
+                                                {{ number_format($class['ai_review_average'], 2) }}%
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @empty
+                                    <tr><td colspan="6" class="text-center text-muted">No class tracking data available.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div class="card shadow border-0">
 
                 <div class="card-body">
@@ -228,6 +462,26 @@
                                 <td>
                                     <span class="badge bg-success">
                                         Issued
+                                    </span>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>AI Student Reviews</td>
+                                <td>{{ $studentAiReviewCount }} total | {{ $studentAiReviewPassedCount }} passed | {{ number_format($studentAiReviewAverage, 2) }}% avg</td>
+                                <td>
+                                    <span class="badge bg-info">
+                                        AI Progress Only
+                                    </span>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>AI STEM Engineer Prep</td>
+                                <td>{{ $teacherAiPrepCount }} total | {{ $teacherAiPrepPassedCount }} passed | {{ number_format($teacherAiPrepAverage, 2) }}% avg</td>
+                                <td>
+                                    <span class="badge bg-info">
+                                        AI Progress Only
                                     </span>
                                 </td>
                             </tr>
@@ -335,6 +589,22 @@
                                 <td>Total Sessions Conducted</td>
                                 <td>{{ $classSessionCount }}</td>
                                 <td><span class="badge bg-secondary">Tracked</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>11</td>
+                                <td>AI Progress</td>
+                                <td>Student AI Reviews</td>
+                                <td>{{ $studentAiReviewCount }} total | {{ $studentAiReviewPassedCount }} passed | {{ number_format($studentAiReviewAverage, 2) }}% avg</td>
+                                <td><span class="badge bg-info">Progress Only</span></td>
+                            </tr>
+
+                            <tr>
+                                <td>12</td>
+                                <td>AI Progress</td>
+                                <td>STEM Engineer Prep Quizzes</td>
+                                <td>{{ $teacherAiPrepCount }} total | {{ $teacherAiPrepPassedCount }} passed | {{ number_format($teacherAiPrepAverage, 2) }}% avg</td>
+                                <td><span class="badge bg-info">Progress Only</span></td>
                             </tr>
                         </tbody>
                     </table>

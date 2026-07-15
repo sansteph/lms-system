@@ -12,6 +12,8 @@ class CourseContent extends Model
         'sort_order',
         'status',
         'created_by',
+        'source_template_course_content_id',
+        'source_template_content_id',
     ];
 
     public function course()
@@ -22,5 +24,10 @@ class CourseContent extends Model
     public function content()
     {
         return $this->belongsTo(Content::class);
+    }
+
+    public function sourceTemplateContent()
+    {
+        return $this->belongsTo(Content::class, 'source_template_content_id');
     }
 }

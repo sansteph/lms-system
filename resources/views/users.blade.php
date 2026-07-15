@@ -65,36 +65,49 @@
                         </thead>
 
                         <tbody>
-                            @forelse($users as $index => $user)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $user->user_id }}</td>
-                                    <td>{{ $user->name }}</td>
-                                    <td>{{ $user->email }}</td>
-                                    <td>{{ $user->institute ?? 'N/A' }}</td>
+                            @php
+                                $groupedUsers = $users->groupBy(fn ($user) => $user->institute ?: 'Unassigned Institute');
+                                $rowNumber = 1;
+                            @endphp
 
-                                    <td>
-                                        @if($user->status == 1)
-                                            <span class="badge bg-success">Active</span>
-                                        @else
-                                            <span class="badge bg-danger">Inactive</span>
-                                        @endif
-                                    </td>
-
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-primary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#editUserModal{{ $user->id }}">
-                                            Edit
-                                        </button>
-
-                                        <a href="{{ route('users.delete', $user->id) }}"
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Are you sure you want to delete this STEM Engineer?')">
-                                            Delete
-                                        </a>
+                            @forelse($groupedUsers as $instituteName => $instituteUsers)
+                                <tr class="table-primary">
+                                    <td colspan="7" class="fw-semibold">
+                                        {{ $instituteName }} · {{ $instituteUsers->count() }} STEM Engineer{{ $instituteUsers->count() == 1 ? '' : 's' }}
                                     </td>
                                 </tr>
+
+                                @foreach($instituteUsers as $user)
+                                    <tr>
+                                        <td>{{ $rowNumber++ }}</td>
+                                        <td>{{ $user->user_id }}</td>
+                                        <td>{{ $user->name }}</td>
+                                        <td>{{ $user->email }}</td>
+                                        <td>{{ $user->institute ?? 'N/A' }}</td>
+
+                                        <td>
+                                            @if($user->status == 1)
+                                                <span class="badge bg-success">Active</span>
+                                            @else
+                                                <span class="badge bg-danger">Inactive</span>
+                                            @endif
+                                        </td>
+
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#editUserModal{{ $user->id }}">
+                                                Edit
+                                            </button>
+
+                                            <a href="{{ route('users.delete', $user->id) }}"
+                                               class="btn btn-sm btn-outline-danger"
+                                               onclick="return confirm('Are you sure you want to delete this STEM Engineer?')">
+                                                Delete
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @endforeach
                             @empty
                                 <tr>
                                     <td colspan="7" class="text-center text-muted">
@@ -140,6 +153,11 @@
                         <div class="col-md-6">
                             <label class="form-label">Email Address</label>
                             <input type="email" name="email" class="form-control" placeholder="Enter email address" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Qualification</label>
+                            <input type="text" name="qualification" class="form-control" placeholder="Example: B.Tech, M.Sc, B.Ed" required>
                         </div>
 
                         <div class="col-md-6">
@@ -209,6 +227,11 @@
                             <div class="col-md-6">
                                 <label class="form-label">Email Address</label>
                                 <input type="email" name="email" class="form-control" value="{{ $user->email }}" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Qualification</label>
+                                <input type="text" name="qualification" class="form-control" value="{{ $user->qualification }}" required>
                             </div>
 
                             <div class="col-md-6">

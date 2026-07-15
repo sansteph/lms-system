@@ -18,6 +18,7 @@ class AssessmentController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
+        $selectedClass = $request->input('class');
         $teacherClassNames = $this->teacherInstituteClassNames();
 
         $assessments = Assessment::with(['teacher', 'questionPaperReviewer'])
@@ -37,6 +38,10 @@ class AssessmentController extends Controller
                         ->orWhere('assigned_class', 'like', "%{$search}%");
                 });
             })
+            ->when($selectedClass, function ($query) use ($selectedClass) {
+                $query->where('assigned_class', $selectedClass);
+            })
+            ->orderBy('assigned_class')
             ->latest()
             ->get();
 
@@ -44,7 +49,7 @@ class AssessmentController extends Controller
 
         $classOptions = $teacherClassNames;
 
-        return view('assessments', compact('assessments', 'classOptions', 'teacher'));
+        return view('assessments', compact('assessments', 'classOptions', 'teacher', 'selectedClass'));
     }
 
     public function store(Request $request)
@@ -197,7 +202,9 @@ class AssessmentController extends Controller
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
             })
-            ->latest()
+            ->orderBy('institute')
+            ->orderBy('assigned_class')
+            ->latest('created_at')
             ->get();
 
         return view('admin-question-papers', compact('assessments'));

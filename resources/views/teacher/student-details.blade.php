@@ -21,7 +21,7 @@
 
                 </div>
 
-                <a href="{{ route('teacher.student.profiles.export') }}"
+                <a href="{{ route('teacher.student.profiles.export', request()->query()) }}"
                     class="btn btn-success">
 
                     <i class="fa fa-file-excel me-2"></i>
@@ -33,6 +33,25 @@
             </div>
 
             <div class="card shadow-sm border-0 p-4">
+                <form method="GET" action="{{ route('teacher.student.profiles') }}" class="row g-3 align-items-end mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">Class</label>
+                        <select name="class" class="form-control">
+                            <option value="">All Classes</option>
+                            @foreach($classOptions as $classOption)
+                                <option value="{{ $classOption }}" {{ $selectedClass == $classOption ? 'selected' : '' }}>
+                                    {{ $classOption }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">Apply</button>
+                    </div>
+                    <div class="col-md-2">
+                        <a href="{{ route('teacher.student.profiles') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                    </div>
+                </form>
 
                 <div class="table-responsive">
 
@@ -54,7 +73,11 @@
 
                         <tbody>
 
-                            @forelse($students as $student)
+                            @forelse($students->groupBy(fn ($student) => trim($student->class . ' ' . $student->section) ?: 'Unassigned Class') as $classLabel => $classStudents)
+                                <tr class="table-primary">
+                                    <td colspan="7" class="fw-semibold">{{ $classLabel }}</td>
+                                </tr>
+                                @foreach($classStudents as $student)
 
                                 <tr>
 
@@ -101,6 +124,7 @@
                                     </td>
 
                                 </tr>
+                                @endforeach
 
                             @empty
 

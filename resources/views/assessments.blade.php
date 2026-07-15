@@ -39,8 +39,21 @@
                         <div class="col-md-4">
                             <input type="text" name="search" class="form-control" placeholder="Search by title or class" value="{{ request('search') }}">
                         </div>
+                        <div class="col-md-3">
+                            <select name="class" class="form-control">
+                                <option value="">All Classes</option>
+                                @foreach($classOptions as $classOption)
+                                    <option value="{{ $classOption }}" {{ ($selectedClass ?? request('class')) == $classOption ? 'selected' : '' }}>
+                                        {{ $classOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                         <div class="col-md-2">
                             <button type="submit" class="btn btn-primary w-100">Search</button>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{{ route('teacher.assessments') }}" class="btn btn-outline-secondary w-100">Clear</a>
                         </div>
                     </form>
 
@@ -62,54 +75,60 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($assessments as $index => $assessment)
-                                    @php
-                                        $extension = strtolower(pathinfo($assessment->file_path ?? '', PATHINFO_EXTENSION));
-                                        $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
-                                        $paperVariant = in_array($extension, $previewExtensions) && $assessment->question_paper_preview_path ? 'preview' : 'file';
-                                    @endphp
-                                    <tr>
-                                        <td>{{ $index + 1 }}</td>
-                                        <td>{{ $assessment->assessment_title }}</td>
-                                        <td>{{ $assessment->assigned_class }}</td>
-                                        <td>
-                                            <span class="badge {{ $assessment->assessment_category == 'Annual' ? 'bg-dark' : 'bg-info' }}">
-                                                {{ $assessment->assessment_category ?? 'Monthly' }}
-                                            </span>
-                                        </td>
-                                        <td>{{ $assessment->assessment_date ? \Carbon\Carbon::parse($assessment->assessment_date)->format('d M Y') : 'Not Set' }}</td>
-                                        <td>{{ $assessment->total_marks }}</td>
-                                        <td>{{ $assessment->duration }} mins</td>
-                                        <td>
-                                            @if($assessment->file_path)
-                                                <a href="{{ route('assessment.paper', [$assessment->id, $paperVariant]) }}" target="_blank" class="btn btn-sm btn-outline-primary">View</a>
-                                            @else
-                                                <span class="badge bg-secondary">Missing</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($assessment->question_paper_status == 'Approved')
-                                                <span class="badge bg-success">Approved</span>
-                                            @elseif($assessment->question_paper_status == 'Rejected')
-                                                <span class="badge bg-danger">Rejected</span>
-                                            @else
-                                                <span class="badge bg-warning text-dark">Pending Approval</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($assessment->status == 1)
-                                                <span class="badge bg-success">Active</span>
-                                            @else
-                                                <span class="badge bg-danger">Inactive</span>
-                                            @endif
-                                        </td>
-                                        <td class="text-nowrap">
-                                            <div class="d-flex flex-column gap-2">
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editAssessmentModal{{ $assessment->id }}">Edit</button>
-                                                <a href="{{ route('teacher.assessments.delete', $assessment->id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this assessment?')">Delete</a>
-                                            </div>
-                                        </td>
+                                @php $rowNumber = 1; @endphp
+                                @forelse($assessments->groupBy(fn ($assessment) => $assessment->assigned_class ?: 'Unassigned Class') as $classLabel => $classAssessments)
+                                    <tr class="table-primary">
+                                        <td colspan="11" class="fw-semibold">{{ $classLabel }}</td>
                                     </tr>
+                                    @foreach($classAssessments as $assessment)
+                                        @php
+                                            $extension = strtolower(pathinfo($assessment->file_path ?? '', PATHINFO_EXTENSION));
+                                            $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
+                                            $paperVariant = in_array($extension, $previewExtensions) && $assessment->question_paper_preview_path ? 'preview' : 'file';
+                                        @endphp
+                                        <tr>
+                                            <td>{{ $rowNumber++ }}</td>
+                                            <td>{{ $assessment->assessment_title }}</td>
+                                            <td>{{ $assessment->assigned_class }}</td>
+                                            <td>
+                                                <span class="badge {{ $assessment->assessment_category == 'Annual' ? 'bg-dark' : 'bg-info' }}">
+                                                    {{ $assessment->assessment_category ?? 'Monthly' }}
+                                                </span>
+                                            </td>
+                                            <td>{{ $assessment->assessment_date ? \Carbon\Carbon::parse($assessment->assessment_date)->format('d M Y') : 'Not Set' }}</td>
+                                            <td>{{ $assessment->total_marks }}</td>
+                                            <td>{{ $assessment->duration }} mins</td>
+                                            <td>
+                                                @if($assessment->file_path)
+                                                    <a href="{{ route('assessment.paper', [$assessment->id, $paperVariant]) }}" target="_blank" class="btn btn-sm btn-outline-primary">View</a>
+                                                @else
+                                                    <span class="badge bg-secondary">Missing</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($assessment->question_paper_status == 'Approved')
+                                                    <span class="badge bg-success">Approved</span>
+                                                @elseif($assessment->question_paper_status == 'Rejected')
+                                                    <span class="badge bg-danger">Rejected</span>
+                                                @else
+                                                    <span class="badge bg-warning text-dark">Pending Approval</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($assessment->status == 1)
+                                                    <span class="badge bg-success">Active</span>
+                                                @else
+                                                    <span class="badge bg-danger">Inactive</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-nowrap">
+                                                <div class="d-flex flex-column gap-2">
+                                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editAssessmentModal{{ $assessment->id }}">Edit</button>
+                                                    <a href="{{ route('teacher.assessments.delete', $assessment->id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this assessment?')">Delete</a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
                                 @empty
                                     <tr><td colspan="11" class="text-center text-muted">No assessments found</td></tr>
                                 @endforelse

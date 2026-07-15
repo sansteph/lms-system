@@ -43,6 +43,25 @@
             </div>
             <div class="card shadow border-0">
                 <div class="card-body">
+                    <form method="GET" action="{{ route('teacher.certificates') }}" class="row g-3 align-items-end mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">Class</label>
+                            <select name="class" class="form-control">
+                                <option value="">All Classes</option>
+                                @foreach($classOptions as $classOption)
+                                    <option value="{{ $classOption }}" {{ $selectedClass == $classOption ? 'selected' : '' }}>
+                                        {{ $classOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">Apply</button>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{{ route('teacher.certificates') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                        </div>
+                    </form>
 
                     <table class="table table-bordered table-hover align-middle">
                         <thead class="table-dark">
@@ -61,9 +80,14 @@
                         </thead>
 
                         <tbody>
-                            @forelse($certificates as $index => $certificate)
+                            @php $rowNumber = 1; @endphp
+                            @forelse($certificates->groupBy(fn ($certificate) => $certificate->student ? trim($certificate->student->class . ' ' . $certificate->student->section) : 'Unassigned Class') as $classLabel => $classCertificates)
+                                <tr class="table-primary">
+                                    <td colspan="10" class="fw-semibold">{{ $classLabel }}</td>
+                                </tr>
+                                @foreach($classCertificates as $certificate)
                                 <tr>
-                                    <td>{{ $index + 1 }}</td>
+                                    <td>{{ $rowNumber++ }}</td>
 
                                     <td>{{ $certificate->student->name ?? 'Student Deleted' }}</td>
 
@@ -103,6 +127,7 @@
                                         @endif
                                     </td>
                                 </tr>
+                                @endforeach
                             @empty
                                 <tr>
                                     <td colspan="10" class="text-center text-muted">

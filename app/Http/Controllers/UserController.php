@@ -14,10 +14,13 @@ use App\Models\Content;
 use Illuminate\Support\Facades\DB;
 use App\Models\SchoolClass;
 use App\Models\ClassContentSession;
+use App\Support\DeletesAssessments;
 
 
 class UserController extends Controller
 {
+    use DeletesAssessments;
+
     public function index(Request $request)
     {
         $search = $request->search;
@@ -30,9 +33,12 @@ class UserController extends Controller
                 $query->where(function ($q) use ($search) {
                     $q->where('user_id', 'like', "%{$search}%")
                     ->orWhere('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('institute', 'like', "%{$search}%");
                 });
             })
+            ->orderBy('institute')
+            ->orderBy('name')
             ->get();
 
         return view('users', compact('users'));
@@ -44,6 +50,7 @@ class UserController extends Controller
             'user_id' => 'required|string|max:50|unique:users,user_id',
             'name' => 'required|string|max:100',
             'email' => 'required|email',
+            'qualification' => 'required|string|max:255',
             'password' => 'required|min:6',
             'status' => 'required|boolean',
             'institute' => session('user_role') == 'Admin'
@@ -55,6 +62,7 @@ class UserController extends Controller
             'user_id' => $request->user_id,
             'name' => $request->name,
             'email' => $request->email,
+            'qualification' => $request->qualification,
             'institute' => session('user_role') == 'InstituteAdmin'
                 ? session('user_institute')
                 : $request->institute,
@@ -73,6 +81,7 @@ class UserController extends Controller
             'user_id' => 'required|string|max:50|unique:users,user_id,' . $id,
             'name' => 'required|string|max:100',
             'email' => 'required|email',
+            'qualification' => 'required|string|max:255',
             'status' => 'required|boolean',
             'institute' => session('user_role') == 'InstituteAdmin'
                 ? 'nullable|string|max:255'
@@ -92,6 +101,7 @@ class UserController extends Controller
             'user_id' => $request->user_id,
             'name' => $request->name,
             'email' => $request->email,
+            'qualification' => $request->qualification,
             'institute' => session('user_role') == 'InstituteAdmin'
                 ? session('user_institute')
                 : $request->institute,
@@ -115,20 +125,13 @@ class UserController extends Controller
 
         DB::transaction(function () use ($user, $id) {
 
-            UserSession::where('user_type', 'Teacher')
-                ->where('user_id', $id)
-                ->delete();
-
-            ClassContentSession::where('stem_engineer_id', $id)
-                ->delete();
-
             SchoolClass::where('class_teacher', $user->name)
                 ->where('institute', $user->institute)
                 ->update([
                     'class_teacher' => null,
                 ]);
 
-            $user->delete();
+            $this->deleteTeacherCompletely($user);
         });
 
         return redirect()->back()
@@ -287,7 +290,11 @@ class UserController extends Controller
 
     public function changePassword()
     {
-        return view('change-password');
+        return view('change-password', [
+            'submitRoute' => route('admin.change.password.submit'),
+            'dashboardRoute' => route('admin.dashboard'),
+            'sidebar' => 'admin',
+        ]);
     }
 
     public function changePasswordSubmit(Request $request)
@@ -314,6 +321,42 @@ class UserController extends Controller
         ]);
 
         return redirect()->route('admin.dashboard')
+            ->with('success', 'Password changed successfully.');
+    }
+
+    public function teacherChangePassword()
+    {
+        return view('change-password', [
+            'submitRoute' => route('teacher.change.password.submit'),
+            'dashboardRoute' => route('teacher.dashboard'),
+            'sidebar' => 'teacher',
+        ]);
+    }
+
+    public function teacherChangePasswordSubmit(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required',
+            'new_password' => 'required|min:6|confirmed',
+        ]);
+
+        $user = User::where('role', 'Teacher')->findOrFail(session('user_id'));
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return redirect()->back()
+                ->with('error', 'Current password is incorrect.');
+        }
+
+        $user->update([
+            'password' => Hash::make($request->new_password),
+            'password_changed_at' => now(),
+        ]);
+
+        session([
+            'password_changed_at' => now(),
+        ]);
+
+        return redirect()->route('teacher.dashboard')
             ->with('success', 'Password changed successfully.');
     }
 

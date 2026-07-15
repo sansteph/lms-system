@@ -44,60 +44,88 @@
                         </thead>
 
                         <tbody>
-                            @forelse($certificates as $index => $certificate)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $certificate->certificate_code }}</td>
-                                    <td>{{ $certificate->student->name ?? 'Student Deleted' }}</td>
-                                    <td>{{ $certificate->course->course_title ?? 'Program Completion' }}</td>
-                                    <td>{{ $certificate->final_score ?? $certificate->badge_count }}%</td>
-                                    <td>{{ $certificate->final_grade ?? 'N/A' }}</td>
-                                    <td>{{ $certificate->final_classification ?? 'N/A' }}</td>
-                                    <td>
-                                        {{ $certificate->issued_date
-                                            ? \Carbon\Carbon::parse($certificate->issued_date)->format('d M Y')
-                                            : 'Awaiting approval' }}
-                                    </td>
-                                    <td>
-                                        @if(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
-                                            <span class="badge bg-warning text-dark">Pending Approval</span>
-                                        @elseif($certificate->status == 'Revoked')
-                                            <span class="badge bg-danger">Revoked</span>
-                                        @else
-                                            <span class="badge bg-success">Issued</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            @if(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
-                                                <form method="POST" action="{{ route('admin.certificates.approve', $certificate->id) }}">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-success">
-                                                        Approve
-                                                    </button>
-                                                </form>
-                                            @endif
+                            @php
+                                $groupedCertificates = $certificates
+                                    ->sortBy([
+                                        fn ($certificate) => $certificate->student->institute ?? '',
+                                        fn ($certificate) => $certificate->student->class ?? '',
+                                        fn ($certificate) => $certificate->student->section ?? '',
+                                        fn ($certificate) => $certificate->student->name ?? '',
+                                    ])
+                                    ->groupBy(fn ($certificate) => $certificate->student->institute ?? 'Student Deleted / Unassigned Institute');
+                                $rowNumber = 1;
+                            @endphp
 
-                                            @if($certificate->status != 'Revoked')
-                                                <form method="POST" action="{{ route('admin.certificates.revoke', $certificate->id) }}">
-                                                    @csrf
-                                                    <button type="submit"
-                                                            class="btn btn-sm btn-outline-danger"
-                                                            onclick="return confirm('Revoke this certificate?')">
-                                                        Revoke
-                                                    </button>
-                                                </form>
-                                            @else
-                                                <form method="POST" action="{{ route('admin.certificates.reissue', $certificate->id) }}">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-success">
-                                                        Reissue
-                                                    </button>
-                                                </form>
-                                            @endif
-                                        </div>
+                            @forelse($groupedCertificates as $instituteName => $instituteCertificates)
+                                <tr class="table-primary">
+                                    <td colspan="10" class="fw-semibold">
+                                        {{ $instituteName }} · {{ $instituteCertificates->count() }} certificate{{ $instituteCertificates->count() == 1 ? '' : 's' }}
                                     </td>
                                 </tr>
+
+                                @foreach($instituteCertificates->groupBy(fn ($certificate) => trim(($certificate->student->class ?? '') . ' ' . ($certificate->student->section ?? '')) ?: 'Student Deleted / Unassigned Class') as $classLabel => $classCertificates)
+                                    <tr class="table-light">
+                                        <td colspan="10" class="fw-semibold ps-4">
+                                            {{ $classLabel }} · {{ $classCertificates->count() }} certificate{{ $classCertificates->count() == 1 ? '' : 's' }}
+                                        </td>
+                                    </tr>
+
+                                    @foreach($classCertificates as $certificate)
+                                        <tr>
+                                            <td>{{ $rowNumber++ }}</td>
+                                            <td>{{ $certificate->certificate_code }}</td>
+                                            <td>{{ $certificate->student->name ?? 'Student Deleted' }}</td>
+                                            <td>{{ $certificate->course->course_title ?? 'Program Completion' }}</td>
+                                            <td>{{ $certificate->final_score ?? $certificate->badge_count }}%</td>
+                                            <td>{{ $certificate->final_grade ?? 'N/A' }}</td>
+                                            <td>{{ $certificate->final_classification ?? 'N/A' }}</td>
+                                            <td>
+                                                {{ $certificate->issued_date
+                                                    ? \Carbon\Carbon::parse($certificate->issued_date)->format('d M Y')
+                                                    : 'Awaiting approval' }}
+                                            </td>
+                                            <td>
+                                                @if(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
+                                                    <span class="badge bg-warning text-dark">Pending Approval</span>
+                                                @elseif($certificate->status == 'Revoked')
+                                                    <span class="badge bg-danger">Revoked</span>
+                                                @else
+                                                    <span class="badge bg-success">Issued</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    @if(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
+                                                        <form method="POST" action="{{ route('admin.certificates.approve', $certificate->id) }}">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-sm btn-success">
+                                                                Approve
+                                                            </button>
+                                                        </form>
+                                                    @endif
+
+                                                    @if($certificate->status != 'Revoked')
+                                                        <form method="POST" action="{{ route('admin.certificates.revoke', $certificate->id) }}">
+                                                            @csrf
+                                                            <button type="submit"
+                                                                    class="btn btn-sm btn-outline-danger"
+                                                                    onclick="return confirm('Revoke this certificate?')">
+                                                                Revoke
+                                                            </button>
+                                                        </form>
+                                                    @else
+                                                        <form method="POST" action="{{ route('admin.certificates.reissue', $certificate->id) }}">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-sm btn-success">
+                                                                Reissue
+                                                            </button>
+                                                        </form>
+                                                    @endif
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @endforeach
                             @empty
                                 <tr>
                                     <td colspan="10" class="text-center text-muted">

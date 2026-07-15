@@ -118,16 +118,21 @@
 
                             <tbody>
 
-                                @forelse($instituteAdminSessions as $session)
+                                @forelse($instituteAdminSessions->groupBy(fn ($session) => $session->user->institute ?? 'Unassigned Institute') as $instituteName => $sessions)
+                                    <tr class="table-primary">
+                                        <td colspan="7" class="fw-semibold">{{ $instituteName }} · {{ $sessions->count() }} session{{ $sessions->count() == 1 ? '' : 's' }}</td>
+                                    </tr>
 
-                                    @php
-                                        $admin = \App\Models\User::find($session->user_id);
+                                    @foreach($sessions as $session)
 
-                                        $currentActivity = \App\Models\UserActivityLog::where(
-                                            'user_session_id',
-                                            $session->id
-                                        )->latest()->first();
-                                    @endphp
+                                        @php
+                                            $admin = $session->user;
+
+                                            $currentActivity = \App\Models\UserActivityLog::where(
+                                                'user_session_id',
+                                                $session->id
+                                            )->latest()->first();
+                                        @endphp
 
                                     <tr>
                                         <td>{{ $admin->name ?? 'Admin Deleted' }}</td>
@@ -151,6 +156,8 @@
 
                                         <td>{{ $currentActivity->section_name ?? 'No Activity' }}</td>
                                     </tr>
+
+                                    @endforeach
 
                                 @empty
 
@@ -197,14 +204,19 @@
 
                             <tbody>
 
-                                @forelse($teacherSessions as $session)
+                                @forelse($teacherSessions->groupBy(fn ($session) => $session->teacher->institute ?? 'Unassigned Institute') as $instituteName => $sessions)
+                                    <tr class="table-primary">
+                                        <td colspan="7" class="fw-semibold">{{ $instituteName }} · {{ $sessions->count() }} session{{ $sessions->count() == 1 ? '' : 's' }}</td>
+                                    </tr>
 
-                                    @php
-                                        $currentActivity = \App\Models\UserActivityLog::where(
-                                            'user_session_id',
-                                            $session->id
-                                        )->latest()->first();
-                                    @endphp
+                                    @foreach($sessions as $session)
+
+                                        @php
+                                            $currentActivity = \App\Models\UserActivityLog::where(
+                                                'user_session_id',
+                                                $session->id
+                                            )->latest()->first();
+                                        @endphp
 
                                     <tr>
                                         <td>{{ $session->teacher->name ?? 'STEM Engineer Deleted' }}</td>
@@ -228,6 +240,8 @@
 
                                         <td>{{ $currentActivity->section_name ?? 'No Activity' }}</td>
                                     </tr>
+
+                                    @endforeach
 
                                 @empty
 
@@ -274,14 +288,24 @@
 
                             <tbody>
 
-                                @forelse($studentSessions as $session)
+                                @forelse($studentSessions->groupBy(fn ($session) => $session->student->institute ?? 'Unassigned Institute') as $instituteName => $instituteSessions)
+                                    <tr class="table-primary">
+                                        <td colspan="7" class="fw-semibold">{{ $instituteName }} · {{ $instituteSessions->count() }} session{{ $instituteSessions->count() == 1 ? '' : 's' }}</td>
+                                    </tr>
 
-                                    @php
-                                        $currentActivity = \App\Models\UserActivityLog::where(
-                                            'user_session_id',
-                                            $session->id
-                                        )->latest()->first();
-                                    @endphp
+                                    @foreach($instituteSessions->groupBy(fn ($session) => trim(($session->student->class ?? '') . ' ' . ($session->student->section ?? '')) ?: 'Unassigned Class') as $classLabel => $classSessions)
+                                        <tr class="table-light">
+                                            <td colspan="7" class="fw-semibold ps-4">{{ $classLabel }} · {{ $classSessions->count() }} session{{ $classSessions->count() == 1 ? '' : 's' }}</td>
+                                        </tr>
+
+                                        @foreach($classSessions as $session)
+
+                                            @php
+                                                $currentActivity = \App\Models\UserActivityLog::where(
+                                                    'user_session_id',
+                                                    $session->id
+                                                )->latest()->first();
+                                            @endphp
 
                                     <tr>
                                         <td>{{ $session->student->name ?? 'Student Deleted' }}</td>
@@ -304,6 +328,9 @@
 
                                         <td>{{ $currentActivity->section_name ?? 'No Activity' }}</td>
                                     </tr>
+
+                                        @endforeach
+                                    @endforeach
 
                                 @empty
 
@@ -570,10 +597,15 @@
 
                             <tbody>
 
-                                @forelse($instituteAdminLogs as $log)
+                                @forelse($instituteAdminLogs->groupBy(fn ($log) => $log->teacher->institute ?? 'Unassigned Institute') as $instituteName => $logs)
+                                    <tr class="table-primary">
+                                        <td colspan="5" class="fw-semibold">{{ $instituteName }} · {{ $logs->count() }} log{{ $logs->count() == 1 ? '' : 's' }}</td>
+                                    </tr>
+
+                                    @foreach($logs as $log)
 
                                     @php
-                                        $admin = \App\Models\User::find($log->user_id);
+                                        $admin = $log->teacher;
                                     @endphp
 
                                     <tr>
@@ -583,6 +615,8 @@
                                         <td>{{ \Carbon\Carbon::parse($log->started_at)->format('d M Y h:i A') }}</td>
                                         <td>{{ gmdate('H:i:s', $log->duration_seconds ?? 0) }}</td>
                                     </tr>
+
+                                    @endforeach
 
                                 @empty
 
@@ -626,7 +660,12 @@
 
                             <tbody>
 
-                                @forelse($teacherLogs as $log)
+                                @forelse($teacherLogs->groupBy(fn ($log) => $log->teacher->institute ?? 'Unassigned Institute') as $instituteName => $logs)
+                                    <tr class="table-primary">
+                                        <td colspan="5" class="fw-semibold">{{ $instituteName }} · {{ $logs->count() }} log{{ $logs->count() == 1 ? '' : 's' }}</td>
+                                    </tr>
+
+                                    @foreach($logs as $log)
 
                                     <tr>
                                         <td>{{ $log->teacher->name ?? 'STEM Engineer Deleted' }}</td>
@@ -635,6 +674,8 @@
                                         <td>{{ \Carbon\Carbon::parse($log->started_at)->format('d M Y h:i A') }}</td>
                                         <td>{{ gmdate('H:i:s', $log->duration_seconds ?? 0) }}</td>
                                     </tr>
+
+                                    @endforeach
 
                                 @empty
 
@@ -678,7 +719,17 @@
 
                             <tbody>
 
-                                @forelse($studentLogs as $log)
+                                @forelse($studentLogs->groupBy(fn ($log) => $log->student->institute ?? 'Unassigned Institute') as $instituteName => $instituteLogs)
+                                    <tr class="table-primary">
+                                        <td colspan="5" class="fw-semibold">{{ $instituteName }} · {{ $instituteLogs->count() }} log{{ $instituteLogs->count() == 1 ? '' : 's' }}</td>
+                                    </tr>
+
+                                    @foreach($instituteLogs->groupBy(fn ($log) => trim(($log->student->class ?? '') . ' ' . ($log->student->section ?? '')) ?: 'Unassigned Class') as $classLabel => $logs)
+                                        <tr class="table-light">
+                                            <td colspan="5" class="fw-semibold ps-4">{{ $classLabel }} · {{ $logs->count() }} log{{ $logs->count() == 1 ? '' : 's' }}</td>
+                                        </tr>
+
+                                        @foreach($logs as $log)
 
                                     <tr>
                                         <td>{{ $log->student->name ?? 'Student Deleted' }}</td>
@@ -687,6 +738,9 @@
                                         <td>{{ \Carbon\Carbon::parse($log->started_at)->format('d M Y h:i A') }}</td>
                                         <td>{{ gmdate('H:i:s', $log->duration_seconds ?? 0) }}</td>
                                     </tr>
+
+                                        @endforeach
+                                    @endforeach
 
                                 @empty
 

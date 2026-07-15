@@ -210,7 +210,7 @@ class TeachingPlanController extends Controller
         );
 
         return redirect()->back()
-            ->with('success', "Deployment finished. {$summary['deployed']} deployed, {$summary['skipped']} skipped.")
+            ->with('success', "Deployment finished. {$summary['deployed']} deployed, {$summary['synced']} synced, {$summary['skipped']} skipped.")
             ->with('deployment_messages', $summary['messages']);
     }
 
@@ -306,11 +306,7 @@ class TeachingPlanController extends Controller
                     ->update(['parent_template_id' => null]);
             }
 
-            $plan->sessions()->update([
-                'teaching_plan_id' => null,
-                'teaching_plan_week_id' => null,
-                'teaching_plan_item_id' => null,
-            ]);
+            $plan->sessions()->delete();
 
             TeachingPlanItem::where('teaching_plan_id', $plan->id)->delete();
             TeachingPlanWeek::where('teaching_plan_id', $plan->id)->delete();

@@ -123,32 +123,7 @@ class InstituteController extends Controller
             $students = Student::where('institute', $instituteName)->get();
 
             foreach ($students as $student) {
-
-                $this->deleteAssessmentResultsForStudent($student->id);
-
-                LessonProgress::where('student_id', $student->id)->delete();
-
-                UserSession::where('user_type', 'Student')
-                    ->where('user_id', $student->id)
-                    ->delete();
-
-                Certificate::where('student_id', $student->id)->delete();
-
-                $achievements = StudentAchievement::where('student_id', $student->id)->get();
-
-                foreach ($achievements as $achievement) {
-
-                    if (
-                        $achievement->certificate_file &&
-                        Storage::disk('public')->exists($achievement->certificate_file)
-                    ) {
-                        Storage::disk('public')->delete($achievement->certificate_file);
-                    }
-
-                    $achievement->delete();
-                }
-
-                $student->delete();
+                $this->deleteStudentCompletely($student);
             }
 
             $contents = Content::where('institute', $instituteName)->get();
@@ -195,11 +170,22 @@ class InstituteController extends Controller
 
             User::where('institute', $instituteName)
                 ->whereIn('role', ['Teacher', 'InstituteAdmin'])
-                ->delete();
+                ->get()
+                ->each(function (User $user) {
+                    if ($user->role == 'Teacher') {
+                        $this->deleteTeacherCompletely($user);
+                        return;
+                    }
+
+                    $this->deleteTrackingRecords('InstituteAdmin', $user->id);
+                    $this->deleteMySpaceForSubmitter('InstituteAdmin', $user->id);
+                    $user->delete();
+                });
 
             $courses = Course::where('institute', $instituteName)->get();
 
             foreach ($courses as $course) {
+                $this->deleteCourseDependentRecords($course->id);
                 $this->deleteTeachingPlansByCourse($course->id);
                 CourseContent::where('course_id', $course->id)->delete();
                 $course->delete();
@@ -250,11 +236,7 @@ class InstituteController extends Controller
     private function deleteTeachingPlanGraph(TeachingPlan $plan): void
     {
         ClassContentSession::where('teaching_plan_id', $plan->id)
-            ->update([
-                'teaching_plan_id' => null,
-                'teaching_plan_week_id' => null,
-                'teaching_plan_item_id' => null,
-            ]);
+            ->delete();
 
         TeachingPlanItem::where('teaching_plan_id', $plan->id)->delete();
         TeachingPlanWeek::where('teaching_plan_id', $plan->id)->delete();
@@ -274,10 +256,7 @@ class InstituteController extends Controller
         $planIds = $items->pluck('teaching_plan_id')->filter()->unique();
 
         ClassContentSession::whereIn('teaching_plan_item_id', $itemIds)
-            ->update([
-                'teaching_plan_item_id' => null,
-                'teaching_plan_week_id' => null,
-            ]);
+            ->delete();
 
         TeachingPlanItem::whereIn('id', $itemIds)->delete();
 

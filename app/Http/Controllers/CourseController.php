@@ -25,7 +25,7 @@ class CourseController extends Controller
     use DeletesAssessments;
     public function index(Request $request)
     {
-        $courses = Course::with(['courseContents.content'])
+        $courses = Course::with(['courseContents.content.aiSummary'])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
             })
@@ -39,14 +39,23 @@ class CourseController extends Controller
                     }
                 }
             )
-            ->latest()
+            ->orderBy('institute')
+            ->orderBy('course_title')
             ->get();
+
+        $courseGroups = $courses->groupBy(function ($course) {
+            if ($course->is_template_source) {
+                return 'Template Source Courses';
+            }
+
+            return $course->institute ?: 'Unassigned Institute';
+        });
 
         $institutes = session('user_role') == 'Admin'
             ? Institute::where('status', 1)->orderBy('institute_name')->get()
             : collect();
 
-        return view('courses', compact('courses', 'institutes'));
+        return view('courses', compact('courses', 'courseGroups', 'institutes'));
     }
 
     public function store(Request $request)
@@ -172,6 +181,8 @@ class CourseController extends Controller
         }
 
         DB::transaction(function () use ($course, $id) {
+
+            $this->deleteCourseDependentRecords($id);
 
             $contents = Content::where('course_id', $id)->get();
 
@@ -385,11 +396,7 @@ class CourseController extends Controller
     private function deleteTeachingPlanGraph(TeachingPlan $plan): void
     {
         ClassContentSession::where('teaching_plan_id', $plan->id)
-            ->update([
-                'teaching_plan_id' => null,
-                'teaching_plan_week_id' => null,
-                'teaching_plan_item_id' => null,
-            ]);
+            ->delete();
 
         TeachingPlanItem::where('teaching_plan_id', $plan->id)->delete();
         TeachingPlanWeek::where('teaching_plan_id', $plan->id)->delete();
@@ -419,10 +426,7 @@ class CourseController extends Controller
         $planIds = $items->pluck('teaching_plan_id')->filter()->unique();
 
         ClassContentSession::whereIn('teaching_plan_item_id', $itemIds)
-            ->update([
-                'teaching_plan_item_id' => null,
-                'teaching_plan_week_id' => null,
-            ]);
+            ->delete();
 
         TeachingPlanItem::whereIn('id', $itemIds)->delete();
 

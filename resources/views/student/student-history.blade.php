@@ -11,14 +11,15 @@
 
             <div class="page-header mb-4">
 
-                <h2 class="mb-1">
-                    Assessment History
-                </h2>
+                <div>
+                    <h2 class="mb-1">
+                        Assessment History
+                    </h2>
 
-                <p class="text-muted mb-0">
-                    View completed assessments, scores, percentages, and earned badges.
-                </p>
-
+                    <p class="text-muted mb-0">
+                        View completed assessments, scores, percentages, and earned badges.
+                    </p>
+                </div>
             </div>
 
             @if(session('success'))

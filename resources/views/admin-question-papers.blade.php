@@ -36,54 +36,81 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($assessments as $index => $assessment)
-                                    @php
-                                        $extension = strtolower(pathinfo($assessment->file_path ?? '', PATHINFO_EXTENSION));
-                                        $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
-                                        $paperVariant = in_array($extension, $previewExtensions) && $assessment->question_paper_preview_path ? 'preview' : 'file';
-                                    @endphp
-                                    <tr>
-                                        <td>{{ $index + 1 }}</td>
-                                        <td>{{ $assessment->assessment_title }}</td>
-                                        <td>{{ $assessment->teacher->name ?? 'N/A' }}</td>
-                                        <td>{{ $assessment->institute ?? 'N/A' }}</td>
-                                        <td>{{ $assessment->assigned_class }}</td>
-                                        <td>{{ $assessment->assessment_category ?? 'Monthly' }}</td>
-                                        <td>{{ $assessment->assessment_date ? \Carbon\Carbon::parse($assessment->assessment_date)->format('d M Y') : 'Not Set' }}</td>
-                                        <td>{{ $assessment->total_marks }}</td>
-                                        <td>
-                                            @if($assessment->file_path)
-                                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#paperModal{{ $assessment->id }}">View Inline</button>
-                                            @else
-                                                <span class="badge bg-secondary">Missing</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($assessment->question_paper_status == 'Approved')
-                                                <span class="badge bg-success">Approved</span>
-                                            @elseif($assessment->question_paper_status == 'Rejected')
-                                                <span class="badge bg-danger">Rejected</span>
-                                            @else
-                                                <span class="badge bg-warning text-dark">Pending Approval</span>
-                                            @endif
-                                            @if($assessment->questionPaperReviewer)
-                                                <div class="small text-muted mt-1">By {{ $assessment->questionPaperReviewer->name }}</div>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <div class="d-flex flex-column gap-2">
-                                                <form method="POST" action="{{ route('admin.question-papers.approve', $assessment->id) }}">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-success" {{ $assessment->question_paper_status == 'Approved' ? 'disabled' : '' }}>Approve</button>
-                                                </form>
+                                @php
+                                    $groupedAssessments = $assessments
+                                        ->sortBy([
+                                            ['institute', 'asc'],
+                                            ['assigned_class', 'asc'],
+                                            ['assessment_date', 'desc'],
+                                        ])
+                                        ->groupBy(fn ($assessment) => $assessment->institute ?: 'Unassigned Institute');
+                                    $rowNumber = 1;
+                                @endphp
 
-                                                <form method="POST" action="{{ route('admin.question-papers.reject', $assessment->id) }}">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
-                                                </form>
-                                            </div>
+                                @forelse($groupedAssessments as $instituteName => $instituteAssessments)
+                                    <tr class="table-primary">
+                                        <td colspan="11" class="fw-semibold">
+                                            {{ $instituteName }} · {{ $instituteAssessments->count() }} question paper{{ $instituteAssessments->count() == 1 ? '' : 's' }}
                                         </td>
                                     </tr>
+
+                                    @foreach($instituteAssessments->groupBy(fn ($assessment) => $assessment->assigned_class ?: 'Unassigned Class') as $classLabel => $classAssessments)
+                                        <tr class="table-light">
+                                            <td colspan="11" class="fw-semibold ps-4">
+                                                {{ $classLabel }} · {{ $classAssessments->count() }} question paper{{ $classAssessments->count() == 1 ? '' : 's' }}
+                                            </td>
+                                        </tr>
+
+                                        @foreach($classAssessments as $assessment)
+                                            @php
+                                                $extension = strtolower(pathinfo($assessment->file_path ?? '', PATHINFO_EXTENSION));
+                                                $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
+                                                $paperVariant = in_array($extension, $previewExtensions) && $assessment->question_paper_preview_path ? 'preview' : 'file';
+                                            @endphp
+                                            <tr>
+                                                <td>{{ $rowNumber++ }}</td>
+                                                <td>{{ $assessment->assessment_title }}</td>
+                                                <td>{{ $assessment->teacher->name ?? 'N/A' }}</td>
+                                                <td>{{ $assessment->institute ?? 'N/A' }}</td>
+                                                <td>{{ $assessment->assigned_class }}</td>
+                                                <td>{{ $assessment->assessment_category ?? 'Monthly' }}</td>
+                                                <td>{{ $assessment->assessment_date ? \Carbon\Carbon::parse($assessment->assessment_date)->format('d M Y') : 'Not Set' }}</td>
+                                                <td>{{ $assessment->total_marks }}</td>
+                                                <td>
+                                                    @if($assessment->file_path)
+                                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#paperModal{{ $assessment->id }}">View Inline</button>
+                                                    @else
+                                                        <span class="badge bg-secondary">Missing</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if($assessment->question_paper_status == 'Approved')
+                                                        <span class="badge bg-success">Approved</span>
+                                                    @elseif($assessment->question_paper_status == 'Rejected')
+                                                        <span class="badge bg-danger">Rejected</span>
+                                                    @else
+                                                        <span class="badge bg-warning text-dark">Pending Approval</span>
+                                                    @endif
+                                                    @if($assessment->questionPaperReviewer)
+                                                        <div class="small text-muted mt-1">By {{ $assessment->questionPaperReviewer->name }}</div>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex flex-column gap-2">
+                                                        <form method="POST" action="{{ route('admin.question-papers.approve', $assessment->id) }}">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-sm btn-success" {{ $assessment->question_paper_status == 'Approved' ? 'disabled' : '' }}>Approve</button>
+                                                        </form>
+
+                                                        <form method="POST" action="{{ route('admin.question-papers.reject', $assessment->id) }}">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    @endforeach
                                 @empty
                                     <tr><td colspan="11" class="text-center text-muted">No question papers uploaded yet.</td></tr>
                                 @endforelse

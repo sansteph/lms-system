@@ -73,38 +73,67 @@
                         </thead>
 
                         <tbody>
-                            @forelse($students as $index => $student)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $student->student_id }}</td>
-                                    <td>{{ $student->name }}</td>
-                                    <td>{{ $student->institute }}</td>
-                                    <td>{{ $student->class }}</td>
-                                    <td>{{ $student->section }}</td>
-                                    <td>{{ $student->contact }}</td>
-                                    <td>
-                                        @if($student->status)
-                                            <span class="badge bg-success">Active</span>
-                                        @else
-                                            <span class="badge bg-danger">Inactive</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-primary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#editStudentModal{{ $student->id }}">
-                                            Edit
-                                        </button>
+                            @php
+                                $groupedStudents = $students
+                                    ->sortBy([
+                                        ['institute', 'asc'],
+                                        ['class', 'asc'],
+                                        ['section', 'asc'],
+                                        ['name', 'asc'],
+                                    ])
+                                    ->groupBy(fn ($student) => $student->institute ?: 'Unassigned Institute');
+                                $rowNumber = 1;
+                            @endphp
 
-                                        <a href="{{ route('students.delete', $student->id) }}"
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Are you sure you want to delete this student? This will also remove their assessment history, badges, and certificate eligibility.')">
-                                            Delete
-                                        </a>
+                            @forelse($groupedStudents as $instituteName => $instituteStudents)
+                                <tr class="table-primary">
+                                    <td colspan="9" class="fw-semibold">
+                                        {{ $instituteName }} · {{ $instituteStudents->count() }} student{{ $instituteStudents->count() == 1 ? '' : 's' }}
                                     </td>
                                 </tr>
 
-                                <div class="modal fade" id="editStudentModal{{ $student->id }}" tabindex="-1">
+                                @foreach($instituteStudents->groupBy(fn ($student) => trim($student->class . ' ' . $student->section)) as $classLabel => $classStudents)
+                                    <tr class="table-light">
+                                        <td colspan="9" class="fw-semibold ps-4">
+                                            {{ $classLabel ?: 'Unassigned Class' }} · {{ $classStudents->count() }} student{{ $classStudents->count() == 1 ? '' : 's' }}
+                                        </td>
+                                    </tr>
+
+                                    @foreach($classStudents as $student)
+                                        <tr>
+                                            <td>{{ $rowNumber++ }}</td>
+                                            <td>{{ $student->student_id }}</td>
+                                            <td>{{ $student->name }}</td>
+                                            <td>{{ $student->institute }}</td>
+                                            <td>{{ $student->class }}</td>
+                                            <td>{{ $student->section }}</td>
+                                            <td>{{ $student->contact }}</td>
+                                            <td>
+                                                @if($student->status)
+                                                    <span class="badge bg-success">Active</span>
+                                                @else
+                                                    <span class="badge bg-danger">Inactive</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#editStudentModal{{ $student->id }}">
+                                                    Edit
+                                                </button>
+
+                                                <a href="{{ route('students.delete', $student->id) }}"
+                                                   class="btn btn-sm btn-outline-danger"
+                                                   onclick="return confirm('Are you sure you want to delete this student? This will also remove their assessment history, badges, and certificate eligibility.')">
+                                                    Delete
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @endforeach
+
+                                @foreach($instituteStudents as $student)
+                                    <div class="modal fade" id="editStudentModal{{ $student->id }}" tabindex="-1">
                                     <div class="modal-dialog modal-lg modal-dialog-centered">
                                         <div class="modal-content">
 
@@ -190,6 +219,7 @@
                                         </div>
                                     </div>
                                 </div>
+                                @endforeach
 
                             @empty
                                 <tr>

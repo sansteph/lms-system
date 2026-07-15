@@ -41,7 +41,9 @@ class ClassController extends Controller
 
                 });
             })
+            ->orderBy('institute')
             ->orderBy('class_name')
+            ->orderBy('section')
             ->get();
 
         return view(
@@ -161,31 +163,7 @@ class ClassController extends Controller
                 ->get();
 
             foreach ($students as $student) {
-
-                $this->deleteAssessmentResultsForStudent($student->id);
-
-                LessonProgress::where('student_id', $student->id)->delete();
-
-                UserSession::where('user_type', 'Student')
-                    ->where('user_id', $student->id)
-                    ->delete();
-
-                Certificate::where('student_id', $student->id)->delete();
-
-                $achievements = StudentAchievement::where('student_id', $student->id)->get();
-
-                foreach ($achievements as $achievement) {
-                    if (
-                        $achievement->certificate_file &&
-                        Storage::disk('public')->exists($achievement->certificate_file)
-                    ) {
-                        Storage::disk('public')->delete($achievement->certificate_file);
-                    }
-
-                    $achievement->delete();
-                }
-
-                $student->delete();
+                $this->deleteStudentCompletely($student);
             }
 
             $this->deleteClassSessionsForSchoolClass($class);

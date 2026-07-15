@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\MySpace;
+use Illuminate\Support\Facades\Storage;
 
 class MySpaceController extends Controller
 {
@@ -260,6 +261,14 @@ class MySpaceController extends Controller
         if (in_array($item->status, ['Approved', 'Featured'])) {
             return redirect()->back()
                 ->with('error', 'Approved or featured submissions cannot be deleted.');
+        }
+
+        if ($item->blueprint_pdf) {
+            foreach (['public', 'local'] as $disk) {
+                if (Storage::disk($disk)->exists($item->blueprint_pdf)) {
+                    Storage::disk($disk)->delete($item->blueprint_pdf);
+                }
+            }
         }
 
         $item->delete();

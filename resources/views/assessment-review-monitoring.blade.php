@@ -33,33 +33,60 @@
                         </thead>
 
                         <tbody>
-                            @forelse($results as $result)
-                                <tr>
-                                    <td>{{ $result->student->name ?? 'Student Deleted' }}</td>
-                                    <td>{{ $result->assessment->assessment_title ?? 'Assessment Deleted' }}</td>
-                                    <td>{{ $result->score }}/{{ $result->total_marks }}</td>
-                                    <td>{{ number_format($result->percentage, 2) }}%</td>
+                            @php
+                                $groupedResults = $results
+                                    ->sortBy([
+                                        fn ($result) => $result->student->institute ?? '',
+                                        fn ($result) => $result->student->class ?? '',
+                                        fn ($result) => $result->student->section ?? '',
+                                        fn ($result) => $result->student->name ?? '',
+                                    ])
+                                    ->groupBy(fn ($result) => $result->student->institute ?? 'Student Deleted / Unassigned Institute');
+                            @endphp
 
-                                    <td>
-                                        @if($result->status == 'Pending Review')
-                                            <span class="badge bg-warning text-dark">Pending Review</span>
-                                        @elseif($result->status == 'Completed')
-                                            <span class="badge bg-success">Completed</span>
-                                        @else
-                                            <span class="badge bg-secondary">{{ $result->status }}</span>
-                                        @endif
+                            @forelse($groupedResults as $instituteName => $instituteResults)
+                                <tr class="table-primary">
+                                    <td colspan="7" class="fw-semibold">
+                                        {{ $instituteName }} · {{ $instituteResults->count() }} result{{ $instituteResults->count() == 1 ? '' : 's' }}
                                     </td>
-
-                                    <td>
-                                        @if($result->badge)
-                                            <span class="badge bg-primary">{{ $result->badge }}</span>
-                                        @else
-                                            <span class="badge bg-light text-dark">No Badge</span>
-                                        @endif
-                                    </td>
-
-                                    <td>{{ $result->created_at->format('d-m-Y h:i A') }}</td>
                                 </tr>
+
+                                @foreach($instituteResults->groupBy(fn ($result) => trim(($result->student->class ?? '') . ' ' . ($result->student->section ?? '')) ?: 'Student Deleted / Unassigned Class') as $classLabel => $classResults)
+                                    <tr class="table-light">
+                                        <td colspan="7" class="fw-semibold ps-4">
+                                            {{ $classLabel }} · {{ $classResults->count() }} result{{ $classResults->count() == 1 ? '' : 's' }}
+                                        </td>
+                                    </tr>
+
+                                    @foreach($classResults as $result)
+                                        <tr>
+                                            <td>{{ $result->student->name ?? 'Student Deleted' }}</td>
+                                            <td>{{ $result->assessment->assessment_title ?? 'Assessment Deleted' }}</td>
+                                            <td>{{ $result->score }}/{{ $result->total_marks }}</td>
+                                            <td>{{ number_format($result->percentage, 2) }}%</td>
+
+                                            <td>
+                                                @if($result->status == 'Pending Review')
+                                                    <span class="badge bg-warning text-dark">Pending Review</span>
+                                                @elseif($result->status == 'Completed')
+                                                    <span class="badge bg-success">Completed</span>
+                                                @else
+                                                    <span class="badge bg-secondary">{{ $result->status }}</span>
+                                                @endif
+                                            </td>
+
+                                            <td>
+                                                @if($result->badge)
+                                                    <span class="badge bg-primary">{{ $result->badge }}</span>
+                                                @else
+                                                    <span class="badge bg-light text-dark">No Badge</span>
+                                                @endif
+                                            </td>
+
+                                            <td>{{ $result->created_at->format('d-m-Y h:i A') }}</td>
+                                        </tr>
+                                    @endforeach
+                                @endforeach
                             @empty
                                 <tr>
                                     <td colspan="7" class="text-center text-muted">

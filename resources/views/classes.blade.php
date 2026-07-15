@@ -70,38 +70,65 @@
                         </thead>
 
                         <tbody>
-                            @forelse($classes as $index => $class)
+                            @php
+                                $groupedClasses = $classes
+                                    ->sortBy([
+                                        ['institute', 'asc'],
+                                        ['class_name', 'asc'],
+                                        ['section', 'asc'],
+                                    ])
+                                    ->groupBy(fn ($class) => $class->institute ?: 'Unassigned Institute');
+                                $rowNumber = 1;
+                            @endphp
 
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $class->class_name }}</td>
-                                    <td>{{ $class->institute ?? 'N/A' }}</td>
-                                    <td>{{ $class->section }}</td>
-                                    <td>{{ $class->academic_year }}</td>
-                                    <td>
-                                        @if($class->status == 1)
-                                            <span class="badge bg-success">Active</span>
-                                        @else
-                                            <span class="badge bg-danger">Inactive</span>
-                                        @endif
-                                    </td>
-
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-primary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#editClassModal{{ $class->id }}">
-                                            Edit
-                                        </button>
-
-                                        <a href="{{ route('classes.delete', $class->id) }}"
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Are you sure you want to delete this class?')">
-                                            Delete
-                                        </a>
+                            @forelse($groupedClasses as $instituteName => $instituteClasses)
+                                <tr class="table-primary">
+                                    <td colspan="7" class="fw-semibold">
+                                        {{ $instituteName }} · {{ $instituteClasses->count() }} class section{{ $instituteClasses->count() == 1 ? '' : 's' }}
                                     </td>
                                 </tr>
 
-                                <div class="modal fade" id="editClassModal{{ $class->id }}" tabindex="-1">
+                                @foreach($instituteClasses->groupBy('class_name') as $className => $classSections)
+                                    <tr class="table-light">
+                                        <td colspan="7" class="fw-semibold ps-4">
+                                            Class {{ $className }} · {{ $classSections->count() }} section{{ $classSections->count() == 1 ? '' : 's' }}
+                                        </td>
+                                    </tr>
+
+                                    @foreach($classSections as $class)
+                                        <tr>
+                                            <td>{{ $rowNumber++ }}</td>
+                                            <td>{{ $class->class_name }}</td>
+                                            <td>{{ $class->institute ?? 'N/A' }}</td>
+                                            <td>{{ $class->section }}</td>
+                                            <td>{{ $class->academic_year }}</td>
+                                            <td>
+                                                @if($class->status == 1)
+                                                    <span class="badge bg-success">Active</span>
+                                                @else
+                                                    <span class="badge bg-danger">Inactive</span>
+                                                @endif
+                                            </td>
+
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#editClassModal{{ $class->id }}">
+                                                    Edit
+                                                </button>
+
+                                                <a href="{{ route('classes.delete', $class->id) }}"
+                                                   class="btn btn-sm btn-outline-danger"
+                                                   onclick="return confirm('Are you sure you want to delete this class?')">
+                                                    Delete
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @endforeach
+
+                                @foreach($instituteClasses as $class)
+                                    <div class="modal fade" id="editClassModal{{ $class->id }}" tabindex="-1">
                                     <div class="modal-dialog modal-lg modal-dialog-centered">
                                         <div class="modal-content">
 
@@ -213,6 +240,7 @@
                                         </div>
                                     </div>
                                 </div>
+                                @endforeach
 
                             @empty
 

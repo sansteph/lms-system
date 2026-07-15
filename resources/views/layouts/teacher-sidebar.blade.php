@@ -53,9 +53,24 @@
         My Space
     </a>
 
+    <a href="{{ route('teacher.achievements') }}"
+    class="sidebar-link {{ request()->routeIs('teacher.achievements') ? 'active' : '' }}">
+        My Achievements
+    </a>
+
     <a href="{{ route('teacher.profile') }}"
     class="sidebar-link {{ request()->routeIs('teacher.profile') ? 'active' : '' }}">
         Profile
+    </a>
+
+    <a href="{{ route('teacher.change.password') }}"
+    class="sidebar-link {{ request()->routeIs('teacher.change.password') ? 'active' : '' }}">
+        Change Password
+    </a>
+
+    <a href="{{ route('teacher.feedback') }}"
+    class="sidebar-link {{ request()->routeIs('teacher.feedback*') ? 'active' : '' }}">
+        Feedback
     </a>
 
 </div>

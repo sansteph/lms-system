@@ -41,6 +41,8 @@
 
                                     <th>Student ID</th>
 
+                                    <th>Student</th>
+
                                     <th>Type</th>
 
                                     <th>Title</th>
@@ -59,7 +61,34 @@
 
                             <tbody>
 
-                                @forelse($achievements as $achievement)
+                                @php
+                                    $groupedAchievements = $achievements
+                                        ->sortBy([
+                                            fn ($achievement) => $achievement->student->institute ?? '',
+                                            fn ($achievement) => $achievement->student->class ?? '',
+                                            fn ($achievement) => $achievement->student->section ?? '',
+                                            fn ($achievement) => $achievement->student->name ?? '',
+                                        ])
+                                        ->groupBy(fn ($achievement) => $achievement->student->institute ?? 'Student Deleted / Unassigned Institute');
+                                @endphp
+
+                                @forelse($groupedAchievements as $instituteName => $instituteAchievements)
+
+                                    <tr class="table-primary">
+                                        <td colspan="9" class="fw-semibold">
+                                            {{ $instituteName }} · {{ $instituteAchievements->count() }} achievement{{ $instituteAchievements->count() == 1 ? '' : 's' }}
+                                        </td>
+                                    </tr>
+
+                                    @foreach($instituteAchievements->groupBy(fn ($achievement) => trim(($achievement->student->class ?? '') . ' ' . ($achievement->student->section ?? '')) ?: 'Student Deleted / Unassigned Class') as $classLabel => $classAchievements)
+
+                                        <tr class="table-light">
+                                            <td colspan="9" class="fw-semibold ps-4">
+                                                {{ $classLabel }} · {{ $classAchievements->count() }} achievement{{ $classAchievements->count() == 1 ? '' : 's' }}
+                                            </td>
+                                        </tr>
+
+                                        @foreach($classAchievements as $achievement)
 
                                     <tr>
 
@@ -69,6 +98,10 @@
 
                                         <td>
                                             {{ $achievement->student_id }}
+                                        </td>
+
+                                        <td>
+                                            {{ $achievement->student->name ?? 'Student Deleted' }}
                                         </td>
 
                                         <td>
@@ -155,11 +188,15 @@
 
                                     </tr>
 
+                                        @endforeach
+
+                                    @endforeach
+
                                 @empty
 
                                     <tr>
 
-                                        <td colspan="8"
+                                        <td colspan="9"
                                             class="text-center text-muted py-4">
 
                                             No achievements found

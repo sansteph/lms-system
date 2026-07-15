@@ -42,7 +42,53 @@
 
                             <tbody>
 
-                                @forelse($items as $item)
+                                @php
+                                    $teacherItems = $items->where('created_by_type', 'Teacher');
+                                    $studentItems = $items->where('created_by_type', 'Student');
+                                    $sections = [
+                                        'STEM Engineer Reviews' => $teacherItems,
+                                        'Student Reviews' => $studentItems,
+                                    ];
+                                    $hasItems = $items->isNotEmpty();
+                                @endphp
+
+                                @forelse($sections as $sectionTitle => $sectionItems)
+                                    @continue($sectionItems->isEmpty())
+
+                                    <tr class="table-primary">
+                                        <td colspan="6" class="fw-semibold">
+                                            {{ $sectionTitle }} · {{ $sectionItems->count() }} submission{{ $sectionItems->count() == 1 ? '' : 's' }}
+                                        </td>
+                                    </tr>
+
+                                    @php
+                                        $groupedItems = $sectionItems->groupBy(function ($item) {
+                                            $submitter = $item->submitter();
+
+                                            if ($item->created_by_type == 'Student') {
+                                                return ($submitter->institute ?? 'Student Deleted / Unassigned Institute') . '|' . trim(($submitter->class ?? '') . ' ' . ($submitter->section ?? ''));
+                                            }
+
+                                            return ($submitter->institute ?? 'STEM Engineer Deleted / Unassigned Institute') . '|';
+                                        });
+                                    @endphp
+
+                                    @foreach($groupedItems as $groupKey => $groupItems)
+                                        @php
+                                            [$instituteName, $classLabel] = array_pad(explode('|', $groupKey, 2), 2, '');
+                                        @endphp
+
+                                        <tr class="table-light">
+                                            <td colspan="6" class="fw-semibold ps-4">
+                                                {{ $instituteName }}
+                                                @if($classLabel)
+                                                    · {{ $classLabel }}
+                                                @endif
+                                                · {{ $groupItems->count() }} submission{{ $groupItems->count() == 1 ? '' : 's' }}
+                                            </td>
+                                        </tr>
+
+                                        @foreach($groupItems as $item)
 
                                     <tr>
                                         <td>{{ $item->title }}</td>
@@ -135,15 +181,21 @@
                                         </td>
                                     </tr>
 
+                                        @endforeach
+
+                                    @endforeach
+
                                 @empty
 
+                                @endforelse
+
+                                @if(!$hasItems)
                                     <tr>
                                         <td colspan="6" class="text-center text-muted py-4">
                                             No My Space submissions found.
                                         </td>
                                     </tr>
-
-                                @endforelse
+                                @endif
 
                             </tbody>
 

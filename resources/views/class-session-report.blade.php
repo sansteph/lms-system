@@ -37,55 +37,80 @@
 
                         <tbody>
 
-                            @forelse($sessions as $session)
+                            @php
+                                $groupedSessions = $sessions
+                                    ->sortBy([
+                                        fn ($session) => $session->institute ?? $session->schoolClass->institute ?? '',
+                                        fn ($session) => trim(($session->class ?? $session->schoolClass->class_name ?? '') . ' ' . ($session->section ?? $session->schoolClass->section ?? '')),
+                                        fn ($session) => $session->session_date ?? '',
+                                    ])
+                                    ->groupBy(fn ($session) => $session->institute ?? $session->schoolClass->institute ?? 'Unassigned Institute');
+                            @endphp
 
-                                <tr>
-                                    <td>
-                                        {{ $session->class ?? $session->schoolClass->class_name ?? 'N/A' }}
-                                        {{ $session->section ?? $session->schoolClass->section ?? '' }}
-                                    </td>
-
-                                    <td>
-                                        {{ $session->institute ?? $session->schoolClass->institute ?? 'N/A' }}
-                                    </td>
-
-                                    <td>
-                                        {{ $session->course->course_title ?? 'N/A' }}
-                                    </td>
-
-                                    <td>
-                                        {{ $session->planned_topic ?? $session->content->content_title ?? 'No Content' }}
-                                    </td>
-
-                                    <td>
-                                        {{ $session->delivered_topic ?? 'Not recorded' }}
-                                    </td>
-
-                                    <td>
-                                        {{ $session->stemEngineer->name ?? 'Deleted Engineer' }}
-                                    </td>
-
-                                    <td>
-                                        {{ $session->session_date ? \Carbon\Carbon::parse($session->session_date)->format('d M Y') : '-' }}
-                                        <br>
-                                        <small class="text-muted">
-                                            {{ $session->start_time ? \Carbon\Carbon::parse($session->start_time)->format('h:i A') : '-' }}
-                                            @if($session->end_time)
-                                                - {{ \Carbon\Carbon::parse($session->end_time)->format('h:i A') }}
-                                            @endif
-                                        </small>
-                                    </td>
-
-                                    <td>
-                                        {{ gmdate('H:i:s', $session->duration_seconds ?? 0) }}
-                                    </td>
-
-                                    <td>
-                                        <span class="badge bg-{{ $session->status == 'in_progress' ? 'warning text-dark' : ($session->status == 'cancelled' ? 'danger' : 'success') }}">
-                                            {{ ucwords(str_replace('_', ' ', $session->status)) }}
-                                        </span>
+                            @forelse($groupedSessions as $instituteName => $instituteSessions)
+                                <tr class="table-primary">
+                                    <td colspan="9" class="fw-semibold">
+                                        {{ $instituteName }} · {{ $instituteSessions->count() }} session{{ $instituteSessions->count() == 1 ? '' : 's' }}
                                     </td>
                                 </tr>
+
+                                @foreach($instituteSessions->groupBy(fn ($session) => trim(($session->class ?? $session->schoolClass->class_name ?? '') . ' ' . ($session->section ?? $session->schoolClass->section ?? '')) ?: 'Unassigned Class') as $classLabel => $classSessions)
+                                    <tr class="table-light">
+                                        <td colspan="9" class="fw-semibold ps-4">
+                                            {{ $classLabel }} · {{ $classSessions->count() }} session{{ $classSessions->count() == 1 ? '' : 's' }}
+                                        </td>
+                                    </tr>
+
+                                    @foreach($classSessions as $session)
+                                        <tr>
+                                            <td>
+                                                {{ $session->class ?? $session->schoolClass->class_name ?? 'N/A' }}
+                                                {{ $session->section ?? $session->schoolClass->section ?? '' }}
+                                            </td>
+
+                                            <td>
+                                                {{ $session->institute ?? $session->schoolClass->institute ?? 'N/A' }}
+                                            </td>
+
+                                            <td>
+                                                {{ $session->course->course_title ?? 'N/A' }}
+                                            </td>
+
+                                            <td>
+                                                {{ $session->planned_topic ?? $session->content->content_title ?? 'No Content' }}
+                                            </td>
+
+                                            <td>
+                                                {{ $session->delivered_topic ?? 'Not recorded' }}
+                                            </td>
+
+                                            <td>
+                                                {{ $session->stemEngineer->name ?? 'Deleted Engineer' }}
+                                            </td>
+
+                                            <td>
+                                                {{ $session->session_date ? \Carbon\Carbon::parse($session->session_date)->format('d M Y') : '-' }}
+                                                <br>
+                                                <small class="text-muted">
+                                                    {{ $session->start_time ? \Carbon\Carbon::parse($session->start_time)->format('h:i A') : '-' }}
+                                                    @if($session->end_time)
+                                                        - {{ \Carbon\Carbon::parse($session->end_time)->format('h:i A') }}
+                                                    @endif
+                                                </small>
+                                            </td>
+
+                                            <td>
+                                                {{ gmdate('H:i:s', $session->duration_seconds ?? 0) }}
+                                            </td>
+
+                                            <td>
+                                                <span class="badge bg-{{ $session->status == 'in_progress' ? 'warning text-dark' : ($session->status == 'cancelled' ? 'danger' : 'success') }}">
+                                                    {{ ucwords(str_replace('_', ' ', $session->status)) }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @endforeach
 
                             @empty
 

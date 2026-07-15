@@ -16,6 +16,8 @@ use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\MySpaceController;
 use App\Http\Controllers\TeacherStudentProfileController;
 use App\Http\Controllers\IndependentLearnerController;
+use App\Http\Controllers\FeedbackController;
+use App\Http\Controllers\AiContentController;
 use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\TeachingPlanController;
 
@@ -62,7 +64,7 @@ Route::get('/admin/institute-register', [UserController::class, 'instituteRegist
 Route::post('/admin/institute-register', [UserController::class, 'instituteRegisterSubmit'])->name('admin.institute.register.submit');
 
 //Admin + InstituteAdmin Shared Routes
-Route::middleware(['admin.auth'])->group(function () {
+Route::middleware(['admin.auth', 'track.activity'])->group(function () {
 
     Route::get('/admin-dashboard', [PageController::class, 'adminDashboard'])->name('admin.dashboard');
 
@@ -99,10 +101,13 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::post('/content/course-content/{courseContent}/order', [ContentController::class, 'updateCourseContentOrder'])->name('content.course-content.order');
     Route::post('/content/course-content/{courseContent}/detach', [ContentController::class, 'detachCourseContent'])->name('content.course-content.detach');
     Route::post('/content/update/{id}', [ContentController::class, 'update'])->name('content.update');
+    Route::post('/content/{content}/ai-summary', [AiContentController::class, 'generateSummary'])->name('content.ai-summary.generate');
     Route::get('/content/delete/{id}', [ContentController::class, 'delete'])->name('content.delete');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports');
     Route::get('/reports/export', [ReportController::class, 'exportCsv'])->name('reports.export');
+    Route::post('/reports/ai-insights', [ReportController::class, 'generateAiInsights'])->name('reports.ai-insights');
+    Route::post('/reports/ai-insights/download', [ReportController::class, 'downloadAiInsights'])->name('reports.ai-insights.download');
 
     Route::get('/admin/certificates', [PageController::class, 'adminCertificates'])->name('admin.certificates');
     Route::post('/admin/certificates/approve/{id}', [PageController::class, 'approveCertificate'])->name('admin.certificates.approve');
@@ -111,6 +116,8 @@ Route::middleware(['admin.auth'])->group(function () {
     Route::post('/admin/certificates/reissue/{id}', [PageController::class, 'reissueCertificate'])->name('admin.certificates.reissue');
 
     Route::get('/admin/analytics', [PageController::class, 'adminAnalytics'])->name('admin.analytics');
+    Route::post('/admin/analytics/ai-insights', [PageController::class, 'generateAdminAnalyticsAiInsights'])->name('admin.analytics.ai-insights');
+    Route::post('/admin/analytics/ai-insights/download', [PageController::class, 'downloadAdminAnalyticsAiInsights'])->name('admin.analytics.ai-insights.download');
 
     Route::get('/admin/achievements', [StudentAchievementController::class, 'adminIndex'])->name('admin.achievements');
     Route::post('/admin/achievements/{id}/approve', [StudentAchievementController::class, 'approve'])->name('admin.achievements.approve');
@@ -179,6 +186,9 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::get('/teacher/my-classes', [PageController::class, 'teacherClasses'])->name('teacher.classes');
 
     Route::get('/teacher/content', [PageController::class, 'teacherContent'])->name('teacher.content');
+    Route::get('/teacher/content/{id}/ai-prep', [PageController::class, 'teacherAiPrep'])->name('teacher.ai-prep');
+    Route::get('/teacher/content/{id}/ai-prep/quiz', [PageController::class, 'teacherAiPrepQuiz'])->name('teacher.ai-prep.quiz');
+    Route::post('/teacher/content/{id}/ai-prep/quiz', [PageController::class, 'submitTeacherAiPrep'])->name('teacher.ai-prep.submit');
 
     Route::get('/teacher/reports', [PageController::class, 'teacherReports'])->name('teacher.reports');
     Route::get('/teacher/reports/export', [PageController::class, 'exportTeacherReports'])->name('teacher.reports.export');
@@ -187,8 +197,18 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::post('/teacher/certificates/approve/{id}', [PageController::class, 'approveCertificate'])->name('teacher.certificates.approve');
 
     Route::get('/teacher/profile', [PageController::class, 'teacherProfile'])->name('teacher.profile');
+    Route::post('/teacher/profile', [PageController::class, 'updateTeacherProfile'])->name('teacher.profile.update');
+    Route::get('/teacher/change-password', [UserController::class, 'teacherChangePassword'])->name('teacher.change.password');
+    Route::post('/teacher/change-password', [UserController::class, 'teacherChangePasswordSubmit'])->name('teacher.change.password.submit');
+    Route::get('/teacher/feedback', [FeedbackController::class, 'teacherCreate'])->name('teacher.feedback');
+    Route::post('/teacher/feedback', [FeedbackController::class, 'teacherStore'])->name('teacher.feedback.store');
+    Route::get('/teacher/achievements', [PageController::class, 'teacherAchievements'])->name('teacher.achievements');
+    Route::post('/teacher/achievements', [PageController::class, 'storeTeacherAchievement'])->name('teacher.achievements.store');
+    Route::post('/teacher/achievements/{id}/delete', [PageController::class, 'deleteTeacherAchievement'])->name('teacher.achievements.delete');
 
     Route::get('/teacher-results', [PageController::class, 'teacherResults'])->name('teacher.results');
+    Route::post('/teacher-results/ai-insights', [PageController::class, 'generateTeacherResultsAiInsights'])->name('teacher.results.ai-insights');
+    Route::post('/teacher-results/ai-insights/download', [PageController::class, 'downloadTeacherResultsAiInsights'])->name('teacher.results.ai-insights.download');
     Route::delete('/teacher/results/disqualify/{id}', [PageController::class, 'disqualifyResult'])->name('teacher.results.disqualify');
     Route::get('/results/export', [PageController::class, 'exportResults'])->name('results.export');
 
@@ -241,6 +261,10 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::get('/student/badges',[PageController::class, 'studentBadges'])->name('student.badges');
 
     Route::get('/student/profile',[PageController::class, 'studentProfile'])->name('student.profile');
+    Route::post('/student/profile',[PageController::class, 'updateStudentProfile'])->name('student.profile.update');
+    Route::post('/student/profile/remove-image',[PageController::class, 'removeStudentProfileImage'])->name('student.profile.remove-image');
+    Route::get('/student/feedback', [FeedbackController::class, 'studentCreate'])->name('student.feedback');
+    Route::post('/student/feedback', [FeedbackController::class, 'studentStore'])->name('student.feedback.store');
 
     Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
     Route::get('/student/certificate/download', [PageController::class, 'downloadStudentCertificate'])->name('student.certificate.download');
@@ -252,6 +276,9 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::post('/student/achievements/store',[StudentAchievementController::class, 'store'])->name('student.achievements.store');
 
     Route::get('/student/content',[PageController::class, 'studentContent'])->name('student.content');
+    Route::get('/student/content/{id}/ai-review',[PageController::class, 'studentAiReview'])->name('student.content.ai-review');
+    Route::get('/student/content/{id}/ai-review/quiz',[PageController::class, 'studentAiReviewQuiz'])->name('student.content.ai-review.quiz');
+    Route::post('/student/content/{id}/ai-review/quiz',[PageController::class, 'submitStudentAiReview'])->name('student.content.ai-review.submit');
     Route::post('/student/lesson/{id}/complete',[PageController::class, 'completeLesson'])->name('student.lesson.complete');
 
     Route::get('/student/basic-details', [StudentProfileController::class, 'create'])->name('student.basic-details');

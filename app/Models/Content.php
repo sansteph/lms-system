@@ -16,6 +16,21 @@ class Content extends Model
     {
         return $this->hasOne(CourseContent::class, 'content_id');
     }
+
+    public function aiSummary()
+    {
+        return $this->hasOne(AiContentSummary::class);
+    }
+
+    public function getEffectiveAiSummaryAttribute()
+    {
+        if ($this->aiSummary) {
+            return $this->aiSummary;
+        }
+
+        return $this->courseContent?->sourceTemplateContent?->aiSummary;
+    }
+
     protected $fillable = [
 
         'content_title',

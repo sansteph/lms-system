@@ -107,106 +107,128 @@
                 </div>
             @endif
 
-            <h5 class="mb-3">Institute Teaching Plans</h5>
+            @php
+                $deployedPlans = $plans->whereNotNull('parent_template_id');
+                $standalonePlans = $plans->whereNull('parent_template_id');
+            @endphp
 
-            <div class="row g-4">
-                @forelse($plans as $plan)
-                    <div class="col-12">
-                        <div class="card shadow border-0">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
-                                    <div>
-                                        <h5 class="mb-1">{{ $plan->title ?? $plan->course->course_title ?? 'Course' }}</h5>
-                                        <div class="text-muted small">
-                                            {{ $plan->class }} {{ $plan->section }} |
-                                            {{ $plan->institute ?? 'Template' }} |
-                                            Starts {{ $plan->start_date ? \Carbon\Carbon::parse($plan->start_date)->format('d M Y') : 'Not set' }} |
-                                            {{ $plan->contents_per_week }} content(s) per week
-                                            @if($plan->parentTemplate)
-                                                | From template #{{ $plan->parentTemplate->id }}
-                                            @endif
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 flex-wrap">
-                                        <span class="badge bg-{{ $plan->status == 'active' ? 'success' : ($plan->status == 'completed' ? 'primary' : 'secondary') }}">
-                                            {{ ucfirst($plan->status) }}
-                                        </span>
-                                        <form method="POST" action="{{ route('teaching-plans.release-next', $plan->id) }}">
-                                            @csrf
-                                            <button class="btn btn-sm btn-outline-primary">Release Next Week</button>
-                                        </form>
-                                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editTeachingPlanModal{{ $plan->id }}">
-                                            Edit
-                                        </button>
-                                        <a href="{{ route('teaching-plans.delete', $plan->id) }}"
-                                           class="btn btn-sm btn-outline-danger"
-                                           onclick="return confirm('Delete this Teaching Plan? Session history will stay, but plan links will be cleared.')">
-                                            Delete
-                                        </a>
-                                    </div>
-                                </div>
+            @foreach([
+                'Deployed Template Plans' => $deployedPlans,
+                'Standalone Institute Plans' => $standalonePlans,
+            ] as $sectionTitle => $sectionPlans)
+                <h5 class="mb-3 mt-4">{{ $sectionTitle }}</h5>
 
-                                <div class="table-responsive">
-                                    <table class="table table-bordered table-hover align-middle">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th style="width: 90px;">Week</th>
-                                                <th>Release</th>
-                                                <th>Status</th>
-                                                <th>Contents</th>
-                                                <th style="width: 210px;">Week Control</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach($plan->weeks->sortBy('week_number') as $week)
-                                                <tr>
-                                                    <td>Week {{ $week->week_number }}</td>
-                                                    <td>
-                                                        {{ $week->release_date ? $week->release_date->format('d M Y') : '-' }}
-                                                        <div class="text-muted small">
-                                                            {{ $week->week_start_date ? $week->week_start_date->format('d M') : '-' }}
-                                                            -
-                                                            {{ $week->week_end_date ? $week->week_end_date->format('d M Y') : '-' }}
-                                                        </div>
-                                                    </td>
-                                                    <td>{{ ucfirst($week->status) }}</td>
-                                                    <td>
-                                                        @foreach($week->items->sortBy('sort_order') as $item)
-                                                            <div class="border rounded p-2 mb-2">
-                                                                <div>
-                                                                    <strong>{{ $item->content->content_title ?? 'Content' }}</strong>
-                                                                    <div class="text-muted small">Order {{ $item->sort_order }} | {{ ucfirst($item->status) }}</div>
+                @forelse($sectionPlans->groupBy(fn ($plan) => $plan->institute ?: 'Unassigned Institute') as $instituteName => $institutePlans)
+                    <div class="card shadow border-0 mb-4">
+                        <div class="card-header bg-primary text-white fw-semibold">
+                            {{ $instituteName }} · {{ $institutePlans->count() }} plan{{ $institutePlans->count() == 1 ? '' : 's' }}
+                        </div>
+                        <div class="card-body">
+                            @foreach($institutePlans->sortBy(fn ($plan) => trim($plan->class . ' ' . $plan->section))->groupBy(fn ($plan) => trim($plan->class . ' ' . $plan->section) ?: 'Unassigned Class') as $classLabel => $classPlans)
+                                <div class="border rounded p-3 mb-3">
+                                    <h6 class="fw-semibold mb-3">{{ $classLabel }} · {{ $classPlans->count() }} plan{{ $classPlans->count() == 1 ? '' : 's' }}</h6>
+
+                                    <div class="row g-4">
+                                        @foreach($classPlans as $plan)
+                                            <div class="col-12">
+                                                <div class="card border">
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                                                            <div>
+                                                                <h5 class="mb-1">{{ $plan->title ?? $plan->course->course_title ?? 'Course' }}</h5>
+                                                                <div class="text-muted small">
+                                                                    {{ $plan->class }} {{ $plan->section }} |
+                                                                    Starts {{ $plan->start_date ? \Carbon\Carbon::parse($plan->start_date)->format('d M Y') : 'Not set' }} |
+                                                                    {{ $plan->contents_per_week }} content(s) per week
+                                                                    @if($plan->parentTemplate)
+                                                                        | From template #{{ $plan->parentTemplate->id }}
+                                                                    @endif
                                                                 </div>
                                                             </div>
-                                                        @endforeach
-                                                    </td>
-                                                    <td>
-                                                        <form method="POST" action="{{ route('teaching-plans.weeks.update', [$plan->id, $week->id]) }}" class="d-flex gap-2">
-                                                            @csrf
-                                                            <select name="status" class="form-select form-select-sm">
-                                                                @foreach(['locked', 'released', 'completed', 'skipped'] as $status)
-                                                                    <option value="{{ $status }}" {{ $week->status == $status ? 'selected' : '' }}>{{ ucfirst($status) }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                            <button class="btn btn-sm btn-outline-primary">Save</button>
-                                                        </form>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
+                                                            <div class="d-flex gap-2 flex-wrap">
+                                                                <span class="badge bg-{{ $plan->status == 'active' ? 'success' : ($plan->status == 'completed' ? 'primary' : 'secondary') }}">
+                                                                    {{ ucfirst($plan->status) }}
+                                                                </span>
+                                                                <form method="POST" action="{{ route('teaching-plans.release-next', $plan->id) }}">
+                                                                    @csrf
+                                                                    <button class="btn btn-sm btn-outline-primary">Release Next Week</button>
+                                                                </form>
+                                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editTeachingPlanModal{{ $plan->id }}">
+                                                                    Edit
+                                                                </button>
+                                                                <a href="{{ route('teaching-plans.delete', $plan->id) }}"
+                                                                   class="btn btn-sm btn-outline-danger"
+                                                                   onclick="return confirm('Delete this Teaching Plan? Session history will stay, but plan links will be cleared.')">
+                                                                    Delete
+                                                                </a>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="table-responsive">
+                                                            <table class="table table-bordered table-hover align-middle">
+                                                                <thead class="table-light">
+                                                                    <tr>
+                                                                        <th style="width: 90px;">Week</th>
+                                                                        <th>Release</th>
+                                                                        <th>Status</th>
+                                                                        <th>Contents</th>
+                                                                        <th style="width: 210px;">Week Control</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    @foreach($plan->weeks->sortBy('week_number') as $week)
+                                                                        <tr>
+                                                                            <td>Week {{ $week->week_number }}</td>
+                                                                            <td>
+                                                                                {{ $week->release_date ? $week->release_date->format('d M Y') : '-' }}
+                                                                                <div class="text-muted small">
+                                                                                    {{ $week->week_start_date ? $week->week_start_date->format('d M') : '-' }}
+                                                                                    -
+                                                                                    {{ $week->week_end_date ? $week->week_end_date->format('d M Y') : '-' }}
+                                                                                </div>
+                                                                            </td>
+                                                                            <td>{{ ucfirst($week->status) }}</td>
+                                                                            <td>
+                                                                                @foreach($week->items->sortBy('sort_order') as $item)
+                                                                                    <div class="border rounded p-2 mb-2">
+                                                                                        <div>
+                                                                                            <strong>{{ $item->content->content_title ?? 'Content' }}</strong>
+                                                                                            <div class="text-muted small">Order {{ $item->sort_order }} | {{ ucfirst($item->status) }}</div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                @endforeach
+                                                                            </td>
+                                                                            <td>
+                                                                                <form method="POST" action="{{ route('teaching-plans.weeks.update', [$plan->id, $week->id]) }}" class="d-flex gap-2">
+                                                                                    @csrf
+                                                                                    <select name="status" class="form-select form-select-sm">
+                                                                                        @foreach(['locked', 'released', 'completed', 'skipped'] as $status)
+                                                                                            <option value="{{ $status }}" {{ $week->status == $status ? 'selected' : '' }}>{{ ucfirst($status) }}</option>
+                                                                                        @endforeach
+                                                                                    </select>
+                                                                                    <button class="btn btn-sm btn-outline-primary">Save</button>
+                                                                                </form>
+                                                                            </td>
+                                                                        </tr>
+                                                                    @endforeach
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
                                 </div>
-                            </div>
+                            @endforeach
                         </div>
                     </div>
                 @empty
-                    <div class="col-12">
-                        <div class="card shadow border-0">
-                            <div class="card-body text-center text-muted">No Teaching Plans generated yet.</div>
-                        </div>
+                    <div class="card shadow border-0 mb-4">
+                        <div class="card-body text-center text-muted">No {{ strtolower($sectionTitle) }} found.</div>
                     </div>
                 @endforelse
-            </div>
+            @endforeach
         </div>
     </div>
 </div>

@@ -244,21 +244,7 @@
 
                                         @if($extension == 'pdf')
 
-                                            <div class="border rounded overflow-hidden bg-dark shadow-sm protected-preview-surface"
-                                                 data-watermark="InnovatEdge&#10;View Only"
-                                                 data-preview-scope="content-{{ $content->id }}">
-                                                <div class="protected-preview-content">
-                                                    <iframe src="{{ $streamUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
-                                                            width="100%"
-                                                            height="360"
-                                                            style="border: 0; background: #111827;"
-                                                            oncontextmenu="return false;">
-                                                    </iframe>
-                                                    <div class="protected-preview-mouse-shield"
-                                                         aria-hidden="true">
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            {{-- PDFs are opened only through the secure full-screen viewer above. --}}
 
                                         @elseif(in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
 
@@ -347,7 +333,11 @@
 
                                                 <i class="fa fa-check me-2"></i>
 
-                                                Mark as Complete
+                                                @if($content->effective_ai_summary && $content->effective_ai_summary->status == 'generated')
+                                                    Start AI Review
+                                                @else
+                                                    Mark as Complete
+                                                @endif
 
                                             </button>
 

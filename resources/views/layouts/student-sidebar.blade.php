@@ -31,4 +31,8 @@
         Profile
     </a>
 
+    <a href="{{ route('student.feedback') }}"class="sidebar-link {{ request()->routeIs('student.feedback*') ? 'active' : '' }}">
+        Feedback
+    </a>
+
 </div>
