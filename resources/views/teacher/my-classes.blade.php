@@ -414,4 +414,12 @@
     </div>
 </div>
 
+@if(session('previewContentUrl'))
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            window.open(@json(session('previewContentUrl')), '_blank', 'noopener');
+        });
+    </script>
+@endif
+
 @endsection
