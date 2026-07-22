@@ -2,6 +2,48 @@
 
 @section('content')
 
+<style>
+    .teaching-plan-section-navigator {
+        border: 1px solid #dbe7f4;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);
+        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.07);
+        padding: 18px;
+    }
+
+    .teaching-plan-section-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        background: #0f3b7a;
+        color: #ffffff;
+        padding: 8px 14px;
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+    .teaching-plan-nav-button {
+        min-width: 190px;
+        border-radius: 12px;
+        padding: 10px 16px;
+        font-weight: 700;
+    }
+
+    .teaching-plan-nav-button small {
+        display: block;
+        font-size: 11px;
+        font-weight: 500;
+        opacity: .72;
+    }
+
+    @media(max-width: 576px) {
+        .teaching-plan-nav-button {
+            width: 100%;
+        }
+    }
+</style>
+
 <div class="container-fluid">
     <div class="row">
         @include('layouts.sidebar')
@@ -30,9 +72,11 @@
                             Create Template
                         </button>
                     @endif
-                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createTeachingPlanModal">
-                        Generate Institute Plan
-                    </button>
+                    @if(session('user_role') != 'Admin' || !$teachingPlanSectionPager || $teachingPlanSectionPager['current_type'] == 'institute')
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createTeachingPlanModal">
+                            Generate Institute Plan
+                        </button>
+                    @endif
                 </div>
             </div>
 
@@ -56,7 +100,49 @@
                 <div class="alert alert-danger">{{ $errors->first() }}</div>
             @endif
 
-            @if(session('user_role') == 'Admin')
+            @if(session('user_role') == 'Admin' && $teachingPlanSectionPager)
+                <div class="teaching-plan-section-navigator mb-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <div class="teaching-plan-section-pill mb-2">
+                                Section {{ $teachingPlanSectionPager['current_page'] }} of {{ $teachingPlanSectionPager['last_page'] }}
+                            </div>
+                            <h5 class="mb-1">{{ $teachingPlanSectionPager['current_label'] }}</h5>
+                            <p class="text-muted mb-0">
+                                Browse reusable templates first, then institute teaching plans one institute at a time.
+                            </p>
+                        </div>
+
+                        <div class="d-flex gap-2 flex-wrap">
+                            @if($teachingPlanSectionPager['previous_url'])
+                                <a href="{{ $teachingPlanSectionPager['previous_url'] }}" class="btn btn-outline-primary teaching-plan-nav-button">
+                                    Previous
+                                    <small>{{ $teachingPlanSectionPager['previous_label'] }}</small>
+                                </a>
+                            @else
+                                <button type="button" class="btn btn-outline-secondary teaching-plan-nav-button" disabled>
+                                    Previous
+                                    <small>Start of list</small>
+                                </button>
+                            @endif
+
+                            @if($teachingPlanSectionPager['next_url'])
+                                <a href="{{ $teachingPlanSectionPager['next_url'] }}" class="btn btn-primary teaching-plan-nav-button">
+                                    Next
+                                    <small>{{ $teachingPlanSectionPager['next_label'] }}</small>
+                                </a>
+                            @else
+                                <button type="button" class="btn btn-outline-secondary teaching-plan-nav-button" disabled>
+                                    Next
+                                    <small>End of list</small>
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            @if(session('user_role') == 'Admin' && (!$teachingPlanSectionPager || $teachingPlanSectionPager['current_type'] == 'templates'))
                 <div class="card shadow border-0 mb-4">
                     <div class="card-body">
                         <h5 class="mb-3">Teaching Plan Templates</h5>
@@ -85,7 +171,7 @@
                                             <td>{{ $template->class }} {{ $template->section }}</td>
                                             <td>{{ $template->course->course_title ?? 'Course removed' }}</td>
                                             <td>{{ $template->release_day }} / {{ $template->contents_per_week }} per batch</td>
-                                            <td>{{ $template->deployedPlans->count() }}</td>
+                                            <td>{{ $template->deployed_plans_count }}</td>
                                             <td>{{ ucfirst($template->status) }}</td>
                                             <td>
                                                 <a href="{{ route('teaching-plans.delete', $template->id) }}"
@@ -107,18 +193,19 @@
                 </div>
             @endif
 
-            @php
-                $deployedPlans = $plans->whereNotNull('parent_template_id');
-                $standalonePlans = $plans->whereNull('parent_template_id');
-            @endphp
+            @if(session('user_role') != 'Admin' || !$teachingPlanSectionPager || $teachingPlanSectionPager['current_type'] == 'institute')
+                @php
+                    $deployedPlans = $plans->whereNotNull('parent_template_id');
+                    $standalonePlans = $plans->whereNull('parent_template_id');
+                @endphp
 
-            @foreach([
-                'Deployed Template Plans' => $deployedPlans,
-                'Standalone Institute Plans' => $standalonePlans,
-            ] as $sectionTitle => $sectionPlans)
-                <h5 class="mb-3 mt-4">{{ $sectionTitle }}</h5>
+                @foreach([
+                    'Deployed Template Plans' => $deployedPlans,
+                    'Standalone Institute Plans' => $standalonePlans,
+                ] as $sectionTitle => $sectionPlans)
+                    <h5 class="mb-3 mt-4">{{ $sectionTitle }}</h5>
 
-                @forelse($sectionPlans->groupBy(fn ($plan) => $plan->institute ?: 'Unassigned Institute') as $instituteName => $institutePlans)
+                    @forelse($sectionPlans->groupBy(fn ($plan) => $plan->institute ?: 'Unassigned Institute') as $instituteName => $institutePlans)
                     <div class="card shadow border-0 mb-4">
                         <div class="card-header bg-primary text-white fw-semibold">
                             {{ $instituteName }} · {{ $institutePlans->count() }} plan{{ $institutePlans->count() == 1 ? '' : 's' }}
@@ -226,12 +313,13 @@
                             @endforeach
                         </div>
                     </div>
-                @empty
-                    <div class="card shadow border-0 mb-4">
-                        <div class="card-body text-center text-muted">No {{ strtolower($sectionTitle) }} found.</div>
-                    </div>
-                @endforelse
-            @endforeach
+                    @empty
+                        <div class="card shadow border-0 mb-4">
+                            <div class="card-body text-center text-muted">No {{ strtolower($sectionTitle) }} found.</div>
+                        </div>
+                    @endforelse
+                @endforeach
+            @endif
         </div>
     </div>
 </div>

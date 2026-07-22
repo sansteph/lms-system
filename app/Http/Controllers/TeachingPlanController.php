@@ -18,27 +18,70 @@ use Illuminate\Support\Facades\DB;
 
 class TeachingPlanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $plans = TeachingPlan::with([
-                'course.courseContents.content',
-                'parentTemplate',
-                'weeks.items.content',
-            ])
-            ->where('is_template', false)
-            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->where('institute', session('user_institute'));
-            })
-            ->latest()
+        $institutes = Institute::where('status', 1)
+            ->orderBy('institute_name')
             ->get();
+
+        $teachingPlanSectionPager = null;
+        $currentInstituteName = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : null;
+
+        if (session('user_role') == 'Admin') {
+            $sections = collect([[
+                    'label' => 'Teaching Plan Templates',
+                    'type' => 'templates',
+                    'value' => '__templates',
+                ]])
+                ->merge($institutes->map(fn ($institute) => [
+                    'label' => $institute->institute_name,
+                    'type' => 'institute',
+                    'value' => $institute->institute_name,
+                ]))
+                ->values();
+
+            $currentPage = max(1, min((int) $request->query('page', 1), max($sections->count(), 1)));
+            $currentSection = $sections->get($currentPage - 1, $sections->first());
+
+            if (($currentSection['type'] ?? null) == 'institute') {
+                $currentInstituteName = $currentSection['value'];
+            }
+
+            $teachingPlanSectionPager = [
+                'current_page' => $currentPage,
+                'last_page' => $sections->count(),
+                'current_type' => $currentSection['type'] ?? 'templates',
+                'current_label' => $currentSection['label'] ?? 'Teaching Plans',
+                'previous_url' => $currentPage > 1 ? route('teaching-plans', ['page' => $currentPage - 1]) : null,
+                'next_url' => $currentPage < $sections->count() ? route('teaching-plans', ['page' => $currentPage + 1]) : null,
+                'previous_label' => $currentPage > 1 ? ($sections->get($currentPage - 2)['label'] ?? 'Previous') : null,
+                'next_label' => $currentPage < $sections->count() ? ($sections->get($currentPage)['label'] ?? 'Next') : null,
+            ];
+        }
+
+        $plans = collect();
+
+        if (session('user_role') == 'InstituteAdmin' || $currentInstituteName) {
+            $plans = TeachingPlan::with([
+                    'course.courseContents.content',
+                    'parentTemplate',
+                    'weeks.items.content',
+                ])
+                ->where('is_template', false)
+                ->where('institute', $currentInstituteName)
+                ->latest()
+                ->get();
+        }
 
         $templates = TeachingPlan::with([
                 'course.courseContents.content',
-                'deployedPlans',
                 'weeks.items.content',
             ])
+            ->withCount('deployedPlans')
             ->where('is_template', true)
-            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+            ->when(session('user_role') == 'InstituteAdmin' || (session('user_role') == 'Admin' && $currentInstituteName), function ($query) {
                 $query->whereRaw('1 = 0');
             })
             ->latest()
@@ -52,6 +95,13 @@ class TeachingPlanController extends Controller
             })
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
+            })
+            ->when(session('user_role') == 'Admin', function ($query) use ($currentInstituteName) {
+                if ($currentInstituteName) {
+                    $query->where('institute', $currentInstituteName);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
             })
             ->orderBy('course_title')
             ->get();
@@ -70,10 +120,6 @@ class TeachingPlanController extends Controller
             ->orderBy('course_title')
             ->get();
 
-        $institutes = Institute::where('status', 1)
-            ->orderBy('institute_name')
-            ->get();
-
         $classesByInstitute = SchoolClass::where('status', 1)
             ->orderBy('class_name')
             ->orderBy('section')
@@ -87,7 +133,16 @@ class TeachingPlanController extends Controller
                     ->values();
             });
 
-        return view('teaching-plans', compact('plans', 'templates', 'courses', 'templateCourses', 'institutes', 'classesByInstitute'));
+        return view('teaching-plans', compact(
+            'plans',
+            'templates',
+            'courses',
+            'templateCourses',
+            'institutes',
+            'classesByInstitute',
+            'teachingPlanSectionPager',
+            'currentInstituteName'
+        ));
     }
 
     public function store(Request $request)
