@@ -58,6 +58,46 @@
     .course-institute-body {
         padding: 18px;
     }
+
+    .course-section-navigator {
+        border: 1px solid #dbe7f4;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);
+        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.07);
+        padding: 18px;
+    }
+
+    .course-section-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        background: #0f3b7a;
+        color: #ffffff;
+        padding: 8px 14px;
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+    .course-nav-button {
+        min-width: 190px;
+        border-radius: 12px;
+        padding: 10px 16px;
+        font-weight: 700;
+    }
+
+    .course-nav-button small {
+        display: block;
+        font-size: 11px;
+        font-weight: 500;
+        opacity: .72;
+    }
+
+    @media(max-width: 576px) {
+        .course-nav-button {
+            width: 100%;
+        }
+    }
 </style>
 
 <div class="container-fluid">
@@ -74,29 +114,44 @@
                 </div>
             </div>
 
-            @if(session('user_role') == 'Admin')
-                <div class="card shadow border-0 mb-4">
-                    <div class="card-body">
-                        <form method="GET" action="{{ route('courses') }}" class="row g-3 align-items-end">
-                            <div class="col-md-6">
-                                <label class="form-label">Filter by Institute</label>
-                                <select name="institute" class="form-select">
-                                    <option value="">All Courses</option>
-                                    <option value="__template_sources" {{ request('institute') == '__template_sources' ? 'selected' : '' }}>
-                                        Template Source Courses
-                                    </option>
-                                    @foreach($institutes as $institute)
-                                        <option value="{{ $institute->institute_name }}" {{ request('institute') == $institute->institute_name ? 'selected' : '' }}>
-                                            {{ $institute->institute_name }}
-                                        </option>
-                                    @endforeach
-                                </select>
+            @if(session('user_role') == 'Admin' && $courseSectionPager)
+                <div class="course-section-navigator mb-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <div class="course-section-pill mb-2">
+                                Section {{ $courseSectionPager['current_page'] }} of {{ $courseSectionPager['last_page'] }}
                             </div>
-                            <div class="col-md-6 d-flex gap-2">
-                                <button type="submit" class="btn btn-primary">Apply Filter</button>
-                                <a href="{{ route('courses') }}" class="btn btn-outline-secondary">Clear</a>
-                            </div>
-                        </form>
+                            <h5 class="mb-1">{{ $courseSectionPager['current_label'] }}</h5>
+                            <p class="text-muted mb-0">
+                                Browse template sources first, then institute courses one institute at a time.
+                            </p>
+                        </div>
+
+                        <div class="d-flex gap-2 flex-wrap">
+                            @if($courseSectionPager['previous_url'])
+                                <a href="{{ $courseSectionPager['previous_url'] }}" class="btn btn-outline-primary course-nav-button">
+                                    Previous
+                                    <small>{{ $courseSectionPager['previous_label'] }}</small>
+                                </a>
+                            @else
+                                <button type="button" class="btn btn-outline-secondary course-nav-button" disabled>
+                                    Previous
+                                    <small>Start of list</small>
+                                </button>
+                            @endif
+
+                            @if($courseSectionPager['next_url'])
+                                <a href="{{ $courseSectionPager['next_url'] }}" class="btn btn-primary course-nav-button">
+                                    Next
+                                    <small>{{ $courseSectionPager['next_label'] }}</small>
+                                </a>
+                            @else
+                                <button type="button" class="btn btn-outline-secondary course-nav-button" disabled>
+                                    Next
+                                    <small>End of list</small>
+                                </button>
+                            @endif
+                        </div>
                     </div>
                 </div>
             @endif
@@ -417,9 +472,42 @@
                 </div>
             @endforelse
 
-            @if($courses->hasPages())
-                <div class="mt-4">
-                    {{ $courses->links() }}
+            @if(session('user_role') == 'Admin' && $courseSectionPager)
+                <div class="course-section-navigator mt-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <h6 class="mb-1">Course Section Navigation</h6>
+                            <p class="text-muted mb-0">
+                                Currently viewing {{ $courseSectionPager['current_label'] }}.
+                            </p>
+                        </div>
+
+                        <div class="d-flex gap-2 flex-wrap">
+                            @if($courseSectionPager['previous_url'])
+                                <a href="{{ $courseSectionPager['previous_url'] }}" class="btn btn-outline-primary course-nav-button">
+                                    Previous
+                                    <small>{{ $courseSectionPager['previous_label'] }}</small>
+                                </a>
+                            @else
+                                <button type="button" class="btn btn-outline-secondary course-nav-button" disabled>
+                                    Previous
+                                    <small>Start of list</small>
+                                </button>
+                            @endif
+
+                            @if($courseSectionPager['next_url'])
+                                <a href="{{ $courseSectionPager['next_url'] }}" class="btn btn-primary course-nav-button">
+                                    Next
+                                    <small>{{ $courseSectionPager['next_label'] }}</small>
+                                </a>
+                            @else
+                                <button type="button" class="btn btn-outline-secondary course-nav-button" disabled>
+                                    Next
+                                    <small>End of list</small>
+                                </button>
+                            @endif
+                        </div>
+                    </div>
                 </div>
             @endif
         </div>

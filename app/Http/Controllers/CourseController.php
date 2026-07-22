@@ -25,7 +25,13 @@ class CourseController extends Controller
     use DeletesAssessments;
     public function index(Request $request)
     {
-        $courses = Course::with([
+        $institutes = session('user_role') == 'Admin'
+            ? Institute::where('status', 1)->orderBy('institute_name')->get()
+            : collect();
+
+        $courseSectionPager = null;
+
+        $courseQuery = Course::with([
                 'courseContents' => function ($query) {
                     $query->select([
                             'id',
@@ -60,25 +66,47 @@ class CourseController extends Controller
                     ]);
                 },
             ])
-            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->where('institute', session('user_institute'));
-            })
-            ->when(
-                session('user_role') == 'Admin' && $request->filled('institute'),
-                function ($query) use ($request) {
-                    if ($request->institute == '__template_sources') {
-                        $query->where('is_template_source', true);
-                    } else {
-                        $query->where('institute', $request->institute);
-                    }
-                }
-            )
             ->orderBy('institute')
-            ->orderBy('course_title')
-            ->paginate(6)
-            ->withQueryString();
+            ->orderBy('course_title');
 
-        $courseGroups = $courses->getCollection()->groupBy(function ($course) {
+        if (session('user_role') == 'Admin') {
+            $sections = collect([[
+                    'label' => 'Template Source Courses',
+                    'type' => 'template',
+                    'value' => '__template_sources',
+                ]])
+                ->merge($institutes->map(fn ($institute) => [
+                    'label' => $institute->institute_name,
+                    'type' => 'institute',
+                    'value' => $institute->institute_name,
+                ]))
+                ->values();
+
+            $currentPage = max(1, min((int) $request->query('page', 1), max($sections->count(), 1)));
+            $currentSection = $sections->get($currentPage - 1, $sections->first());
+
+            if (($currentSection['type'] ?? null) == 'template') {
+                $courseQuery->where('is_template_source', true);
+            } else {
+                $courseQuery->where('institute', $currentSection['value']);
+            }
+
+            $courseSectionPager = [
+                'current_page' => $currentPage,
+                'last_page' => $sections->count(),
+                'current_label' => $currentSection['label'] ?? 'Courses',
+                'previous_url' => $currentPage > 1 ? route('courses', ['page' => $currentPage - 1]) : null,
+                'next_url' => $currentPage < $sections->count() ? route('courses', ['page' => $currentPage + 1]) : null,
+                'previous_label' => $currentPage > 1 ? ($sections->get($currentPage - 2)['label'] ?? 'Previous') : null,
+                'next_label' => $currentPage < $sections->count() ? ($sections->get($currentPage)['label'] ?? 'Next') : null,
+            ];
+        } else {
+            $courseQuery->where('institute', session('user_institute'));
+        }
+
+        $courses = $courseQuery->get();
+
+        $courseGroups = $courses->groupBy(function ($course) {
             if ($course->is_template_source) {
                 return 'Template Source Courses';
             }
@@ -86,11 +114,7 @@ class CourseController extends Controller
             return $course->institute ?: 'Unassigned Institute';
         });
 
-        $institutes = session('user_role') == 'Admin'
-            ? Institute::where('status', 1)->orderBy('institute_name')->get()
-            : collect();
-
-        return view('courses', compact('courses', 'courseGroups', 'institutes'));
+        return view('courses', compact('courses', 'courseGroups', 'institutes', 'courseSectionPager'));
     }
 
     public function store(Request $request)
