@@ -472,44 +472,6 @@
                 </div>
             @endforelse
 
-            @if(session('user_role') == 'Admin' && $courseSectionPager)
-                <div class="course-section-navigator mt-4">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                        <div>
-                            <h6 class="mb-1">Course Section Navigation</h6>
-                            <p class="text-muted mb-0">
-                                Currently viewing {{ $courseSectionPager['current_label'] }}.
-                            </p>
-                        </div>
-
-                        <div class="d-flex gap-2 flex-wrap">
-                            @if($courseSectionPager['previous_url'])
-                                <a href="{{ $courseSectionPager['previous_url'] }}" class="btn btn-outline-primary course-nav-button">
-                                    Previous
-                                    <small>{{ $courseSectionPager['previous_label'] }}</small>
-                                </a>
-                            @else
-                                <button type="button" class="btn btn-outline-secondary course-nav-button" disabled>
-                                    Previous
-                                    <small>Start of list</small>
-                                </button>
-                            @endif
-
-                            @if($courseSectionPager['next_url'])
-                                <a href="{{ $courseSectionPager['next_url'] }}" class="btn btn-primary course-nav-button">
-                                    Next
-                                    <small>{{ $courseSectionPager['next_label'] }}</small>
-                                </a>
-                            @else
-                                <button type="button" class="btn btn-outline-secondary course-nav-button" disabled>
-                                    Next
-                                    <small>End of list</small>
-                                </button>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-            @endif
         </div>
     </div>
 </div>
