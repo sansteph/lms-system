@@ -375,6 +375,8 @@ class UserController extends Controller
                     ->subject('Confirm your InnovatEdge LMS password change');
             });
         } catch (\Throwable $exception) {
+            report($exception);
+
             PendingPasswordChange::where('user_id', $user->id)
                 ->where('token_hash', hash('sha256', $token))
                 ->delete();
