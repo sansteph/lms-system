@@ -179,13 +179,13 @@
 }
 
 .hero-social-links a{
-    width:66px;
-    height:66px;
-    flex:0 0 66px;
+    width:44px;
+    height:44px;
+    flex:0 0 44px;
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    border-radius:18px;
+    border-radius:14px;
     color:white;
     text-decoration:none;
     background:rgba(255,255,255,0.09);
@@ -202,8 +202,8 @@
 }
 
 .hero-social-links svg{
-    width:28px;
-    height:28px;
+    width:21px;
+    height:21px;
     display:block;
     fill:currentColor;
 }
@@ -1104,15 +1104,15 @@
     }
 
     .hero-social-links a{
-        width:58px;
-        height:58px;
-        flex-basis:58px;
-        border-radius:16px;
+        width:44px;
+        height:44px;
+        flex-basis:44px;
+        border-radius:14px;
     }
 
     .hero-social-links svg{
-        width:25px;
-        height:25px;
+        width:21px;
+        height:21px;
     }
 
     .hero-title{
