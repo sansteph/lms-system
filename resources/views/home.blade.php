@@ -36,25 +36,35 @@
                        target="_blank"
                        rel="noopener"
                        title="LinkedIn">
-                        <i class="fab fa-linkedin-in"></i>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.32 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.1 20.45H3.53V9H7.1v11.45z"/>
+                        </svg>
                     </a>
                     <a href="https://www.instagram.com/tinkedge_/?hl=en"
                        target="_blank"
                        rel="noopener"
                        title="Instagram">
-                        <i class="fab fa-instagram"></i>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M7.75 2h8.5A5.76 5.76 0 0 1 22 7.75v8.5A5.76 5.76 0 0 1 16.25 22h-8.5A5.76 5.76 0 0 1 2 16.25v-8.5A5.76 5.76 0 0 1 7.75 2zm0 2A3.75 3.75 0 0 0 4 7.75v8.5A3.75 3.75 0 0 0 7.75 20h8.5A3.75 3.75 0 0 0 20 16.25v-8.5A3.75 3.75 0 0 0 16.25 4h-8.5z"/>
+                            <path d="M12 7.35A4.65 4.65 0 1 1 12 16.65 4.65 4.65 0 0 1 12 7.35zm0 2A2.65 2.65 0 1 0 12 14.65 2.65 2.65 0 0 0 12 9.35z"/>
+                            <path d="M17.2 6.65a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3z"/>
+                        </svg>
                     </a>
                     <a href="https://www.youtube.com/@tinkedge9223"
                        target="_blank"
                        rel="noopener"
                        title="YouTube">
-                        <i class="fab fa-youtube"></i>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M21.58 7.18a2.72 2.72 0 0 0-1.91-1.92C17.98 4.8 12 4.8 12 4.8s-5.98 0-7.67.46a2.72 2.72 0 0 0-1.91 1.92A28.4 28.4 0 0 0 2 12a28.4 28.4 0 0 0 .42 4.82 2.72 2.72 0 0 0 1.91 1.92c1.69.46 7.67.46 7.67.46s5.98 0 7.67-.46a2.72 2.72 0 0 0 1.91-1.92A28.4 28.4 0 0 0 22 12a28.4 28.4 0 0 0-.42-4.82zM10 15.25v-6.5L15.2 12 10 15.25z"/>
+                        </svg>
                     </a>
                     <a href="https://www.google.com/maps/place/TinkEdge/@13.0051806,77.5668533,17z/data=!3m1!4b1!4m6!3m5!1s0x3bae162fbb205ae7:0x7fa7f2b1d5bdbcb6!8m2!3d13.0051754!4d77.5694282!16s%2Fg%2F11fsq6_g11?authuser=0&entry=ttu&g_ep=EgoyMDI2MDcxOS4wIKXMDSoASAFQAw%3D%3D"
                        target="_blank"
                        rel="noopener"
                        title="Google Maps">
-                        <i class="fa fa-location-dot"></i>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 2.25a7.25 7.25 0 0 0-7.25 7.25c0 5.44 7.25 12.25 7.25 12.25s7.25-6.81 7.25-12.25A7.25 7.25 0 0 0 12 2.25zm0 10.1a2.85 2.85 0 1 1 0-5.7 2.85 2.85 0 0 1 0 5.7z"/>
+                        </svg>
                     </a>
                 </div>
 

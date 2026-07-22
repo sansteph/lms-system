@@ -197,6 +197,13 @@
     transform:translateY(-3px);
 }
 
+.hero-social-links svg{
+    width:21px;
+    height:21px;
+    display:block;
+    fill:currentColor;
+}
+
 /* =========================================================
    HERO MAIN
 ========================================================= */
