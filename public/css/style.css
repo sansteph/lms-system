@@ -172,22 +172,26 @@
     display:flex;
     align-items:center;
     justify-content:flex-end;
-    gap:12px;
+    flex-direction:row;
+    flex-wrap:nowrap;
+    gap:18px;
+    min-width:max-content;
 }
 
 .hero-social-links a{
-    width:44px;
-    height:44px;
+    width:66px;
+    height:66px;
+    flex:0 0 66px;
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    border-radius:14px;
+    border-radius:18px;
     color:white;
     text-decoration:none;
-    background:rgba(255,255,255,0.10);
+    background:rgba(255,255,255,0.09);
     border:1px solid rgba(255,255,255,0.18);
     backdrop-filter:blur(14px);
-    box-shadow:0 14px 30px rgba(2,6,23,0.18);
+    box-shadow:0 14px 30px rgba(2,6,23,0.22);
     transition:.25s ease;
 }
 
@@ -198,8 +202,8 @@
 }
 
 .hero-social-links svg{
-    width:21px;
-    height:21px;
+    width:28px;
+    height:28px;
     display:block;
     fill:currentColor;
 }
@@ -1095,6 +1099,20 @@
     .hero-social-links{
         width:100%;
         justify-content:flex-start;
+        flex-wrap:nowrap;
+        gap:14px;
+    }
+
+    .hero-social-links a{
+        width:58px;
+        height:58px;
+        flex-basis:58px;
+        border-radius:16px;
+    }
+
+    .hero-social-links svg{
+        width:25px;
+        height:25px;
     }
 
     .hero-title{
