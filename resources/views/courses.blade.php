@@ -355,7 +355,16 @@
                                                                         <button type="button"
                                                                                 class="btn btn-sm btn-outline-secondary w-100 mb-2"
                                                                                 data-bs-toggle="modal"
-                                                                                data-bs-target="#editCourseContentModal{{ $courseContent->id }}">
+                                                                                data-bs-target="#editCourseContentModal"
+                                                                                data-action="{{ route('content.update', $courseContent->content->id) }}"
+                                                                                data-course-id="{{ $course->id }}"
+                                                                                data-institute="{{ $course->is_template_source ? '' : ($course->institute ?? session('user_institute')) }}"
+                                                                                data-title="{{ $courseContent->content->content_title }}"
+                                                                                data-type="{{ $courseContent->content->content_type }}"
+                                                                                data-order="{{ $courseContent->content->lesson_order ?? $courseContent->sort_order }}"
+                                                                                data-description="{{ $courseContent->content->description }}"
+                                                                                data-assigned-class="{{ $courseContent->content->assigned_class ?? $course->assigned_class }}"
+                                                                                data-status="{{ $courseContent->content->status ? 1 : 0 }}">
                                                                             Edit Content
                                                                         </button>
                                                                     @endif
@@ -587,111 +596,78 @@
         </div>
     </div>
 
-    @foreach($course->courseContents as $courseContent)
-        @if($courseContent->content)
-            @php
-                $content = $courseContent->content;
-            @endphp
-            <div class="modal fade" id="editCourseContentModal{{ $courseContent->id }}" tabindex="-1">
-                <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                    <div class="modal-content">
-                        <form method="POST"
-                              action="{{ route('content.update', $content->id) }}"
-                              enctype="multipart/form-data">
-                            @csrf
-                            <input type="hidden" name="course_id" value="{{ $course->id }}">
-                            <input type="hidden" name="institute" value="{{ $course->is_template_source ? '' : ($course->institute ?? session('user_institute')) }}">
+@endforeach
 
-                            <div class="modal-header">
-                                <h5 class="modal-title">Edit Content</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
+<div class="modal fade" id="editCourseContentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="POST" action="#" enctype="multipart/form-data" id="editCourseContentForm">
+                @csrf
+                <input type="hidden" name="course_id" id="editContentCourseId">
+                <input type="hidden" name="institute" id="editContentInstitute">
 
-                            <div class="modal-body">
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label">Title</label>
-                                        <input type="text"
-                                               name="content_title"
-                                               class="form-control"
-                                               value="{{ $content->content_title }}"
-                                               required>
-                                    </div>
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Content</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
 
-                                    <div class="col-md-3">
-                                        <label class="form-label">Type</label>
-                                        <input type="text"
-                                               name="content_type"
-                                               class="form-control"
-                                               value="{{ $content->content_type }}"
-                                               required>
-                                    </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Title</label>
+                            <input type="text" name="content_title" id="editContentTitle" class="form-control" required>
+                        </div>
 
-                                    <div class="col-md-3">
-                                        <label class="form-label">Lesson Order</label>
-                                        <input type="number"
-                                               name="lesson_order"
-                                               class="form-control"
-                                               value="{{ $content->lesson_order ?? $courseContent->sort_order }}"
-                                               min="1"
-                                               required>
-                                    </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Type</label>
+                            <input type="text" name="content_type" id="editContentType" class="form-control" required>
+                        </div>
 
-                                    <div class="col-md-12">
-                                        <label class="form-label">Description</label>
-                                        <textarea name="description"
-                                                  class="form-control"
-                                                  rows="3">{{ $content->description }}</textarea>
-                                    </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Lesson Order</label>
+                            <input type="number" name="lesson_order" id="editContentOrder" class="form-control" min="1" required>
+                        </div>
 
-                                    <div class="col-md-6">
-                                        <label class="form-label">Assigned Class</label>
-                                        <input type="text"
-                                               name="assigned_class"
-                                               class="form-control"
-                                               value="{{ $content->assigned_class ?? $course->assigned_class }}"
-                                               required>
-                                    </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Description</label>
+                            <textarea name="description" id="editContentDescription" class="form-control" rows="3"></textarea>
+                        </div>
 
-                                    <div class="col-md-6">
-                                        <label class="form-label">Status</label>
-                                        <select name="status" class="form-select" required>
-                                            <option value="1" {{ $content->status ? 'selected' : '' }}>Active</option>
-                                            <option value="0" {{ !$content->status ? 'selected' : '' }}>Inactive</option>
-                                        </select>
-                                    </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Assigned Class</label>
+                            <input type="text" name="assigned_class" id="editContentAssignedClass" class="form-control" required>
+                        </div>
 
-                                    <div class="col-md-6">
-                                        <label class="form-label">Replace STEM Engineer File</label>
-                                        <input type="file"
-                                               name="file"
-                                               class="form-control"
-                                               accept=".pdf">
-                                        <small class="text-muted">Leave empty to keep the current file.</small>
-                                    </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <select name="status" id="editContentStatus" class="form-select" required>
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
+                            </select>
+                        </div>
 
-                                    <div class="col-md-6">
-                                        <label class="form-label">Replace Student File</label>
-                                        <input type="file"
-                                               name="student_file"
-                                               class="form-control"
-                                               accept=".pdf">
-                                        <small class="text-muted">Leave empty to keep the current student file.</small>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Replace STEM Engineer File</label>
+                            <input type="file" name="file" id="editContentFile" class="form-control" accept=".pdf">
+                            <small class="text-muted">Leave empty to keep the current file.</small>
+                        </div>
 
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-primary">Update Content</button>
-                            </div>
-                        </form>
+                        <div class="col-md-6">
+                            <label class="form-label">Replace Student File</label>
+                            <input type="file" name="student_file" id="editContentStudentFile" class="form-control" accept=".pdf">
+                            <small class="text-muted">Leave empty to keep the current student file.</small>
+                        </div>
                     </div>
                 </div>
-            </div>
-        @endif
-    @endforeach
-@endforeach
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Content</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -735,6 +711,31 @@
                 syncTemplateSourceField(toggle, instituteField);
             });
         });
+
+        const editContentModal = document.getElementById('editCourseContentModal');
+        const editContentForm = document.getElementById('editCourseContentForm');
+
+        if (editContentModal && editContentForm) {
+            editContentModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+
+                if (!button) {
+                    return;
+                }
+
+                editContentForm.action = button.dataset.action || '#';
+                document.getElementById('editContentCourseId').value = button.dataset.courseId || '';
+                document.getElementById('editContentInstitute').value = button.dataset.institute || '';
+                document.getElementById('editContentTitle').value = button.dataset.title || '';
+                document.getElementById('editContentType').value = button.dataset.type || '';
+                document.getElementById('editContentOrder').value = button.dataset.order || '1';
+                document.getElementById('editContentDescription').value = button.dataset.description || '';
+                document.getElementById('editContentAssignedClass').value = button.dataset.assignedClass || '';
+                document.getElementById('editContentStatus').value = button.dataset.status || '1';
+                document.getElementById('editContentFile').value = '';
+                document.getElementById('editContentStudentFile').value = '';
+            });
+        }
 
         if (createRows && addCreateRowButton) {
             addCreateRowButton.addEventListener('click', function () {
