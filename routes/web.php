@@ -18,6 +18,7 @@ use App\Http\Controllers\TeacherStudentProfileController;
 use App\Http\Controllers\IndependentLearnerController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\AiContentController;
+use App\Http\Controllers\LmsNotificationController;
 use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\TeachingPlanController;
 
@@ -27,6 +28,7 @@ Route::get('/', [PageController::class, 'home'])->name('home');
 Route::get('/portal', [PageController::class, 'portal'])->name('portal');
 Route::post('/access-request/store', [PageController::class, 'storeAccessRequest'])->name('access.request.store');
 Route::get('/logout', [UserController::class, 'logout'])->name('logout');
+Route::get('/password-change/confirm/{token}', [UserController::class, 'confirmPasswordChange'])->name('password-change.confirm');
 Route::get('/verify-certificate', [PageController::class, 'verifyCertificate'])->name('certificate.verify');
 Route::post('/verify-certificate', [PageController::class, 'verifyCertificateSubmit'])->name('certificate.verify.submit');
 Route::get('/content-preview/{content}/for/{audience}', [ContentController::class, 'showPreview'])->name('content.preview');
@@ -132,6 +134,11 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::get('/admin/assessment-monitoring', [PageController::class, 'assessmentMonitoring'])->name('admin.assessment.monitoring');
 
     Route::get('/admin/class-session-report', [PageController::class, 'classSessionReport'])->name('admin.class-session.report');
+    Route::get('/admin/class-session-report/export', [PageController::class, 'exportClassSessionReport'])->name('admin.class-session.report.export');
+
+    Route::get('/notifications', [LmsNotificationController::class, 'index'])->name('notifications');
+    Route::post('/notifications/store', [LmsNotificationController::class, 'store'])->name('notifications.store');
+    Route::post('/notifications/delete/{id}', [LmsNotificationController::class, 'delete'])->name('notifications.delete');
 
     Route::get('/teaching-plans', [TeachingPlanController::class, 'index'])->name('teaching-plans');
     Route::post('/teaching-plans/store', [TeachingPlanController::class, 'store'])->name('teaching-plans.store');
@@ -139,6 +146,7 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::post('/teaching-plan-templates/deploy', [TeachingPlanController::class, 'deployTemplates'])->name('teaching-plan-templates.deploy');
     Route::post('/teaching-plans/update/{id}', [TeachingPlanController::class, 'update'])->name('teaching-plans.update');
     Route::post('/teaching-plans/{id}/release-next', [TeachingPlanController::class, 'releaseNext'])->name('teaching-plans.release-next');
+    Route::post('/teaching-plans/{id}/lagged-content', [TeachingPlanController::class, 'storeLaggedContent'])->name('teaching-plans.lagged-content.store');
     Route::post('/teaching-plans/{id}/weeks/{week}', [TeachingPlanController::class, 'updateWeek'])->name('teaching-plans.weeks.update');
     Route::post('/teaching-plans/run-release-check', [TeachingPlanController::class, 'runReleaseCheck'])->name('teaching-plans.run-release-check');
     Route::get('/teaching-plans/delete/{id}', [TeachingPlanController::class, 'delete'])->name('teaching-plans.delete');
@@ -184,6 +192,10 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::get('/teacher-dashboard', [PageController::class, 'teacherDashboard'])->name('teacher.dashboard');
 
     Route::get('/teacher/my-classes', [PageController::class, 'teacherClasses'])->name('teacher.classes');
+    Route::get('/teacher/pending-sessions', [PageController::class, 'teacherPendingSessions'])->name('teacher.pending-sessions');
+    Route::get('/teacher/session-completion-video/{fileName}', [PageController::class, 'streamSessionCompletionVideo'])
+        ->where('fileName', '[A-Za-z0-9._ -]+')
+        ->name('teacher.session-completion-video');
 
     Route::get('/teacher/content', [PageController::class, 'teacherContent'])->name('teacher.content');
     Route::get('/teacher/content/{id}/ai-prep', [PageController::class, 'teacherAiPrep'])->name('teacher.ai-prep');
@@ -202,6 +214,7 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::post('/teacher/change-password', [UserController::class, 'teacherChangePasswordSubmit'])->name('teacher.change.password.submit');
     Route::get('/teacher/feedback', [FeedbackController::class, 'teacherCreate'])->name('teacher.feedback');
     Route::post('/teacher/feedback', [FeedbackController::class, 'teacherStore'])->name('teacher.feedback.store');
+    Route::get('/teacher/notifications', [LmsNotificationController::class, 'teacherIndex'])->name('teacher.notifications');
     Route::get('/teacher/achievements', [PageController::class, 'teacherAchievements'])->name('teacher.achievements');
     Route::post('/teacher/achievements', [PageController::class, 'storeTeacherAchievement'])->name('teacher.achievements.store');
     Route::post('/teacher/achievements/{id}/delete', [PageController::class, 'deleteTeacherAchievement'])->name('teacher.achievements.delete');
@@ -265,6 +278,7 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::post('/student/profile/remove-image',[PageController::class, 'removeStudentProfileImage'])->name('student.profile.remove-image');
     Route::get('/student/feedback', [FeedbackController::class, 'studentCreate'])->name('student.feedback');
     Route::post('/student/feedback', [FeedbackController::class, 'studentStore'])->name('student.feedback.store');
+    Route::get('/student/notifications', [LmsNotificationController::class, 'studentIndex'])->name('student.notifications');
 
     Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
     Route::get('/student/certificate/download', [PageController::class, 'downloadStudentCertificate'])->name('student.certificate.download');

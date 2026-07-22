@@ -214,10 +214,10 @@ class ContentController extends Controller
                     $courseContent->id
                 );
 
-                $this->deleteContentStoragePath($courseContent->content->file_path);
-                $this->deleteContentStoragePath($courseContent->content->preview_pdf_path);
-                $this->deleteContentStoragePath($courseContent->content->student_file_path);
-                $this->deleteContentStoragePath($courseContent->content->student_preview_pdf_path);
+                $this->deleteContentStoragePath($courseContent->content->file_path, $courseContent->content->id);
+                $this->deleteContentStoragePath($courseContent->content->preview_pdf_path, $courseContent->content->id);
+                $this->deleteContentStoragePath($courseContent->content->student_file_path, $courseContent->content->id);
+                $this->deleteContentStoragePath($courseContent->content->student_preview_pdf_path, $courseContent->content->id);
 
                 $courseContent->content->delete();
             }
@@ -271,15 +271,15 @@ class ContentController extends Controller
         $studentPreviewPdfPath = $content->student_preview_pdf_path;
 
         if ($request->hasFile('file')) {
-            $this->deleteContentStoragePath($content->file_path);
-            $this->deleteContentStoragePath($content->preview_pdf_path);
+            $this->deleteContentStoragePath($content->file_path, $content->id);
+            $this->deleteContentStoragePath($content->preview_pdf_path, $content->id);
 
             [$filePath, $previewPdfPath] = $this->storePrivateContentFile($request->file('file'));
         }
 
         if ($request->hasFile('student_file')) {
-            $this->deleteContentStoragePath($content->student_file_path);
-            $this->deleteContentStoragePath($content->student_preview_pdf_path);
+            $this->deleteContentStoragePath($content->student_file_path, $content->id);
+            $this->deleteContentStoragePath($content->student_preview_pdf_path, $content->id);
 
             [$studentFilePath, $studentPreviewPdfPath] = $this->storePrivateContentFile($request->file('student_file'));
         }
@@ -362,7 +362,7 @@ class ContentController extends Controller
     {
         $fetchDestination = $request->headers->get('sec-fetch-dest');
 
-        if ($fetchDestination && !in_array($fetchDestination, ['iframe', 'embed', 'object'])) {
+        if ($fetchDestination && !in_array($fetchDestination, ['iframe', 'embed', 'object', 'empty'])) {
             abort(403, 'Content previews must be viewed inside the LMS.');
         }
 
@@ -502,10 +502,10 @@ class ContentController extends Controller
 
             CourseContent::where('content_id', $id)->delete();
 
-            $this->deleteContentStoragePath($content->file_path);
-            $this->deleteContentStoragePath($content->preview_pdf_path);
-            $this->deleteContentStoragePath($content->student_file_path);
-            $this->deleteContentStoragePath($content->student_preview_pdf_path);
+            $this->deleteContentStoragePath($content->file_path, $content->id);
+            $this->deleteContentStoragePath($content->preview_pdf_path, $content->id);
+            $this->deleteContentStoragePath($content->student_file_path, $content->id);
+            $this->deleteContentStoragePath($content->student_preview_pdf_path, $content->id);
 
             $content->delete();
         });
@@ -798,9 +798,22 @@ class ContentController extends Controller
         ];
     }
 
-    private function deleteContentStoragePath($path)
+    private function deleteContentStoragePath($path, ?int $exceptContentId = null)
     {
         if (!$path) {
+            return;
+        }
+
+        $sharedContentExists = Content::where(function ($query) use ($path) {
+                $query->where('file_path', $path)
+                    ->orWhere('preview_pdf_path', $path)
+                    ->orWhere('student_file_path', $path)
+                    ->orWhere('student_preview_pdf_path', $path);
+            })
+            ->when($exceptContentId, fn ($query) => $query->where('id', '!=', $exceptContentId))
+            ->exists();
+
+        if ($sharedContentExists) {
             return;
         }
 

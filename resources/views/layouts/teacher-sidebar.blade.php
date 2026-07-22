@@ -13,6 +13,11 @@
         My Classes
     </a>
 
+    <a href="{{ route('teacher.pending-sessions') }}"
+    class="sidebar-link {{ request()->routeIs('teacher.pending-sessions') ? 'active' : '' }}">
+        Pending Sessions
+    </a>
+
     <a href="{{ route('teacher.content') }}"
     class="sidebar-link {{ request()->routeIs('teacher.content') ? 'active' : '' }}">
         Learning Content
@@ -71,6 +76,11 @@
     <a href="{{ route('teacher.feedback') }}"
     class="sidebar-link {{ request()->routeIs('teacher.feedback*') ? 'active' : '' }}">
         Feedback
+    </a>
+
+    <a href="{{ route('teacher.notifications') }}"
+    class="sidebar-link {{ request()->routeIs('teacher.notifications') ? 'active' : '' }}">
+        Notifications
     </a>
 
 </div>

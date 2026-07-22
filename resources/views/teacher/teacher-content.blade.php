@@ -83,7 +83,7 @@
                                 <th>Lesson Order</th>
                                 <th>Access Rule</th>
                                 <th>Status</th>
-                                <th>AI Prep</th>
+                                <th>Training Assessment</th>
                                 <th width="190">Action</th>
                             </tr>
                         </thead>
@@ -135,14 +135,14 @@
                                         </td>
                                         <td>
                                             @if($effectiveAiSummary && $effectiveAiSummary->status == 'generated')
-                                                <span class="badge bg-success mb-2">AI Ready</span>
+                                                <span class="badge bg-success mb-2">Training Ready</span>
                                                 <br>
                                                 <a href="{{ route('teacher.ai-prep', $content->id) }}"
                                                    class="btn btn-sm btn-outline-success">
-                                                    Prep Quiz
+                                                    Prep Assessment
                                                 </a>
                                             @elseif($effectiveAiSummary && $effectiveAiSummary->status == 'failed')
-                                                <span class="badge bg-danger">AI Failed</span>
+                                                <span class="badge bg-danger">Training Failed</span>
                                             @else
                                                 <span class="badge bg-secondary">Not Generated</span>
                                             @endif

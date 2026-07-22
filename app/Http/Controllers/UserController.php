@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\UserSession;
 use App\Models\Institute;
+use App\Models\PendingPasswordChange;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -311,17 +312,7 @@ class UserController extends Controller
                 ->with('error', 'Current password is incorrect.');
         }
 
-        $user->update([
-            'password' => Hash::make($request->new_password),
-            'password_changed_at' => now(),
-        ]);
-
-        session([
-            'password_changed_at' => now(),
-        ]);
-
-        return redirect()->route('admin.dashboard')
-            ->with('success', 'Password changed successfully.');
+        return $this->sendPasswordChangeConfirmation($user, $request->new_password);
     }
 
     public function teacherChangePassword()
@@ -347,17 +338,103 @@ class UserController extends Controller
                 ->with('error', 'Current password is incorrect.');
         }
 
-        $user->update([
-            'password' => Hash::make($request->new_password),
-            'password_changed_at' => now(),
-        ]);
+        return $this->sendPasswordChangeConfirmation($user, $request->new_password);
+    }
 
-        session([
-            'password_changed_at' => now(),
-        ]);
+    private function sendPasswordChangeConfirmation(User $user, string $newPassword)
+    {
+        if (!$user->email) {
+            return redirect()->back()
+                ->with('error', 'Your account does not have a login email address.');
+        }
 
-        return redirect()->route('teacher.dashboard')
-            ->with('success', 'Password changed successfully.');
+        $token = Str::random(64);
+        $expiresAt = now()->addMinutes(30);
+
+        DB::transaction(function () use ($user, $newPassword, $token, $expiresAt) {
+            PendingPasswordChange::where('user_id', $user->id)
+                ->whereNull('confirmed_at')
+                ->delete();
+
+            PendingPasswordChange::create([
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'token_hash' => hash('sha256', $token),
+                'new_password' => Hash::make($newPassword),
+                'expires_at' => $expiresAt,
+            ]);
+        });
+
+        try {
+            Mail::send('emails.password-change-confirmation', [
+                'user' => $user,
+                'confirmationUrl' => route('password-change.confirm', $token),
+                'expiresAt' => $expiresAt->format('d M Y, h:i A'),
+            ], function ($message) use ($user) {
+                $message->to($user->email)
+                    ->subject('Confirm your InnovatEdge LMS password change');
+            });
+        } catch (\Throwable $exception) {
+            PendingPasswordChange::where('user_id', $user->id)
+                ->where('token_hash', hash('sha256', $token))
+                ->delete();
+
+            return redirect()->back()
+                ->with('error', 'Password confirmation email could not be sent. Please check mail configuration and try again.');
+        }
+
+        return redirect()->back()
+            ->with('success', 'A confirmation email has been sent to your login email. Click "Yes, it is me" to complete the password change.');
+    }
+
+    public function confirmPasswordChange($token)
+    {
+        $pendingChange = PendingPasswordChange::with('user')
+            ->where('token_hash', hash('sha256', $token))
+            ->whereNull('confirmed_at')
+            ->first();
+
+        if (!$pendingChange || !$pendingChange->user || $pendingChange->expires_at->isPast()) {
+            return view('password-change-confirmed', [
+                'dashboardRoute' => route('admin.login'),
+                'status' => 'error',
+                'message' => 'This password confirmation link is invalid or expired.',
+            ]);
+        }
+
+        $user = $pendingChange->user;
+
+        DB::transaction(function () use ($user, $pendingChange) {
+            $user->update([
+                'password' => $pendingChange->new_password,
+                'password_changed_at' => now(),
+            ]);
+
+            PendingPasswordChange::where('user_id', $user->id)
+                ->delete();
+        });
+
+        if (session('user_id') == $user->id) {
+            session([
+                'password_changed_at' => now(),
+            ]);
+        }
+
+        if (session('user_id') == $user->id) {
+            $dashboardRoute = $user->role === 'Teacher'
+                ? route('teacher.dashboard')
+                : route('admin.dashboard');
+        } else {
+            $dashboardRoute = $user->role === 'Teacher'
+                ? route('teacher.login')
+                : route('admin.login');
+        }
+
+        return view('password-change-confirmed', [
+            'dashboardRoute' => $dashboardRoute,
+            'status' => 'success',
+            'message' => 'Password changed successfully.',
+        ]);
     }
 
     public function instituteRequests()
@@ -512,11 +589,18 @@ class UserController extends Controller
             abort(403, 'You can only release completed Teaching Plan content from your institute.');
         }
 
+        $wasReleased = (bool) $content->is_released;
+
         $content->update([
 
             'is_released' => true
 
         ]);
+
+        if (!$wasReleased) {
+            app(\App\Services\LmsNotificationService::class)
+                ->notifyStudentsOfReleasedContent($content->fresh());
+        }
 
         return redirect()->back()
             ->with(

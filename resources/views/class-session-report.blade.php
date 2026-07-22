@@ -16,6 +16,44 @@
                 </p>
             </div>
 
+            <div class="card shadow border-0 mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ route('admin.class-session.report') }}" class="row g-3 align-items-end">
+                        @if(session('user_role') == 'Admin')
+                            <div class="col-md-3">
+                                <label class="form-label">Institute</label>
+                                <select name="institute" class="form-select">
+                                    <option value="">All Institutes</option>
+                                    @foreach($institutes as $institute)
+                                        <option value="{{ $institute->institute_name }}" {{ request('institute') == $institute->institute_name ? 'selected' : '' }}>
+                                            {{ $institute->institute_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+
+                        <div class="col-md-3">
+                            <label class="form-label">From Date</label>
+                            <input type="date" name="from_date" class="form-control" value="{{ request('from_date') }}">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">To Date</label>
+                            <input type="date" name="to_date" class="form-control" value="{{ request('to_date') }}">
+                        </div>
+
+                        <div class="col-md-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">Apply Filter</button>
+                            <a href="{{ route('admin.class-session.report') }}" class="btn btn-outline-secondary">Clear</a>
+                            <a href="{{ route('admin.class-session.report.export', request()->query()) }}" class="btn btn-success">
+                                Export CSV
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <div class="card shadow border-0">
                 <div class="card-body">
 
@@ -50,14 +88,14 @@
                             @forelse($groupedSessions as $instituteName => $instituteSessions)
                                 <tr class="table-primary">
                                     <td colspan="9" class="fw-semibold">
-                                        {{ $instituteName }} · {{ $instituteSessions->count() }} session{{ $instituteSessions->count() == 1 ? '' : 's' }}
+                                        {{ $instituteName }} | {{ $instituteSessions->count() }} session{{ $instituteSessions->count() == 1 ? '' : 's' }}
                                     </td>
                                 </tr>
 
                                 @foreach($instituteSessions->groupBy(fn ($session) => trim(($session->class ?? $session->schoolClass->class_name ?? '') . ' ' . ($session->section ?? $session->schoolClass->section ?? '')) ?: 'Unassigned Class') as $classLabel => $classSessions)
                                     <tr class="table-light">
                                         <td colspan="9" class="fw-semibold ps-4">
-                                            {{ $classLabel }} · {{ $classSessions->count() }} session{{ $classSessions->count() == 1 ? '' : 's' }}
+                                            {{ $classLabel }} | {{ $classSessions->count() }} session{{ $classSessions->count() == 1 ? '' : 's' }}
                                         </td>
                                     </tr>
 

@@ -201,13 +201,13 @@ class CourseController extends Controller
 
                 CourseContent::where('content_id', $content->id)->delete();
 
-                $this->deleteContentStoragePath($content->file_path);
+                $this->deleteContentStoragePath($content->file_path, $content->id);
 
-                $this->deleteContentStoragePath($content->preview_pdf_path);
+                $this->deleteContentStoragePath($content->preview_pdf_path, $content->id);
 
-                $this->deleteContentStoragePath($content->student_file_path);
+                $this->deleteContentStoragePath($content->student_file_path, $content->id);
 
-                $this->deleteContentStoragePath($content->student_preview_pdf_path);
+                $this->deleteContentStoragePath($content->student_preview_pdf_path, $content->id);
 
                 $content->delete();
             }
@@ -318,10 +318,10 @@ class CourseController extends Controller
                 $this->deleteTeachingPlansByContent($courseContent->content_id);
 
                 if ($courseContent->content) {
-                    $this->deleteContentStoragePath($courseContent->content->file_path);
-                    $this->deleteContentStoragePath($courseContent->content->preview_pdf_path);
-                    $this->deleteContentStoragePath($courseContent->content->student_file_path);
-                    $this->deleteContentStoragePath($courseContent->content->student_preview_pdf_path);
+                    $this->deleteContentStoragePath($courseContent->content->file_path, $courseContent->content->id);
+                    $this->deleteContentStoragePath($courseContent->content->preview_pdf_path, $courseContent->content->id);
+                    $this->deleteContentStoragePath($courseContent->content->student_file_path, $courseContent->content->id);
+                    $this->deleteContentStoragePath($courseContent->content->student_preview_pdf_path, $courseContent->content->id);
                     $courseContent->content->delete();
                 }
             }
@@ -333,9 +333,22 @@ class CourseController extends Controller
             ->with('success', 'Content removed from course.');
     }
 
-    private function deleteContentStoragePath($path)
+    private function deleteContentStoragePath($path, ?int $exceptContentId = null)
     {
         if (!$path) {
+            return;
+        }
+
+        $sharedContentExists = Content::where(function ($query) use ($path) {
+                $query->where('file_path', $path)
+                    ->orWhere('preview_pdf_path', $path)
+                    ->orWhere('student_file_path', $path)
+                    ->orWhere('student_preview_pdf_path', $path);
+            })
+            ->when($exceptContentId, fn ($query) => $query->where('id', '!=', $exceptContentId))
+            ->exists();
+
+        if ($sharedContentExists) {
             return;
         }
 

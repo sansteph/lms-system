@@ -480,6 +480,7 @@ class PageController extends Controller
     public function teacherClasses(Request $request)
     {
         $teacher = User::find(session('user_id'));
+        $this->autoEndExpiredClassSessions($teacher);
 
         $today = now()->format('Y-m-d');
         $classOptions = $this->teacherAssignedClassNames($teacher);
@@ -542,6 +543,9 @@ class PageController extends Controller
             ->get();
 
         $activeSessions = $unfinishedSessions->where('status', 'in_progress');
+        $sessionCompletionVideoUrl = session('sessionCompletionCelebration')
+            ? $this->randomSessionCompletionVideoUrl()
+            : null;
 
         return view(
             'teacher.my-classes',
@@ -552,9 +556,175 @@ class PageController extends Controller
                 'activeSessions',
                 'classOptions',
                 'selectedClass',
-                'teacherPassedPrepContentIds'
+                'teacherPassedPrepContentIds',
+                'sessionCompletionVideoUrl'
             )
         );
+    }
+
+    public function teacherPendingSessions(Request $request)
+    {
+        $teacher = User::findOrFail(session('user_id'));
+        $this->autoEndExpiredClassSessions($teacher);
+
+        $classOptions = $this->teacherAssignedClassNames($teacher);
+        $selectedClass = $request->input('class');
+
+        $pendingSessions = ClassContentSession::with([
+                'course',
+                'content.aiSummary',
+                'content.courseContent.sourceTemplateContent.aiSummary',
+                'teachingPlan',
+                'teachingPlanWeek',
+                'teachingPlanItem',
+            ])
+            ->where('stem_engineer_id', $teacher->id)
+            ->where('institute', $teacher->institute)
+            ->whereIn('status', ['in_progress', 'partially_completed', 'cancelled'])
+            ->when($selectedClass, function ($query) use ($selectedClass) {
+                $query->whereRaw(
+                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                    [$selectedClass]
+                );
+            })
+            ->orderByRaw("FIELD(status, 'in_progress', 'partially_completed', 'cancelled')")
+            ->latest('session_date')
+            ->latest()
+            ->get()
+            ->reject(function ($session) use ($teacher) {
+                if ($session->teachingPlanItem && $session->teachingPlanItem->status === 'completed') {
+                    return true;
+                }
+
+                if (!$session->teaching_plan_item_id) {
+                    return false;
+                }
+
+                return ClassContentSession::where('stem_engineer_id', $teacher->id)
+                    ->where('institute', $teacher->institute)
+                    ->where('teaching_plan_item_id', $session->teaching_plan_item_id)
+                    ->where('status', 'completed')
+                    ->exists();
+            })
+            ->values();
+
+        $pendingItemIds = $pendingSessions
+            ->pluck('teaching_plan_item_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $laggedItems = TeachingPlanItem::with([
+                'plan',
+                'week',
+                'course',
+                'content.aiSummary',
+                'content.courseContent.sourceTemplateContent.aiSummary',
+                'courseContent',
+            ])
+            ->where('status', 'released')
+            ->when($pendingItemIds->isNotEmpty(), function ($query) use ($pendingItemIds) {
+                $query->whereNotIn('id', $pendingItemIds);
+            })
+            ->whereHas('plan', function ($query) use ($teacher, $selectedClass) {
+                $query->where('institute', $teacher->institute)
+                    ->where('status', 'active')
+                    ->when($selectedClass, function ($classQuery) use ($selectedClass) {
+                        $classQuery->whereRaw(
+                            "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                            [$selectedClass]
+                        );
+                    });
+            })
+            ->whereHas('week', function ($query) {
+                $query->where('status', 'released')
+                    ->where('release_reason', 'lagged_content');
+            })
+            ->orderBy('teaching_plan_week_id')
+            ->orderBy('sort_order')
+            ->get();
+
+        $teacherPassedPrepContentIds = AiQuizAttempt::where('teacher_id', $teacher->id)
+            ->where('attempt_type', 'teacher_prep')
+            ->where('status', 'passed')
+            ->pluck('content_id')
+            ->unique();
+
+        return view('teacher.pending-sessions', compact(
+            'pendingSessions',
+            'laggedItems',
+            'classOptions',
+            'selectedClass',
+            'teacherPassedPrepContentIds'
+        ));
+    }
+
+    public function streamSessionCompletionVideo($fileName)
+    {
+        $safeFileName = basename((string) $fileName);
+        $extension = strtolower(pathinfo($safeFileName, PATHINFO_EXTENSION));
+
+        if (!in_array($extension, ['mp4', 'webm', 'ogg'], true)) {
+            abort(404);
+        }
+
+        $path = 'session-completion-videos/' . $safeFileName;
+
+        if (!Storage::disk('public')->exists($path)) {
+            abort(404);
+        }
+
+        $resolvedPath = Storage::disk('public')->path($path);
+        $mimeType = Storage::disk('public')->mimeType($path) ?: 'video/' . $extension;
+
+        return response()->file($resolvedPath, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . str_replace('"', '', $safeFileName) . '"',
+            'Cache-Control' => 'private, no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    private function randomSessionCompletionVideoUrl(): ?string
+    {
+        $videos = collect(Storage::disk('public')->files('session-completion-videos'))
+            ->filter(function ($path) {
+                return in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['mp4', 'webm', 'ogg'], true);
+            })
+            ->values();
+
+        if ($videos->isEmpty()) {
+            return null;
+        }
+
+        return route('teacher.session-completion-video', basename($videos->random()));
+    }
+
+    private function autoEndExpiredClassSessions(User $teacher): void
+    {
+        $maximumSessionSeconds = 50 * 60;
+
+        ClassContentSession::where('stem_engineer_id', $teacher->id)
+            ->where('institute', $teacher->institute)
+            ->where('status', 'in_progress')
+            ->whereNotNull('started_at')
+            ->where('started_at', '<=', now()->subSeconds($maximumSessionSeconds))
+            ->get()
+            ->each(function (ClassContentSession $session) use ($maximumSessionSeconds) {
+                $endedAt = \Carbon\Carbon::parse($session->started_at)->addSeconds($maximumSessionSeconds);
+                $remarks = trim(($session->remarks ? $session->remarks . "\n" : '') . 'System note: Session automatically ended after reaching the 50 minute maximum window.');
+
+                $session->update([
+                    'ended_at' => $endedAt,
+                    'end_time' => $endedAt->format('H:i:s'),
+                    'duration_seconds' => $maximumSessionSeconds,
+                    'status' => 'partially_completed',
+                    'delivered_topic' => $session->delivered_topic ?: $session->planned_topic,
+                    'delivered_content_id' => $session->content_id,
+                    'remarks' => $remarks,
+                ]);
+            });
     }
 
     public function teacherContent(Request $request)
@@ -1375,7 +1545,12 @@ class PageController extends Controller
             ->latest()
             ->get();
 
-        return view('teacher.teacher-profile', compact('teacher', 'mySpaceItems'));
+        $achievements = TeacherAchievement::where('user_id', $teacher->id)
+            ->where('verification_status', 'Approved')
+            ->latest()
+            ->get();
+
+        return view('teacher.teacher-profile', compact('teacher', 'mySpaceItems', 'achievements'));
     }
 
     public function teacherAchievements()
@@ -3441,6 +3616,7 @@ class PageController extends Controller
         ]);
 
         $teacher = User::findOrFail(session('user_id'));
+        $this->autoEndExpiredClassSessions($teacher);
 
         $item = TeachingPlanItem::with([
                 'plan',
@@ -3472,7 +3648,7 @@ class PageController extends Controller
         if ($this->teacherNeedsAiPrep($item->content, $teacher->id)) {
             return redirect()
                 ->route('teacher.ai-prep', $item->content->id)
-                ->with('error', 'Please pass the AI prep quiz before starting this session.');
+                ->with('error', 'Please pass the training prep assessment before starting this session.');
         }
 
         $existingSession = ClassContentSession::where('stem_engineer_id', $teacher->id)
@@ -3522,8 +3698,8 @@ class PageController extends Controller
         ]);
 
         return redirect()
-            ->route('teacher.classes')
-            ->with('success', 'Class session started successfully.')
+            ->back()
+            ->with('success', 'Class session started successfully. The lesson preview will open in a separate window.')
             ->with('previewContentUrl', route('teacher.session.content', $session->content_id));
     }
 
@@ -3570,10 +3746,26 @@ class PageController extends Controller
 
         $endedAt = now();
 
-        $duration = strtotime($endedAt) -
-                    strtotime($session->started_at);
+        $actualDuration = strtotime($endedAt) - strtotime($session->started_at);
+        $minimumSessionSeconds = 30 * 60;
+        $maximumSessionSeconds = 50 * 60;
+        $autoEnded = request()->boolean('auto_ended') && $actualDuration >= ($maximumSessionSeconds - 5);
 
-        $status = request('status', 'completed');
+        $status = $autoEnded ? 'partially_completed' : request('status', 'completed');
+
+        if ($status !== 'cancelled' && $actualDuration < $minimumSessionSeconds) {
+            return redirect()->back()
+                ->with('error', 'Sessions can be ended as completed or partially completed only after at least 30 minutes. Use Cancelled only if the session did not proceed.');
+        }
+
+        $duration = min($actualDuration, $maximumSessionSeconds);
+        $remarks = request('remarks');
+
+        if ($autoEnded) {
+            $remarks = trim(($remarks ? $remarks . "\n" : '') . 'System note: Session automatically ended after reaching the 50 minute maximum window.');
+        } elseif ($actualDuration > $maximumSessionSeconds) {
+            $remarks = trim(($remarks ? $remarks . "\n" : '') . 'System note: Session exceeded the 50 minute maximum window. Duration was capped at 50 minutes for reporting.');
+        }
 
         if (
             $status == 'completed' &&
@@ -3599,7 +3791,7 @@ class PageController extends Controller
 
             'delivered_content_id' => $session->content_id,
 
-            'remarks' => request('remarks'),
+            'remarks' => $remarks,
 
         ]);
 
@@ -3608,9 +3800,19 @@ class PageController extends Controller
                 ->markItemCompleted($session->teachingPlanItem);
 
             if ($itemCompleted && $session->content_id) {
-                Content::where('id', $session->content_id)
+                $releasedContent = Content::where('id', $session->content_id)
                     ->where('institute', $teacher->institute)
-                    ->update(['is_released' => true]);
+                    ->first();
+
+                if ($releasedContent) {
+                    $wasReleased = (bool) $releasedContent->is_released;
+                    $releasedContent->update(['is_released' => true]);
+
+                    if (!$wasReleased) {
+                        app(\App\Services\LmsNotificationService::class)
+                            ->notifyStudentsOfReleasedContent($releasedContent->fresh());
+                    }
+                }
             }
         }
 
@@ -3618,26 +3820,100 @@ class PageController extends Controller
             ->with(
                 'success',
                 'Class session ended successfully.'
-            );
+            )
+            ->with('sessionCompletionCelebration', !$autoEnded && in_array($status, ['completed', 'partially_completed']));
 
     }
 
-    public function classSessionReport()
+    public function classSessionReport(Request $request)
     {
-        $sessions = ClassContentSession::with([
+        $sessions = $this->classSessionReportQuery($request)
+            ->latest()
+            ->get();
+
+        $institutes = session('user_role') == 'Admin'
+            ? Institute::where('status', 1)->orderBy('institute_name')->get()
+            : collect();
+
+        return view('class-session-report', compact('sessions', 'institutes'));
+    }
+
+    public function exportClassSessionReport(Request $request): StreamedResponse
+    {
+        $sessions = $this->classSessionReportQuery($request)
+            ->orderBy('institute')
+            ->orderBy('class')
+            ->orderBy('section')
+            ->orderBy('session_date')
+            ->get();
+
+        $fileName = 'class_session_report_' . now()->format('Ymd_His') . '.csv';
+
+        $response = new StreamedResponse(function () use ($sessions) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'Institute',
+                'Class',
+                'Course',
+                'Planned Content',
+                'Delivered Content',
+                'STEM Engineer',
+                'Session Date',
+                'Start Time',
+                'End Time',
+                'Duration',
+                'Status',
+                'Remarks',
+            ]);
+
+            foreach ($sessions as $session) {
+                fputcsv($handle, [
+                    $session->institute ?? $session->schoolClass->institute ?? 'N/A',
+                    trim(($session->class ?? $session->schoolClass->class_name ?? 'N/A') . ' ' . ($session->section ?? $session->schoolClass->section ?? '')),
+                    $session->course->course_title ?? 'N/A',
+                    $session->planned_topic ?? $session->content->content_title ?? 'No Content',
+                    $session->delivered_topic ?? 'Not recorded',
+                    $session->stemEngineer->name ?? 'Deleted Engineer',
+                    $session->session_date ? \Carbon\Carbon::parse($session->session_date)->format('Y-m-d') : '',
+                    $session->start_time ? \Carbon\Carbon::parse($session->start_time)->format('H:i') : '',
+                    $session->end_time ? \Carbon\Carbon::parse($session->end_time)->format('H:i') : '',
+                    gmdate('H:i:s', $session->duration_seconds ?? 0),
+                    ucwords(str_replace('_', ' ', $session->status)),
+                    $session->remarks,
+                ]);
+            }
+
+            fclose($handle);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv');
+        $response->headers->set('Content-Disposition', "attachment; filename={$fileName}");
+
+        return $response;
+    }
+
+    private function classSessionReportQuery(Request $request)
+    {
+        return ClassContentSession::with([
                 'schoolClass',
                 'content',
                 'course',
                 'teachingPlan',
                 'stemEngineer',
             ])
+            ->when($request->filled('from_date'), function ($query) use ($request) {
+                $query->whereDate('session_date', '>=', $request->from_date);
+            })
+            ->when($request->filled('to_date'), function ($query) use ($request) {
+                $query->whereDate('session_date', '<=', $request->to_date);
+            })
+            ->when(session('user_role') == 'Admin' && $request->filled('institute'), function ($query) use ($request) {
+                $query->where('institute', $request->institute);
+            })
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
-            })
-            ->latest()
-            ->get();
-
-        return view('class-session-report', compact('sessions'));
+            });
     }
 
     public function assessmentReviewMonitoring()

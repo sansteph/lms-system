@@ -130,13 +130,13 @@ class InstituteController extends Controller
 
             foreach ($contents as $content) {
 
-                $this->deleteContentStoragePath($content->file_path);
+                $this->deleteContentStoragePath($content->file_path, $content->id);
 
-                $this->deleteContentStoragePath($content->preview_pdf_path);
+                $this->deleteContentStoragePath($content->preview_pdf_path, $content->id);
 
-                $this->deleteContentStoragePath($content->student_file_path);
+                $this->deleteContentStoragePath($content->student_file_path, $content->id);
 
-                $this->deleteContentStoragePath($content->student_preview_pdf_path);
+                $this->deleteContentStoragePath($content->student_preview_pdf_path, $content->id);
 
                 LessonProgress::where('content_id', $content->id)->delete();
 
@@ -200,9 +200,22 @@ class InstituteController extends Controller
             ->with('success', 'Institute and all related records deleted successfully.');
     }
 
-    private function deleteContentStoragePath($path)
+    private function deleteContentStoragePath($path, ?int $exceptContentId = null)
     {
         if (!$path) {
+            return;
+        }
+
+        $sharedContentExists = Content::where(function ($query) use ($path) {
+                $query->where('file_path', $path)
+                    ->orWhere('preview_pdf_path', $path)
+                    ->orWhere('student_file_path', $path)
+                    ->orWhere('student_preview_pdf_path', $path);
+            })
+            ->when($exceptContentId, fn ($query) => $query->where('id', '!=', $exceptContentId))
+            ->exists();
+
+        if ($sharedContentExists) {
             return;
         }
 

@@ -388,19 +388,14 @@ class TeachingPlanTemplateDeploymentService
 
     private function copyContentToCourse(Course $course, Content $templateContent, int $sortOrder, ?int $createdBy, ?CourseContent $sourceCourseContent = null): ?CourseContent
     {
-        $filePath = $this->copyStoredFile($templateContent->file_path, 'contents');
-
-        if (!$filePath) {
+        if (!$templateContent->file_path || !Storage::disk('local')->exists($templateContent->file_path)) {
             return null;
         }
 
-        $previewPath = $templateContent->preview_pdf_path === $templateContent->file_path
-            ? $filePath
-            : $this->copyStoredFile($templateContent->preview_pdf_path, 'content-previews');
-        $studentFilePath = $this->copyStoredFile($templateContent->student_file_path, 'contents');
-        $studentPreviewPath = $templateContent->student_preview_pdf_path === $templateContent->student_file_path
-            ? $studentFilePath
-            : $this->copyStoredFile($templateContent->student_preview_pdf_path, 'content-previews');
+        $filePath = $templateContent->file_path;
+        $previewPath = $templateContent->preview_pdf_path;
+        $studentFilePath = $templateContent->student_file_path;
+        $studentPreviewPath = $templateContent->student_preview_pdf_path;
 
         $contentType = $templateContent->content_type ?: strtoupper(pathinfo((string) $filePath, PATHINFO_EXTENSION) ?: 'PDF');
 
@@ -431,18 +426,6 @@ class TeachingPlanTemplateDeploymentService
             'source_template_course_content_id' => $sourceCourseContent?->id,
             'source_template_content_id' => $templateContent->id,
         ]);
-    }
-
-    private function copyStoredFile(?string $sourcePath, string $targetDirectory): ?string
-    {
-        if (!$sourcePath || !Storage::disk('local')->exists($sourcePath)) {
-            return null;
-        }
-
-        $newPath = trim($targetDirectory, '/') . '/' . time() . '_' . uniqid() . '_' . basename($sourcePath);
-        Storage::disk('local')->copy($sourcePath, $newPath);
-
-        return $newPath;
     }
 
     private function normalizeClassLabel(?string $class, ?string $section = null): string

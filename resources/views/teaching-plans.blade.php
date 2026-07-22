@@ -153,6 +153,9 @@
                                                                     @csrf
                                                                     <button class="btn btn-sm btn-outline-primary">Release Next Week</button>
                                                                 </form>
+                                                                <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#addLaggedContentModal{{ $plan->id }}">
+                                                                    Add Lagged Content
+                                                                </button>
                                                                 <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editTeachingPlanModal{{ $plan->id }}">
                                                                     Edit
                                                                 </button>
@@ -474,6 +477,50 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Update</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addLaggedContentModal{{ $plan->id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('teaching-plans.lagged-content.store', $plan->id) }}">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Lagged Content</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">
+                            Add catch-up or repeat content for {{ trim($plan->class . ' ' . $plan->section) }}. STEM Engineers will see it under Pending Sessions.
+                        </p>
+
+                        <div class="border rounded p-3" style="max-height: 420px; overflow-y: auto;">
+                            @forelse(($plan->course?->courseContents ?? collect())->where('status', 'active')->sortBy('sort_order') as $courseContent)
+                                <label class="d-flex align-items-start gap-2 border rounded p-2 mb-2">
+                                    <input type="checkbox"
+                                           name="course_content_ids[]"
+                                           value="{{ $courseContent->id }}"
+                                           class="mt-1">
+                                    <span>
+                                        <strong>{{ $courseContent->content->content_title ?? $courseContent->title ?? 'Content' }}</strong>
+                                        <span class="d-block text-muted small">
+                                            Order {{ $courseContent->sort_order ?? '-' }}
+                                        </span>
+                                    </span>
+                                </label>
+                            @empty
+                                <div class="text-center text-muted py-3">
+                                    No active course content is available for this plan.
+                                </div>
+                            @endforelse
+                        </div>
+                    </div>
+                    <div class="modal-footer flex-wrap gap-2 position-sticky bottom-0 bg-white">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add to Pending Sessions</button>
                     </div>
                 </form>
             </div>

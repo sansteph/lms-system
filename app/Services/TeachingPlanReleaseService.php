@@ -44,6 +44,10 @@ class TeachingPlanReleaseService
         return DB::transaction(function () use ($plan, $date) {
             $releasedWeek = $plan->weeks()
                 ->where('status', 'released')
+                ->where(function ($query) {
+                    $query->whereNull('release_reason')
+                        ->orWhere('release_reason', '!=', 'lagged_content');
+                })
                 ->orderBy('week_number')
                 ->first();
 
@@ -124,6 +128,8 @@ class TeachingPlanReleaseService
             'status' => 'released',
             'released_at' => now(),
         ]);
+
+        app(LmsNotificationService::class)->notifyTeachersOfReleasedWeek($week->fresh(['plan.course', 'items.content']));
     }
 
     public function markItemCompleted(TeachingPlanItem $item): bool
@@ -145,6 +151,7 @@ class TeachingPlanReleaseService
             if (
                 $week &&
                 $week->status === 'completed' &&
+                $week->release_reason !== 'lagged_content' &&
                 $week->release_date &&
                 Carbon::parse($week->release_date)->endOfDay()->lte(now())
             ) {

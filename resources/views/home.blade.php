@@ -31,6 +31,33 @@
 
                 </div>
 
+                <div class="hero-social-links" aria-label="Social links">
+                    <a href="https://www.linkedin.com/company/tinkedge/posts/?feedView=all"
+                       target="_blank"
+                       rel="noopener"
+                       title="LinkedIn">
+                        <i class="fab fa-linkedin-in"></i>
+                    </a>
+                    <a href="https://www.instagram.com/tinkedge_/?hl=en"
+                       target="_blank"
+                       rel="noopener"
+                       title="Instagram">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.youtube.com/@tinkedge9223"
+                       target="_blank"
+                       rel="noopener"
+                       title="YouTube">
+                        <i class="fab fa-youtube"></i>
+                    </a>
+                    <a href="https://www.google.com/maps/place/TinkEdge/@13.0051806,77.5668533,17z/data=!3m1!4b1!4m6!3m5!1s0x3bae162fbb205ae7:0x7fa7f2b1d5bdbcb6!8m2!3d13.0051754!4d77.5694282!16s%2Fg%2F11fsq6_g11?authuser=0&entry=ttu&g_ep=EgoyMDI2MDcxOS4wIKXMDSoASAFQAw%3D%3D"
+                       target="_blank"
+                       rel="noopener"
+                       title="Google Maps">
+                        <i class="fa fa-location-dot"></i>
+                    </a>
+                </div>
+
             </div>
 
             <!-- HERO MAIN -->

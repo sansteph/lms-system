@@ -334,7 +334,7 @@
                                                 <i class="fa fa-check me-2"></i>
 
                                                 @if($content->effective_ai_summary && $content->effective_ai_summary->status == 'generated')
-                                                    Start AI Review
+                                                    Start Training Assessment
                                                 @else
                                                     Mark as Complete
                                                 @endif

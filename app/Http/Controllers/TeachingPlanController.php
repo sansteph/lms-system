@@ -21,7 +21,7 @@ class TeachingPlanController extends Controller
     public function index()
     {
         $plans = TeachingPlan::with([
-                'course',
+                'course.courseContents.content',
                 'parentTemplate',
                 'weeks.items.content',
             ])
@@ -242,6 +242,98 @@ class TeachingPlanController extends Controller
 
         return redirect()->back()
             ->with($week ? 'success' : 'error', $week ? 'Next week released.' : 'No locked week is available to release.');
+    }
+
+    public function storeLaggedContent(Request $request, $id)
+    {
+        $plan = TeachingPlan::with(['course.courseContents.content', 'weeks'])->findOrFail($id);
+        $this->authorizePlan($plan);
+
+        if ($plan->is_template) {
+            abort(403, 'Lagged content can only be added to live institute Teaching Plans.');
+        }
+
+        $request->validate([
+            'course_content_ids' => 'required|array|min:1',
+            'course_content_ids.*' => 'integer|exists:course_contents,id',
+        ]);
+
+        $courseContents = CourseContent::with('content')
+            ->where('course_id', $plan->course_id)
+            ->where('status', 'active')
+            ->whereIn('id', $request->course_content_ids)
+            ->get();
+
+        if ($courseContents->isEmpty()) {
+            return redirect()->back()
+                ->with('error', 'Select active content from this Teaching Plan course.');
+        }
+
+        $createdCount = 0;
+        $laggedWeek = null;
+
+        DB::transaction(function () use ($plan, $courseContents, &$createdCount, &$laggedWeek) {
+            $laggedWeek = $plan->weeks()
+                ->where('status', 'released')
+                ->where('release_reason', 'lagged_content')
+                ->orderByDesc('week_number')
+                ->first();
+
+            if (!$laggedWeek) {
+                $nextWeekNumber = ((int) $plan->weeks()->max('week_number')) + 1;
+
+                $laggedWeek = TeachingPlanWeek::create([
+                    'teaching_plan_id' => $plan->id,
+                    'week_number' => $nextWeekNumber,
+                    'week_start_date' => now()->toDateString(),
+                    'week_end_date' => now()->toDateString(),
+                    'release_date' => now()->toDateString(),
+                    'status' => 'released',
+                    'released_at' => now(),
+                    'release_reason' => 'lagged_content',
+                ]);
+            }
+
+            $nextSortOrder = ((int) $laggedWeek->items()->max('sort_order')) + 1;
+
+            foreach ($courseContents as $courseContent) {
+                $alreadyPending = TeachingPlanItem::where('teaching_plan_id', $plan->id)
+                    ->where('course_content_id', $courseContent->id)
+                    ->where('status', 'released')
+                    ->whereHas('week', function ($query) {
+                        $query->where('release_reason', 'lagged_content');
+                    })
+                    ->exists();
+
+                if ($alreadyPending) {
+                    continue;
+                }
+
+                TeachingPlanItem::create([
+                    'teaching_plan_id' => $plan->id,
+                    'teaching_plan_week_id' => $laggedWeek->id,
+                    'course_id' => $plan->course_id,
+                    'course_content_id' => $courseContent->id,
+                    'content_id' => $courseContent->content_id,
+                    'sort_order' => $nextSortOrder++,
+                    'status' => 'released',
+                    'released_at' => now(),
+                ]);
+
+                $createdCount++;
+            }
+        });
+
+        if ($createdCount === 0) {
+            return redirect()->back()
+                ->with('error', 'Selected content is already pending as lagged content for this plan.');
+        }
+
+        app(\App\Services\LmsNotificationService::class)
+            ->notifyTeachersOfReleasedWeek($laggedWeek->fresh(['plan.course', 'items.content']));
+
+        return redirect()->back()
+            ->with('success', "{$createdCount} lagged content item(s) added to Pending Sessions.");
     }
 
     public function updateWeek(Request $request, $id, TeachingPlanWeek $week)

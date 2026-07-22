@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#111827">
     <title>{{ $content->content_title }} Preview</title>
     <style>
         html,
@@ -95,6 +97,75 @@
             font-weight: 700;
         }
 
+        .android-preview-fallback {
+            display: none;
+            padding: 16px;
+            text-align: center;
+            color: #334155;
+            background: #f8fafc;
+        }
+
+        .mobile-pdf-viewer {
+            display: none;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            background: #374151;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+
+        .mobile-pdf-pages {
+            display: block;
+            width: 100%;
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        .mobile-pdf-page {
+            display: block;
+            width: 100%;
+            height: auto;
+            margin: 0 auto 14px;
+            background: #ffffff;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+        }
+
+        .mobile-pdf-status {
+            margin: 18px auto;
+            max-width: 520px;
+            border-radius: 12px;
+            padding: 18px;
+            color: #0f172a;
+            background: #ffffff;
+            text-align: center;
+            font-size: 15px;
+            font-weight: 700;
+            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.22);
+        }
+
+        .preview-frame {
+            display: none;
+        }
+
+        .mobile-pdf-viewer {
+            display: block;
+        }
+
+        .protected-preview-content {
+            overflow: hidden;
+        }
+
+        .protected-preview-mouse-shield {
+            pointer-events: none;
+        }
+
+        .android-preview-fallback {
+            display: none;
+        }
+
 
         .preview-frame-wrap {
             flex: 1;
@@ -126,6 +197,7 @@
         }
 
         .preview-frame-holder {
+            position: relative;
             height: calc(100% - 8px);
             background: #ffffff;
             overflow: hidden;
@@ -253,12 +325,15 @@
                             </div>
                         </div>
                     @else
-                        <iframe class="preview-frame"
-                                src="{{ $sourceUrl }}#toolbar=0&navpanes=0&scrollbar=1&zoom=page-width"
-                                allow="fullscreen"
-                                allowfullscreen
-                                oncontextmenu="return false;">
-                        </iframe>
+                        <div class="mobile-pdf-viewer" id="mobilePdfViewer">
+                            <div class="mobile-pdf-status" id="mobilePdfStatus">
+                                Preparing secure android preview...
+                            </div>
+                            <div class="mobile-pdf-pages" id="mobilePdfPages"></div>
+                        </div>
+                        <div class="android-preview-fallback" id="androidPreviewFallback">
+                            Secure mobile preview could not load. Please refresh this page.
+                        </div>
                         <div class="protected-preview-mouse-shield"
                              aria-hidden="true">
                         </div>
@@ -269,5 +344,126 @@
     </div>
 
     @include('content.preview-protection')
+    <script>
+        (function () {
+            function ready(callback) {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', callback);
+                } else {
+                    callback();
+                }
+            }
+
+            function showFallback(message) {
+                var statusBox = document.getElementById('mobilePdfStatus');
+                var fallback = document.getElementById('androidPreviewFallback');
+
+                if (statusBox) {
+                    statusBox.style.display = 'none';
+                }
+
+                if (fallback) {
+                    fallback.innerHTML = message || 'Secure preview could not load on this device. Please refresh this page.';
+                    fallback.style.display = 'block';
+                }
+            }
+
+            function loadScript(src, done, fail) {
+                var existing = document.querySelector('script[src="' + src + '"]');
+
+                if (existing) {
+                    existing.onload = done;
+                    existing.onerror = fail;
+                    return;
+                }
+
+                var script = document.createElement('script');
+                script.src = src;
+                script.async = true;
+                script.onload = done;
+                script.onerror = fail;
+                document.getElementsByTagName('head')[0].appendChild(script);
+            }
+
+            function renderPage(pdf, pageNumber, pagesContainer, statusBox) {
+                if (pageNumber > pdf.numPages) {
+                    statusBox.style.display = 'none';
+                    return;
+                }
+
+                statusBox.innerHTML = 'Loaded page ' + (pageNumber - 1) + ' of ' + pdf.numPages;
+
+                pdf.getPage(pageNumber).then(function (page) {
+                    var viewport = page.getViewport({ scale: 1 });
+                    var availableWidth = Math.max(280, pagesContainer.clientWidth || window.innerWidth || 360);
+                    var scale = Math.min(2.2, availableWidth / viewport.width);
+                    var scaledViewport = page.getViewport({ scale: scale });
+                    var canvas = document.createElement('canvas');
+                    var context = canvas.getContext('2d', { alpha: false });
+
+                    canvas.className = 'mobile-pdf-page';
+                    canvas.width = Math.floor(scaledViewport.width);
+                    canvas.height = Math.floor(scaledViewport.height);
+                    canvas.style.maxWidth = '100%';
+
+                    pagesContainer.appendChild(canvas);
+
+                    page.render({
+                        canvasContext: context,
+                        viewport: scaledViewport
+                    }).promise.then(function () {
+                        renderPage(pdf, pageNumber + 1, pagesContainer, statusBox);
+                    }).catch(function () {
+                        showFallback();
+                    });
+                }).catch(function () {
+                    showFallback();
+                });
+            }
+
+            ready(function () {
+                var protectedSurface = document.querySelector('.protected-preview-surface');
+                var pagesContainer = document.getElementById('mobilePdfPages');
+                var statusBox = document.getElementById('mobilePdfStatus');
+                var sourceUrl = @json($sourceUrl ?? null);
+
+                if (protectedSurface) {
+                    protectedSurface.classList.add('allow-scroll-through');
+                }
+
+                if (!window.Promise || !window.fetch || !sourceUrl || !pagesContainer || !statusBox) {
+                    showFallback('This panel browser is too old for secure preview rendering.');
+                    return;
+                }
+
+                loadScript(
+                    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js',
+                    function () {
+                        if (!window.pdfjsLib) {
+                            showFallback();
+                            return;
+                        }
+
+                        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+                        window.pdfjsLib.getDocument({
+                            url: sourceUrl,
+                            withCredentials: true,
+                            disableAutoFetch: true,
+                            disableStream: true
+                        }).promise.then(function (pdf) {
+                            statusBox.innerHTML = 'Loading ' + pdf.numPages + ' page' + (pdf.numPages === 1 ? '' : 's') + '...';
+                            renderPage(pdf, 1, pagesContainer, statusBox);
+                        }).catch(function () {
+                            showFallback();
+                        });
+                    },
+                    function () {
+                        showFallback('Secure preview library could not load. Please check panel internet access and refresh.');
+                    }
+                );
+            });
+        })();
+    </script>
 </body>
 </html>

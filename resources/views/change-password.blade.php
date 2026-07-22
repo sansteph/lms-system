@@ -43,6 +43,10 @@
                         </div>
                     @endif
 
+                    <div class="alert alert-info">
+                        Your password will not change immediately. We will send a confirmation email to your login email address, and the update will complete only after you click <strong>Yes, it is me</strong>.
+                    </div>
+
                     <form method="POST"
                           action="{{ $submitRoute ?? route('admin.change.password.submit') }}">
 
@@ -90,7 +94,7 @@
                         <button type="submit"
                                 class="btn btn-primary">
 
-                            Update Password
+                            Send Confirmation Email
 
                         </button>
 

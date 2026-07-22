@@ -63,6 +63,10 @@
         Class Session Report
     </a>
 
+    <a href="{{ route('notifications') }}"class="sidebar-link {{ request()->routeIs('notifications*') ? 'active' : '' }}">
+        Notifications
+    </a>
+
     @if(session('user_role') == 'Admin')
 
         <a href="{{ route('admin.activity.monitoring') }}"class="sidebar-link {{ request()->routeIs('admin.activity.monitoring') ? 'active' : '' }}">

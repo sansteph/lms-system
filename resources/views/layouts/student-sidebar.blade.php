@@ -35,4 +35,8 @@
         Feedback
     </a>
 
+    <a href="{{ route('student.notifications') }}"class="sidebar-link {{ request()->routeIs('student.notifications') ? 'active' : '' }}">
+        Notifications
+    </a>
+
 </div>
