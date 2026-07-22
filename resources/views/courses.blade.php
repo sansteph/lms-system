@@ -416,6 +416,12 @@
                     </div>
                 </div>
             @endforelse
+
+            @if($courses->hasPages())
+                <div class="mt-4">
+                    {{ $courses->links() }}
+                </div>
+            @endif
         </div>
     </div>
 </div>

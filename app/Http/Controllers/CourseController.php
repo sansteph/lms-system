@@ -25,7 +25,41 @@ class CourseController extends Controller
     use DeletesAssessments;
     public function index(Request $request)
     {
-        $courses = Course::with(['courseContents.content.aiSummary'])
+        $courses = Course::with([
+                'courseContents' => function ($query) {
+                    $query->select([
+                            'id',
+                            'course_id',
+                            'content_id',
+                            'sort_order',
+                            'status',
+                            'created_by',
+                            'source_template_course_content_id',
+                            'source_template_content_id',
+                        ])
+                        ->orderBy('sort_order');
+                },
+                'courseContents.content' => function ($query) {
+                    $query->select([
+                        'id',
+                        'course_id',
+                        'content_title',
+                        'description',
+                        'lesson_order',
+                        'content_type',
+                        'assigned_class',
+                        'institute',
+                        'status',
+                    ]);
+                },
+                'courseContents.content.aiSummary' => function ($query) {
+                    $query->select([
+                        'id',
+                        'content_id',
+                        'status',
+                    ]);
+                },
+            ])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
             })
@@ -41,9 +75,10 @@ class CourseController extends Controller
             )
             ->orderBy('institute')
             ->orderBy('course_title')
-            ->get();
+            ->paginate(6)
+            ->withQueryString();
 
-        $courseGroups = $courses->groupBy(function ($course) {
+        $courseGroups = $courses->getCollection()->groupBy(function ($course) {
             if ($course->is_template_source) {
                 return 'Template Source Courses';
             }
