@@ -2003,6 +2003,51 @@ main{
     background: #fbfdff;
 }
 
+.password-toggle-wrap {
+    position: relative;
+}
+
+.password-toggle-wrap > input[type="password"],
+.password-toggle-wrap > input[data-password-toggle-attached="1"] {
+    padding-right: 48px;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(-50%);
+    transition: .2s ease;
+    z-index: 3;
+}
+
+.password-toggle-btn:hover,
+.password-toggle-btn:focus {
+    color: #0f3b7a;
+    background: rgba(15, 59, 122, 0.08);
+    outline: none;
+}
+
+.password-toggle-btn svg {
+    width: 19px;
+    height: 19px;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .profile-stat-tile span {
     display: block;
     color: #64748b;

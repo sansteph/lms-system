@@ -117,6 +117,51 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const hiddenEyeIcon = `
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M3 3l18 18"></path>
+                <path d="M10.58 10.58A2 2 0 0 0 12 14a2 2 0 0 0 1.42-.58"></path>
+                <path d="M9.88 5.09A9.77 9.77 0 0 1 12 4.86c5.52 0 9 5.14 9 7.14a5.86 5.86 0 0 1-1.23 2.73"></path>
+                <path d="M6.11 6.11C4.19 7.41 3 10.02 3 12c0 2 3.48 7.14 9 7.14a9.54 9.54 0 0 0 4.05-.9"></path>
+            </svg>`;
+        const visibleEyeIcon = `
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M2.5 12s3.5-7 9.5-7 9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>`;
+
+        document.querySelectorAll('input[type="password"]').forEach(function (input) {
+            if (input.dataset.passwordToggleAttached === '1' || input.closest('.password-toggle-wrap')) {
+                return;
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'password-toggle-wrap';
+            input.parentNode.insertBefore(wrapper, input);
+            wrapper.appendChild(input);
+
+            input.dataset.passwordToggleAttached = '1';
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'password-toggle-btn';
+            button.setAttribute('aria-label', 'Show password');
+            button.innerHTML = hiddenEyeIcon;
+
+            button.addEventListener('click', function () {
+                const isHidden = input.type === 'password';
+                input.type = isHidden ? 'text' : 'password';
+                button.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+                button.innerHTML = isHidden ? visibleEyeIcon : hiddenEyeIcon;
+            });
+
+            wrapper.appendChild(button);
+        });
+    });
+</script>
+
 @include('notifications.popup')
 
 </body>
