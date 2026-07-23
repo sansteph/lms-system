@@ -2007,9 +2007,19 @@ main{
     position: relative;
 }
 
+.password-toggle-group {
+    position: relative;
+}
+
 .password-toggle-wrap > input[type="password"],
 .password-toggle-wrap > input[data-password-toggle-attached="1"] {
     padding-right: 48px;
+}
+
+.auth-input-group.password-toggle-group .auth-input,
+.modern-input.password-toggle-group .form-control,
+.input-group.password-toggle-group .form-control {
+    padding-right: 54px !important;
 }
 
 .password-toggle-btn {
@@ -2028,6 +2038,12 @@ main{
     transform: translateY(-50%);
     transition: .2s ease;
     z-index: 3;
+}
+
+.auth-input-group .password-toggle-btn,
+.modern-input .password-toggle-btn,
+.input-group .password-toggle-btn {
+    right: 14px;
 }
 
 .password-toggle-btn:hover,

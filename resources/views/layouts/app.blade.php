@@ -137,11 +137,6 @@
                 return;
             }
 
-            const wrapper = document.createElement('div');
-            wrapper.className = 'password-toggle-wrap';
-            input.parentNode.insertBefore(wrapper, input);
-            wrapper.appendChild(input);
-
             input.dataset.passwordToggleAttached = '1';
 
             const button = document.createElement('button');
@@ -157,6 +152,18 @@
                 button.innerHTML = isHidden ? visibleEyeIcon : hiddenEyeIcon;
             });
 
+            const existingGroup = input.closest('.auth-input-group, .modern-input, .input-group');
+
+            if (existingGroup) {
+                existingGroup.classList.add('password-toggle-wrap', 'password-toggle-group');
+                existingGroup.appendChild(button);
+                return;
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'password-toggle-wrap';
+            input.parentNode.insertBefore(wrapper, input);
+            wrapper.appendChild(input);
             wrapper.appendChild(button);
         });
     });
