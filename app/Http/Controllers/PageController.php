@@ -668,14 +668,13 @@ class PageController extends Controller
             abort(404);
         }
 
-        $path = 'session-completion-videos/' . $safeFileName;
+        $resolvedPath = public_path('videos/session-completion/' . $safeFileName);
 
-        if (!Storage::disk('public')->exists($path)) {
+        if (!is_file($resolvedPath)) {
             abort(404);
         }
 
-        $resolvedPath = Storage::disk('public')->path($path);
-        $mimeType = Storage::disk('public')->mimeType($path) ?: 'video/' . $extension;
+        $mimeType = mime_content_type($resolvedPath) ?: 'video/' . $extension;
 
         return response()->file($resolvedPath, [
             'Content-Type' => $mimeType,
@@ -688,7 +687,14 @@ class PageController extends Controller
 
     private function randomSessionCompletionVideoUrl(): ?string
     {
-        $videos = collect(Storage::disk('public')->files('session-completion-videos'))
+        $directory = public_path('videos/session-completion');
+
+        if (!is_dir($directory)) {
+            return null;
+        }
+
+        $videos = collect(scandir($directory) ?: [])
+            ->reject(fn ($fileName) => in_array($fileName, ['.', '..'], true))
             ->filter(function ($path) {
                 return in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['mp4', 'webm', 'ogg'], true);
             })
