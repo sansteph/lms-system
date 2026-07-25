@@ -36,7 +36,7 @@ class TeachingPlanBuilderService
             'plan_start_date' => ($settings['is_template'] ?? false) ? null : $startDate->toDateString(),
             'release_day' => $settings['release_day'] ?? 'Friday',
             'contents_per_week' => $contentsPerWeek,
-            'release_policy' => $settings['release_policy'] ?? 'release_next_only_if_previous_completed',
+            'release_policy' => $settings['release_policy'] ?? 'scheduled_weekly_release',
             'status' => $settings['status'] ?? 'active',
             'created_by' => $createdBy,
             'remarks' => $settings['remarks'] ?? null,
@@ -61,14 +61,12 @@ class TeachingPlanBuilderService
         foreach ($contents->values()->chunk($contentsPerWeek) as $weekIndex => $items) {
             $weekNumber = $weekIndex + 1;
             $weekStart = $startDate->copy()->addWeeks($weekIndex);
-            $releaseDate = $this->nextReleaseDate($weekStart, $plan->release_day ?: 'Friday');
-
             $week = TeachingPlanWeek::create([
                 'teaching_plan_id' => $plan->id,
                 'week_number' => $weekNumber,
                 'week_start_date' => $weekStart->toDateString(),
                 'week_end_date' => $weekStart->copy()->addDays(6)->toDateString(),
-                'release_date' => $releaseDate->toDateString(),
+                'release_date' => $this->releaseDateForWeek($weekStart, $weekNumber, $plan->release_day ?: 'Friday')->toDateString(),
                 'status' => 'locked',
             ]);
 
@@ -86,12 +84,16 @@ class TeachingPlanBuilderService
         }
     }
 
-    private function nextReleaseDate(Carbon $weekStart, string $releaseDay): Carbon
+    private function releaseDateForWeek(Carbon $weekStart, int $weekNumber, string $releaseDay): Carbon
     {
-        if (strtolower($weekStart->format('l')) === strtolower($releaseDay)) {
+        if ($weekNumber === 1) {
             return $weekStart->copy();
         }
 
-        return $weekStart->copy()->next($releaseDay);
+        if (strtolower($weekStart->format('l')) === strtolower($releaseDay)) {
+            return $weekStart->copy()->subWeek();
+        }
+
+        return $weekStart->copy()->previous($releaseDay);
     }
 }

@@ -154,7 +154,7 @@ class TeachingPlanController extends Controller
             'start_date' => 'required|date',
             'release_day' => 'required|string|max:20',
             'contents_per_week' => 'required|integer|min:1|max:10',
-            'release_policy' => 'required|in:release_next_only_if_previous_completed',
+            'release_policy' => 'required|in:scheduled_weekly_release,release_next_only_if_previous_completed',
             'status' => 'required|in:active,inactive',
             'remarks' => 'nullable|string|max:2000',
         ]);
@@ -196,7 +196,7 @@ class TeachingPlanController extends Controller
             'section' => 'nullable|string|max:50',
             'release_day' => 'required|string|max:20',
             'contents_per_week' => 'required|integer|min:1|max:10',
-            'release_policy' => 'required|in:release_next_only_if_previous_completed',
+            'release_policy' => 'required|in:scheduled_weekly_release,release_next_only_if_previous_completed',
             'status' => 'required|in:active,inactive',
             'remarks' => 'nullable|string|max:2000',
         ]);

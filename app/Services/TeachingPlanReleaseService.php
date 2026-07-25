@@ -20,78 +20,58 @@ class TeachingPlanReleaseService
             ->with(['weeks.items'])
             ->chunkById(50, function ($plans) use ($date, &$released) {
                 foreach ($plans as $plan) {
-                    if ($this->releaseDueWeek($plan, $date)) {
-                        $released++;
-                    }
+                    $released += $this->releaseDueWeek($plan, $date);
                 }
             });
 
         return $released;
     }
 
-    public function releaseDueWeek(TeachingPlan $plan, ?Carbon $date = null): bool
+    public function releaseDueWeek(TeachingPlan $plan, ?Carbon $date = null): int
     {
         $date = $date ?: now();
 
         if ($plan->is_template) {
-            return false;
+            return 0;
         }
 
         if ($plan->start_date && Carbon::parse($plan->start_date)->startOfDay()->gt($date->copy()->startOfDay())) {
-            return false;
+            return 0;
         }
 
         return DB::transaction(function () use ($plan, $date) {
-            $releasedWeek = $plan->weeks()
+            $plan->weeks()
                 ->where('status', 'released')
                 ->where(function ($query) {
                     $query->whereNull('release_reason')
                         ->orWhere('release_reason', '!=', 'lagged_content');
                 })
-                ->orderBy('week_number')
-                ->first();
+                ->get()
+                ->each(fn (TeachingPlanWeek $week) => $this->syncWeekCompletion($week));
 
-            if (!$releasedWeek) {
-                $firstWeek = $plan->weeks()
-                    ->where('status', 'locked')
-                    ->orderBy('week_number')
-                    ->first();
-
-                if (!$firstWeek) {
-                    return false;
-                }
-
-                if ($firstWeek->release_date && Carbon::parse($firstWeek->release_date)->startOfDay()->gt($date->copy()->startOfDay())) {
-                    return false;
-                }
-
-                $this->releaseWeek($firstWeek, 'initial_release');
-                return true;
-            }
-
-            $this->syncWeekCompletion($releasedWeek);
-            $releasedWeek->refresh();
-
-            if ($releasedWeek->status !== 'completed') {
-                return false;
-            }
-
-            $nextWeek = $plan->weeks()
+            $dueWeeks = $plan->weeks()
                 ->where('status', 'locked')
+                ->whereNotNull('release_date')
+                ->whereDate('release_date', '<=', $date->copy()->toDateString())
+                ->where(function ($query) {
+                    $query->whereNull('release_reason')
+                        ->orWhere('release_reason', '!=', 'lagged_content');
+                })
                 ->orderBy('week_number')
-                ->first();
+                ->get();
 
-            if (!$nextWeek) {
+            foreach ($dueWeeks as $week) {
+                $this->releaseWeek($week, $week->week_number == 1 ? 'initial_release' : 'scheduled_friday_release');
+            }
+
+            if (
+                $dueWeeks->isEmpty() &&
+                !$plan->weeks()->whereIn('status', ['locked', 'released', 'skipped'])->exists()
+            ) {
                 $plan->update(['status' => 'completed']);
-                return false;
             }
 
-            if ($nextWeek->release_date && Carbon::parse($nextWeek->release_date)->startOfDay()->gt($date->copy()->startOfDay())) {
-                return false;
-            }
-
-            $this->releaseWeek($nextWeek, 'scheduled_friday_release');
-            return true;
+            return $dueWeeks->count();
         });
     }
 
@@ -111,25 +91,34 @@ class TeachingPlanReleaseService
                 return null;
             }
 
-            $this->releaseWeek($week, $reason);
-            return $week->fresh();
+            return $this->releaseWeek($week, $reason) ? $week->fresh() : null;
         });
     }
 
-    public function releaseWeek(TeachingPlanWeek $week, string $reason = 'manual_release'): void
+    public function releaseWeek(TeachingPlanWeek $week, string $reason = 'manual_release'): bool
     {
+        $week->refresh();
+
+        if (!in_array($week->status, ['locked', 'skipped'], true)) {
+            return false;
+        }
+
         $week->update([
             'status' => 'released',
             'released_at' => now(),
             'release_reason' => $reason,
         ]);
 
-        $week->items()->update([
-            'status' => 'released',
-            'released_at' => now(),
-        ]);
+        $week->items()
+            ->whereIn('status', ['locked', 'skipped'])
+            ->update([
+                'status' => 'released',
+                'released_at' => now(),
+            ]);
 
         app(LmsNotificationService::class)->notifyTeachersOfReleasedWeek($week->fresh(['plan.course', 'items.content']));
+
+        return true;
     }
 
     public function markItemCompleted(TeachingPlanItem $item): bool
@@ -145,18 +134,6 @@ class TeachingPlanReleaseService
             ]);
 
             $this->syncWeekCompletion($item->week);
-
-            $week = $item->week?->fresh();
-
-            if (
-                $week &&
-                $week->status === 'completed' &&
-                $week->release_reason !== 'lagged_content' &&
-                $week->release_date &&
-                Carbon::parse($week->release_date)->endOfDay()->lte(now())
-            ) {
-                $this->releaseNextWeek($item->plan, 'catch_up_release');
-            }
         });
 
         return true;

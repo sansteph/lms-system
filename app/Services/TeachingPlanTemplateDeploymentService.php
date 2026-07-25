@@ -340,6 +340,17 @@ class TeachingPlanTemplateDeploymentService
 
     private function appendCourseContentToPlan(TeachingPlan $plan, CourseContent $courseContent): TeachingPlanItem
     {
+        $existingItem = $plan->items()
+            ->where(function ($query) use ($courseContent) {
+                $query->where('course_content_id', $courseContent->id)
+                    ->orWhere('content_id', $courseContent->content_id);
+            })
+            ->first();
+
+        if ($existingItem) {
+            return $existingItem;
+        }
+
         $contentsPerWeek = max(1, (int) ($plan->contents_per_week ?: 1));
 
         $week = $plan->weeks()
@@ -374,14 +385,12 @@ class TeachingPlanTemplateDeploymentService
         $weekStart = $lastWeek && $lastWeek->week_end_date
             ? Carbon::parse($lastWeek->week_end_date)->addDay()->startOfDay()
             : Carbon::parse($plan->plan_start_date ?? $plan->start_date ?? now()->toDateString())->addWeeks($weekNumber - 1)->startOfDay();
-        $releaseDate = $this->nextReleaseDate($weekStart, $plan->release_day ?: 'Friday');
-
         return TeachingPlanWeek::create([
             'teaching_plan_id' => $plan->id,
             'week_number' => $weekNumber,
             'week_start_date' => $weekStart->toDateString(),
             'week_end_date' => $weekStart->copy()->addDays(6)->toDateString(),
-            'release_date' => $releaseDate->toDateString(),
+            'release_date' => $this->releaseDateForWeek($weekStart, $weekNumber, $plan->release_day ?: 'Friday')->toDateString(),
             'status' => 'locked',
         ]);
     }
@@ -433,13 +442,17 @@ class TeachingPlanTemplateDeploymentService
         return preg_replace('/\s+/', ' ', trim((string) $class . ' ' . (string) $section));
     }
 
-    private function nextReleaseDate(Carbon $weekStart, string $releaseDay): Carbon
+    private function releaseDateForWeek(Carbon $weekStart, int $weekNumber, string $releaseDay): Carbon
     {
-        if (strtolower($weekStart->format('l')) === strtolower($releaseDay)) {
+        if ($weekNumber === 1) {
             return $weekStart->copy();
         }
 
-        return $weekStart->copy()->next($releaseDay);
+        if (strtolower($weekStart->format('l')) === strtolower($releaseDay)) {
+            return $weekStart->copy()->subWeek();
+        }
+
+        return $weekStart->copy()->previous($releaseDay);
     }
 
     private function matchingDeploymentTargets(TeachingPlan $template, array $selectedClassLabels)

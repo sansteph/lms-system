@@ -379,7 +379,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">Release Policy</label>
                                 <select name="release_policy" class="form-control" required>
-                                    <option value="release_next_only_if_previous_completed">Release next only if previous completed</option>
+                                    <option value="scheduled_weekly_release">Release upcoming week on scheduled Friday</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -513,7 +513,7 @@
                         <div class="col-md-6">
                             <label class="form-label">Release Policy</label>
                             <select name="release_policy" class="form-control" required>
-                                <option value="release_next_only_if_previous_completed">Release next only if previous completed</option>
+                                <option value="scheduled_weekly_release">Release upcoming week on scheduled Friday</option>
                             </select>
                         </div>
                         <div class="col-md-6">

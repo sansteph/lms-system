@@ -12,7 +12,7 @@ Artisan::command('inspire', function () {
 Artisan::command('teaching-plans:release-weekly', function (TeachingPlanReleaseService $releaseService) {
     $released = $releaseService->runFridayRelease(now());
     $this->info("Teaching Plan release check completed. Released {$released} week(s).");
-})->purpose('Release the next weekly Teaching Plan batch when previous week is completed');
+})->purpose('Release scheduled Teaching Plan weeks when their release date arrives');
 
 Schedule::command('teaching-plans:release-weekly')
     ->weeklyOn(5, '08:00');
