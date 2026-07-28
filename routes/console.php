@@ -3,6 +3,11 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
+use App\Models\AiContentSummary;
+use App\Models\AiQuiz;
+use App\Models\AiQuizQuestion;
+use App\Models\TeachingPlanItem;
+use App\Services\Ai\AiContentSummaryService;
 use App\Services\TeachingPlanReleaseService;
 
 Artisan::command('inspire', function () {
@@ -14,5 +19,153 @@ Artisan::command('teaching-plans:release-weekly', function (TeachingPlanReleaseS
     $this->info("Teaching Plan release check completed. Released {$released} week(s).");
 })->purpose('Release scheduled Teaching Plan weeks when their release date arrives');
 
+Artisan::command('ai-content:generate-upcoming {--limit=} {--retry-failed}', function (AiContentSummaryService $summaryService) {
+    $startDate = \Carbon\Carbon::parse(config('ai.content.auto_generation_start_date', '2026-07-31'))->toDateString();
+    $limit = (int) ($this->option('limit') ?: config('ai.content.auto_generation_limit', 2));
+    $limit = max(1, min($limit, 10));
+    $retryFailed = (bool) $this->option('retry-failed');
+
+    $items = TeachingPlanItem::with([
+            'content.aiSummary',
+            'content.courseContent.sourceTemplateContent.aiSummary',
+            'content.courseContent.sourceTemplateContent',
+            'week',
+        ])
+        ->whereIn('status', ['locked', 'released'])
+        ->whereHas('week', function ($query) use ($startDate) {
+            $query->whereIn('status', ['locked', 'released'])
+                ->whereDate('release_date', '>=', $startDate);
+        })
+        ->whereHas('plan', function ($query) {
+            $query->where('is_template', false)
+                ->where('status', 'active');
+        })
+        ->orderBy('teaching_plan_week_id')
+        ->orderBy('sort_order')
+        ->get();
+
+    $ensureQuiz = function ($content, AiContentSummary $summary, string $audience): void {
+        $passingRatio = $audience == 'teacher'
+            ? ((float) config('ai.content.teacher_passing_percentage', 50) / 100)
+            : ((float) config('ai.content.student_passing_percentage', 60) / 100);
+
+        $quiz = AiQuiz::firstOrCreate(
+            [
+                'content_id' => $content->id,
+                'audience' => $audience,
+                'status' => 'active',
+            ],
+            [
+                'provider' => $summary->provider,
+                'model' => $summary->model,
+                'title' => ($audience == 'teacher' ? 'AI Prep - ' : 'AI Review - ') . $content->content_title,
+                'instructions' => $audience == 'teacher'
+                    ? 'Answer these prep questions before teaching this lesson.'
+                    : 'Answer these questions after reviewing the completed lesson.',
+                'total_marks' => 0,
+                'passing_marks' => 0,
+            ]
+        );
+
+        if ($quiz->questions()->exists()) {
+            if ($quiz->total_marks > 0) {
+                $quiz->update([
+                    'passing_marks' => (int) ceil($quiz->total_marks * $passingRatio),
+                ]);
+            }
+
+            return;
+        }
+
+        $seeds = array_values($summary->quiz_seed ?? []);
+
+        if (empty($seeds)) {
+            $seeds = [
+                [
+                    'question' => 'Write a short summary of the main idea from this lesson.',
+                    'expected_answer' => $summary->summary,
+                    'marks' => 2,
+                ],
+                [
+                    'question' => 'List two important points you learned from this lesson.',
+                    'expected_answer' => implode('; ', $summary->key_points ?? []),
+                    'marks' => 2,
+                ],
+            ];
+        }
+
+        $totalMarks = 0;
+
+        foreach ($seeds as $index => $seed) {
+            $marks = max(1, (int) ($seed['marks'] ?? 2));
+            $totalMarks += $marks;
+
+            AiQuizQuestion::create([
+                'ai_quiz_id' => $quiz->id,
+                'question_order' => $index + 1,
+                'question_type' => 'short_answer',
+                'question_text' => $seed['question'] ?? 'Explain one key idea from this lesson.',
+                'expected_answer' => $seed['expected_answer'] ?? null,
+                'marks' => $marks,
+            ]);
+        }
+
+        $quiz->update([
+            'total_marks' => $totalMarks,
+            'passing_marks' => (int) ceil($totalMarks * $passingRatio),
+        ]);
+    };
+
+    $processed = 0;
+    $skipped = 0;
+    $failed = 0;
+
+    foreach ($items as $item) {
+        if ($processed >= $limit) {
+            break;
+        }
+
+        if (!$item->content) {
+            $skipped++;
+            continue;
+        }
+
+        $sourceTemplateContent = $item->content->courseContent?->sourceTemplateContent;
+        $summaryContent = ($sourceTemplateContent && $sourceTemplateContent->hasAiPdfMaterial())
+            ? $sourceTemplateContent
+            : $item->content;
+        $existing = AiContentSummary::where('content_id', $summaryContent->id)->first();
+
+        if ($existing && $existing->status == 'generated') {
+            $ensureQuiz($summaryContent, $existing, 'teacher');
+            $ensureQuiz($summaryContent, $existing, 'student');
+            $skipped++;
+            continue;
+        }
+
+        if ($existing && $existing->status == 'failed' && !$retryFailed) {
+            $skipped++;
+            continue;
+        }
+
+        try {
+            $summary = $summaryService->generate($summaryContent);
+            $ensureQuiz($summaryContent, $summary, 'teacher');
+            $ensureQuiz($summaryContent, $summary, 'student');
+            $processed++;
+            $this->line('Generated AI prep for: ' . $summaryContent->content_title);
+        } catch (\Throwable $exception) {
+            $failed++;
+            $this->warn('AI generation failed for ' . $summaryContent->content_title . ': ' . $exception->getMessage());
+        }
+    }
+
+    $this->info("AI upcoming content generation completed. Generated {$processed}, skipped {$skipped}, failed {$failed}.");
+})->purpose('Generate AI summaries and prep quizzes for upcoming Teaching Plan content');
+
 Schedule::command('teaching-plans:release-weekly')
     ->weeklyOn(5, '08:00');
+
+Schedule::command('ai-content:generate-upcoming')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();

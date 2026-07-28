@@ -46,6 +46,9 @@ class PageController extends Controller
 {
     use DeletesAssessments;
 
+    private const AI_TEACHER_ATTEMPT_TYPE = 'teacher_prep';
+    private const AI_STUDENT_ATTEMPT_TYPE = 'student';
+
     public function home()
     {
         $institutionalLearners = Student::where('status', 1)->count();
@@ -827,7 +830,7 @@ class PageController extends Controller
         $quiz = $this->aiQuizForContent($content, $summary, 'teacher');
         $latestAttempt = AiQuizAttempt::where('ai_quiz_id', $quiz->id)
             ->where('teacher_id', $teacher->id)
-            ->where('attempt_type', 'teacher_prep')
+            ->where('attempt_type', self::AI_TEACHER_ATTEMPT_TYPE)
             ->latest()
             ->first();
 
@@ -858,9 +861,15 @@ class PageController extends Controller
         $quiz = $this->aiQuizForContent($content, $summary, 'teacher');
         $latestAttempt = AiQuizAttempt::where('ai_quiz_id', $quiz->id)
             ->where('teacher_id', $teacher->id)
-            ->where('attempt_type', 'teacher_prep')
+            ->where('attempt_type', self::AI_TEACHER_ATTEMPT_TYPE)
             ->latest()
             ->first();
+
+        if ($latestAttempt && $latestAttempt->status == 'passed') {
+            return redirect()
+                ->route('teacher.ai-prep', $content->id)
+                ->with('success', 'Prep quiz already cleared. You can now conduct this class.');
+        }
 
         return view('teacher.ai-prep-quiz', compact(
             'content',
@@ -889,15 +898,30 @@ class PageController extends Controller
         $quiz = $this->aiQuizForContent($content, $summary, 'teacher');
         $questions = $quiz->questions()->orderBy('question_order')->get();
 
+        $alreadyPassed = AiQuizAttempt::where('ai_quiz_id', $quiz->id)
+            ->where('teacher_id', $teacher->id)
+            ->where('attempt_type', self::AI_TEACHER_ATTEMPT_TYPE)
+            ->where('status', 'passed')
+            ->exists();
+
+        if ($alreadyPassed) {
+            return redirect()
+                ->route('teacher.ai-prep', $content->id)
+                ->with('success', 'Prep quiz already cleared. No further attempts are needed.');
+        }
+
+        $autoSubmitted = $request->boolean('auto_submitted');
+
         $request->validate([
-            'answers' => ['required', 'array'],
+            'answers' => [$autoSubmitted ? 'nullable' : 'required', 'array'],
             'answers.*' => ['nullable', 'string', 'max:5000'],
+            'auto_submitted' => ['nullable', 'boolean'],
         ]);
 
         $answers = collect($request->input('answers', []))
             ->map(fn ($answer) => trim((string) $answer));
 
-        if ($answers->filter()->isEmpty()) {
+        if (!$autoSubmitted && $answers->filter()->isEmpty()) {
             return redirect()
                 ->back()
                 ->withInput()
@@ -906,8 +930,8 @@ class PageController extends Controller
 
         $attempt = AiQuizAttempt::create([
             'ai_quiz_id' => $quiz->id,
-            'content_id' => $content->id,
-            'attempt_type' => 'teacher_prep',
+            'content_id' => $this->aiQuizOwnerContent($content)->id,
+            'attempt_type' => self::AI_TEACHER_ATTEMPT_TYPE,
             'teacher_id' => $teacher->id,
             'status' => 'submitted',
             'started_at' => now(),
@@ -920,6 +944,20 @@ class PageController extends Controller
                 'ai_quiz_question_id' => $question->id,
                 'answer_text' => $answers->get($question->id),
             ]);
+        }
+
+        if ($autoSubmitted) {
+            $attempt->update([
+                'score' => 0,
+                'percentage' => 0,
+                'status' => 'failed',
+                'feedback' => 'Prep quiz was automatically submitted after repeated restricted actions.',
+                'evaluated_at' => now(),
+            ]);
+
+            return redirect()
+                ->route('teacher.dashboard')
+                ->with('error', 'Prep quiz was automatically submitted after 3 restricted actions. Please review the content and try again.');
         }
 
         try {
@@ -948,7 +986,8 @@ class PageController extends Controller
         }
 
         $percentage = (float) ($evaluation['percentage'] ?? 0);
-        $status = $percentage >= 40 ? 'passed' : 'failed';
+        $passingPercentage = $this->teacherAiPassingPercentage();
+        $status = $percentage >= $passingPercentage ? 'passed' : 'failed';
 
         $attempt->update([
             'score' => $evaluation['score'] ?? null,
@@ -978,10 +1017,10 @@ class PageController extends Controller
         }
 
         return redirect()
-            ->route('teacher.ai-prep.quiz', $content->id)
+            ->route('teacher.dashboard')
             ->with($status == 'passed' ? 'success' : 'error', $status == 'passed'
                 ? 'Prep quiz passed. Your readiness score has been saved.'
-                : 'Prep quiz score is below 40%. Please review the content and try again.');
+                : 'Prep quiz score is below ' . $passingPercentage . '%. Please review the content and try again.');
     }
 
     public function teacherAssessments()
@@ -2700,89 +2739,7 @@ class PageController extends Controller
 
     public function generateAdminAnalyticsAiInsights(GeminiAiService $ai)
     {
-        $isInstituteAdmin = session('user_role') == 'InstituteAdmin';
-        $institute = session('user_institute');
-
-        $studentQuery = Student::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute));
-        $assessmentQuery = Assessment::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute));
-        $resultQuery = AssessmentResult::with(['student', 'assessment'])
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->whereHas('student', fn ($studentQuery) => $studentQuery->where('institute', $institute));
-            });
-        $certificateQuery = Certificate::query()
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->whereHas('student', fn ($studentQuery) => $studentQuery->where('institute', $institute));
-            });
-
-        $studentCount = (clone $studentQuery)->count();
-        $attemptedCount = (clone $resultQuery)->distinct('student_id')->count('student_id');
-
-        $teacherMetrics = User::where('role', 'Teacher')
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute))
-            ->get()
-            ->map(function ($teacher) {
-                $sessions = ClassContentSession::where('stem_engineer_id', $teacher->id);
-
-                return [
-                    'name' => $teacher->name,
-                    'institute' => $teacher->institute,
-                    'sessions' => (clone $sessions)->count(),
-                    'completed_sessions' => (clone $sessions)->where('status', 'completed')->count(),
-                    'partial_sessions' => (clone $sessions)->where('status', 'partially_completed')->count(),
-                    'hours' => round(((clone $sessions)->sum('duration_seconds') ?? 0) / 3600, 1),
-                ];
-            })
-            ->take(10)
-            ->values()
-            ->all();
-
-        $classMetrics = SchoolClass::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute))
-            ->get()
-            ->map(function ($class) {
-                $studentIds = Student::where('institute', $class->institute)
-                    ->where('class', $class->class_name)
-                    ->where('section', $class->section)
-                    ->pluck('id');
-
-                return [
-                    'institute' => $class->institute,
-                    'class' => trim($class->class_name . ' ' . $class->section),
-                    'students' => $studentIds->count(),
-                    'completed_results' => AssessmentResult::whereIn('student_id', $studentIds)->where('status', 'Completed')->count(),
-                    'average_score' => round(AssessmentResult::whereIn('student_id', $studentIds)->where('status', 'Completed')->avg('percentage') ?? 0, 2),
-                ];
-            })
-            ->sortByDesc('average_score')
-            ->take(10)
-            ->values()
-            ->all();
-
-        $metrics = [
-            'scope' => $isInstituteAdmin ? $institute : 'All Institutes',
-            'generated_at' => now()->format('Y-m-d H:i:s'),
-            'students' => $studentCount,
-            'assessments' => (clone $assessmentQuery)->count(),
-            'certificates' => (clone $certificateQuery)->count(),
-            'average_score' => round((clone $resultQuery)->avg('percentage') ?? 0, 2),
-            'badge_distribution' => [
-                'gold' => (clone $resultQuery)->where('badge', 'Gold')->count(),
-                'silver' => (clone $resultQuery)->where('badge', 'Silver')->count(),
-                'bronze' => (clone $resultQuery)->where('badge', 'Bronze')->count(),
-            ],
-            'participation' => [
-                'attempted_students' => $attemptedCount,
-                'not_attempted_students' => max($studentCount - $attemptedCount, 0),
-            ],
-            'performance' => [
-                'passed' => (clone $resultQuery)->where('percentage', '>=', 50)->count(),
-                'needs_improvement' => (clone $resultQuery)->where('percentage', '<', 50)->count(),
-            ],
-            'teacher_metrics_sample' => $teacherMetrics,
-            'class_metrics_sample' => $classMetrics,
-        ];
+        $metrics = $this->adminAnalyticsAiMetrics();
 
         try {
             return redirect()
@@ -3125,6 +3082,11 @@ class PageController extends Controller
             abort(403, 'This lesson is not assigned to your class.');
         }
 
+        if ($this->studentContentRequiresAiReview($student, $content) && !$this->generatedAiSummaryForContentRecord($content)) {
+            return redirect()->back()
+                ->with('error', 'Training assessment is still being prepared for this lesson. Please try again shortly.');
+        }
+
         if ($this->lessonNeedsAiReview($content, $studentId)) {
             return redirect()->route('student.content.ai-review', $content->id);
         }
@@ -3202,6 +3164,12 @@ class PageController extends Controller
             ->latest()
             ->first();
 
+        if ($latestAttempt && $latestAttempt->status == 'passed') {
+            return redirect()
+                ->route('student.content.ai-review', $content->id)
+                ->with('success', 'Training assessment already cleared. This lesson is complete.');
+        }
+
         return view('student.ai-review-quiz', compact(
             'content',
             'quiz',
@@ -3230,6 +3198,17 @@ class PageController extends Controller
         $quiz = $this->studentQuizForContent($content, $summary);
         $questions = $quiz->questions()->orderBy('question_order')->get();
 
+        $alreadyPassed = AiQuizAttempt::where('ai_quiz_id', $quiz->id)
+            ->where('student_id', $studentId)
+            ->where('status', 'passed')
+            ->exists();
+
+        if ($alreadyPassed) {
+            return redirect()
+                ->route('student.content.ai-review', $content->id)
+                ->with('success', 'Training assessment already cleared. This lesson is complete.');
+        }
+
         $request->validate([
             'answers' => ['required', 'array'],
             'answers.*' => ['nullable', 'string', 'max:5000'],
@@ -3247,8 +3226,8 @@ class PageController extends Controller
 
         $attempt = AiQuizAttempt::create([
             'ai_quiz_id' => $quiz->id,
-            'content_id' => $content->id,
-            'attempt_type' => 'student',
+            'content_id' => $this->aiQuizOwnerContent($content)->id,
+            'attempt_type' => self::AI_STUDENT_ATTEMPT_TYPE,
             'student_id' => $studentId,
             'status' => 'submitted',
             'started_at' => now(),
@@ -3289,7 +3268,8 @@ class PageController extends Controller
         }
 
         $percentage = (float) ($evaluation['percentage'] ?? 0);
-        $status = $percentage >= 40 ? 'passed' : 'failed';
+        $passingPercentage = $this->studentAiPassingPercentage();
+        $status = $percentage >= $passingPercentage ? 'passed' : 'failed';
 
         $attempt->update([
             'score' => $evaluation['score'] ?? null,
@@ -3337,7 +3317,7 @@ class PageController extends Controller
 
         return redirect()
             ->route('student.content.ai-review.quiz', $content->id)
-            ->with('error', 'AI review score is below 40%. Please review the content and try again.');
+            ->with('error', 'AI review score is below ' . $passingPercentage . '%. Please review the content and try again.');
     }
 
     private function lessonNeedsAiReview(Content $content, int $studentId): bool
@@ -3348,9 +3328,11 @@ class PageController extends Controller
             return false;
         }
 
-        return !AiQuizAttempt::where('content_id', $content->id)
+        $quizContent = $this->aiQuizOwnerContent($content);
+
+        return !AiQuizAttempt::whereIn('content_id', array_unique([$content->id, $quizContent->id]))
             ->where('student_id', $studentId)
-            ->where('attempt_type', 'student')
+            ->where('attempt_type', self::AI_STUDENT_ATTEMPT_TYPE)
             ->where('status', 'passed')
             ->exists();
     }
@@ -3363,11 +3345,55 @@ class PageController extends Controller
             return false;
         }
 
-        return !AiQuizAttempt::where('content_id', $content->id)
+        $quizContent = $this->aiQuizOwnerContent($content);
+
+        return !AiQuizAttempt::whereIn('content_id', array_unique([$content->id, $quizContent->id]))
             ->where('teacher_id', $teacherId)
-            ->where('attempt_type', 'teacher_prep')
+            ->where('attempt_type', self::AI_TEACHER_ATTEMPT_TYPE)
             ->where('status', 'passed')
             ->exists();
+    }
+
+    private function teachingPlanItemRequiresAiTraining(TeachingPlanItem $item): bool
+    {
+        if (!$item->week || !$item->week->release_date) {
+            return false;
+        }
+
+        return \Carbon\Carbon::parse($item->week->release_date)->toDateString() >= $this->aiTrainingRolloutStartDate();
+    }
+
+    private function studentContentRequiresAiReview(Student $student, Content $content): bool
+    {
+        $assignedClass = $this->studentClassName($student);
+
+        return TeachingPlanItem::where('content_id', $content->id)
+            ->whereHas('week', function ($query) {
+                $query->whereNotNull('release_date')
+                    ->whereDate('release_date', '>=', $this->aiTrainingRolloutStartDate());
+            })
+            ->whereHas('plan', function ($query) use ($student, $assignedClass) {
+                $query->where('is_template', false)
+                    ->where('institute', $student->institute)
+                    ->whereIn('status', ['active', 'completed'])
+                    ->where(function ($classQuery) use ($assignedClass) {
+                        $classQuery
+                            ->whereRaw(
+                                "REPLACE(TRIM(class), '  ', ' ') = ?",
+                                [$assignedClass]
+                            )
+                            ->orWhereRaw(
+                                "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                                [$assignedClass]
+                            );
+                    });
+            })
+            ->exists();
+    }
+
+    private function aiTrainingRolloutStartDate(): string
+    {
+        return \Carbon\Carbon::parse(config('ai.content.auto_generation_start_date', '2026-07-31'))->toDateString();
     }
 
     private function generatedAiSummaryForContent(int $contentId): ?AiContentSummary
@@ -3433,16 +3459,21 @@ class PageController extends Controller
 
     private function aiQuizForContent(Content $content, AiContentSummary $summary, string $audience): AiQuiz
     {
+        $quizContent = $this->aiQuizOwnerContent($content);
+        $passingRatio = $audience == 'teacher'
+            ? $this->teacherAiPassingPercentage() / 100
+            : $this->studentAiPassingPercentage() / 100;
+
         $quiz = AiQuiz::firstOrCreate(
             [
-                'content_id' => $content->id,
+                'content_id' => $quizContent->id,
                 'audience' => $audience,
                 'status' => 'active',
             ],
             [
                 'provider' => $summary->provider,
                 'model' => $summary->model,
-                'title' => ($audience == 'teacher' ? 'AI Prep - ' : 'AI Review - ') . $content->content_title,
+                'title' => ($audience == 'teacher' ? 'AI Prep - ' : 'AI Review - ') . $quizContent->content_title,
                 'instructions' => $audience == 'teacher'
                     ? 'Answer these prep questions before teaching this lesson.'
                     : 'Answer these questions after reviewing the completed lesson.',
@@ -3452,6 +3483,12 @@ class PageController extends Controller
         );
 
         if ($quiz->questions()->exists()) {
+            if ($quiz->total_marks > 0) {
+                $quiz->update([
+                    'passing_marks' => (int) ceil($quiz->total_marks * $passingRatio),
+                ]);
+            }
+
             return $quiz->load('questions');
         }
 
@@ -3490,10 +3527,31 @@ class PageController extends Controller
 
         $quiz->update([
             'total_marks' => $totalMarks,
-            'passing_marks' => (int) ceil($totalMarks * 0.4),
+            'passing_marks' => (int) ceil($totalMarks * $passingRatio),
         ]);
 
         return $quiz->load('questions');
+    }
+
+    private function aiQuizOwnerContent(Content $content): Content
+    {
+        $sourceContent = $content->courseContent?->sourceTemplateContent;
+
+        if ($sourceContent && ($sourceContent->aiSummary || $sourceContent->hasAiPdfMaterial())) {
+            return $sourceContent;
+        }
+
+        return $content;
+    }
+
+    private function teacherAiPassingPercentage(): float
+    {
+        return (float) config('ai.content.teacher_passing_percentage', 50);
+    }
+
+    private function studentAiPassingPercentage(): float
+    {
+        return (float) config('ai.content.student_passing_percentage', 60);
     }
 
     private function studentAssignedCourse(Student $student)
@@ -3649,6 +3707,11 @@ class PageController extends Controller
         if (!$item->week || $item->week->status !== 'released') {
             return redirect()->back()
                 ->with('error', 'Only currently released Teaching Plan topics can be started.');
+        }
+
+        if ($this->teachingPlanItemRequiresAiTraining($item) && !$this->generatedAiSummaryForContentRecord($item->content)) {
+            return redirect()->back()
+                ->with('error', 'AI prep is still being prepared for this content. Please try again shortly.');
         }
 
         if ($this->teacherNeedsAiPrep($item->content, $teacher->id)) {

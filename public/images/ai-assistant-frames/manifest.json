@@ -1,0 +1,48 @@
+{
+  "climb": [
+    "images/ai-assistant-frames/climb/climb-01.png",
+    "images/ai-assistant-frames/climb/climb-02.png",
+    "images/ai-assistant-frames/climb/climb-03.png",
+    "images/ai-assistant-frames/climb/climb-04.png",
+    "images/ai-assistant-frames/climb/climb-05.png",
+    "images/ai-assistant-frames/climb/climb-06.png",
+    "images/ai-assistant-frames/climb/climb-07.png",
+    "images/ai-assistant-frames/climb/climb-08.png"
+  ],
+  "sleep": [
+    "images/ai-assistant-frames/sleep/sleep-01.png",
+    "images/ai-assistant-frames/sleep/sleep-02.png",
+    "images/ai-assistant-frames/sleep/sleep-03.png",
+    "images/ai-assistant-frames/sleep/sleep-04.png",
+    "images/ai-assistant-frames/sleep/sleep-05.png",
+    "images/ai-assistant-frames/sleep/sleep-06.png",
+    "images/ai-assistant-frames/sleep/sleep-07.png",
+    "images/ai-assistant-frames/sleep/sleep-08.png"
+  ],
+  "hop": [
+    "images/ai-assistant-frames/hop/hop-01.png",
+    "images/ai-assistant-frames/hop/hop-02.png",
+    "images/ai-assistant-frames/hop/hop-03.png",
+    "images/ai-assistant-frames/hop/hop-04.png",
+    "images/ai-assistant-frames/hop/hop-05.png",
+    "images/ai-assistant-frames/hop/hop-06.png",
+    "images/ai-assistant-frames/hop/hop-07.png",
+    "images/ai-assistant-frames/hop/hop-08.png"
+  ],
+  "slide": [
+    "images/ai-assistant-frames/slide/slide-01.png",
+    "images/ai-assistant-frames/slide/slide-02.png",
+    "images/ai-assistant-frames/slide/slide-03.png",
+    "images/ai-assistant-frames/slide/slide-04.png",
+    "images/ai-assistant-frames/slide/slide-05.png",
+    "images/ai-assistant-frames/slide/slide-06.png",
+    "images/ai-assistant-frames/slide/slide-07.png",
+    "images/ai-assistant-frames/slide/slide-08.png"
+  ],
+  "sheets": {
+    "climb": "images/ai-assistant-frames/sheets/cupbot-climb-sheet.png",
+    "sleep": "images/ai-assistant-frames/sheets/cupbot-sleep-sheet.png",
+    "hop": "images/ai-assistant-frames/sheets/cupbot-hop-sheet.png",
+    "slide": "images/ai-assistant-frames/sheets/cupbot-slide-sheet.png"
+  }
+}

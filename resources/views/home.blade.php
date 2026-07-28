@@ -2,6 +2,11 @@
 
 @section('content')
 
+@php
+    $blogsRoute = route('blogs.community-feed');
+    $newsroomRoute = route('newsroom');
+@endphp
+
 <div class="modern-homepage">
 
     <!-- HERO SECTION -->
@@ -121,6 +126,16 @@
                             alt="InnovatEdge"
                             class="img-fluid hero-main-image">
 
+                        <div class="hero-ai-assistant ai-chatbot-trigger"
+                             id="heroAiAssistant"
+                             aria-label="Open InnovatEdge Assistant"
+                             role="button"
+                             tabindex="0">
+                            <img src="{{ asset('images/ai-assistant-frames/climb/climb-01.png') }}"
+                                 id="heroAiFrame"
+                                 alt="">
+                        </div>
+
                     </div>
 
                 </div>
@@ -138,20 +153,36 @@
 
     </section>
 
+    <section class="home-module-rail-section" aria-label="News and blogs">
+        <div class="container">
+            <div class="home-module-gateway">
+                <a href="{{ $newsroomRoute }}" class="home-module-card home-module-card-active">
+                    <div class="home-module-card-icon">
+                        <i class="fa fa-newspaper"></i>
+                    </div>
+                    <div class="home-module-card-copy">
+                        <strong>Newsroom</strong>
+                        <small>Curated STEM, ATL and robotics updates for schools and learners.</small>
+                    </div>
+                </a>
+
+                <a href="{{ $blogsRoute }}" class="home-module-card home-module-card-active">
+                    <div class="home-module-card-icon">
+                        <i class="fa fa-pen-nib"></i>
+                    </div>
+                    <div class="home-module-card-copy">
+                        <strong>Blogs</strong>
+                        <small>Achievements, ideas, projects and classroom stories from the InnovatEdge community.</small>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
     <!-- FEATURES SECTION -->
     <section class="feature-section" id="features">
 
         <div class="container">
-
-            <div class="feature-top-images d-flex justify-content-between align-items-start"
-                 style="margin-top: -28px; margin-bottom: 18px;">
-                <img src="{{ asset('images/CupRobot(1).png') }}"
-                     alt="Company image placeholder"
-                     style="width: 100%; max-width: 320px; height: auto; display: block;">
-                <img src="{{ asset('images/CupRobot(2).png') }}"
-                     alt="Company image placeholder"
-                     style="width: 100%; max-width: 320px; height: auto; display: block;">
-            </div>
 
             <div class="section-heading text-center">
 
@@ -344,6 +375,368 @@
 
     </footer>
 
+    <div class="floating-ai-assistant ai-chatbot-trigger"
+         id="floatingAiAssistant"
+         aria-label="Open InnovatEdge Assistant"
+         role="button"
+         tabindex="0">
+        <div class="floating-ai-robot">
+            <img src="{{ asset('images/ai-assistant-frames/climb/climb-01.png') }}"
+                 id="floatingAiFrame"
+                 alt="AI assistant">
+        </div>
+    </div>
+
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const assistant = document.getElementById('floatingAiAssistant');
+        const frameImage = document.getElementById('floatingAiFrame');
+        const heroAssistant = document.getElementById('heroAiAssistant');
+        const heroFrameImage = document.getElementById('heroAiFrame');
+
+        if (!assistant || !frameImage || !heroAssistant || !heroFrameImage || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+
+        const frameSet = function (action, count) {
+            return Array.from({ length: count || 8 }, function (_, index) {
+                const frameNumber = String(index + 1).padStart(2, '0');
+                return '{{ asset('images/ai-assistant-frames') }}/' + action + '/' + action + '-' + frameNumber + '.png';
+            });
+        };
+
+        const assistantFrames = {
+            climb: frameSet('climb'),
+            sleep: frameSet('sleep'),
+            hop: frameSet('hop'),
+            slide: frameSet('slide'),
+            backflip: frameSet('backflip', 9),
+        };
+
+        const clamp = function (value, min, max) {
+            return Math.max(min, Math.min(max, value));
+        };
+
+        const setScene = function (sceneClass, x, y, tilt, size) {
+            assistant.className = 'floating-ai-assistant ' + sceneClass;
+            assistant.style.left = clamp(x, 74, window.innerWidth - 74) + 'px';
+            assistant.style.top = clamp(y, 78, window.innerHeight - 78) + 'px';
+            assistant.style.setProperty('--assistant-tilt', (tilt || 0) + 'deg');
+            assistant.style.setProperty('--assistant-size', (size || 126) + 'px');
+        };
+
+        let frameTimer = null;
+        let heroFrameTimer = null;
+        let heroPeekTimer = null;
+        let heroResetTimer = null;
+        let featureHopTimers = [];
+
+        Object.keys(assistantFrames).forEach(function (key) {
+            assistantFrames[key].forEach(function (source) {
+                const image = new Image();
+                image.src = source;
+            });
+        });
+
+        const clearFeatureHopTimers = function () {
+            featureHopTimers.forEach(function (timer) {
+                window.clearTimeout(timer);
+            });
+            featureHopTimers = [];
+        };
+
+        const playFrames = function (targetImage, timerName, action, frameDelay, loopCount) {
+            const frames = assistantFrames[action] || [];
+            const loops = loopCount || 1;
+            let index = 0;
+            let playedLoops = 0;
+
+            if (!frames.length) {
+                return;
+            }
+
+            if (timerName === 'hero' && heroFrameTimer) {
+                window.clearInterval(heroFrameTimer);
+            }
+
+            if (timerName === 'floating' && frameTimer) {
+                window.clearInterval(frameTimer);
+            }
+
+            targetImage.src = frames[0];
+            targetImage.animate([
+                { filter: 'blur(1.4px)', transform: 'translateX(-3px) scale(0.995)' },
+                { filter: 'blur(0)', transform: 'translateX(0) scale(1)' }
+            ], { duration: Math.min(220, frameDelay - 60), easing: 'ease-out' });
+
+            const timer = window.setInterval(function () {
+                index += 1;
+
+                if (index >= frames.length) {
+                    playedLoops += 1;
+
+                    if (playedLoops >= loops) {
+                        window.clearInterval(timer);
+                        if (timerName === 'hero') {
+                            heroFrameTimer = null;
+                        } else {
+                            frameTimer = null;
+                        }
+                        targetImage.src = frames[frames.length - 1];
+                        return;
+                    }
+
+                    index = 0;
+                }
+
+                targetImage.src = frames[index];
+                targetImage.animate([
+                    { filter: 'blur(1.4px)', transform: 'translateX(-3px) scale(0.995)' },
+                    { filter: 'blur(0)', transform: 'translateX(0) scale(1)' }
+                ], { duration: Math.min(220, frameDelay - 60), easing: 'ease-out' });
+            }, frameDelay);
+
+            if (timerName === 'hero') {
+                heroFrameTimer = timer;
+            } else {
+                frameTimer = timer;
+            }
+        };
+
+        const elementPoint = function (selector, xRatio, yRatio, fallbackX, fallbackY) {
+            const element = document.querySelector(selector);
+
+            if (!element) {
+                return { x: fallbackX, y: fallbackY };
+            }
+
+            const rect = element.getBoundingClientRect();
+
+            return {
+                x: rect.left + (rect.width * xRatio),
+                y: rect.top + (rect.height * yRatio),
+            };
+        };
+
+        const scenes = {
+            peekHero: function () {
+                window.clearTimeout(heroPeekTimer);
+                window.clearTimeout(heroResetTimer);
+
+                heroAssistant.className = 'hero-ai-assistant hero-ai-peek hero-ai-reset';
+                heroAssistant.style.left = '16%';
+                heroAssistant.style.top = '0%';
+                heroAssistant.style.setProperty('--hero-assistant-size', '108px');
+                heroAssistant.style.setProperty('--hero-assistant-tilt', '-4deg');
+                heroFrameImage.src = assistantFrames.climb[0];
+
+                void heroAssistant.offsetWidth;
+
+                heroResetTimer = window.setTimeout(function () {
+                    heroAssistant.classList.remove('hero-ai-reset');
+                }, 120);
+
+                playFrames(heroFrameImage, 'hero', 'climb', 360, 1);
+
+                heroPeekTimer = window.setTimeout(function () {
+                    if (activeSection === 'hero') {
+                        heroAssistant.classList.add('hero-ai-on-top');
+                        heroAssistant.style.left = '16%';
+                        heroAssistant.style.top = '0%';
+                    }
+                }, 2880);
+            },
+            slideHero: function () {
+                window.clearTimeout(heroPeekTimer);
+                window.clearTimeout(heroResetTimer);
+
+                heroAssistant.className = 'hero-ai-assistant hero-ai-slide hero-ai-on-top';
+                heroAssistant.style.left = '16%';
+                heroAssistant.style.top = '4%';
+                heroAssistant.style.setProperty('--hero-assistant-size', '108px');
+                heroAssistant.style.setProperty('--hero-assistant-tilt', '-4deg');
+                playFrames(heroFrameImage, 'hero', 'slide', 340, 1);
+
+                window.setTimeout(function () {
+                    if (activeSection !== 'hero') {
+                        return;
+                    }
+
+                    heroAssistant.style.left = '86%';
+                    heroAssistant.style.top = '78%';
+                    heroAssistant.style.setProperty('--hero-assistant-tilt', '5deg');
+                }, 280);
+            },
+            hopFeatures: function () {
+                clearFeatureHopTimers();
+
+                const cards = Array.from(document.querySelectorAll('.feature-card'));
+                const cardPoint = function (card) {
+                    const rect = card.getBoundingClientRect();
+                    return {
+                        x: rect.left + (rect.width * 0.5),
+                        y: rect.top - 18,
+                    };
+                };
+
+                if (!cards.length) {
+                    setScene('assistant-scene-hop', window.innerWidth * 0.72, window.innerHeight * 0.62, 0, 110);
+                    playFrames(frameImage, 'floating', 'hop', 52, 1);
+                    return;
+                }
+
+                const firstPoint = cardPoint(cards[0]);
+                setScene('assistant-scene-feature-rest', firstPoint.x, firstPoint.y, -2, 104);
+                frameImage.src = assistantFrames.hop[0];
+
+                cards.slice(1).forEach(function (card, index) {
+                    const timer = window.setTimeout(function () {
+                        if (activeSection !== 'features') {
+                            return;
+                        }
+
+                        const point = cardPoint(card);
+
+                        setScene('assistant-scene-hop', point.x, point.y, index % 2 === 0 ? 2 : -2, 104);
+                        playFrames(frameImage, 'floating', 'hop', 115, 1);
+                    }, 760 + (index * 1240));
+
+                    featureHopTimers.push(timer);
+                });
+
+                const returnStart = 760 + ((cards.length - 1) * 1240) + 60;
+                cards.slice(0, -1).reverse().forEach(function (card, reverseIndex) {
+                    const timer = window.setTimeout(function () {
+                        if (activeSection !== 'features') {
+                            return;
+                        }
+
+                        const point = cardPoint(card);
+                        setScene('assistant-scene-backflip', point.x, point.y, reverseIndex % 2 === 0 ? 4 : -3, 104);
+                        playFrames(frameImage, 'floating', 'backflip', 92, 1);
+                    }, returnStart + (reverseIndex * 1180));
+
+                    featureHopTimers.push(timer);
+                });
+            },
+            sleepFooter: function () {
+                const point = elementPoint('.footer-wrapper', 0.90, 0.06, window.innerWidth - 160, window.innerHeight - 118);
+                setScene('assistant-scene-sleep', point.x, point.y, -3, 104);
+                playFrames(frameImage, 'floating', 'sleep', 390, 1);
+            },
+        };
+
+        let activeSection = null;
+        let sectionTimer = null;
+        let lastScrollY = window.scrollY;
+        let lastHeroSlideAt = 0;
+
+        const visibleRatio = function (element) {
+            if (!element) {
+                return 0;
+            }
+
+            const rect = element.getBoundingClientRect();
+            const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+
+            return Math.max(0, visibleHeight) / Math.max(1, Math.min(rect.height, window.innerHeight));
+        };
+
+        const currentSection = function () {
+            const hero = document.querySelector('.hero-section');
+            const features = document.querySelector('.feature-section');
+            const moduleRail = document.querySelector('.home-module-rail-section');
+            const footer = document.querySelector('.footer-section');
+            const access = document.querySelector('.access-section');
+
+            const ratios = [
+                { name: 'hero', ratio: visibleRatio(hero) },
+                { name: 'features', ratio: Math.max(visibleRatio(features), visibleRatio(moduleRail)) },
+                { name: 'footer', ratio: Math.max(visibleRatio(footer), visibleRatio(access)) },
+            ];
+
+            ratios.sort(function (a, b) {
+                return b.ratio - a.ratio;
+            });
+
+            return ratios[0].ratio > 0.18 ? ratios[0].name : null;
+        };
+
+        const activateSection = function (section) {
+            if (!section || section === activeSection) {
+                return;
+            }
+
+            if (activeSection === 'hero' && section !== 'hero') {
+                window.clearTimeout(heroPeekTimer);
+                window.clearTimeout(heroResetTimer);
+            }
+
+            if (activeSection === 'features' && section !== 'features') {
+                clearFeatureHopTimers();
+            }
+
+            activeSection = section;
+            window.clearInterval(sectionTimer);
+
+            if (section === 'hero') {
+                assistant.classList.add('assistant-hidden');
+                heroAssistant.classList.remove('hero-ai-hidden');
+                scenes.peekHero();
+                return;
+            }
+
+            if (section === 'features') {
+                heroAssistant.classList.add('hero-ai-hidden');
+                assistant.classList.remove('assistant-hidden');
+                scenes.hopFeatures();
+                sectionTimer = window.setInterval(function () {
+                    if (activeSection === 'features') {
+                        scenes.hopFeatures();
+                    }
+                }, 10600);
+                return;
+            }
+
+            if (section === 'footer') {
+                heroAssistant.classList.add('hero-ai-hidden');
+                assistant.classList.remove('assistant-hidden');
+                scenes.sleepFooter();
+                sectionTimer = window.setInterval(function () {
+                    if (activeSection === 'footer') {
+                        scenes.sleepFooter();
+                    }
+                }, 7600);
+            }
+        };
+
+        let scrollTimer = null;
+        const handleViewport = function () {
+            const currentY = window.scrollY;
+            const isScrollingDown = currentY > lastScrollY + 8;
+            lastScrollY = currentY;
+
+            if (activeSection === 'hero' && isScrollingDown) {
+                const now = Date.now();
+
+                if (now - lastHeroSlideAt > 2600) {
+                    lastHeroSlideAt = now;
+                    scenes.slideHero();
+                }
+            }
+
+            window.clearTimeout(scrollTimer);
+            scrollTimer = window.setTimeout(function () {
+                activateSection(currentSection());
+            }, 90);
+        };
+
+        activateSection(currentSection() || 'hero');
+        window.addEventListener('scroll', handleViewport, { passive: true });
+        window.addEventListener('resize', handleViewport);
+    });
+</script>
 
 @endsection

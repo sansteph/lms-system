@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\MySpace;
+use App\Support\SyncsCommunityPosts;
 use Illuminate\Support\Facades\Storage;
 
 class MySpaceController extends Controller
 {
+    use SyncsCommunityPosts;
+
     public function index()
     {
         if (session('user_role') == 'Teacher') {
@@ -135,6 +138,8 @@ class MySpaceController extends Controller
             'status' => 'Approved',
         ]);
 
+        $this->syncMySpaceToCommunity($item->refresh());
+
         return redirect()->back()
             ->with('success', 'Submission approved successfully.');
     }
@@ -148,6 +153,8 @@ class MySpaceController extends Controller
             'status' => 'Rejected',
         ]);
 
+        $this->deleteCommunitySource('MySpace', $item->id);
+
         return redirect()->back()
             ->with('success', 'Submission rejected successfully.');
     }
@@ -160,6 +167,8 @@ class MySpaceController extends Controller
         $item->update([
             'status' => 'Featured',
         ]);
+
+        $this->syncMySpaceToCommunity($item->refresh());
 
         return redirect()->back()
             ->with('success', 'Submission marked as featured.');

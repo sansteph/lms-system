@@ -89,7 +89,8 @@
                                         $prepRequired = $item->content
                                             && $effectiveAiSummary
                                             && $effectiveAiSummary->status == 'generated'
-                                            && !$teacherPassedPrepContentIds->contains($item->content->id);
+                                            && !$teacherPassedPrepContentIds->contains($item->content->id)
+                                            && !$teacherPassedPrepContentIds->contains($item->content->ai_quiz_content_id);
                                     @endphp
                                     <option value="{{ $item->id }}">
                                         {{ $item->plan->class }} {{ $item->plan->section }}

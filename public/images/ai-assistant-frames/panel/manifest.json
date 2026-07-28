@@ -1,0 +1,50 @@
+{
+  "stroll": [
+    "images/ai-assistant-frames/panel/stroll/stroll-01.png",
+    "images/ai-assistant-frames/panel/stroll/stroll-02.png",
+    "images/ai-assistant-frames/panel/stroll/stroll-03.png",
+    "images/ai-assistant-frames/panel/stroll/stroll-04.png",
+    "images/ai-assistant-frames/panel/stroll/stroll-05.png",
+    "images/ai-assistant-frames/panel/stroll/stroll-06.png",
+    "images/ai-assistant-frames/panel/stroll/stroll-07.png",
+    "images/ai-assistant-frames/panel/stroll/stroll-08.png",
+    "images/ai-assistant-frames/panel/stroll/stroll-09.png",
+    "images/ai-assistant-frames/panel/stroll/stroll-10.png"
+  ],
+  "roll": [
+    "images/ai-assistant-frames/panel/roll/roll-01.png",
+    "images/ai-assistant-frames/panel/roll/roll-02.png",
+    "images/ai-assistant-frames/panel/roll/roll-03.png",
+    "images/ai-assistant-frames/panel/roll/roll-04.png",
+    "images/ai-assistant-frames/panel/roll/roll-05.png",
+    "images/ai-assistant-frames/panel/roll/roll-06.png",
+    "images/ai-assistant-frames/panel/roll/roll-07.png",
+    "images/ai-assistant-frames/panel/roll/roll-08.png",
+    "images/ai-assistant-frames/panel/roll/roll-09.png",
+    "images/ai-assistant-frames/panel/roll/roll-10.png"
+  ],
+  "backflip": [
+    "images/ai-assistant-frames/panel/backflip/backflip-01.png",
+    "images/ai-assistant-frames/panel/backflip/backflip-02.png",
+    "images/ai-assistant-frames/panel/backflip/backflip-03.png",
+    "images/ai-assistant-frames/panel/backflip/backflip-04.png",
+    "images/ai-assistant-frames/panel/backflip/backflip-05.png",
+    "images/ai-assistant-frames/panel/backflip/backflip-06.png",
+    "images/ai-assistant-frames/panel/backflip/backflip-07.png",
+    "images/ai-assistant-frames/panel/backflip/backflip-08.png",
+    "images/ai-assistant-frames/panel/backflip/backflip-09.png",
+    "images/ai-assistant-frames/panel/backflip/backflip-10.png"
+  ],
+  "swing": [
+    "images/ai-assistant-frames/panel/swing/swing-01.png",
+    "images/ai-assistant-frames/panel/swing/swing-02.png",
+    "images/ai-assistant-frames/panel/swing/swing-03.png",
+    "images/ai-assistant-frames/panel/swing/swing-04.png",
+    "images/ai-assistant-frames/panel/swing/swing-05.png",
+    "images/ai-assistant-frames/panel/swing/swing-06.png",
+    "images/ai-assistant-frames/panel/swing/swing-07.png",
+    "images/ai-assistant-frames/panel/swing/swing-08.png",
+    "images/ai-assistant-frames/panel/swing/swing-09.png",
+    "images/ai-assistant-frames/panel/swing/swing-10.png"
+  ]
+}

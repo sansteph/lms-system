@@ -17,8 +17,11 @@ use App\Http\Controllers\MySpaceController;
 use App\Http\Controllers\TeacherStudentProfileController;
 use App\Http\Controllers\IndependentLearnerController;
 use App\Http\Controllers\FeedbackController;
+use App\Http\Controllers\CommunityFeedController;
 use App\Http\Controllers\AiContentController;
+use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\LmsNotificationController;
+use App\Http\Controllers\NewsroomController;
 use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\TeachingPlanController;
 
@@ -37,6 +40,16 @@ Route::get('/content-files/{content}/for/{audience}/{variant?}', [ContentControl
 Route::get('/content-files/{content}/{variant?}', [ContentController::class, 'showFile'])->name('content.file');
 Route::get('/assessment-paper/{assessment}/{variant?}', [AssessmentController::class, 'showQuestionPaper'])->name('assessment.paper');
 Route::get('/assessment-answer-file/{result}', [AssessmentResultController::class, 'showAnswerFile'])->name('assessment.answer.file');
+Route::post('/ai-chat/ask', [AiChatController::class, 'ask'])->middleware('throttle:20,1')->name('ai-chat.ask');
+Route::get('/newsroom', [NewsroomController::class, 'index'])->name('newsroom');
+Route::get('/blogs/login', [CommunityFeedController::class, 'blogsLogin'])->name('blogs.login');
+Route::post('/blogs/login', [CommunityFeedController::class, 'blogsLoginSubmit'])->name('blogs.login.submit');
+Route::get('/blogs', [CommunityFeedController::class, 'blogsEntry'])->name('blogs.community-feed');
+Route::post('/blogs', [CommunityFeedController::class, 'store'])->name('blogs.community-feed.store');
+Route::post('/blogs/{id}/like', [CommunityFeedController::class, 'toggleLike'])->name('blogs.community-feed.like');
+Route::post('/blogs/{id}/approve', [CommunityFeedController::class, 'approve'])->name('blogs.community-feed.approve');
+Route::post('/blogs/{id}/reject', [CommunityFeedController::class, 'reject'])->name('blogs.community-feed.reject');
+Route::post('/blogs/{id}/delete', [CommunityFeedController::class, 'delete'])->name('blogs.community-feed.delete');
 
 
 //Hybrid-Learners Public Routes
@@ -140,6 +153,13 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::post('/notifications/store', [LmsNotificationController::class, 'store'])->name('notifications.store');
     Route::post('/notifications/delete/{id}', [LmsNotificationController::class, 'delete'])->name('notifications.delete');
 
+    Route::get('/admin/community-feed', [CommunityFeedController::class, 'index'])->name('admin.community-feed');
+    Route::post('/admin/community-feed', [CommunityFeedController::class, 'store'])->name('admin.community-feed.store');
+    Route::post('/admin/community-feed/{id}/like', [CommunityFeedController::class, 'toggleLike'])->name('admin.community-feed.like');
+    Route::post('/admin/community-feed/{id}/approve', [CommunityFeedController::class, 'approve'])->name('admin.community-feed.approve');
+    Route::post('/admin/community-feed/{id}/reject', [CommunityFeedController::class, 'reject'])->name('admin.community-feed.reject');
+    Route::post('/admin/community-feed/{id}/delete', [CommunityFeedController::class, 'delete'])->name('admin.community-feed.delete');
+
     Route::get('/teaching-plans', [TeachingPlanController::class, 'index'])->name('teaching-plans');
     Route::post('/teaching-plans/store', [TeachingPlanController::class, 'store'])->name('teaching-plans.store');
     Route::post('/teaching-plan-templates/store', [TeachingPlanController::class, 'storeTemplate'])->name('teaching-plan-templates.store');
@@ -215,6 +235,12 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::get('/teacher/feedback', [FeedbackController::class, 'teacherCreate'])->name('teacher.feedback');
     Route::post('/teacher/feedback', [FeedbackController::class, 'teacherStore'])->name('teacher.feedback.store');
     Route::get('/teacher/notifications', [LmsNotificationController::class, 'teacherIndex'])->name('teacher.notifications');
+    Route::get('/teacher/community-feed', [CommunityFeedController::class, 'index'])->name('teacher.community-feed');
+    Route::post('/teacher/community-feed', [CommunityFeedController::class, 'store'])->name('teacher.community-feed.store');
+    Route::post('/teacher/community-feed/{id}/like', [CommunityFeedController::class, 'toggleLike'])->name('teacher.community-feed.like');
+    Route::post('/teacher/community-feed/{id}/approve', [CommunityFeedController::class, 'approve'])->name('teacher.community-feed.approve');
+    Route::post('/teacher/community-feed/{id}/reject', [CommunityFeedController::class, 'reject'])->name('teacher.community-feed.reject');
+    Route::post('/teacher/community-feed/{id}/delete', [CommunityFeedController::class, 'delete'])->name('teacher.community-feed.delete');
     Route::get('/teacher/achievements', [PageController::class, 'teacherAchievements'])->name('teacher.achievements');
     Route::post('/teacher/achievements', [PageController::class, 'storeTeacherAchievement'])->name('teacher.achievements.store');
     Route::post('/teacher/achievements/{id}/delete', [PageController::class, 'deleteTeacherAchievement'])->name('teacher.achievements.delete');
@@ -279,6 +305,10 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::get('/student/feedback', [FeedbackController::class, 'studentCreate'])->name('student.feedback');
     Route::post('/student/feedback', [FeedbackController::class, 'studentStore'])->name('student.feedback.store');
     Route::get('/student/notifications', [LmsNotificationController::class, 'studentIndex'])->name('student.notifications');
+    Route::get('/student/community-feed', [CommunityFeedController::class, 'index'])->name('student.community-feed');
+    Route::post('/student/community-feed', [CommunityFeedController::class, 'store'])->name('student.community-feed.store');
+    Route::post('/student/community-feed/{id}/like', [CommunityFeedController::class, 'toggleLike'])->name('student.community-feed.like');
+    Route::post('/student/community-feed/{id}/delete', [CommunityFeedController::class, 'delete'])->name('student.community-feed.delete');
 
     Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
     Route::get('/student/certificate/download', [PageController::class, 'downloadStudentCertificate'])->name('student.certificate.download');

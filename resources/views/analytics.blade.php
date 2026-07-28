@@ -47,56 +47,10 @@
             @endphp
 
             @if($aiInsights)
-                <div class="card shadow border-0 mb-4">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-                            <div>
-                                <h5 class="mb-1">AI Generated Analytics Insights</h5>
-                                <p class="text-muted mb-0">
-                                    Generated from current analytics data{{ isset($aiInsights['generated_at']) ? ' at ' . $aiInsights['generated_at'] : '' }}.
-                                </p>
-                            </div>
-                            @if(!empty($aiInsights['model']))
-                                <span class="badge bg-info">{{ $aiInsights['model'] }}</span>
-                            @endif
-                        </div>
-
-                        <p class="mb-3">{{ $aiInsights['summary'] ?? 'No summary returned.' }}</p>
-
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <h6>Highlights</h6>
-                                <ul class="mb-0">
-                                    @forelse($aiInsights['highlights'] ?? [] as $item)
-                                        <li>{{ $item }}</li>
-                                    @empty
-                                        <li>No highlights returned.</li>
-                                    @endforelse
-                                </ul>
-                            </div>
-                            <div class="col-md-4">
-                                <h6>Risks</h6>
-                                <ul class="mb-0">
-                                    @forelse($aiInsights['risks'] ?? [] as $item)
-                                        <li>{{ $item }}</li>
-                                    @empty
-                                        <li>No risks returned.</li>
-                                    @endforelse
-                                </ul>
-                            </div>
-                            <div class="col-md-4">
-                                <h6>Recommendations</h6>
-                                <ul class="mb-0">
-                                    @forelse($aiInsights['recommendations'] ?? [] as $item)
-                                        <li>{{ $item }}</li>
-                                    @empty
-                                        <li>No recommendations returned.</li>
-                                    @endforelse
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                @include('partials.ai-full-report', [
+                    'aiInsights' => $aiInsights,
+                    'reportTitle' => 'AI Generated Analytics Report'
+                ])
             @endif
 
             <div class="row g-4 mb-4">

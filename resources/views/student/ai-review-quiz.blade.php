@@ -51,11 +51,16 @@
                     </div>
                     <h5 class="fw-bold mb-1">Review Questions</h5>
                     <p class="text-muted mb-0">
-                        Passing score is 40%. Passing this review marks the lesson complete.
+                        Passing score is {{ rtrim(rtrim(number_format(config('ai.content.student_passing_percentage', 60), 2), '0'), '.') }}%. Passing this review marks the lesson complete.
                     </p>
                 </div>
 
                 <div class="card-body p-4">
+                    @if($latestAttempt && $latestAttempt->status == 'passed')
+                        <div class="alert alert-success mb-0">
+                            Training assessment already cleared. This lesson is complete.
+                        </div>
+                    @else
                     <form action="{{ route('student.content.ai-review.submit', $content->id) }}" method="POST">
                         @csrf
 
@@ -92,6 +97,7 @@
                             </button>
                         </div>
                     </form>
+                    @endif
                 </div>
             </div>
         </div>

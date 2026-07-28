@@ -4,6 +4,7 @@
     <title>LMS System</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
@@ -24,6 +25,7 @@
     request()->routeIs('independent.register') ||
     request()->routeIs('independent.login') ||
     request()->routeIs('coming.soon') ||
+    request()->routeIs('newsroom') ||
     request()->routeIs('admin.institute.register')
 )
     <div id="particles-js"></div>
@@ -37,6 +39,7 @@
     !request()->routeIs('independent.register') &&
     !request()->routeIs('independent.login') &&
     !request()->routeIs('coming.soon') &&
+    !request()->routeIs('newsroom') &&
     !request()->routeIs('admin.institute.register'))
 
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
@@ -169,7 +172,119 @@
     });
 </script>
 
+@unless(
+    request()->routeIs('home') ||
+    request()->routeIs('portal') ||
+    request()->routeIs('admin.login*') ||
+    request()->routeIs('teacher.login*') ||
+    request()->routeIs('student.login*') ||
+    request()->routeIs('blogs.login*') ||
+    request()->routeIs('independent.login*') ||
+    request()->routeIs('independent.register*') ||
+    request()->routeIs('coming.soon') ||
+    request()->routeIs('content.preview*') ||
+    request()->routeIs('content.file*') ||
+    request()->routeIs('assessment.paper*') ||
+    request()->routeIs('assessment.answer.file*') ||
+    request()->routeIs('student.assessment.take*') ||
+    request()->routeIs('student.assessment-taking*') ||
+    request()->routeIs('teacher.ai-prep.quiz*') ||
+    request()->routeIs('student.content.ai-review.quiz*')
+)
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const scrollKey = 'innovatedge-scroll:' + window.location.pathname + window.location.search;
+        const maxAgeMs = 30 * 60 * 1000;
+
+        const restoreScroll = function () {
+            let saved = null;
+
+            try {
+                saved = JSON.parse(sessionStorage.getItem(scrollKey) || 'null');
+                sessionStorage.removeItem(scrollKey);
+            } catch (error) {
+                sessionStorage.removeItem(scrollKey);
+            }
+
+            if (!saved || typeof saved.y !== 'number' || Date.now() - saved.time > maxAgeMs) {
+                return;
+            }
+
+            window.requestAnimationFrame(function () {
+                window.scrollTo({
+                    top: saved.y,
+                    left: saved.x || 0,
+                    behavior: 'auto'
+                });
+            });
+        };
+
+        const rememberScroll = function () {
+            try {
+                sessionStorage.setItem(scrollKey, JSON.stringify({
+                    x: window.scrollX || 0,
+                    y: window.scrollY || 0,
+                    time: Date.now()
+                }));
+            } catch (error) {
+                // Ignore storage failures; the original form/link action should continue normally.
+            }
+        };
+
+        restoreScroll();
+
+        document.addEventListener('submit', function (event) {
+            const form = event.target;
+
+            if (!(form instanceof HTMLFormElement) || form.dataset.noScrollRestore === 'true') {
+                return;
+            }
+
+            rememberScroll();
+        }, true);
+
+        document.addEventListener('click', function (event) {
+            const action = event.target.closest('a[href], button[type="submit"], input[type="submit"]');
+
+            if (!action || action.dataset.noScrollRestore === 'true') {
+                return;
+            }
+
+            if (action.matches('a[href]')) {
+                const href = action.getAttribute('href') || '';
+
+                if (
+                    !href ||
+                    href.startsWith('#') ||
+                    href.startsWith('javascript:') ||
+                    action.target === '_blank' ||
+                    action.closest('.admin-sidebar, .navbar, .pagination')
+                ) {
+                    return;
+                }
+
+                const currentPath = window.location.pathname.replace(/\/+$/, '');
+                let targetPath = '';
+
+                try {
+                    targetPath = new URL(href, window.location.href).pathname.replace(/\/+$/, '');
+                } catch (error) {
+                    return;
+                }
+
+                if (targetPath !== currentPath && !action.hasAttribute('onclick')) {
+                    return;
+                }
+            }
+
+            rememberScroll();
+        }, true);
+    });
+</script>
+@endunless
+
 @include('notifications.popup')
+@include('partials.ai-chatbot')
 
 </body>
 </html>

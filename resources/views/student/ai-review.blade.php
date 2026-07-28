@@ -74,10 +74,17 @@
                         <a href="{{ route('student.content') }}" class="btn btn-outline-secondary">
                             Cancel
                         </a>
-                        <a href="{{ route('student.content.ai-review.quiz', $content->id) }}" class="btn btn-success">
-                            Start AI Review
-                            <i class="fa fa-arrow-right ms-2"></i>
-                        </a>
+                        @if($latestAttempt && $latestAttempt->status == 'passed')
+                            <button type="button" class="btn btn-success" disabled>
+                                <i class="fa fa-check-circle me-2"></i>
+                                Review Cleared
+                            </button>
+                        @else
+                            <a href="{{ route('student.content.ai-review.quiz', $content->id) }}" class="btn btn-success">
+                                Start AI Review
+                                <i class="fa fa-arrow-right ms-2"></i>
+                            </a>
+                        @endif
                     </div>
                 </div>
             </div>

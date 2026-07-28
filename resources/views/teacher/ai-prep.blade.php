@@ -74,10 +74,17 @@
                         <a href="{{ route('teacher.content') }}" class="btn btn-outline-secondary">
                             Cancel
                         </a>
-                        <a href="{{ route('teacher.ai-prep.quiz', $content->id) }}" class="btn btn-success">
-                            Start Prep Quiz
-                            <i class="fa fa-arrow-right ms-2"></i>
-                        </a>
+                        @if($latestAttempt && $latestAttempt->status == 'passed')
+                            <button type="button" class="btn btn-success" disabled>
+                                <i class="fa fa-check-circle me-2"></i>
+                                Prep Cleared
+                            </button>
+                        @else
+                            <a href="{{ route('teacher.ai-prep.quiz', $content->id) }}" class="btn btn-success">
+                                Start Prep Quiz
+                                <i class="fa fa-arrow-right ms-2"></i>
+                            </a>
+                        @endif
                     </div>
                 </div>
             </div>

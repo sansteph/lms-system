@@ -51,6 +51,10 @@
         My Space Review
     </a>
 
+    <a href="{{ route('admin.community-feed') }}"class="sidebar-link {{ request()->routeIs('admin.community-feed*') ? 'active' : '' }}">
+        Blogs
+    </a>
+
     <a href="{{ route('admin.assessment.monitoring') }}" class="sidebar-link {{ request()->routeIs('admin.assessment.monitoring') ? 'active' : '' }}">
         Assessment Monitoring
     </a>

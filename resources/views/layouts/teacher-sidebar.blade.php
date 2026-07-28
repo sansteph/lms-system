@@ -58,6 +58,11 @@
         My Space
     </a>
 
+    <a href="{{ route('teacher.community-feed') }}"
+    class="sidebar-link {{ request()->routeIs('teacher.community-feed*') ? 'active' : '' }}">
+        Blogs
+    </a>
+
     <a href="{{ route('teacher.achievements') }}"
     class="sidebar-link {{ request()->routeIs('teacher.achievements') ? 'active' : '' }}">
         My Achievements

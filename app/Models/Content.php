@@ -31,6 +31,33 @@ class Content extends Model
         return $this->courseContent?->sourceTemplateContent?->aiSummary;
     }
 
+    public function getAiQuizContentIdAttribute()
+    {
+        $sourceContent = $this->courseContent?->sourceTemplateContent;
+
+        if ($sourceContent && ($sourceContent->aiSummary || $sourceContent->hasAiPdfMaterial())) {
+            return $sourceContent->id;
+        }
+
+        return $this->id;
+    }
+
+    public function hasAiPdfMaterial(): bool
+    {
+        foreach ([
+            $this->student_preview_pdf_path,
+            $this->preview_pdf_path,
+            $this->student_file_path,
+            $this->file_path,
+        ] as $path) {
+            if ($path && strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     protected $fillable = [
 
         'content_title',

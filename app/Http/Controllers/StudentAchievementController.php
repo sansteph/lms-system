@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\StudentAchievement;
+use App\Support\SyncsCommunityPosts;
 use Illuminate\Support\Facades\Storage;
 
 class StudentAchievementController extends Controller
 {
+    use SyncsCommunityPosts;
+
     public function adminIndex()
     {
         $achievements = StudentAchievement::with('student')
@@ -24,11 +27,13 @@ class StudentAchievementController extends Controller
 
     public function approve($id)
     {
-        $achievement = StudentAchievement::findOrFail($id);
+        $achievement = StudentAchievement::with('student')->findOrFail($id);
 
         $achievement->update([
             'verification_status' => 'Approved'
         ]);
+
+        $this->syncStudentAchievementToCommunity($achievement->refresh());
 
         return redirect()->back()
             ->with('success', 'Achievement approved successfully');
@@ -40,6 +45,8 @@ class StudentAchievementController extends Controller
         $achievement->update([
             'verification_status' => 'Rejected'
         ]);
+
+        $this->deleteCommunitySource('StudentAchievement', $achievement->id);
 
         return redirect()->back()
             ->with('success', 'Achievement rejected successfully');
