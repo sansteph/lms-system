@@ -28,6 +28,8 @@
 @endphp
 
 <div class="container-fluid {{ $isBlogsModule ? 'blogs-social-page' : '' }}">
+    <div class="community-post-focus-backdrop" data-community-post-backdrop></div>
+
     <div class="row">
 
         @if(!$isBlogsModule)
@@ -270,5 +272,44 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const cards = document.querySelectorAll('[data-community-post-card]');
+        const backdrop = document.querySelector('[data-community-post-backdrop]');
+        const interactiveSelector = 'a, button, input, textarea, select, label, summary, details, form';
+
+        function clearFocusedPost() {
+            document.body.classList.remove('community-post-focus-active');
+            cards.forEach(card => card.classList.remove('community-post-card-focused'));
+        }
+
+        cards.forEach(card => {
+            card.addEventListener('click', function (event) {
+                if (event.target.closest(interactiveSelector)) {
+                    return;
+                }
+
+                const alreadyFocused = card.classList.contains('community-post-card-focused');
+                clearFocusedPost();
+
+                if (!alreadyFocused) {
+                    document.body.classList.add('community-post-focus-active');
+                    card.classList.add('community-post-card-focused');
+                }
+            });
+        });
+
+        if (backdrop) {
+            backdrop.addEventListener('click', clearFocusedPost);
+        }
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                clearFocusedPost();
+            }
+        });
+    });
+</script>
 
 @endsection

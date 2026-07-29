@@ -2874,40 +2874,141 @@ main{
 .blogs-social-page .community-post-card{
     position: relative;
     overflow: hidden;
+    --post-aura: rgba(14, 165, 233, 0.28);
+    --post-aura-strong: rgba(14, 165, 233, 0.42);
+    --post-aura-soft: rgba(14, 165, 233, 0.10);
+    border-color: rgba(14, 165, 233, 0.18);
+    box-shadow:
+        0 20px 44px rgba(3, 7, 18, 0.18),
+        0 0 0 2px var(--post-aura-strong),
+        0 0 16px var(--post-aura),
+        0 0 38px var(--post-aura-soft);
+    cursor: default;
+    transition:
+        transform .28s ease,
+        box-shadow .28s ease,
+        border-color .28s ease;
+}
+
+.blogs-social-page .community-post-card > *{
+    position: relative;
+    z-index: 1;
 }
 
 .blogs-social-page .community-post-card::before{
     content: "";
     position: absolute;
-    inset: 0 auto 0 0;
-    width: 5px;
-    background: #0ea5e9;
+    inset: 0;
+    border-radius: inherit;
+    border: 3px solid var(--post-aura-strong);
+    box-shadow:
+        inset 0 0 16px var(--post-aura-soft),
+        0 0 14px var(--post-aura),
+        0 0 34px var(--post-aura),
+        0 0 58px var(--post-aura-soft);
+    pointer-events: none;
+    opacity: .9;
+    z-index: 0;
+    animation: blogLedBorderPulse 3.8s ease-in-out infinite;
+}
+
+.blogs-social-page .community-post-card::after{
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(135deg, var(--post-aura-soft), transparent 20%, transparent 80%, var(--post-aura-soft));
+    opacity: .34;
+    z-index: 0;
 }
 
 .blogs-social-page .community-post-admin::before,
 .blogs-social-page .community-post-instituteadmin::before{
-    background: #f5b942;
-}
-
-.blogs-social-page .community-post-teacher::before{
-    background: #10b981;
-}
-
-.blogs-social-page .community-post-student::before{
-    background: #8b5cf6;
+    border-color: var(--post-aura-strong);
 }
 
 .blogs-social-page .community-post-admin,
 .blogs-social-page .community-post-instituteadmin{
-    animation: blogAdminPostIn .76s cubic-bezier(.2, .76, .18, 1) both;
+    --post-aura: rgba(245, 185, 66, 0.34);
+    --post-aura-strong: rgba(245, 185, 66, 0.52);
+    --post-aura-soft: rgba(245, 185, 66, 0.14);
+    border-color: rgba(245, 185, 66, 0.30);
 }
 
 .blogs-social-page .community-post-teacher{
-    animation: blogTeacherPostIn .76s cubic-bezier(.2, .76, .18, 1) both;
+    --post-aura: rgba(16, 185, 129, 0.32);
+    --post-aura-strong: rgba(16, 185, 129, 0.46);
+    --post-aura-soft: rgba(16, 185, 129, 0.13);
+    border-color: rgba(16, 185, 129, 0.26);
 }
 
 .blogs-social-page .community-post-student{
-    animation: blogStudentPostIn .76s cubic-bezier(.2, .76, .18, 1) both;
+    --post-aura: rgba(139, 92, 246, 0.32);
+    --post-aura-strong: rgba(139, 92, 246, 0.48);
+    --post-aura-soft: rgba(139, 92, 246, 0.14);
+    border-color: rgba(139, 92, 246, 0.28);
+}
+
+.community-post-focus-backdrop{
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    pointer-events: none;
+    opacity: 0;
+    background: rgba(4, 11, 32, 0.36);
+    backdrop-filter: blur(0);
+    transition:
+        opacity .22s ease,
+        backdrop-filter .22s ease;
+}
+
+.community-post-focus-active .community-post-focus-backdrop{
+    pointer-events: auto;
+    opacity: 1;
+    backdrop-filter: blur(9px);
+}
+
+.blogs-social-page .community-post-card-focused{
+    position: relative;
+    z-index: 1050;
+    cursor: default;
+    transform: scale(1.035);
+    border-color: var(--post-aura-strong);
+    box-shadow:
+        0 34px 86px rgba(3, 7, 18, 0.32),
+        0 0 0 3px var(--post-aura-strong),
+        0 0 22px var(--post-aura-strong),
+        0 0 52px var(--post-aura),
+        0 0 96px var(--post-aura);
+}
+
+.blogs-social-page .community-post-card-focused::before{
+    opacity: 1;
+    box-shadow:
+        inset 0 0 22px var(--post-aura-soft),
+        0 0 20px var(--post-aura-strong),
+        0 0 52px var(--post-aura),
+        0 0 92px var(--post-aura);
+}
+
+.blogs-social-page .community-post-admin,
+.blogs-social-page .community-post-instituteadmin{
+    animation:
+        blogAdminPostIn .76s cubic-bezier(.2, .76, .18, 1) both,
+        blogCardLedGlow 4.8s ease-in-out .78s infinite;
+}
+
+.blogs-social-page .community-post-teacher{
+    animation:
+        blogTeacherPostIn .76s cubic-bezier(.2, .76, .18, 1) both,
+        blogCardLedGlow 5s ease-in-out .78s infinite;
+}
+
+.blogs-social-page .community-post-student{
+    animation:
+        blogStudentPostIn .76s cubic-bezier(.2, .76, .18, 1) both,
+        blogCardLedGlow 4.9s ease-in-out .78s infinite;
 }
 
 .blogs-login-page{
@@ -3092,6 +3193,42 @@ main{
     100%{
         opacity: 1;
         transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes blogLedBorderPulse{
+    0%, 100%{
+        opacity: .74;
+        box-shadow:
+            inset 0 0 14px var(--post-aura-soft),
+            0 0 12px var(--post-aura),
+            0 0 28px var(--post-aura),
+            0 0 46px var(--post-aura-soft);
+    }
+    50%{
+        opacity: 1;
+        box-shadow:
+            inset 0 0 20px var(--post-aura-soft),
+            0 0 18px var(--post-aura-strong),
+            0 0 42px var(--post-aura),
+            0 0 74px var(--post-aura-soft);
+    }
+}
+
+@keyframes blogCardLedGlow{
+    0%, 100%{
+        box-shadow:
+            0 20px 44px rgba(3, 7, 18, 0.18),
+            0 0 0 2px var(--post-aura-strong),
+            0 0 14px var(--post-aura),
+            0 0 34px var(--post-aura-soft);
+    }
+    50%{
+        box-shadow:
+            0 22px 50px rgba(3, 7, 18, 0.20),
+            0 0 0 2px var(--post-aura-strong),
+            0 0 20px var(--post-aura),
+            0 0 54px var(--post-aura-soft);
     }
 }
 

@@ -21,7 +21,7 @@
                 );
         @endphp
 
-        <article class="community-post-card community-post-{{ strtolower($post->author_type) }}">
+        <article class="community-post-card community-post-{{ strtolower($post->author_type) }}" data-community-post-card>
             <div class="community-post-header">
                 <a href="{{ $profileUrl }}" class="community-profile-trigger" title="View profile">
                     @if($authorImage)
