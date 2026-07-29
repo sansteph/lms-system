@@ -1,2 +1,17 @@
 User-agent: *
-Disallow:
+Disallow: /admin
+Disallow: /teacher
+Disallow: /student
+Disallow: /assessment
+Disallow: /assessment-review
+Disallow: /content
+Disallow: /content-preview
+Disallow: /content-preview-stream
+Disallow: /content-files
+Disallow: /notifications
+Disallow: /logout
+Disallow: /password-change
+
+Allow: /
+
+Sitemap: https://tinkedge.tech/sitemap.xml

@@ -1,19 +1,24 @@
 @extends('layouts.app')
 
+@section('title', 'InnovatEdge Newsroom | STEM, ATL, Robotics and Innovation Updates')
+@section('meta_description', 'Read AI-curated STEM, ATL, robotics, components, projects, competitions, and education technology updates for InnovatEdge learning teams.')
+
 @section('content')
 
 <div class="newsroom-page">
     <section class="newsroom-hero">
         <div class="container">
             <div class="newsroom-hero-inner">
-                <a href="{{ route('home') }}" class="newsroom-back">
-                    <i class="fa fa-arrow-left"></i>
-                    Back to Home
-                </a>
+                <div class="newsroom-hero-topbar">
+                    <div class="newsroom-kicker">
+                        <i class="fa fa-newspaper"></i>
+                        AI Curated Newsroom
+                    </div>
 
-                <div class="newsroom-kicker">
-                    <i class="fa fa-newspaper"></i>
-                    AI Curated Newsroom
+                    <a href="{{ route('home') }}" class="newsroom-back">
+                        <i class="fa fa-arrow-left"></i>
+                        Back to Home
+                    </a>
                 </div>
 
                 <h1>STEM, ATL and innovation updates for learning teams</h1>

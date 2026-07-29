@@ -1,5 +1,4 @@
 @php
-    use App\Models\LessonProgress;
     use Illuminate\Support\Str;
 @endphp
 
@@ -104,36 +103,8 @@
 
                     @php
 
-                        $previousLesson = $contents
-                            ->where('course_id', $content->course_id)
-                            ->where('lesson_order', $content->lesson_order - 1)
-                            ->first();
-
-                        $isLocked = false;
-
-                        if ($previousLesson) {
-
-                            $completedPrevious = LessonProgress::where(
-                                'student_id',
-                                session('student_id')
-                            )
-                            ->where('content_id', $previousLesson->id)
-                            ->where('is_completed', true)
-                            ->exists();
-
-                            if (!$completedPrevious) {
-
-                                $isLocked = true;
-                            }
-                        }
-
-                        $completed = LessonProgress::where(
-                            'student_id',
-                            session('student_id')
-                        )
-                        ->where('content_id', $content->id)
-                        ->where('is_completed', true)
-                        ->exists();
+                        $isLocked = $lockedContentIds->contains($content->id);
+                        $completed = $completedContentIds->contains($content->id);
 
                     @endphp
 
@@ -333,7 +304,7 @@
 
                                                 <i class="fa fa-check me-2"></i>
 
-                                                @if($content->effective_ai_summary && $content->effective_ai_summary->status == 'generated')
+                                                @if($aiReviewRequiredContentIds->contains($content->id) && $content->effective_ai_summary && $content->effective_ai_summary->status == 'generated')
                                                     Start Training Assessment
                                                 @else
                                                     Mark as Complete

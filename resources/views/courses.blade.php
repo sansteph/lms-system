@@ -115,45 +115,10 @@
             </div>
 
             @if(session('user_role') == 'Admin' && $courseSectionPager)
-                <div class="course-section-navigator mb-4">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                        <div>
-                            <div class="course-section-pill mb-2">
-                                Section {{ $courseSectionPager['current_page'] }} of {{ $courseSectionPager['last_page'] }}
-                            </div>
-                            <h5 class="mb-1">{{ $courseSectionPager['current_label'] }}</h5>
-                            <p class="text-muted mb-0">
-                                Browse template sources first, then institute courses one institute at a time.
-                            </p>
-                        </div>
-
-                        <div class="d-flex gap-2 flex-wrap">
-                            @if($courseSectionPager['previous_url'])
-                                <a href="{{ $courseSectionPager['previous_url'] }}" class="btn btn-outline-primary course-nav-button">
-                                    Previous
-                                    <small>{{ $courseSectionPager['previous_label'] }}</small>
-                                </a>
-                            @else
-                                <button type="button" class="btn btn-outline-secondary course-nav-button" disabled>
-                                    Previous
-                                    <small>Start of list</small>
-                                </button>
-                            @endif
-
-                            @if($courseSectionPager['next_url'])
-                                <a href="{{ $courseSectionPager['next_url'] }}" class="btn btn-primary course-nav-button">
-                                    Next
-                                    <small>{{ $courseSectionPager['next_label'] }}</small>
-                                </a>
-                            @else
-                                <button type="button" class="btn btn-outline-secondary course-nav-button" disabled>
-                                    Next
-                                    <small>End of list</small>
-                                </button>
-                            @endif
-                        </div>
-                    </div>
-                </div>
+                @include('partials.section-navigator', [
+                    'sectionPager' => $courseSectionPager,
+                    'sectionDescription' => 'Browse template sources first, then institute courses one institute at a time.',
+                ])
             @endif
 
             @if(session('success'))
@@ -372,35 +337,6 @@
                                                                 <td>{{ ucfirst($courseContent->status) }}</td>
                                                                 <td>
                                                                     @if($courseContent->content)
-                                                                        @if($courseContent->content->aiSummary && $courseContent->content->aiSummary->status == 'generated')
-                                                                            <span class="badge bg-info text-dark w-100 mb-2 py-2">
-                                                                                AI Summary Ready
-                                                                            </span>
-                                                                        @elseif($courseContent->content->aiSummary && $courseContent->content->aiSummary->status == 'failed')
-                                                                            <span class="badge bg-danger w-100 mb-2 py-2">
-                                                                                AI Failed
-                                                                            </span>
-                                                                            @if($courseContent->content->aiSummary->error_message)
-                                                                                <div class="alert alert-warning small py-2 px-3 mb-2">
-                                                                                    {{ $courseContent->content->aiSummary->error_message }}
-                                                                                </div>
-                                                                            @endif
-                                                                        @else
-                                                                            <span class="badge bg-secondary w-100 mb-2 py-2">
-                                                                                AI Not Generated
-                                                                            </span>
-                                                                        @endif
-
-                                                                        <form method="POST"
-                                                                              action="{{ route('content.ai-summary.generate', $courseContent->content->id) }}"
-                                                                              class="mb-2"
-                                                                              onsubmit="return confirm('Generate AI summary for this content?');">
-                                                                            @csrf
-                                                                            <button type="submit" class="btn btn-sm btn-outline-success w-100">
-                                                                                {{ $courseContent->content->aiSummary && $courseContent->content->aiSummary->status == 'generated' ? 'Refresh AI' : 'Generate AI' }}
-                                                                            </button>
-                                                                        </form>
-
                                                                         <a href="{{ route('content.preview', [$courseContent->content->id, 'teacher']) }}"
                                                                            class="btn btn-sm btn-outline-primary w-100 mb-2"
                                                                            target="_blank"

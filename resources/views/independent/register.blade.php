@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+@section('title', 'Hybrid Learner Registration | InnovatEdge')
+@section('meta_description', 'Register as a hybrid learner on InnovatEdge to access STEM, robotics, and technology learning programs.')
+
 @section('content')
 
 <div class="auth-page">

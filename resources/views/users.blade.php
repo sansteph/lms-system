@@ -32,6 +32,8 @@
                 <div class="alert alert-danger">{{ $errors->first() }}</div>
             @endif
 
+            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+
             <div class="card shadow border-0">
                 <div class="card-body">
 
@@ -66,7 +68,8 @@
 
                         <tbody>
                             @php
-                                $groupedUsers = $users->groupBy(fn ($user) => $user->institute ?: 'Unassigned Institute');
+                                $userRows = method_exists($users, 'getCollection') ? $users->getCollection() : collect($users);
+                                $groupedUsers = $userRows->groupBy(fn ($user) => $user->institute ?: 'Unassigned Institute');
                                 $rowNumber = 1;
                             @endphp
 
@@ -119,6 +122,12 @@
                     </table>
 
                 </div>
+
+                @if(method_exists($users, 'links'))
+                    <div class="px-3 pb-3">
+                        {{ $users->links('pagination::bootstrap-5') }}
+                    </div>
+                @endif
             </div>
 
         </div>

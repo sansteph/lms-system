@@ -10,7 +10,15 @@
         <div class="col-md-10 col-lg-10 p-4">
 
             <div class="page-header mb-4">
-                <h2>My Space Review</h2>
+                <h2>
+                    @if(($submitterType ?? null) == 'Teacher')
+                        STEM Engineer My Space Review
+                    @elseif(($submitterType ?? null) == 'Student')
+                        Student My Space Review
+                    @else
+                        My Space Review
+                    @endif
+                </h2>
                 <p class="text-muted mb-0">
                     Review, approve, reject, and feature submitted ideas and projects.
                 </p>
@@ -21,6 +29,8 @@
                     {{ session('success') }}
                 </div>
             @endif
+
+            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
 
             <div class="card shadow border-0">
                 <div class="card-body">
@@ -43,13 +53,14 @@
                             <tbody>
 
                                 @php
-                                    $teacherItems = $items->where('created_by_type', 'Teacher');
-                                    $studentItems = $items->where('created_by_type', 'Student');
+                                    $itemRows = method_exists($items, 'getCollection') ? $items->getCollection() : collect($items);
+                                    $teacherItems = $itemRows->where('created_by_type', 'Teacher');
+                                    $studentItems = $itemRows->where('created_by_type', 'Student');
                                     $sections = [
                                         'STEM Engineer Reviews' => $teacherItems,
                                         'Student Reviews' => $studentItems,
                                     ];
-                                    $hasItems = $items->isNotEmpty();
+                                    $hasItems = $itemRows->isNotEmpty();
                                 @endphp
 
                                 @forelse($sections as $sectionTitle => $sectionItems)
@@ -204,6 +215,12 @@
                     </div>
 
                 </div>
+
+                @if(method_exists($items, 'links'))
+                    <div class="px-3 pb-3">
+                        {{ $items->links('pagination::bootstrap-5') }}
+                    </div>
+                @endif
             </div>
 
         </div>

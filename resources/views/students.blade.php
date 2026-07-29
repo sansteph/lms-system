@@ -41,6 +41,8 @@
                         </div>
                     @endif
 
+                    @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+
                     <form method="GET" action="{{ route('students') }}" class="row mb-3">
                         <div class="col-md-4">
                             <input type="text"
@@ -74,7 +76,8 @@
 
                         <tbody>
                             @php
-                                $groupedStudents = $students
+                                $studentRows = method_exists($students, 'getCollection') ? $students->getCollection() : collect($students);
+                                $groupedStudents = $studentRows
                                     ->sortBy([
                                         ['institute', 'asc'],
                                         ['class', 'asc'],
@@ -232,6 +235,12 @@
                     </table>
 
                 </div>
+
+                @if(method_exists($students, 'links'))
+                    <div class="px-3 pb-3">
+                        {{ $students->links('pagination::bootstrap-5') }}
+                    </div>
+                @endif
             </div>
 
         </div>

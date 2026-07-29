@@ -57,7 +57,7 @@
                     </p>
                 </div>
 
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 flex-wrap justify-content-end">
                     @if(!app()->environment('production'))
                         <form method="POST" action="{{ route('teaching-plans.run-release-check') }}">
                             @csrf
@@ -68,8 +68,17 @@
                         <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#deployTeachingPlanTemplatesModal">
                             Deploy Templates
                         </button>
+                        @if($plans->isNotEmpty())
+                            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#deployAiTrainingModal{{ $plans->first()->id }}">
+                                Deploy AI Prep Training
+                            </button>
+                        @endif
                         <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createTeachingPlanTemplateModal">
                             Create Template
+                        </button>
+                    @elseif($plans->isNotEmpty())
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#deployAiTrainingModal{{ $plans->first()->id }}">
+                            Deploy AI Prep Training
                         </button>
                     @endif
                     @if(session('user_role') != 'Admin' || !$teachingPlanSectionPager || $teachingPlanSectionPager['current_type'] == 'institute')
@@ -101,45 +110,12 @@
             @endif
 
             @if(session('user_role') == 'Admin' && $teachingPlanSectionPager)
-                <div class="teaching-plan-section-navigator mb-4">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                        <div>
-                            <div class="teaching-plan-section-pill mb-2">
-                                Section {{ $teachingPlanSectionPager['current_page'] }} of {{ $teachingPlanSectionPager['last_page'] }}
-                            </div>
-                            <h5 class="mb-1">{{ $teachingPlanSectionPager['current_label'] }}</h5>
-                            <p class="text-muted mb-0">
-                                Browse reusable templates first, then institute teaching plans one institute at a time.
-                            </p>
-                        </div>
-
-                        <div class="d-flex gap-2 flex-wrap">
-                            @if($teachingPlanSectionPager['previous_url'])
-                                <a href="{{ $teachingPlanSectionPager['previous_url'] }}" class="btn btn-outline-primary teaching-plan-nav-button">
-                                    Previous
-                                    <small>{{ $teachingPlanSectionPager['previous_label'] }}</small>
-                                </a>
-                            @else
-                                <button type="button" class="btn btn-outline-secondary teaching-plan-nav-button" disabled>
-                                    Previous
-                                    <small>Start of list</small>
-                                </button>
-                            @endif
-
-                            @if($teachingPlanSectionPager['next_url'])
-                                <a href="{{ $teachingPlanSectionPager['next_url'] }}" class="btn btn-primary teaching-plan-nav-button">
-                                    Next
-                                    <small>{{ $teachingPlanSectionPager['next_label'] }}</small>
-                                </a>
-                            @else
-                                <button type="button" class="btn btn-outline-secondary teaching-plan-nav-button" disabled>
-                                    Next
-                                    <small>End of list</small>
-                                </button>
-                            @endif
-                        </div>
-                    </div>
-                </div>
+                @include('partials.section-navigator', [
+                    'sectionPager' => $teachingPlanSectionPager,
+                    'sectionDescription' => ($teachingPlanSectionPager['current_type'] ?? null) == 'templates'
+                        ? 'Browse reusable templates first, then use Next to open an institute section before deploying AI prep training.'
+                        : 'Browse reusable templates first, then institute teaching plans one institute at a time.',
+                ])
             @endif
 
             @if(session('user_role') == 'Admin' && (!$teachingPlanSectionPager || $teachingPlanSectionPager['current_type'] == 'templates'))
@@ -227,6 +203,9 @@
                                                                     {{ $plan->class }} {{ $plan->section }} |
                                                                     Starts {{ $plan->start_date ? \Carbon\Carbon::parse($plan->start_date)->format('d M Y') : 'Not set' }} |
                                                                     {{ $plan->contents_per_week }} content(s) per week
+                                                                    @if($plan->ai_training_start_date)
+                                                                        | AI prep from {{ $plan->ai_training_start_date->format('d M Y') }}
+                                                                    @endif
                                                                     @if($plan->parentTemplate)
                                                                         | From template #{{ $plan->parentTemplate->id }}
                                                                     @endif
@@ -565,6 +544,75 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Update</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deployAiTrainingModal{{ $plan->id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('teaching-plans.ai-training.deploy', $plan->id) }}">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title">Deploy AI Prep Training</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">
+                            Select the content release date from which AI prep should begin. This applies to every live grade plan in the selected institutes.
+                            Sections share the same grade-level prep quiz, so Class 1 A and Class 1 B use Class 1 training.
+                        </p>
+
+                        <div class="mb-3">
+                            <label class="form-label">AI Prep Start Release Date</label>
+                            <select name="ai_training_start_date" class="form-control">
+                                <option value="">Disable AI prep for selected institutes</option>
+                                @foreach($plans->flatMap(fn ($aiPlan) => $aiPlan->weeks->pluck('release_date'))->filter()->unique(fn ($date) => $date->toDateString())->sortBy(fn ($date) => $date->toDateString()) as $releaseDate)
+                                    <option value="{{ $releaseDate->toDateString() }}" {{ optional($plan->ai_training_start_date)->toDateString() == $releaseDate->toDateString() ? 'selected' : '' }}>
+                                        {{ $releaseDate->format('d M Y') }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        @if(session('user_role') == 'Admin')
+                            <div class="mb-3">
+                                <label class="form-label">Institutes</label>
+                                <div class="border rounded p-3" style="max-height: 220px; overflow-y: auto;">
+                                    @foreach($institutes as $institute)
+                                        <label class="d-flex align-items-start gap-2 border rounded p-2 mb-2">
+                                            <input type="checkbox"
+                                                   name="selected_institute_ids[]"
+                                                   value="{{ $institute->id }}"
+                                                   class="mt-1"
+                                                   {{ $institute->institute_name == $plan->institute ? 'checked' : '' }}>
+                                            <span>
+                                                <strong>{{ $institute->institute_name }}</strong>
+                                                <span class="d-block text-muted small">
+                                                    Applies to all live grades and all STEM Engineers in this institute.
+                                                </span>
+                                            </span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
+                        @if($plan->ai_training_start_date)
+                            <div class="alert alert-info mb-0">
+                                Current AI prep starts from {{ $plan->ai_training_start_date->format('d M Y') }} for this page's selected plan. Saving will update all selected institute grade plans.
+                            </div>
+                        @else
+                            <div class="alert alert-warning mb-0">
+                                AI prep is not deployed for this page's selected plan yet.
+                            </div>
+                        @endif
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save AI Prep Deployment</button>
                     </div>
                 </form>
             </div>

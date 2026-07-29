@@ -345,6 +345,17 @@
 
     @include('content.preview-protection')
     <script>
+        window.addEventListener('pagehide', function () {
+            if (!navigator.sendBeacon) {
+                return;
+            }
+
+            const payload = new FormData();
+            payload.append('_token', '{{ csrf_token() }}');
+            navigator.sendBeacon('{{ route('activity-monitoring.end-current') }}', payload);
+        });
+    </script>
+    <script>
         (function () {
             function ready(callback) {
                 if (document.readyState === 'loading') {

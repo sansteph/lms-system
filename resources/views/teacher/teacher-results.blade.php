@@ -48,10 +48,6 @@
                         </button>
                     </form>
 
-                    <a href="{{ route('results.export', request()->query()) }}" class="btn btn-success">
-                        <i class="fa fa-file-csv me-1"></i>
-                        Export CSV
-                    </a>
                 </div>
 
             </div>

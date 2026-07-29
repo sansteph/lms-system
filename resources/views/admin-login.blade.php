@@ -111,20 +111,6 @@
 
         </form>
 
-        <hr class="my-4">
-
-        <div class="text-center">
-
-            <p class="text-muted mb-3">
-                New Institute?
-            </p>
-
-            <a href="{{ route('admin.institute.register') }}"class="btn auth-btn w-100">
-                <i class="fa fa-building-columns me-2"></i>
-                Register Institute
-            </a>
-        </div>
-
         <div class="auth-footer-link">
 
             <a href="{{ route('home') }}">

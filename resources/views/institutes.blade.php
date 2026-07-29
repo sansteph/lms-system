@@ -28,9 +28,9 @@
             @endif
 
             <div class="row g-4 mb-4">
-                <div class="col-md-3"><div class="dashboard-card"><h6>Total Institutes</h6><h2>{{ $institutes->count() }}</h2></div></div>
-                <div class="col-md-3"><div class="dashboard-card"><h6>Active Institutes</h6><h2>{{ $institutes->where('status', 1)->count() }}</h2></div></div>
-                <div class="col-md-3"><div class="dashboard-card"><h6>Total Branches</h6><h2>{{ $institutes->count() }}</h2></div></div>
+                <div class="col-md-3"><div class="dashboard-card"><h6>Total Institutes</h6><h2>{{ $totalInstitutes }}</h2></div></div>
+                <div class="col-md-3"><div class="dashboard-card"><h6>Active Institutes</h6><h2>{{ $activeInstitutes }}</h2></div></div>
+                <div class="col-md-3"><div class="dashboard-card"><h6>Total Branches</h6><h2>{{ $totalInstitutes }}</h2></div></div>
                 <div class="col-md-3"><div class="dashboard-card"><h6>Total Students</h6><h2>{{ $studentCount }}</h2></div></div>
             </div>
 
@@ -70,7 +70,7 @@
                         <tbody>
                             @forelse($institutes as $index => $institute)
                                 <tr>
-                                    <td>{{ $index + 1 }}</td>
+                                    <td>{{ $institutes->firstItem() + $index }}</td>
                                     <td>{{ $institute->institute_id }}</td>
                                     <td>{{ $institute->institute_name }}</td>
                                     <td>{{ $institute->location }}</td>
@@ -103,6 +103,12 @@
                             @endforelse
                         </tbody>
                     </table>
+
+                    @if($institutes->hasPages())
+                        <div class="mt-3">
+                            {{ $institutes->links('pagination::bootstrap-5') }}
+                        </div>
+                    @endif
 
                 </div>
             </div>

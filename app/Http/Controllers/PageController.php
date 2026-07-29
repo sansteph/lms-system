@@ -11,10 +11,8 @@ use App\Models\AssessmentResult;
 use App\Models\Certificate;
 use App\Models\UserSession;
 use App\Models\UserActivityLog;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Models\StudentAchievement;
 use App\Models\LessonProgress;  
-use App\Models\AccessRequest;
 use App\Models\CertificateVerificationLog;
 use App\Models\AssessmentSession;
 use App\Models\User;
@@ -29,6 +27,7 @@ use App\Models\AiQuizAttempt;
 use App\Models\AiQuizQuestion;
 use App\Services\TeachingPlanReleaseService;
 use App\Services\Ai\GeminiAiService;
+use App\Support\BuildsInstituteSectionPager;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\ClassTimetable;
 use App\Models\Institute;
@@ -38,13 +37,14 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use App\Support\DeletesAssessments;
+use App\Support\SyncsCommunityPosts;
 
 
 
 
 class PageController extends Controller
 {
-    use DeletesAssessments;
+    use BuildsInstituteSectionPager, DeletesAssessments, SyncsCommunityPosts;
 
     private const AI_TEACHER_ATTEMPT_TYPE = 'teacher_prep';
     private const AI_STUDENT_ATTEMPT_TYPE = 'student';
@@ -73,46 +73,6 @@ class PageController extends Controller
         return view('portal');
     }
 
-    public function storeAccessRequest(Request $request)
-    {
-        $request->validate([
-
-            'name' => 'required|string|max:255',
-
-            'email' => 'required|email|max:255',
-
-            'phone' => 'required|string|max:20',
-
-            'role' => 'required|string',
-
-            'institute_name' => 'required|string|max:255',
-
-            'message' => 'nullable|string',
-
-        ]);
-
-        AccessRequest::create([
-
-            'name' => $request->name,
-
-            'email' => $request->email,
-
-            'phone' => $request->phone,
-
-            'role' => $request->role,
-
-            'institute_name' => $request->institute_name,
-
-            'message' => $request->message,
-
-            'status' => 'Pending',
-
-        ]);
-
-        return redirect()
-            ->back()
-            ->with('success', 'Access request submitted successfully.');
-    }
     public function adminLogin()
     {
         if (session('user_role') == 'Admin') {
@@ -169,12 +129,212 @@ class PageController extends Controller
             'assessmentCount'
         ));
     }
+
+    public function adminManagementHub()
+    {
+        $items = [
+            [
+                'title' => 'STEM Engineer Management',
+                'description' => 'Add, edit, and manage STEM Engineer accounts.',
+                'icon' => 'fa-user-gear',
+                'route' => route('users'),
+            ],
+            [
+                'title' => 'Student Management',
+                'description' => 'Add students, update profiles, and manage learner records.',
+                'icon' => 'fa-user-graduate',
+                'route' => route('students'),
+            ],
+            [
+                'title' => 'Class Management',
+                'description' => 'Create classes, sections, and academic year records.',
+                'icon' => 'fa-chalkboard-user',
+                'route' => route('classes'),
+            ],
+            [
+                'title' => 'Course Management',
+                'description' => 'Manage courses, uploaded content, templates, and lesson order.',
+                'icon' => 'fa-book-open',
+                'route' => route('courses'),
+            ],
+            [
+                'title' => 'Teaching Plans',
+                'description' => 'Create, deploy, sync, and release class-wise teaching plans.',
+                'icon' => 'fa-calendar-days',
+                'route' => route('teaching-plans'),
+            ],
+        ];
+
+        if (session('user_role') == 'Admin') {
+            $items[] = [
+                'title' => 'Institute Management',
+                'description' => 'Create and manage institutes directly from the admin panel.',
+                'icon' => 'fa-building-columns',
+                'route' => route('institutes'),
+            ];
+        }
+
+        return view('admin-feature-hub', [
+            'title' => 'Management',
+            'description' => 'Choose the management area you want to work on.',
+            'items' => $items,
+        ]);
+    }
+
+    public function adminReportsHub()
+    {
+        return view('admin-feature-hub', [
+            'title' => 'Reports',
+            'description' => 'Open focused LMS reports without the old generic daily report view.',
+            'items' => [
+                [
+                    'title' => 'Daily Session Report',
+                    'description' => 'Review sessions conducted on one selected date.',
+                    'icon' => 'fa-calendar-check',
+                    'route' => route('admin.class-session.report.daily'),
+                ],
+                [
+                    'title' => 'Weekly Session Report',
+                    'description' => 'Review sessions across a selected week or date range.',
+                    'icon' => 'fa-calendar-week',
+                    'route' => route('admin.class-session.report.weekly'),
+                ],
+                [
+                    'title' => 'Weekly Student AI Review',
+                    'description' => 'Track weekly student AI review quiz completion, attempts, and pass rates.',
+                    'icon' => 'fa-user-graduate',
+                    'route' => route('reports.student-ai-review'),
+                ],
+                [
+                    'title' => 'Weekly STEM Engineer Prep',
+                    'description' => 'Track weekly STEM Engineer AI prep quiz readiness and clearance.',
+                    'icon' => 'fa-clipboard-question',
+                    'route' => route('reports.stem-engineer-prep'),
+                ],
+                [
+                    'title' => 'Weekly Student Performance',
+                    'description' => 'Review short-term student progress for a selected week.',
+                    'icon' => 'fa-chart-line',
+                    'route' => route('reports.student-performance.weekly'),
+                ],
+                [
+                    'title' => 'Monthly Student Performance',
+                    'description' => 'Review student progress and assessment outcomes by month.',
+                    'icon' => 'fa-chart-simple',
+                    'route' => route('reports.student-performance.monthly'),
+                ],
+                [
+                    'title' => 'Weekly STEM Engineer Performance',
+                    'description' => 'Track weekly sessions, teaching hours, and prep readiness.',
+                    'icon' => 'fa-person-chalkboard',
+                    'route' => route('reports.stem-engineer-performance.weekly'),
+                ],
+                [
+                    'title' => 'Monthly STEM Engineer Performance',
+                    'description' => 'Review STEM Engineer consistency and outcomes by month.',
+                    'icon' => 'fa-chart-pie',
+                    'route' => route('reports.stem-engineer-performance.monthly'),
+                ],
+            ],
+        ]);
+    }
+
+    public function adminApprovalsHub()
+    {
+        return view('admin-feature-hub', [
+            'title' => 'Approvals',
+            'description' => 'Review submitted items and approve only what is ready.',
+            'items' => [
+                [
+                    'title' => 'Question Paper',
+                    'description' => 'Approve uploaded question papers for assessment use.',
+                    'icon' => 'fa-file-circle-check',
+                    'route' => route('admin.question-papers'),
+                ],
+                [
+                    'title' => 'Certificate',
+                    'description' => 'Review certificate requests before issuing certificates.',
+                    'icon' => 'fa-certificate',
+                    'route' => route('admin.certificates'),
+                ],
+                [
+                    'title' => 'My Space - STEM Engineers',
+                    'description' => 'Review STEM Engineer My Space posts and featured submissions.',
+                    'icon' => 'fa-user-tie',
+                    'route' => route('admin.my-space.teachers'),
+                ],
+                [
+                    'title' => 'My Space - Students',
+                    'description' => 'Review student My Space posts and featured submissions.',
+                    'icon' => 'fa-user-graduate',
+                    'route' => route('admin.my-space.students'),
+                ],
+                [
+                    'title' => 'Achievements - STEM Engineers',
+                    'description' => 'Approve STEM Engineer achievements for profile and blog visibility.',
+                    'icon' => 'fa-award',
+                    'route' => route('admin.teacher-achievements'),
+                ],
+                [
+                    'title' => 'Achievements - Students',
+                    'description' => 'Approve student achievements for profile and blog visibility.',
+                    'icon' => 'fa-medal',
+                    'route' => route('admin.achievements'),
+                ],
+            ],
+        ]);
+    }
+
+    public function adminMonitoringHub()
+    {
+        $items = [];
+
+        if (session('user_role') == 'Admin') {
+            $items[] = [
+                'title' => 'Learning Content Monitoring',
+                'description' => 'Track how long STEM Engineers and students access learning content.',
+                'icon' => 'fa-wave-square',
+                'route' => route('admin.activity.monitoring'),
+            ];
+        }
+
+        $items[] = [
+            'title' => 'Assessment',
+            'description' => 'Monitor assessments, status, and assessment activity.',
+            'icon' => 'fa-list-check',
+            'route' => route('admin.assessment.monitoring'),
+        ];
+
+        $items[] = [
+            'title' => 'Assessment Review',
+            'description' => 'Monitor manual assessment review and evaluation status.',
+            'icon' => 'fa-magnifying-glass-chart',
+            'route' => route('admin.assessment.review.monitoring'),
+        ];
+
+        return view('admin-feature-hub', [
+            'title' => 'Monitoring',
+            'description' => 'Open the monitoring area you need.',
+            'items' => $items,
+        ]);
+    }
+
     public function students(Request $request)
     {
         $search = $request->search;
+        $sectionPager = null;
+        $currentInstitute = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, 'students');
+        }
 
         $students = Student::when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
+            })
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
             })
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -189,9 +349,10 @@ class PageController extends Controller
             ->orderBy('class')
             ->orderBy('section')
             ->orderBy('name')
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
-        return view('students', compact('students'));
+        return view('students', compact('students', 'sectionPager'));
     }
     public function classes()
     {
@@ -324,18 +485,32 @@ class PageController extends Controller
             ->with('success', 'Student and all related records deleted successfully.');
     }
 
-    public function adminCertificates()
+    public function adminCertificates(Request $request)
     {
+        $sectionPager = null;
+        $currentInstitute = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, 'admin.certificates');
+        }
+
         $certificates = Certificate::with(['student', 'course'])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->whereHas('student', function ($q) {
                     $q->where('institute', session('user_institute'));
                 });
             })
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $query->whereHas('student', function ($q) use ($currentInstitute) {
+                    $q->where('institute', $currentInstitute);
+                });
+            })
             ->latest()
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
-        return view('certificates', compact('certificates'));
+        return view('certificates', compact('certificates', 'sectionPager'));
     }
 
     public function approveCertificate($id)
@@ -480,6 +655,84 @@ class PageController extends Controller
         ));
     }
 
+    public function teacherSessionsHub()
+    {
+        return view('teacher.teacher-feature-hub', [
+            'title' => 'Sessions',
+            'description' => 'Start classes, review pending sessions, and open released learning content.',
+            'items' => [
+                [
+                    'title' => 'My Classes',
+                    'description' => 'Start and manage today\'s class sessions.',
+                    'icon' => 'fa-chalkboard-user',
+                    'route' => route('teacher.classes'),
+                ],
+                [
+                    'title' => 'Pending Sessions',
+                    'description' => 'Continue unfinished, partially completed, or lagged sessions.',
+                    'icon' => 'fa-clock-rotate-left',
+                    'route' => route('teacher.pending-sessions'),
+                ],
+                [
+                    'title' => 'Learning Content',
+                    'description' => 'View approved teaching plan content and AI prep materials.',
+                    'icon' => 'fa-book-open-reader',
+                    'route' => route('teacher.content'),
+                ],
+            ],
+        ]);
+    }
+
+    public function teacherAssessmentsHub()
+    {
+        return view('teacher.teacher-feature-hub', [
+            'title' => 'Assessments',
+            'description' => 'Create assessments and evaluate submitted answers from one place.',
+            'items' => [
+                [
+                    'title' => 'Assessment Management',
+                    'description' => 'Create and manage uploaded-paper assessments.',
+                    'icon' => 'fa-file-pen',
+                    'route' => route('teacher.assessments'),
+                ],
+                [
+                    'title' => 'Assessment Evaluation',
+                    'description' => 'Review student submissions and enter final marks manually.',
+                    'icon' => 'fa-clipboard-check',
+                    'route' => route('assessment.review'),
+                ],
+            ],
+        ]);
+    }
+
+    public function teacherStudentsHub()
+    {
+        return view('teacher.teacher-feature-hub', [
+            'title' => 'Students',
+            'description' => 'Review student outcomes, profiles, and approved certificates.',
+            'items' => [
+                [
+                    'title' => 'Student Results',
+                    'description' => 'View assessment scores, badges, and performance insights.',
+                    'icon' => 'fa-chart-simple',
+                    'route' => route('teacher.results'),
+                ],
+                [
+                    'title' => 'Student Details',
+                    'description' => 'Open student profile and class-wise learner details.',
+                    'icon' => 'fa-address-card',
+                    'route' => route('teacher.student.profiles'),
+                ],
+                [
+                    'title' => 'Certificates',
+                    'description' => 'Review student certificate status and approvals.',
+                    'icon' => 'fa-certificate',
+                    'route' => route('teacher.certificates'),
+                ],
+            ],
+        ]);
+    }
+
     public function teacherClasses(Request $request)
     {
         $teacher = User::find(session('user_id'));
@@ -516,6 +769,12 @@ class PageController extends Controller
             ->where('status', 'passed')
             ->pluck('content_id')
             ->unique();
+
+        $aiTrainingRequiredItemIds = $releasedItems
+            ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
+            ->pluck('id')
+            ->unique()
+            ->values();
 
         $sessions = ClassContentSession::with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
             ->where('stem_engineer_id', $teacher->id)
@@ -560,6 +819,7 @@ class PageController extends Controller
                 'classOptions',
                 'selectedClass',
                 'teacherPassedPrepContentIds',
+                'aiTrainingRequiredItemIds',
                 'sessionCompletionVideoUrl'
             )
         );
@@ -653,12 +913,19 @@ class PageController extends Controller
             ->pluck('content_id')
             ->unique();
 
+        $aiTrainingRequiredItemIds = $laggedItems
+            ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
+            ->pluck('id')
+            ->unique()
+            ->values();
+
         return view('teacher.pending-sessions', compact(
             'pendingSessions',
             'laggedItems',
             'classOptions',
             'selectedClass',
-            'teacherPassedPrepContentIds'
+            'teacherPassedPrepContentIds',
+            'aiTrainingRequiredItemIds'
         ));
     }
 
@@ -742,7 +1009,7 @@ class PageController extends Controller
         $classOptions = $this->teacherAssignedClassNames($teacher);
         $selectedClass = $request->input('class');
 
-        $teachingItems = TeachingPlanItem::with('plan')
+        $teachingItems = TeachingPlanItem::with(['plan', 'week'])
             ->whereIn('status', ['released', 'completed'])
             ->whereHas('plan', function ($query) use ($teacher, $selectedClass) {
                 $query->where('institute', $teacher->institute)
@@ -786,6 +1053,18 @@ class PageController extends Controller
                     : 'Unassigned Class';
             });
 
+        $contentGradeByContentId = $teachingItems
+            ->groupBy('content_id')
+            ->map(function ($items) {
+                return $this->gradeLevelFromClass($items->first()->plan?->class);
+            });
+
+        $aiTrainingRequiredContentIds = $teachingItems
+            ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
+            ->pluck('content_id')
+            ->unique()
+            ->values();
+
         $contents = Content::with(['aiSummary', 'courseContent.sourceTemplateContent.aiSummary'])
             ->whereIn('id', $approvedContentIds)
             ->orderBy('lesson_order')
@@ -805,6 +1084,8 @@ class PageController extends Controller
             'teachingStatusByContentId',
             'inProgressContentIds',
             'contentClassByContentId',
+            'contentGradeByContentId',
+            'aiTrainingRequiredContentIds',
             'classOptions',
             'selectedClass'
         ));
@@ -819,6 +1100,12 @@ class PageController extends Controller
             abort(403, 'This content is not released for your institute.');
         }
 
+        if (!$this->teacherContentRequiresAiTraining($teacher, $content)) {
+            return redirect()
+                ->route('teacher.content')
+                ->with('success', 'AI prep is not required for this content.');
+        }
+
         $summary = $this->generatedAiSummaryForContentRecord($content);
 
         if (!$summary) {
@@ -827,7 +1114,8 @@ class PageController extends Controller
                 ->with('error', 'AI prep is not available for this content yet.');
         }
 
-        $quiz = $this->aiQuizForContent($content, $summary, 'teacher');
+        $gradeLevel = $this->teacherAiGradeForContent($teacher, $content);
+        $quiz = $this->aiQuizForContent($content, $summary, 'teacher', $gradeLevel);
         $latestAttempt = AiQuizAttempt::where('ai_quiz_id', $quiz->id)
             ->where('teacher_id', $teacher->id)
             ->where('attempt_type', self::AI_TEACHER_ATTEMPT_TYPE)
@@ -837,6 +1125,7 @@ class PageController extends Controller
         return view('teacher.ai-prep', compact(
             'content',
             'summary',
+            'gradeLevel',
             'latestAttempt'
         ));
     }
@@ -850,6 +1139,12 @@ class PageController extends Controller
             abort(403, 'This content is not released for your institute.');
         }
 
+        if (!$this->teacherContentRequiresAiTraining($teacher, $content)) {
+            return redirect()
+                ->route('teacher.content')
+                ->with('success', 'AI prep is not required for this content.');
+        }
+
         $summary = $this->generatedAiSummaryForContentRecord($content);
 
         if (!$summary) {
@@ -858,7 +1153,8 @@ class PageController extends Controller
                 ->with('error', 'AI prep is not available for this content yet.');
         }
 
-        $quiz = $this->aiQuizForContent($content, $summary, 'teacher');
+        $gradeLevel = $this->teacherAiGradeForContent($teacher, $content);
+        $quiz = $this->aiQuizForContent($content, $summary, 'teacher', $gradeLevel);
         $latestAttempt = AiQuizAttempt::where('ai_quiz_id', $quiz->id)
             ->where('teacher_id', $teacher->id)
             ->where('attempt_type', self::AI_TEACHER_ATTEMPT_TYPE)
@@ -874,6 +1170,7 @@ class PageController extends Controller
         return view('teacher.ai-prep-quiz', compact(
             'content',
             'quiz',
+            'gradeLevel',
             'latestAttempt'
         ));
     }
@@ -887,6 +1184,12 @@ class PageController extends Controller
             abort(403, 'This content is not released for your institute.');
         }
 
+        if (!$this->teacherContentRequiresAiTraining($teacher, $content)) {
+            return redirect()
+                ->route('teacher.content')
+                ->with('success', 'AI prep is not required for this content.');
+        }
+
         $summary = $this->generatedAiSummaryForContentRecord($content);
 
         if (!$summary) {
@@ -895,7 +1198,8 @@ class PageController extends Controller
                 ->with('error', 'AI prep is not available for this content yet.');
         }
 
-        $quiz = $this->aiQuizForContent($content, $summary, 'teacher');
+        $gradeLevel = $this->teacherAiGradeForContent($teacher, $content);
+        $quiz = $this->aiQuizForContent($content, $summary, 'teacher', $gradeLevel);
         $questions = $quiz->questions()->orderBy('question_order')->get();
 
         $alreadyPassed = AiQuizAttempt::where('ai_quiz_id', $quiz->id)
@@ -932,6 +1236,7 @@ class PageController extends Controller
             'ai_quiz_id' => $quiz->id,
             'content_id' => $this->aiQuizOwnerContent($content)->id,
             'attempt_type' => self::AI_TEACHER_ATTEMPT_TYPE,
+            'grade_level' => $gradeLevel,
             'teacher_id' => $teacher->id,
             'status' => 'submitted',
             'started_at' => now(),
@@ -1035,304 +1340,6 @@ class PageController extends Controller
             ->get();
 
         return view('teacher.teacher-assessments', compact('assessments'));
-    }
-
-   public function teacherReports(Request $request)
-    {
-        $teacher = User::find(session('user_id'));
-        $classOptions = $this->teacherAssignedClassNames($teacher);
-        $selectedClass = $request->input('class');
-
-        $studentQuery = Student::where('institute', $teacher->institute)
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$selectedClass]
-                );
-            });
-
-        $studentIds = $studentQuery->pluck('id');
-
-        $studentCount = $studentIds->count();
-
-        $classCount = SchoolClass::where('institute', $teacher->institute)
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class_name, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$selectedClass]
-                );
-            })
-            ->count();
-
-        $contentCount = TeachingPlanItem::where('status', 'released')
-            ->whereHas('plan', function ($query) use ($teacher, $selectedClass) {
-                $query->where('institute', $teacher->institute)
-                    ->where('status', 'active')
-                    ->when($selectedClass, function ($classQuery) use ($selectedClass) {
-                        $classQuery->whereRaw(
-                            "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                            [$selectedClass]
-                        );
-                    });
-            })
-            ->count();
-
-        $sessionCount = ClassContentSession::where('institute', $teacher->institute)
-            ->where('stem_engineer_id', $teacher->id)
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$selectedClass]
-                );
-            })
-            ->count();
-
-        $completedSessionCount = ClassContentSession::where('institute', $teacher->institute)
-            ->where('stem_engineer_id', $teacher->id)
-            ->whereIn('status', ['completed', 'partially_completed'])
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$selectedClass]
-                );
-            })
-            ->count();
-
-        $assessmentCount = Assessment::where('institute', $teacher->institute)
-            ->where('teacher_id', $teacher->id)
-            ->when($selectedClass, fn ($query) => $query->where('assigned_class', $selectedClass))
-            ->count();
-
-        $monthlyAssessmentCount = Assessment::where('institute', $teacher->institute)
-            ->where('teacher_id', $teacher->id)
-            ->where('assessment_category', 'Monthly')
-            ->when($selectedClass, fn ($query) => $query->where('assigned_class', $selectedClass))
-            ->count();
-
-        $annualAssessmentCount = Assessment::where('institute', $teacher->institute)
-            ->where('teacher_id', $teacher->id)
-            ->where('assessment_category', 'Annual')
-            ->when($selectedClass, fn ($query) => $query->where('assigned_class', $selectedClass))
-            ->count();
-
-        $completedResults = AssessmentResult::whereIn('student_id', $studentIds)
-            ->whereHas('assessment', function ($query) use ($teacher) {
-                $query->where('teacher_id', $teacher->id);
-            })
-            ->where('status', 'Completed')
-            ->count();
-
-        $pendingReviewCount = AssessmentResult::whereIn('student_id', $studentIds)
-            ->whereHas('assessment', function ($query) use ($teacher) {
-                $query->where('teacher_id', $teacher->id);
-            })
-            ->where('status', 'Pending Review')
-            ->count();
-
-        $averageScore = AssessmentResult::whereIn('student_id', $studentIds)
-            ->whereHas('assessment', function ($query) use ($teacher) {
-                $query->where('teacher_id', $teacher->id);
-            })
-            ->where('status', 'Completed')
-            ->avg('percentage') ?? 0;
-
-        $certificateCount = Certificate::whereIn('student_id', $studentIds)
-            ->count();
-
-        $classReportRows = $classOptions->map(function ($className) use ($teacher) {
-            $studentIds = Student::where('institute', $teacher->institute)
-                ->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$className]
-                )
-                ->pluck('id');
-
-            return [
-                'class' => $className,
-                'students' => $studentIds->count(),
-                'content' => TeachingPlanItem::where('status', 'released')
-                    ->whereHas('plan', function ($query) use ($teacher, $className) {
-                        $query->where('institute', $teacher->institute)
-                            ->where('status', 'active')
-                            ->whereRaw(
-                                "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                                [$className]
-                            );
-                    })
-                    ->count(),
-                'sessions' => ClassContentSession::where('institute', $teacher->institute)
-                    ->where('stem_engineer_id', $teacher->id)
-                    ->whereRaw(
-                        "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                        [$className]
-                    )
-                    ->count(),
-                'completed_results' => AssessmentResult::whereIn('student_id', $studentIds)
-                    ->whereHas('assessment', function ($query) use ($teacher) {
-                        $query->where('teacher_id', $teacher->id);
-                    })
-                    ->where('status', 'Completed')
-                    ->count(),
-                'average_score' => AssessmentResult::whereIn('student_id', $studentIds)
-                    ->whereHas('assessment', function ($query) use ($teacher) {
-                        $query->where('teacher_id', $teacher->id);
-                    })
-                    ->where('status', 'Completed')
-                    ->avg('percentage') ?? 0,
-                'certificates' => Certificate::whereIn('student_id', $studentIds)->count(),
-            ];
-        })->when($selectedClass, fn ($rows) => $rows->where('class', $selectedClass)->values());
-
-        return view('teacher.teacher-reports', compact(
-            'studentCount',
-            'classCount',
-            'contentCount',
-            'assessmentCount',
-            'monthlyAssessmentCount',
-            'annualAssessmentCount',
-            'completedResults',
-            'pendingReviewCount',
-            'averageScore',
-            'certificateCount',
-            'sessionCount',
-            'completedSessionCount',
-            'classOptions',
-            'selectedClass',
-            'classReportRows'
-        ));
-    }
-
-    public function exportTeacherReports(Request $request)
-    {
-        $teacher = User::findOrFail(session('user_id'));
-        $selectedClass = $request->input('class');
-        $studentIds = Student::where('institute', $teacher->institute)
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$selectedClass]
-                );
-            })
-            ->pluck('id');
-
-        $studentCount = $studentIds->count();
-
-        $classCount = SchoolClass::where('institute', $teacher->institute)
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class_name, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$selectedClass]
-                );
-            })
-            ->count();
-
-        $contentCount = TeachingPlanItem::where('status', 'released')
-            ->whereHas('plan', function ($query) use ($teacher, $selectedClass) {
-                $query->where('institute', $teacher->institute)
-                    ->where('status', 'active')
-                    ->when($selectedClass, function ($classQuery) use ($selectedClass) {
-                        $classQuery->whereRaw(
-                            "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                            [$selectedClass]
-                        );
-                    });
-            })
-            ->count();
-
-        $sessionCount = ClassContentSession::where('institute', $teacher->institute)
-            ->where('stem_engineer_id', $teacher->id)
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$selectedClass]
-                );
-            })
-            ->count();
-
-        $completedSessionCount = ClassContentSession::where('institute', $teacher->institute)
-            ->where('stem_engineer_id', $teacher->id)
-            ->whereIn('status', ['completed', 'partially_completed'])
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$selectedClass]
-                );
-            })
-            ->count();
-
-        $assessmentCount = Assessment::where('institute', $teacher->institute)
-            ->where('teacher_id', $teacher->id)
-            ->when($selectedClass, fn ($query) => $query->where('assigned_class', $selectedClass))
-            ->count();
-
-        $monthlyAssessmentCount = Assessment::where('institute', $teacher->institute)
-            ->where('teacher_id', $teacher->id)
-            ->where('assessment_category', 'Monthly')
-            ->when($selectedClass, fn ($query) => $query->where('assigned_class', $selectedClass))
-            ->count();
-
-        $annualAssessmentCount = Assessment::where('institute', $teacher->institute)
-            ->where('teacher_id', $teacher->id)
-            ->where('assessment_category', 'Annual')
-            ->when($selectedClass, fn ($query) => $query->where('assigned_class', $selectedClass))
-            ->count();
-
-        $completedResults = AssessmentResult::whereIn('student_id', $studentIds)
-            ->whereHas('assessment', function ($query) use ($teacher) {
-                $query->where('teacher_id', $teacher->id);
-            })
-            ->where('status', 'Completed')
-            ->count();
-
-        $pendingReviewCount = AssessmentResult::whereIn('student_id', $studentIds)
-            ->whereHas('assessment', function ($query) use ($teacher) {
-                $query->where('teacher_id', $teacher->id);
-            })
-            ->where('status', 'Pending Review')
-            ->count();
-
-        $averageScore = AssessmentResult::whereIn('student_id', $studentIds)
-            ->whereHas('assessment', function ($query) use ($teacher) {
-                $query->where('teacher_id', $teacher->id);
-            })
-            ->where('status', 'Completed')
-            ->avg('percentage') ?? 0;
-
-        $certificateCount = Certificate::whereIn('student_id', $studentIds)
-            ->count();
-
-        $filename = 'stem_engineer_report_' . now()->format('Ymd_His') . '.csv';
-
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ];
-
-        $rows = [
-            ['Report Area', 'Metric', 'Current Value', 'Status'],
-            ['Scope', 'Class', $selectedClass ?: 'All Classes', 'Live'],
-            ['Students', 'Students in Institute', $studentCount, 'Live'],
-            ['Classes', 'Institute Classes', $classCount, 'Live'],
-            ['Content', 'Approved Planned Content', $contentCount, 'Live'],
-            ['Sessions', 'Sessions Conducted By You', $sessionCount . ' total | ' . $completedSessionCount . ' completed', 'Live'],
-            ['Assessments', 'Your Assessments', $assessmentCount . ' total | ' . $monthlyAssessmentCount . ' monthly | ' . $annualAssessmentCount . ' annual', 'Live'],
-            ['Assessment Results', 'Completed Results', $completedResults, 'Completed'],
-            ['Manual Reviews', 'Pending Written Answers', $pendingReviewCount, 'Pending'],
-            ['Performance', 'Average Assessment Score', number_format($averageScore, 2) . '%', 'Calculated'],
-            ['Certificates', 'Total Certificates Issued', $certificateCount, 'Live'],
-        ];
-
-        $callback = function () use ($rows) {
-            $file = fopen('php://output', 'w');
-
-            foreach ($rows as $row) {
-                fputcsv($file, $row);
-            }
-
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
     }
 
     public function teacherResults(Request $request)
@@ -1695,6 +1702,75 @@ class PageController extends Controller
         return redirect()->back()->with('success', 'Achievement removed successfully.');
     }
 
+    public function adminTeacherAchievements(Request $request)
+    {
+        $sectionPager = null;
+        $currentInstitute = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, 'admin.teacher-achievements');
+        }
+
+        $achievements = TeacherAchievement::with('teacher')
+            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+                $query->whereHas('teacher', function ($teacherQuery) {
+                    $teacherQuery->where('institute', session('user_institute'));
+                });
+            })
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $query->whereHas('teacher', function ($teacherQuery) use ($currentInstitute) {
+                    $teacherQuery->where('institute', $currentInstitute);
+                });
+            })
+            ->latest()
+            ->paginate(30)
+            ->withQueryString();
+
+        return view('admin-teacher-achievements', compact('achievements', 'sectionPager'));
+    }
+
+    public function approveTeacherAchievement($id)
+    {
+        $achievement = TeacherAchievement::with('teacher')->findOrFail($id);
+        $this->authorizeTeacherAchievementApproval($achievement);
+
+        $achievement->update([
+            'verification_status' => 'Approved',
+        ]);
+
+        $this->syncTeacherAchievementToCommunity($achievement->refresh());
+
+        return redirect()->back()
+            ->with('success', 'STEM Engineer achievement approved successfully.');
+    }
+
+    public function rejectTeacherAchievement($id)
+    {
+        $achievement = TeacherAchievement::with('teacher')->findOrFail($id);
+        $this->authorizeTeacherAchievementApproval($achievement);
+
+        $achievement->update([
+            'verification_status' => 'Rejected',
+        ]);
+
+        $this->deleteCommunitySource('TeacherAchievement', $achievement->id);
+
+        return redirect()->back()
+            ->with('success', 'STEM Engineer achievement rejected successfully.');
+    }
+
+    private function authorizeTeacherAchievementApproval(TeacherAchievement $achievement): void
+    {
+        if (session('user_role') != 'InstituteAdmin') {
+            return;
+        }
+
+        if (!$achievement->teacher || $achievement->teacher->institute != session('user_institute')) {
+            abort(403, 'Unauthorized action.');
+        }
+    }
+
     public function studentLogin()
     {
         return view('student-login');
@@ -1950,6 +2026,8 @@ class PageController extends Controller
                 "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
                 [$assignedClass]
             )
+            ->get()
+            ->filter(fn ($assessment) => $this->assessmentWindowIsOpen($assessment))
             ->pluck('id');
 
         $attemptedAssessmentIds = AssessmentResult::where(
@@ -2301,12 +2379,21 @@ class PageController extends Controller
             ->orderBy('lesson_order')
             ->get();
 
-        $totalLessons = $contents->count();
+        $aiReviewRequiredContentIds = $this->studentAiReviewRequiredContentIds($student, $contentIds);
 
-        $completedLessons = LessonProgress::where('student_id', session('student_id'))
+        $completedContentIds = LessonProgress::where('student_id', session('student_id'))
             ->whereIn('content_id', $contents->pluck('id'))
             ->where('is_completed', true)
-            ->count();
+            ->pluck('content_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $lockedContentIds = $this->studentLockedContentIds($contents, $completedContentIds);
+
+        $totalLessons = $contents->count();
+
+        $completedLessons = $completedContentIds->count();
 
         $progressPercentage = $totalLessons > 0
             ? round(($completedLessons / $totalLessons) * 100)
@@ -2316,7 +2403,10 @@ class PageController extends Controller
             'contents',
             'totalLessons',
             'completedLessons',
-            'progressPercentage'
+            'progressPercentage',
+            'aiReviewRequiredContentIds',
+            'completedContentIds',
+            'lockedContentIds'
         ));
     }
     public function verifyCertificateSubmit(Request $request)
@@ -2454,619 +2544,115 @@ class PageController extends Controller
         return 'Fail';
     }
 
-    public function exportResults(Request $request)
-    {
-        $search = $request->search;
-        $badge = $request->badge;
-        $status = $request->status;
-        $sort = $request->sort;
-        $selectedClass = $request->input('class');
-
-        $results = AssessmentResult::with(['student', 'assessment'])
-            ->when(session('user_role') == 'Teacher', function ($query) {
-                $teacher = User::findOrFail(session('user_id'));
-
-                $query->whereIn('student_id', $this->teacherAssignedStudentIds($teacher))
-                    ->whereHas('assessment', function ($q) use ($teacher) {
-                        $q->where('teacher_id', $teacher->id);
-                    });
-            })
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereHas('student', function ($studentQuery) use ($selectedClass) {
-                    $studentQuery->whereRaw(
-                        "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                        [$selectedClass]
-                    );
-                });
-            })
-            ->when($search, function ($query, $search) {
-                $query->where(function ($searchQuery) use ($search) {
-                    $searchQuery->whereHas('student', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%")
-                            ->orWhere('student_id', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('assessment', function ($q) use ($search) {
-                        $q->where('assessment_title', 'like', "%{$search}%");
-                    })
-                    ->orWhere('badge', 'like', "%{$search}%");
-                });
-            })
-            ->when($badge, function ($query, $badge) {
-                $query->where('badge', $badge);
-            })
-            ->when($status, function ($query, $status) {
-                $query->where('status', $status);
-            })
-            ->when($sort == 'highest', function ($query) {
-                $query->orderByDesc('percentage');
-            })
-            ->when($sort == 'lowest', function ($query) {
-                $query->orderBy('percentage');
-            })
-            ->when($sort == 'oldest', function ($query) {
-                $query->oldest();
-            })
-            ->when(!$sort || $sort == 'latest', function ($query) {
-                $query->latest();
-            })
-            ->get();
-
-        $filename = 'assessment_results.csv';
-
-        $headers = [
-            "Content-Type" => "text/csv",
-            "Content-Disposition" => "attachment; filename=$filename",
-        ];
-
-        $callback = function () use ($results) {
-            $file = fopen('php://output', 'w');
-
-            fputcsv($file, [
-                'Student Name',
-                'Student ID',
-                'Assessment',
-                'Category',
-                'Assessment Date',
-                'Score',
-                'Total Marks',
-                'Percentage',
-                'Badge',
-                'Status',
-                'Date',
-            ]);
-
-            foreach ($results as $result) {
-                fputcsv($file, [
-                    $result->student->name ?? 'Student Deleted',
-                    $result->student->student_id ?? 'N/A',
-                    $result->assessment->assessment_title ?? 'Assessment Deleted',
-                    $result->assessment->assessment_category ?? 'N/A',
-                    $result->assessment && $result->assessment->assessment_date
-                        ? $result->assessment->assessment_date
-                        : 'N/A',
-                    $result->score,
-                    $result->total_marks,
-                    $result->percentage . '%',
-                    $result->badge ?? 'No Badge',
-                    $result->status,
-                    $result->created_at->format('d M Y h:i A'),
-                ]);
-            }
-
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
-    }
-    public function adminAnalytics()
-    {
-        $isInstituteAdmin = session('user_role') == 'InstituteAdmin';
-        $institute = session('user_institute');
-
-        $studentQuery = Student::query()
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->where('institute', $institute);
-            });
-
-        $assessmentQuery = Assessment::query()
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->where('institute', $institute);
-            });
-
-        $resultQuery = AssessmentResult::with(['student', 'assessment'])
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->whereHas('student', function ($q) use ($institute) {
-                    $q->where('institute', $institute);
-                });
-            });
-
-        $certificateQuery = Certificate::with('student')
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->whereHas('student', function ($q) use ($institute) {
-                    $q->where('institute', $institute);
-                });
-            });
-
-        $studentCount = $studentQuery->count();
-        $assessmentCount = $assessmentQuery->count();
-        $certificateCount = $certificateQuery->count();
-
-        $averageScore = (clone $resultQuery)->avg('percentage') ?? 0;
-
-        $goldCount = (clone $resultQuery)->where('badge', 'Gold')->count();
-        $silverCount = (clone $resultQuery)->where('badge', 'Silver')->count();
-        $bronzeCount = (clone $resultQuery)->where('badge', 'Bronze')->count();
-
-        $recentResults = (clone $resultQuery)
-            ->latest()
-            ->take(5)
-            ->get();
-
-        $attemptedCount = (clone $resultQuery)
-            ->distinct('student_id')
-            ->count('student_id');
-
-        $passedCount = (clone $resultQuery)
-            ->where('percentage', '>=', 50)
-            ->count();
-
-        $failedCount = (clone $resultQuery)
-            ->where('percentage', '<', 50)
-            ->count();
-
-        $notAttemptedCount = max($studentCount - $attemptedCount, 0);
-
-        $topPerformers = (clone $resultQuery)
-            ->orderByDesc('percentage')
-            ->take(5)
-            ->get();
-
-        $assessmentAverages = (clone $resultQuery)
-            ->selectRaw('assessment_id, AVG(percentage) as average_percentage')
-            ->groupBy('assessment_id')
-            ->take(5)
-            ->get();
-
-        $teacherPerformanceMetrics = User::where('role', 'Teacher')
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->where('institute', $institute);
-            })
-            ->orderBy('institute')
-            ->orderBy('name')
-            ->get()
-            ->map(function ($teacher) {
-                $sessions = ClassContentSession::where('stem_engineer_id', $teacher->id);
-                $aiPrepAttempts = AiQuizAttempt::where('teacher_id', $teacher->id)
-                    ->where('attempt_type', 'teacher_prep')
-                    ->whereIn('status', ['passed', 'failed']);
-
-                return [
-                    'institute' => $teacher->institute ?? 'N/A',
-                    'name' => $teacher->name,
-                    'total_sessions' => (clone $sessions)->count(),
-                    'completed_sessions' => (clone $sessions)->where('status', 'completed')->count(),
-                    'partial_sessions' => (clone $sessions)->where('status', 'partially_completed')->count(),
-                    'active_sessions' => (clone $sessions)->where('status', 'in_progress')->count(),
-                    'hours' => round(((clone $sessions)->sum('duration_seconds') ?? 0) / 3600, 1),
-                    'ai_prep' => (clone $aiPrepAttempts)->count(),
-                    'ai_prep_passed' => (clone $aiPrepAttempts)->where('status', 'passed')->count(),
-                    'ai_prep_average' => round((clone $aiPrepAttempts)->avg('percentage') ?? 0, 2),
-                ];
-            });
-
-        $classPerformanceMetrics = SchoolClass::query()
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->where('institute', $institute);
-            })
-            ->orderBy('institute')
-            ->orderBy('class_name')
-            ->orderBy('section')
-            ->get()
-            ->map(function ($class) {
-                $studentIds = Student::where('institute', $class->institute)
-                    ->where('class', $class->class_name)
-                    ->where('section', $class->section)
-                    ->pluck('id');
-                $aiReviewAttempts = AiQuizAttempt::whereIn('student_id', $studentIds)
-                    ->where('attempt_type', 'student')
-                    ->whereIn('status', ['passed', 'failed']);
-
-                return [
-                    'institute' => $class->institute ?? 'N/A',
-                    'class_label' => trim($class->class_name . ' ' . $class->section),
-                    'students' => $studentIds->count(),
-                    'average_score' => $studentIds->isEmpty()
-                        ? 0
-                        : (AssessmentResult::whereIn('student_id', $studentIds)
-                            ->where('status', 'Completed')
-                            ->avg('percentage') ?? 0),
-                    'completed_results' => AssessmentResult::whereIn('student_id', $studentIds)
-                        ->where('status', 'Completed')
-                        ->count(),
-                    'ai_reviews' => (clone $aiReviewAttempts)->count(),
-                    'ai_reviews_passed' => (clone $aiReviewAttempts)->where('status', 'passed')->count(),
-                    'ai_review_average' => round((clone $aiReviewAttempts)->avg('percentage') ?? 0, 2),
-                ];
-            });
-
-        $studentIdsForAi = (clone $studentQuery)->pluck('id');
-        $teacherIdsForAi = User::where('role', 'Teacher')
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->where('institute', $institute);
-            })
-            ->pluck('id');
-
-        $studentAiReviews = AiQuizAttempt::whereIn('student_id', $studentIdsForAi)
-            ->where('attempt_type', 'student')
-            ->whereIn('status', ['passed', 'failed']);
-
-        $teacherAiPrep = AiQuizAttempt::whereIn('teacher_id', $teacherIdsForAi)
-            ->where('attempt_type', 'teacher_prep')
-            ->whereIn('status', ['passed', 'failed']);
-
-        $studentAiReviewCount = (clone $studentAiReviews)->count();
-        $studentAiReviewPassedCount = (clone $studentAiReviews)->where('status', 'passed')->count();
-        $studentAiReviewAverage = round((clone $studentAiReviews)->avg('percentage') ?? 0, 2);
-        $teacherAiPrepCount = (clone $teacherAiPrep)->count();
-        $teacherAiPrepPassedCount = (clone $teacherAiPrep)->where('status', 'passed')->count();
-        $teacherAiPrepAverage = round((clone $teacherAiPrep)->avg('percentage') ?? 0, 2);
-
-        return view('analytics', compact(
-            'studentCount',
-            'assessmentCount',
-            'certificateCount',
-            'averageScore',
-            'goldCount',
-            'silverCount',
-            'bronzeCount',
-            'attemptedCount',
-            'notAttemptedCount',
-            'passedCount',
-            'failedCount',
-            'topPerformers',
-            'recentResults',
-            'assessmentAverages',
-            'teacherPerformanceMetrics',
-            'classPerformanceMetrics',
-            'studentAiReviewCount',
-            'studentAiReviewPassedCount',
-            'studentAiReviewAverage',
-            'teacherAiPrepCount',
-            'teacherAiPrepPassedCount',
-            'teacherAiPrepAverage'
-        ));
-    }
-
-    public function generateAdminAnalyticsAiInsights(GeminiAiService $ai)
-    {
-        $metrics = $this->adminAnalyticsAiMetrics();
-
-        try {
-            return redirect()
-                ->route('admin.analytics')
-                ->with('aiInsights', $ai->generateReportInsights('Admin Analytics Dashboard', $metrics));
-        } catch (\Throwable $exception) {
-            return redirect()
-                ->route('admin.analytics')
-                ->with('error', 'AI insights could not be generated: ' . $exception->getMessage());
-        }
-    }
-
-    public function downloadAdminAnalyticsAiInsights(GeminiAiService $ai)
-    {
-        $metrics = $this->adminAnalyticsAiMetrics();
-
-        try {
-            $insights = $ai->generateReportInsights('Admin Analytics Dashboard', $metrics);
-        } catch (\Throwable $exception) {
-            return redirect()
-                ->route('admin.analytics')
-                ->with('error', 'AI analytics PDF could not be generated: ' . $exception->getMessage());
-        }
-
-        $pdf = Pdf::loadView('pdf.ai-insights-report', [
-            'title' => 'AI Generated Analytics Report',
-            'scope' => $metrics['scope'] ?? 'All Institutes',
-            'metrics' => $metrics,
-            'insights' => $insights,
-        ])->setPaper('a4', 'portrait');
-
-        return $pdf->download('ai_analytics_report_' . now()->format('Ymd_His') . '.pdf');
-    }
-
-    private function adminAnalyticsAiMetrics(): array
-    {
-        $isInstituteAdmin = session('user_role') == 'InstituteAdmin';
-        $institute = session('user_institute');
-
-        $studentQuery = Student::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute));
-        $assessmentQuery = Assessment::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute));
-        $resultQuery = AssessmentResult::with(['student', 'assessment'])
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->whereHas('student', fn ($studentQuery) => $studentQuery->where('institute', $institute));
-            });
-        $certificateQuery = Certificate::query()
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->whereHas('student', fn ($studentQuery) => $studentQuery->where('institute', $institute));
-            });
-
-        $studentCount = (clone $studentQuery)->count();
-        $attemptedCount = (clone $resultQuery)->distinct('student_id')->count('student_id');
-
-        $teacherMetrics = User::where('role', 'Teacher')
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute))
-            ->get()
-            ->map(function ($teacher) {
-                $sessions = ClassContentSession::where('stem_engineer_id', $teacher->id);
-
-                return [
-                    'name' => $teacher->name,
-                    'institute' => $teacher->institute,
-                    'sessions' => (clone $sessions)->count(),
-                    'completed_sessions' => (clone $sessions)->where('status', 'completed')->count(),
-                    'partial_sessions' => (clone $sessions)->where('status', 'partially_completed')->count(),
-                    'hours' => round(((clone $sessions)->sum('duration_seconds') ?? 0) / 3600, 1),
-                ];
-            })
-            ->take(10)
-            ->values()
-            ->all();
-
-        $classMetrics = SchoolClass::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute))
-            ->get()
-            ->map(function ($class) {
-                $studentIds = Student::where('institute', $class->institute)
-                    ->where('class', $class->class_name)
-                    ->where('section', $class->section)
-                    ->pluck('id');
-
-                return [
-                    'institute' => $class->institute,
-                    'class' => trim($class->class_name . ' ' . $class->section),
-                    'students' => $studentIds->count(),
-                    'completed_results' => AssessmentResult::whereIn('student_id', $studentIds)->where('status', 'Completed')->count(),
-                    'average_score' => round(AssessmentResult::whereIn('student_id', $studentIds)->where('status', 'Completed')->avg('percentage') ?? 0, 2),
-                ];
-            })
-            ->sortByDesc('average_score')
-            ->take(10)
-            ->values()
-            ->all();
-
-        return [
-            'scope' => $isInstituteAdmin ? $institute : 'All Institutes',
-            'generated_at' => now()->format('Y-m-d H:i:s'),
-            'students' => $studentCount,
-            'assessments' => (clone $assessmentQuery)->count(),
-            'certificates' => (clone $certificateQuery)->count(),
-            'average_score' => round((clone $resultQuery)->avg('percentage') ?? 0, 2),
-            'badge_distribution' => [
-                'gold' => (clone $resultQuery)->where('badge', 'Gold')->count(),
-                'silver' => (clone $resultQuery)->where('badge', 'Silver')->count(),
-                'bronze' => (clone $resultQuery)->where('badge', 'Bronze')->count(),
-            ],
-            'participation' => [
-                'attempted_students' => $attemptedCount,
-                'not_attempted_students' => max($studentCount - $attemptedCount, 0),
-            ],
-            'performance' => [
-                'passed' => (clone $resultQuery)->where('percentage', '>=', 50)->count(),
-                'needs_improvement' => (clone $resultQuery)->where('percentage', '<', 50)->count(),
-            ],
-            'teacher_metrics_sample' => $teacherMetrics,
-            'class_metrics_sample' => $classMetrics,
-            'ai_student_reviews' => (clone $this->adminStudentAiAttemptQuery($isInstituteAdmin, $institute))->count(),
-            'ai_student_reviews_passed' => (clone $this->adminStudentAiAttemptQuery($isInstituteAdmin, $institute))->where('status', 'passed')->count(),
-            'ai_student_review_average' => round((clone $this->adminStudentAiAttemptQuery($isInstituteAdmin, $institute))->avg('percentage') ?? 0, 2),
-            'ai_teacher_prep_quizzes' => (clone $this->adminTeacherAiAttemptQuery($isInstituteAdmin, $institute))->count(),
-            'ai_teacher_prep_passed' => (clone $this->adminTeacherAiAttemptQuery($isInstituteAdmin, $institute))->where('status', 'passed')->count(),
-            'ai_teacher_prep_average' => round((clone $this->adminTeacherAiAttemptQuery($isInstituteAdmin, $institute))->avg('percentage') ?? 0, 2),
-        ];
-    }
-
-    private function adminStudentAiAttemptQuery(bool $isInstituteAdmin, ?string $institute)
-    {
-        $studentIds = Student::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute))
-            ->pluck('id');
-
-        return AiQuizAttempt::whereIn('student_id', $studentIds)
-            ->where('attempt_type', 'student')
-            ->whereIn('status', ['passed', 'failed']);
-    }
-
-    private function adminTeacherAiAttemptQuery(bool $isInstituteAdmin, ?string $institute)
-    {
-        $teacherIds = User::where('role', 'Teacher')
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute))
-            ->pluck('id');
-
-        return AiQuizAttempt::whereIn('teacher_id', $teacherIds)
-            ->where('attempt_type', 'teacher_prep')
-            ->whereIn('status', ['passed', 'failed']);
-    }
-
     public function activityMonitoring(Request $request)
     {
         $date = $request->date;
+        $viewerType = $request->viewer_type;
+        ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+            $this->buildInstituteSectionPager($request, 'admin.activity.monitoring');
 
-        $instituteAdminSessions = UserSession::with('user')
-            ->where('user_type', 'InstituteAdmin')
-            ->when($date, function ($query, $date) {
-                $query->whereDate('login_time', $date);
-            })
-            ->latest()
-            ->take(20)
-            ->get();
+        $contentRoutes = ['teacher.content', 'student.content', 'content.preview'];
 
-        $teacherSessions = UserSession::with('teacher')
-            ->where('user_type', 'Teacher')
-            ->when($date, function ($query, $date) {
-                $query->whereDate('login_time', $date);
-            })
-            ->latest()
-            ->take(20)
-            ->get();
-
-        $studentSessions = UserSession::with('student')
-            ->where('user_type', 'Student')
-            ->when($date, function ($query, $date) {
-                $query->whereDate('login_time', $date);
-            })
-            ->latest()
-            ->take(20)
-            ->get();
-
-        $instituteAdminLogs = UserActivityLog::with('teacher')
-            ->where('user_type', 'InstituteAdmin')
+        $contentLogsQuery = UserActivityLog::with(['teacher', 'student'])
+            ->whereIn('user_type', ['Teacher', 'Student'])
+            ->whereIn('route_name', $contentRoutes)
             ->when($date, function ($query, $date) {
                 $query->whereDate('started_at', $date);
             })
-            ->latest()
-            ->take(30)
-            ->get();
-
-        $teacherLogs = UserActivityLog::with('teacher')
-            ->where('user_type', 'Teacher')
-            ->when($date, function ($query, $date) {
-                $query->whereDate('started_at', $date);
+            ->when(in_array($viewerType, ['Teacher', 'Student'], true), function ($query) use ($viewerType) {
+                $query->where('user_type', $viewerType);
             })
-            ->latest()
-            ->take(30)
-            ->get();
+            ->where(function ($query) use ($currentInstitute) {
+                $query->where(function ($teacherQuery) use ($currentInstitute) {
+                    $teacherQuery->where('user_type', 'Teacher')
+                        ->whereHas('teacher', function ($teacher) use ($currentInstitute) {
+                            $teacher->where('institute', $currentInstitute);
+                        });
+                })
+                ->orWhere(function ($studentQuery) use ($currentInstitute) {
+                    $studentQuery->where('user_type', 'Student')
+                        ->whereHas('student', function ($student) use ($currentInstitute) {
+                            $student->where('institute', $currentInstitute);
+                        });
+                });
+            });
 
-        $studentLogs = UserActivityLog::with('student')
-            ->where('user_type', 'Student')
-            ->when($date, function ($query, $date) {
-                $query->whereDate('started_at', $date);
-            })
-            ->latest()
-            ->take(30)
-            ->get();
+        $contentLogs = (clone $contentLogsQuery)
+            ->latest('started_at')
+            ->paginate(30)
+            ->withQueryString();
 
-        $activeInstituteAdmins = UserSession::where('user_type', 'InstituteAdmin')
-            ->whereNull('logout_time')
-            ->distinct('user_id')
-            ->count('user_id');
+        $totalAccesses = (clone $contentLogsQuery)->count();
+        $teacherAccesses = (clone $contentLogsQuery)->where('user_type', 'Teacher')->count();
+        $studentAccesses = (clone $contentLogsQuery)->where('user_type', 'Student')->count();
+        $totalDurationSeconds = (int) (clone $contentLogsQuery)->sum('duration_seconds');
 
-        $activeTeachers = UserSession::where('user_type', 'Teacher')
-            ->whereNull('logout_time')
-            ->distinct('user_id')
-            ->count('user_id');
-
-        $activeStudents = UserSession::where('user_type', 'Student')
-            ->whereNull('logout_time')
-            ->distinct('user_id')
-            ->count('user_id');
-
-        $onlineUsers = UserSession::whereNull('logout_time')->count();
-
-        $averageSessionDuration = UserSession::avg('total_duration_seconds');
-
-        $mostVisitedSection = UserActivityLog::selectRaw('section_name, COUNT(*) as total')
-            ->whereNotNull('section_name')
-            ->groupBy('section_name')
-            ->orderByDesc('total')
-            ->first();
-
-        $sectionDurations = UserActivityLog::selectRaw('section_name, SUM(duration_seconds) as total_duration')
-            ->whereNotNull('section_name')
+        $sectionDurations = (clone $contentLogsQuery)
+            ->selectRaw('section_name, SUM(duration_seconds) as total_duration, COUNT(*) as total_accesses')
             ->groupBy('section_name')
             ->orderByDesc('total_duration')
             ->get();
-        
-        $assessmentSessions = AssessmentSession::with(['assessment','student','teacher',])
-            ->latest()
-            ->take(30)
-            ->get();
+
+        $userDurations = (clone $contentLogsQuery)
+            ->selectRaw('user_type, user_id, SUM(duration_seconds) as total_duration, COUNT(*) as total_accesses')
+            ->groupBy('user_type', 'user_id')
+            ->orderByDesc('total_duration')
+            ->take(10)
+            ->get()
+            ->map(function ($row) {
+                $user = $row->user_type == 'Teacher'
+                    ? User::find($row->user_id)
+                    : Student::find($row->user_id);
+
+                $row->display_name = $user->name ?? ($row->user_type == 'Teacher' ? 'STEM Engineer Deleted' : 'Student Deleted');
+                $row->institute = $user->institute ?? 'N/A';
+                $row->class_label = $row->user_type == 'Student'
+                    ? trim(($user->class ?? '') . ' ' . ($user->section ?? ''))
+                    : null;
+
+                return $row;
+            });
 
         return view('activity-monitoring', compact(
-            'instituteAdminSessions',
-            'teacherSessions',
-            'studentSessions',
-            'instituteAdminLogs',
-            'teacherLogs',
-            'studentLogs',
-            'activeInstituteAdmins',
-            'activeTeachers',
-            'activeStudents',
-            'onlineUsers',
-            'averageSessionDuration',
-            'mostVisitedSection',
+            'contentLogs',
+            'currentInstitute',
+            'sectionPager',
+            'viewerType',
+            'totalAccesses',
+            'teacherAccesses',
+            'studentAccesses',
+            'totalDurationSeconds',
             'sectionDurations',
-            'assessmentSessions',
+            'userDurations',
         ));
     }
-    public function exportActivityReport(Request $request)
+
+    public function finishCurrentActivityLog(Request $request)
     {
-        $userType = $request->user_type;
-        $date = $request->date;
+        if (!session('tracking_session_id')) {
+            return response()->noContent();
+        }
 
-        $logs = UserActivityLog::when($userType, function ($query, $userType) {
-                $query->where('user_type', $userType);
-            })
-            ->when($date, function ($query, $date) {
-                $query->whereDate('started_at', $date);
-            })
+        $contentRoutes = ['teacher.content', 'student.content', 'content.preview'];
+        $activityLogId = session('active_activity_log_id');
+
+        $activityLog = UserActivityLog::where('user_session_id', session('tracking_session_id'))
+            ->whereNull('ended_at')
+            ->whereIn('route_name', $contentRoutes)
+            ->when($activityLogId, fn ($query) => $query->where('id', $activityLogId))
             ->latest()
-            ->get();
+            ->first();
 
-        $response = new StreamedResponse(function () use ($logs) {
+        if ($activityLog) {
+            $endedAt = now();
 
-            $handle = fopen('php://output', 'w');
-
-            fputcsv($handle, [
-                'User Type',
-                'User Name',
-                'Section',
-                'Route',
-                'URL',
-                'Visited At',
-                'Time Spent'
+            $activityLog->update([
+                'ended_at' => $endedAt,
+                'duration_seconds' => max(0, \Carbon\Carbon::parse($activityLog->started_at)->diffInSeconds($endedAt)),
             ]);
+        }
 
-            foreach ($logs as $log) {
-
-                $userName = 'Unknown User';
-
-                if ($log->user_type == 'Teacher') {
-                    $userName = $log->teacher->name ?? 'STEM Engineer Deleted';
-                }
-
-                elseif ($log->user_type == 'Student') {
-                    $userName = $log->student->name ?? 'Student Deleted';
-                }
-
-                fputcsv($handle, [
-                    $log->user_type,
-                    $userName,
-                    $log->section_name,
-                    $log->route_name,
-                    $log->page_url,
-                    $log->started_at,
-                    gmdate('H:i:s', $log->duration_seconds ?? 0),
-                ]);
-            }
-
-            fclose($handle);
-        });
-
-        $fileName = 'activity-report-' . now()->format('Y-m-d-H-i-s') . '.csv';
-
-        $response->headers->set(
-            'Content-Type',
-            'text/csv'
-        );
-
-        $response->headers->set(
-            'Content-Disposition',
-            "attachment; filename={$fileName}"
-        );
-
-        return $response;
+        return response()->noContent();
     }
     public function completeLesson($id)
     {
@@ -3082,12 +2668,20 @@ class PageController extends Controller
             abort(403, 'This lesson is not assigned to your class.');
         }
 
+        if ($this->studentContentIsSequenceLocked($student, $content)) {
+            return redirect()
+                ->route('student.content')
+                ->with('error', 'Please clear the previous released content before starting this topic.');
+        }
+
         if ($this->studentContentRequiresAiReview($student, $content) && !$this->generatedAiSummaryForContentRecord($content)) {
             return redirect()->back()
                 ->with('error', 'Training assessment is still being prepared for this lesson. Please try again shortly.');
         }
 
-        if ($this->lessonNeedsAiReview($content, $studentId)) {
+        if ($this->studentContentRequiresAiReview($student, $content) && $this->lessonNeedsAiReview($content, $studentId)) {
+            $this->unlockStudentAiReview($studentId, $content->id);
+
             return redirect()->route('student.content.ai-review', $content->id);
         }
 
@@ -3119,6 +2713,24 @@ class PageController extends Controller
             abort(403, 'This lesson is not assigned to your class.');
         }
 
+        if ($this->studentContentIsSequenceLocked($student, $content)) {
+            return redirect()
+                ->route('student.content')
+                ->with('error', 'Please clear the previous released content before starting this training assessment.');
+        }
+
+        if (!$this->studentContentRequiresAiReview($student, $content)) {
+            return redirect()
+                ->route('student.content')
+                ->with('success', 'Training assessment is not required for this lesson.');
+        }
+
+        if (!$this->studentAiReviewIsUnlocked($studentId, $content)) {
+            return redirect()
+                ->route('student.content')
+                ->with('error', 'Please mark this topic as complete before starting the training assessment.');
+        }
+
         $summary = $this->generatedAiSummaryForContentRecord($content);
 
         if (!$summary) {
@@ -3127,7 +2739,8 @@ class PageController extends Controller
                 ->with('error', 'AI review is not available for this content yet.');
         }
 
-        $quiz = $this->studentQuizForContent($content, $summary);
+        $gradeLevel = $this->studentGradeName($student);
+        $quiz = $this->studentQuizForContent($content, $summary, $gradeLevel);
         $latestAttempt = AiQuizAttempt::where('ai_quiz_id', $quiz->id)
             ->where('student_id', $studentId)
             ->latest()
@@ -3150,6 +2763,24 @@ class PageController extends Controller
             abort(403, 'This lesson is not assigned to your class.');
         }
 
+        if ($this->studentContentIsSequenceLocked($student, $content)) {
+            return redirect()
+                ->route('student.content')
+                ->with('error', 'Please clear the previous released content before starting this training assessment.');
+        }
+
+        if (!$this->studentContentRequiresAiReview($student, $content)) {
+            return redirect()
+                ->route('student.content')
+                ->with('success', 'Training assessment is not required for this lesson.');
+        }
+
+        if (!$this->studentAiReviewIsUnlocked($studentId, $content)) {
+            return redirect()
+                ->route('student.content')
+                ->with('error', 'Please mark this topic as complete before starting the training assessment.');
+        }
+
         $summary = $this->generatedAiSummaryForContentRecord($content);
 
         if (!$summary) {
@@ -3158,7 +2789,8 @@ class PageController extends Controller
                 ->with('error', 'AI review is not available for this content yet.');
         }
 
-        $quiz = $this->studentQuizForContent($content, $summary);
+        $gradeLevel = $this->studentGradeName($student);
+        $quiz = $this->studentQuizForContent($content, $summary, $gradeLevel);
         $latestAttempt = AiQuizAttempt::where('ai_quiz_id', $quiz->id)
             ->where('student_id', $studentId)
             ->latest()
@@ -3187,6 +2819,24 @@ class PageController extends Controller
             abort(403, 'This lesson is not assigned to your class.');
         }
 
+        if ($this->studentContentIsSequenceLocked($student, $content)) {
+            return redirect()
+                ->route('student.content')
+                ->with('error', 'Please clear the previous released content before submitting this training assessment.');
+        }
+
+        if (!$this->studentContentRequiresAiReview($student, $content)) {
+            return redirect()
+                ->route('student.content')
+                ->with('success', 'Training assessment is not required for this lesson.');
+        }
+
+        if (!$this->studentAiReviewIsUnlocked($studentId, $content)) {
+            return redirect()
+                ->route('student.content')
+                ->with('error', 'Please mark this topic as complete before submitting the training assessment.');
+        }
+
         $summary = $this->generatedAiSummaryForContentRecord($content);
 
         if (!$summary) {
@@ -3195,7 +2845,8 @@ class PageController extends Controller
                 ->with('error', 'AI review is not available for this content yet.');
         }
 
-        $quiz = $this->studentQuizForContent($content, $summary);
+        $gradeLevel = $this->studentGradeName($student);
+        $quiz = $this->studentQuizForContent($content, $summary, $gradeLevel);
         $questions = $quiz->questions()->orderBy('question_order')->get();
 
         $alreadyPassed = AiQuizAttempt::where('ai_quiz_id', $quiz->id)
@@ -3228,6 +2879,7 @@ class PageController extends Controller
             'ai_quiz_id' => $quiz->id,
             'content_id' => $this->aiQuizOwnerContent($content)->id,
             'attempt_type' => self::AI_STUDENT_ATTEMPT_TYPE,
+            'grade_level' => $gradeLevel,
             'student_id' => $studentId,
             'status' => 'submitted',
             'started_at' => now(),
@@ -3322,22 +2974,112 @@ class PageController extends Controller
 
     private function lessonNeedsAiReview(Content $content, int $studentId): bool
     {
+        $student = Student::find($studentId);
         $summary = $this->generatedAiSummaryForContentRecord($content);
 
-        if (!$summary) {
+        if (!$summary || !$student) {
             return false;
         }
 
-        $quizContent = $this->aiQuizOwnerContent($content);
+        $quiz = $this->aiQuizForContent($content, $summary, 'student', $this->studentGradeName($student));
 
-        return !AiQuizAttempt::whereIn('content_id', array_unique([$content->id, $quizContent->id]))
+        return !AiQuizAttempt::where('ai_quiz_id', $quiz->id)
             ->where('student_id', $studentId)
             ->where('attempt_type', self::AI_STUDENT_ATTEMPT_TYPE)
             ->where('status', 'passed')
             ->exists();
     }
 
-    private function teacherNeedsAiPrep(Content $content, int $teacherId): bool
+    private function studentContentIsSequenceLocked(Student $student, Content $content): bool
+    {
+        $contentIds = $this->studentAvailableContentIds($student);
+
+        if (!$contentIds->contains((int) $content->id)) {
+            return true;
+        }
+
+        $contents = Content::whereIn('id', $contentIds)
+            ->where('status', 1)
+            ->orderBy('course_id')
+            ->orderBy('lesson_order')
+            ->get(['id', 'course_id', 'lesson_order']);
+
+        $completedContentIds = LessonProgress::where('student_id', $student->id)
+            ->whereIn('content_id', $contents->pluck('id'))
+            ->where('is_completed', true)
+            ->pluck('content_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        return $this->studentLockedContentIds($contents, $completedContentIds)
+            ->contains((int) $content->id);
+    }
+
+    private function studentLockedContentIds($contents, $completedContentIds)
+    {
+        $completedContentIds = collect($completedContentIds)
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        return collect($contents)
+            ->groupBy('course_id')
+            ->flatMap(function ($courseContents) use ($completedContentIds) {
+                $lockedIds = collect();
+                $previousContent = null;
+
+                foreach ($courseContents->sortBy([
+                    ['lesson_order', 'asc'],
+                    ['id', 'asc'],
+                ]) as $content) {
+                    if ($previousContent && !$completedContentIds->contains((int) $previousContent->id)) {
+                        $lockedIds->push((int) $content->id);
+                    }
+
+                    $previousContent = $content;
+                }
+
+                return $lockedIds;
+            })
+            ->unique()
+            ->values();
+    }
+
+    private function unlockStudentAiReview(int $studentId, int $contentId): void
+    {
+        session([
+            $this->studentAiReviewUnlockKey($studentId, $contentId) => true,
+        ]);
+    }
+
+    private function studentAiReviewIsUnlocked(int $studentId, Content $content): bool
+    {
+        if (session($this->studentAiReviewUnlockKey($studentId, $content->id))) {
+            return true;
+        }
+
+        $student = Student::find($studentId);
+        $summary = $this->generatedAiSummaryForContentRecord($content);
+
+        if (!$student || !$summary) {
+            return false;
+        }
+
+        $quiz = $this->aiQuizForContent($content, $summary, 'student', $this->studentGradeName($student));
+
+        return AiQuizAttempt::where('ai_quiz_id', $quiz->id)
+            ->where('student_id', $studentId)
+            ->where('attempt_type', self::AI_STUDENT_ATTEMPT_TYPE)
+            ->exists();
+    }
+
+    private function studentAiReviewUnlockKey(int $studentId, int $contentId): string
+    {
+        return 'student_ai_review_unlocked_' . $studentId . '_' . $contentId;
+    }
+
+    private function teacherNeedsAiPrep(Content $content, int $teacherId, ?string $gradeLevel = null): bool
     {
         $summary = $this->generatedAiSummaryForContentRecord($content);
 
@@ -3345,9 +3087,9 @@ class PageController extends Controller
             return false;
         }
 
-        $quizContent = $this->aiQuizOwnerContent($content);
+        $quiz = $this->aiQuizForContent($content, $summary, 'teacher', $gradeLevel);
 
-        return !AiQuizAttempt::whereIn('content_id', array_unique([$content->id, $quizContent->id]))
+        return !AiQuizAttempt::where('ai_quiz_id', $quiz->id)
             ->where('teacher_id', $teacherId)
             ->where('attempt_type', self::AI_TEACHER_ATTEMPT_TYPE)
             ->where('status', 'passed')
@@ -3356,25 +3098,63 @@ class PageController extends Controller
 
     private function teachingPlanItemRequiresAiTraining(TeachingPlanItem $item): bool
     {
-        if (!$item->week || !$item->week->release_date) {
+        if (!$item->week || !$item->week->release_date || !$item->plan) {
             return false;
         }
 
-        return \Carbon\Carbon::parse($item->week->release_date)->toDateString() >= $this->aiTrainingRolloutStartDate();
+        $startDate = $this->planAiTrainingStartDate($item->plan);
+
+        return $startDate
+            && \Carbon\Carbon::parse($item->week->release_date)->toDateString() >= $startDate;
+    }
+
+    private function teacherContentRequiresAiTraining(User $teacher, Content $content): bool
+    {
+        return TeachingPlanItem::with(['week', 'plan'])
+            ->where('content_id', $content->id)
+            ->whereHas('week', function ($query) {
+                $query->whereNotNull('release_date');
+            })
+            ->whereHas('plan', function ($query) use ($teacher) {
+                $query->where('is_template', false)
+                    ->where('institute', $teacher->institute)
+                    ->whereNotNull('ai_training_start_date')
+                    ->whereIn('status', ['active', 'completed']);
+            })
+            ->whereIn('status', ['released', 'completed'])
+            ->get()
+            ->contains(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item));
     }
 
     private function studentContentRequiresAiReview(Student $student, Content $content): bool
     {
+        return $this->studentAiReviewRequiredContentIds($student, collect([$content->id]))
+            ->contains((int) $content->id);
+    }
+
+    private function studentAiReviewRequiredContentIds(Student $student, $contentIds)
+    {
+        $contentIds = collect($contentIds)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($contentIds->isEmpty()) {
+            return collect();
+        }
+
         $assignedClass = $this->studentClassName($student);
 
-        return TeachingPlanItem::where('content_id', $content->id)
+        return TeachingPlanItem::with(['week', 'plan'])
+            ->whereIn('content_id', $contentIds)
             ->whereHas('week', function ($query) {
-                $query->whereNotNull('release_date')
-                    ->whereDate('release_date', '>=', $this->aiTrainingRolloutStartDate());
+                $query->whereNotNull('release_date');
             })
             ->whereHas('plan', function ($query) use ($student, $assignedClass) {
                 $query->where('is_template', false)
                     ->where('institute', $student->institute)
+                    ->whereNotNull('ai_training_start_date')
                     ->whereIn('status', ['active', 'completed'])
                     ->where(function ($classQuery) use ($assignedClass) {
                         $classQuery
@@ -3388,7 +3168,20 @@ class PageController extends Controller
                             );
                     });
             })
-            ->exists();
+            ->whereIn('status', ['released', 'completed'])
+            ->get()
+            ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
+            ->pluck('content_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+    }
+
+    private function planAiTrainingStartDate(TeachingPlan $plan): ?string
+    {
+        return $plan->ai_training_start_date
+            ? \Carbon\Carbon::parse($plan->ai_training_start_date)->toDateString()
+            : null;
     }
 
     private function aiTrainingRolloutStartDate(): string
@@ -3452,14 +3245,15 @@ class PageController extends Controller
             ->first();
     }
 
-    private function studentQuizForContent(Content $content, AiContentSummary $summary): AiQuiz
+    private function studentQuizForContent(Content $content, AiContentSummary $summary, ?string $gradeLevel = null): AiQuiz
     {
-        return $this->aiQuizForContent($content, $summary, 'student');
+        return $this->aiQuizForContent($content, $summary, 'student', $gradeLevel);
     }
 
-    private function aiQuizForContent(Content $content, AiContentSummary $summary, string $audience): AiQuiz
+    private function aiQuizForContent(Content $content, AiContentSummary $summary, string $audience, ?string $gradeLevel = null): AiQuiz
     {
         $quizContent = $this->aiQuizOwnerContent($content);
+        $gradeLevel = $this->gradeLevelFromClass($gradeLevel);
         $passingRatio = $audience == 'teacher'
             ? $this->teacherAiPassingPercentage() / 100
             : $this->studentAiPassingPercentage() / 100;
@@ -3468,12 +3262,13 @@ class PageController extends Controller
             [
                 'content_id' => $quizContent->id,
                 'audience' => $audience,
+                'grade_level' => $gradeLevel,
                 'status' => 'active',
             ],
             [
                 'provider' => $summary->provider,
                 'model' => $summary->model,
-                'title' => ($audience == 'teacher' ? 'AI Prep - ' : 'AI Review - ') . $quizContent->content_title,
+                'title' => ($audience == 'teacher' ? 'AI Prep - ' : 'AI Review - ') . ($gradeLevel ? $gradeLevel . ' - ' : '') . $quizContent->content_title,
                 'instructions' => $audience == 'teacher'
                     ? 'Answer these prep questions before teaching this lesson.'
                     : 'Answer these questions after reviewing the completed lesson.',
@@ -3618,6 +3413,44 @@ class PageController extends Controller
         return preg_replace('/\s+/', ' ', trim($student->class . ' ' . $student->section));
     }
 
+    private function studentGradeName(Student $student): ?string
+    {
+        return $this->gradeLevelFromClass($student->class);
+    }
+
+    private function teacherAiGradeForContent(User $teacher, Content $content): ?string
+    {
+        $requestedGrade = $this->gradeLevelFromClass(request()->query('grade'));
+
+        if ($requestedGrade) {
+            return $requestedGrade;
+        }
+
+        $item = TeachingPlanItem::with(['week', 'plan'])
+            ->where('content_id', $content->id)
+            ->whereIn('status', ['released', 'completed'])
+            ->whereHas('plan', function ($query) use ($teacher) {
+                $query->where('is_template', false)
+                    ->where('institute', $teacher->institute)
+                    ->whereNotNull('ai_training_start_date')
+                    ->whereIn('status', ['active', 'completed']);
+            })
+            ->whereHas('week', fn ($query) => $query->whereNotNull('release_date'))
+            ->orderBy('teaching_plan_week_id')
+            ->orderBy('sort_order')
+            ->get()
+            ->first(fn ($teachingItem) => $this->teachingPlanItemRequiresAiTraining($teachingItem));
+
+        return $this->gradeLevelFromClass($item?->plan?->class);
+    }
+
+    private function gradeLevelFromClass(?string $class): ?string
+    {
+        $class = preg_replace('/\s+/', ' ', trim((string) $class));
+
+        return $class !== '' ? $class : null;
+    }
+
     private function studentCanAccessAssessment($assessmentId, $studentId)
     {
         $student = Student::find($studentId);
@@ -3636,16 +3469,38 @@ class PageController extends Controller
 
         if (
             !$assessment ||
-            (
-                $assessment->assessment_date &&
-                $assessment->assessment_date > today()->toDateString()
-            )
+            !$this->assessmentWindowIsOpen($assessment)
         ) {
             return false;
         }
 
         return $this->studentClassName($student) ==
             preg_replace('/\s+/', ' ', trim((string) $assessment->assigned_class));
+    }
+
+    private function assessmentWindowIsOpen(Assessment $assessment): bool
+    {
+        if ($assessment->assessment_date) {
+            $today = today()->toDateString();
+
+            if ($assessment->assessment_date > $today) {
+                return false;
+            }
+
+            if (($assessment->start_time || $assessment->end_time) && $assessment->assessment_date < $today) {
+                return false;
+            }
+        }
+
+        if ($assessment->start_time && now()->format('H:i:s') < $assessment->start_time) {
+            return false;
+        }
+
+        if ($assessment->end_time && now()->format('H:i:s') > $assessment->end_time) {
+            return false;
+        }
+
+        return true;
     }
 
     public function assessmentMonitoring()
@@ -3714,9 +3569,9 @@ class PageController extends Controller
                 ->with('error', 'AI prep is still being prepared for this content. Please try again shortly.');
         }
 
-        if ($this->teacherNeedsAiPrep($item->content, $teacher->id)) {
+        if ($this->teachingPlanItemRequiresAiTraining($item) && $this->teacherNeedsAiPrep($item->content, $teacher->id, $this->gradeLevelFromClass($item->plan?->class))) {
             return redirect()
-                ->route('teacher.ai-prep', $item->content->id)
+                ->route('teacher.ai-prep', ['id' => $item->content->id, 'grade' => $this->gradeLevelFromClass($item->plan?->class)])
                 ->with('error', 'Please pass the training prep assessment before starting this session.');
         }
 
@@ -3896,19 +3751,46 @@ class PageController extends Controller
 
     public function classSessionReport(Request $request)
     {
+        $reportType = $request->route('reportType') ?? $request->query('report_type', 'weekly');
+        $sectionPager = null;
+        $currentInstitute = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager(
+                    $request,
+                    $request->route()?->getName() ?: 'admin.class-session.report.weekly'
+                );
+
+            $request->attributes->set('section_institute', $currentInstitute);
+        }
+
         $sessions = $this->classSessionReportQuery($request)
             ->latest()
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
-        $institutes = session('user_role') == 'Admin'
-            ? Institute::where('status', 1)->orderBy('institute_name')->get()
-            : collect();
-
-        return view('class-session-report', compact('sessions', 'institutes'));
+        return view('class-session-report', compact('sessions', 'reportType', 'sectionPager'));
     }
 
-    public function exportClassSessionReport(Request $request): StreamedResponse
+    public function downloadClassSessionReportPdf(Request $request, GeminiAiService $ai)
     {
+        $reportType = $request->route('reportType') ?? 'weekly';
+        $sectionPager = null;
+        $currentInstitute = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager(
+                    $request,
+                    $reportType == 'daily'
+                        ? 'admin.class-session.report.daily.download'
+                        : 'admin.class-session.report.weekly.download'
+                );
+
+            $request->attributes->set('section_institute', $currentInstitute);
+        }
+
         $sessions = $this->classSessionReportQuery($request)
             ->orderBy('institute')
             ->orderBy('class')
@@ -3916,54 +3798,97 @@ class PageController extends Controller
             ->orderBy('session_date')
             ->get();
 
-        $fileName = 'class_session_report_' . now()->format('Ymd_His') . '.csv';
+        $scope = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : ($currentInstitute ?: 'All Institutes');
 
-        $response = new StreamedResponse(function () use ($sessions) {
-            $handle = fopen('php://output', 'w');
+        $periodLabel = $reportType == 'daily'
+            ? \Carbon\Carbon::parse($request->input('report_date', now()->toDateString()))->format('d M Y')
+            : (
+                ($request->filled('from_date') || $request->filled('to_date'))
+                    ? trim(($request->filled('from_date') ? \Carbon\Carbon::parse($request->from_date)->format('d M Y') : 'Start') . ' - ' . ($request->filled('to_date') ? \Carbon\Carbon::parse($request->to_date)->format('d M Y') : 'Today'))
+                    : 'All available sessions'
+            );
 
-            fputcsv($handle, [
-                'Institute',
-                'Class',
-                'Course',
-                'Planned Content',
-                'Delivered Content',
-                'STEM Engineer',
-                'Session Date',
-                'Start Time',
-                'End Time',
-                'Duration',
-                'Status',
-                'Remarks',
-            ]);
+        $totalSessions = $sessions->count();
+        $completedSessions = $sessions->where('status', 'completed')->count();
+        $partialSessions = $sessions->where('status', 'partially_completed')->count();
+        $cancelledSessions = $sessions->whereIn('status', ['cancelled', 'skipped'])->count();
+        $unfinishedSessions = $sessions->filter(fn ($session) => $session->status == 'in_progress' || !$session->ended_at)->count();
 
-            foreach ($sessions as $session) {
-                fputcsv($handle, [
-                    $session->institute ?? $session->schoolClass->institute ?? 'N/A',
-                    trim(($session->class ?? $session->schoolClass->class_name ?? 'N/A') . ' ' . ($session->section ?? $session->schoolClass->section ?? '')),
-                    $session->course->course_title ?? 'N/A',
-                    $session->planned_topic ?? $session->content->content_title ?? 'No Content',
-                    $session->delivered_topic ?? 'Not recorded',
-                    $session->stemEngineer->name ?? 'Deleted Engineer',
-                    $session->session_date ? \Carbon\Carbon::parse($session->session_date)->format('Y-m-d') : '',
-                    $session->start_time ? \Carbon\Carbon::parse($session->start_time)->format('H:i') : '',
-                    $session->end_time ? \Carbon\Carbon::parse($session->end_time)->format('H:i') : '',
-                    gmdate('H:i:s', $session->duration_seconds ?? 0),
-                    ucwords(str_replace('_', ' ', $session->status)),
-                    $session->remarks,
-                ]);
-            }
+        $metrics = [
+            'scope' => $scope,
+            'period' => $periodLabel,
+            'total_sessions' => $totalSessions,
+            'completed_sessions' => $completedSessions,
+            'partially_completed_sessions' => $partialSessions,
+            'cancelled_or_skipped_sessions' => $cancelledSessions,
+            'unfinished_sessions' => $unfinishedSessions,
+            'completion_rate' => $totalSessions ? round(($completedSessions / $totalSessions) * 100, 2) : 0,
+            'teaching_hours' => round(($sessions->sum('duration_seconds') ?? 0) / 3600, 2),
+            'unique_classes' => $sessions->map(fn ($session) => trim(($session->class ?? '') . ' ' . ($session->section ?? '')))->filter()->unique()->count(),
+            'stem_engineers_involved' => $sessions->pluck('stem_engineer_id')->filter()->unique()->count(),
+        ];
 
-            fclose($handle);
-        });
+        $tableRows = $sessions
+            ->take(45)
+            ->map(fn ($session) => [
+                trim(($session->class ?? $session->schoolClass->class_name ?? 'N/A') . ' ' . ($session->section ?? $session->schoolClass->section ?? '')),
+                $session->institute ?? $session->schoolClass->institute ?? 'N/A',
+                $session->course->course_title ?? 'N/A',
+                $session->planned_topic ?? $session->content->content_title ?? 'No Content',
+                $session->stemEngineer->name ?? 'Deleted Engineer',
+                $session->session_date ? \Carbon\Carbon::parse($session->session_date)->format('d M Y') : '-',
+                gmdate('H:i:s', $session->duration_seconds ?? 0),
+                ucwords(str_replace('_', ' ', $session->status)),
+            ])
+            ->values()
+            ->all();
 
-        $response->headers->set('Content-Type', 'text/csv');
-        $response->headers->set('Content-Disposition', "attachment; filename={$fileName}");
+        $visuals = [
+            [
+                'title' => 'Session Completion',
+                'labels' => ['Completed', 'Partial', 'Cancelled/Skipped', 'Unfinished'],
+                'values' => [$completedSessions, $partialSessions, $cancelledSessions, $unfinishedSessions],
+            ],
+            [
+                'title' => 'Teaching Delivery',
+                'labels' => ['Teaching Hours', 'STEM Engineers', 'Classes'],
+                'values' => [$metrics['teaching_hours'], $metrics['stem_engineers_involved'], $metrics['unique_classes']],
+            ],
+        ];
 
-        return $response;
+        $title = $reportType == 'daily'
+            ? 'Daily Session Report'
+            : 'Weekly Session Report';
+
+        try {
+            $insights = $ai->generateReportInsights($title, $metrics);
+        } catch (\Throwable $exception) {
+            return redirect()
+                ->back()
+                ->with('error', 'AI session report PDF could not be generated: ' . $exception->getMessage());
+        }
+
+        $pdf = Pdf::loadView('pdf.generated-lms-report', [
+            'title' => $title,
+            'scope' => $scope,
+            'periodLabel' => $periodLabel,
+            'metrics' => $metrics,
+            'tableTitle' => 'Session Execution Data',
+            'tableHeaders' => ['Class', 'Institute', 'Course', 'Planned Content', 'STEM Engineer', 'Date', 'Duration', 'Status'],
+            'tableRows' => $tableRows,
+            'visuals' => $visuals,
+            'insights' => $insights,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download((string) str($title)->slug('_') . '_' . now()->format('Ymd_His') . '.pdf');
     }
 
     private function classSessionReportQuery(Request $request)
     {
+        $reportType = $request->route('reportType') ?? $request->query('report_type', 'weekly');
+
         return ClassContentSession::with([
                 'schoolClass',
                 'content',
@@ -3971,11 +3896,17 @@ class PageController extends Controller
                 'teachingPlan',
                 'stemEngineer',
             ])
+            ->when($reportType == 'daily' && $request->filled('report_date'), function ($query) use ($request) {
+                $query->whereDate('session_date', $request->report_date);
+            })
             ->when($request->filled('from_date'), function ($query) use ($request) {
                 $query->whereDate('session_date', '>=', $request->from_date);
             })
             ->when($request->filled('to_date'), function ($query) use ($request) {
                 $query->whereDate('session_date', '<=', $request->to_date);
+            })
+            ->when(session('user_role') == 'Admin' && $request->attributes->get('section_institute'), function ($query) use ($request) {
+                $query->where('institute', $request->attributes->get('section_institute'));
             })
             ->when(session('user_role') == 'Admin' && $request->filled('institute'), function ($query) use ($request) {
                 $query->where('institute', $request->institute);

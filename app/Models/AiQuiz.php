@@ -9,6 +9,7 @@ class AiQuiz extends Model
     protected $fillable = [
         'content_id',
         'audience',
+        'grade_level',
         'provider',
         'model',
         'title',

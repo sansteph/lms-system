@@ -18,7 +18,6 @@ use App\Http\Controllers\TeacherStudentProfileController;
 use App\Http\Controllers\IndependentLearnerController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\CommunityFeedController;
-use App\Http\Controllers\AiContentController;
 use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\LmsNotificationController;
 use App\Http\Controllers\NewsroomController;
@@ -29,24 +28,27 @@ use App\Http\Controllers\TeachingPlanController;
 //Public Routes
 Route::get('/', [PageController::class, 'home'])->name('home');
 Route::get('/portal', [PageController::class, 'portal'])->name('portal');
-Route::post('/access-request/store', [PageController::class, 'storeAccessRequest'])->name('access.request.store');
 Route::get('/logout', [UserController::class, 'logout'])->name('logout');
 Route::get('/password-change/confirm/{token}', [UserController::class, 'confirmPasswordChange'])->name('password-change.confirm');
 Route::get('/verify-certificate', [PageController::class, 'verifyCertificate'])->name('certificate.verify');
 Route::post('/verify-certificate', [PageController::class, 'verifyCertificateSubmit'])->name('certificate.verify.submit');
-Route::get('/content-preview/{content}/for/{audience}', [ContentController::class, 'showPreview'])->name('content.preview');
+Route::get('/content-preview/{content}/for/{audience}', [ContentController::class, 'showPreview'])->middleware('track.activity')->name('content.preview');
 Route::get('/content-preview-stream/{content}/for/{audience}', [ContentController::class, 'streamPreview'])->name('content.preview.stream');
 Route::get('/content-files/{content}/for/{audience}/{variant?}', [ContentController::class, 'showFile'])->name('content.file.audience');
 Route::get('/content-files/{content}/{variant?}', [ContentController::class, 'showFile'])->name('content.file');
 Route::get('/assessment-paper/{assessment}/{variant?}', [AssessmentController::class, 'showQuestionPaper'])->name('assessment.paper');
 Route::get('/assessment-answer-file/{result}', [AssessmentResultController::class, 'showAnswerFile'])->name('assessment.answer.file');
 Route::post('/ai-chat/ask', [AiChatController::class, 'ask'])->middleware('throttle:20,1')->name('ai-chat.ask');
+Route::post('/activity-monitoring/end-current', [PageController::class, 'finishCurrentActivityLog'])->name('activity-monitoring.end-current');
 Route::get('/newsroom', [NewsroomController::class, 'index'])->name('newsroom');
 Route::get('/blogs/login', [CommunityFeedController::class, 'blogsLogin'])->name('blogs.login');
 Route::post('/blogs/login', [CommunityFeedController::class, 'blogsLoginSubmit'])->name('blogs.login.submit');
 Route::get('/blogs', [CommunityFeedController::class, 'blogsEntry'])->name('blogs.community-feed');
 Route::post('/blogs', [CommunityFeedController::class, 'store'])->name('blogs.community-feed.store');
 Route::post('/blogs/{id}/like', [CommunityFeedController::class, 'toggleLike'])->name('blogs.community-feed.like');
+Route::post('/blogs/{id}/comments', [CommunityFeedController::class, 'storeComment'])->name('blogs.community-feed.comments.store');
+Route::post('/blogs/comments/{id}/update', [CommunityFeedController::class, 'updateComment'])->name('blogs.community-feed.comments.update');
+Route::post('/blogs/comments/{id}/delete', [CommunityFeedController::class, 'deleteComment'])->name('blogs.community-feed.comments.delete');
 Route::post('/blogs/{id}/approve', [CommunityFeedController::class, 'approve'])->name('blogs.community-feed.approve');
 Route::post('/blogs/{id}/reject', [CommunityFeedController::class, 'reject'])->name('blogs.community-feed.reject');
 Route::post('/blogs/{id}/delete', [CommunityFeedController::class, 'delete'])->name('blogs.community-feed.delete');
@@ -75,8 +77,6 @@ Route::middleware(['independent.auth'])->group(function () {
 //Admin + InstituteAdmin Shared Public Routes
 Route::get('/admin-login', [PageController::class, 'adminLogin'])->name('admin.login');
 Route::post('/admin-login', [UserController::class, 'adminLogin'])->name('admin.login.submit');
-Route::get('/admin/institute-register', [UserController::class, 'instituteRegister'])->name('admin.institute.register');
-Route::post('/admin/institute-register', [UserController::class, 'instituteRegisterSubmit'])->name('admin.institute.register.submit');
 
 //Admin + InstituteAdmin Shared Routes
 Route::middleware(['admin.auth', 'track.activity'])->group(function () {
@@ -85,6 +85,11 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
 
     Route::get('/admin/change-password', [UserController::class, 'changePassword'])->name('admin.change.password');
     Route::post('/admin/change-password', [UserController::class, 'changePasswordSubmit'])->name('admin.change.password.submit');
+
+    Route::get('/admin/management', [PageController::class, 'adminManagementHub'])->name('admin.management');
+    Route::get('/admin/reports', [PageController::class, 'adminReportsHub'])->name('admin.reports.hub');
+    Route::get('/admin/approvals', [PageController::class, 'adminApprovalsHub'])->name('admin.approvals');
+    Route::get('/admin/monitoring', [PageController::class, 'adminMonitoringHub'])->name('admin.monitoring');
 
     Route::get('/courses', [CourseController::class, 'index'])->name('courses');
     Route::post('/courses/store', [CourseController::class, 'store'])->name('courses.store');
@@ -116,13 +121,44 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::post('/content/course-content/{courseContent}/order', [ContentController::class, 'updateCourseContentOrder'])->name('content.course-content.order');
     Route::post('/content/course-content/{courseContent}/detach', [ContentController::class, 'detachCourseContent'])->name('content.course-content.detach');
     Route::post('/content/update/{id}', [ContentController::class, 'update'])->name('content.update');
-    Route::post('/content/{content}/ai-summary', [AiContentController::class, 'generateSummary'])->name('content.ai-summary.generate');
     Route::get('/content/delete/{id}', [ContentController::class, 'delete'])->name('content.delete');
 
-    Route::get('/reports', [ReportController::class, 'index'])->name('reports');
-    Route::get('/reports/export', [ReportController::class, 'exportCsv'])->name('reports.export');
-    Route::post('/reports/ai-insights', [ReportController::class, 'generateAiInsights'])->name('reports.ai-insights');
-    Route::post('/reports/ai-insights/download', [ReportController::class, 'downloadAiInsights'])->name('reports.ai-insights.download');
+    Route::get('/reports/student-ai-review', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'student-ai-review')
+        ->name('reports.student-ai-review');
+    Route::post('/reports/student-ai-review/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'student-ai-review')
+        ->name('reports.student-ai-review.download');
+    Route::get('/reports/stem-engineer-prep', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'stem-engineer-prep')
+        ->name('reports.stem-engineer-prep');
+    Route::post('/reports/stem-engineer-prep/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'stem-engineer-prep')
+        ->name('reports.stem-engineer-prep.download');
+    Route::get('/reports/student-performance/weekly', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'weekly-student-performance')
+        ->name('reports.student-performance.weekly');
+    Route::post('/reports/student-performance/weekly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'weekly-student-performance')
+        ->name('reports.student-performance.weekly.download');
+    Route::get('/reports/student-performance/monthly', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'monthly-student-performance')
+        ->name('reports.student-performance.monthly');
+    Route::post('/reports/student-performance/monthly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'monthly-student-performance')
+        ->name('reports.student-performance.monthly.download');
+    Route::get('/reports/stem-engineer-performance/weekly', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'weekly-stem-engineer-performance')
+        ->name('reports.stem-engineer-performance.weekly');
+    Route::post('/reports/stem-engineer-performance/weekly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'weekly-stem-engineer-performance')
+        ->name('reports.stem-engineer-performance.weekly.download');
+    Route::get('/reports/stem-engineer-performance/monthly', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'monthly-stem-engineer-performance')
+        ->name('reports.stem-engineer-performance.monthly');
+    Route::post('/reports/stem-engineer-performance/monthly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'monthly-stem-engineer-performance')
+        ->name('reports.stem-engineer-performance.monthly.download');
 
     Route::get('/admin/certificates', [PageController::class, 'adminCertificates'])->name('admin.certificates');
     Route::post('/admin/certificates/approve/{id}', [PageController::class, 'approveCertificate'])->name('admin.certificates.approve');
@@ -130,15 +166,20 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::post('/admin/certificates/revoke/{id}', [PageController::class, 'revokeCertificate'])->name('admin.certificates.revoke');
     Route::post('/admin/certificates/reissue/{id}', [PageController::class, 'reissueCertificate'])->name('admin.certificates.reissue');
 
-    Route::get('/admin/analytics', [PageController::class, 'adminAnalytics'])->name('admin.analytics');
-    Route::post('/admin/analytics/ai-insights', [PageController::class, 'generateAdminAnalyticsAiInsights'])->name('admin.analytics.ai-insights');
-    Route::post('/admin/analytics/ai-insights/download', [PageController::class, 'downloadAdminAnalyticsAiInsights'])->name('admin.analytics.ai-insights.download');
-
-    Route::get('/admin/achievements', [StudentAchievementController::class, 'adminIndex'])->name('admin.achievements');
+    Route::get('/admin/student-achievements', [StudentAchievementController::class, 'adminIndex'])->name('admin.achievements');
     Route::post('/admin/achievements/{id}/approve', [StudentAchievementController::class, 'approve'])->name('admin.achievements.approve');
     Route::post('/admin/achievements/{id}/reject', [StudentAchievementController::class, 'reject'])->name('admin.achievements.reject');
+    Route::get('/admin/teacher-achievements', [PageController::class, 'adminTeacherAchievements'])->name('admin.teacher-achievements');
+    Route::post('/admin/teacher-achievements/{id}/approve', [PageController::class, 'approveTeacherAchievement'])->name('admin.teacher-achievements.approve');
+    Route::post('/admin/teacher-achievements/{id}/reject', [PageController::class, 'rejectTeacherAchievement'])->name('admin.teacher-achievements.reject');
 
     Route::get('/admin/my-space', [MySpaceController::class, 'adminIndex'])->name('admin.my-space');
+    Route::get('/admin/my-space/stem-engineers', [MySpaceController::class, 'adminIndex'])
+        ->defaults('submitterType', 'Teacher')
+        ->name('admin.my-space.teachers');
+    Route::get('/admin/my-space/students', [MySpaceController::class, 'adminIndex'])
+        ->defaults('submitterType', 'Student')
+        ->name('admin.my-space.students');
     Route::post('/admin/my-space/{id}/approve', [MySpaceController::class, 'approve'])->name('admin.my-space.approve');
     Route::post('/admin/my-space/{id}/reject', [MySpaceController::class, 'reject'])->name('admin.my-space.reject');
     Route::post('/admin/my-space/{id}/feature', [MySpaceController::class, 'feature'])->name('admin.my-space.feature');
@@ -147,24 +188,29 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::get('/admin/assessment-monitoring', [PageController::class, 'assessmentMonitoring'])->name('admin.assessment.monitoring');
 
     Route::get('/admin/class-session-report', [PageController::class, 'classSessionReport'])->name('admin.class-session.report');
-    Route::get('/admin/class-session-report/export', [PageController::class, 'exportClassSessionReport'])->name('admin.class-session.report.export');
+    Route::get('/admin/class-session-report/daily', [PageController::class, 'classSessionReport'])
+        ->defaults('reportType', 'daily')
+        ->name('admin.class-session.report.daily');
+    Route::post('/admin/class-session-report/daily/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'daily')
+        ->name('admin.class-session.report.daily.download');
+    Route::get('/admin/class-session-report/weekly', [PageController::class, 'classSessionReport'])
+        ->defaults('reportType', 'weekly')
+        ->name('admin.class-session.report.weekly');
+    Route::post('/admin/class-session-report/weekly/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'weekly')
+        ->name('admin.class-session.report.weekly.download');
 
     Route::get('/notifications', [LmsNotificationController::class, 'index'])->name('notifications');
     Route::post('/notifications/store', [LmsNotificationController::class, 'store'])->name('notifications.store');
     Route::post('/notifications/delete/{id}', [LmsNotificationController::class, 'delete'])->name('notifications.delete');
-
-    Route::get('/admin/community-feed', [CommunityFeedController::class, 'index'])->name('admin.community-feed');
-    Route::post('/admin/community-feed', [CommunityFeedController::class, 'store'])->name('admin.community-feed.store');
-    Route::post('/admin/community-feed/{id}/like', [CommunityFeedController::class, 'toggleLike'])->name('admin.community-feed.like');
-    Route::post('/admin/community-feed/{id}/approve', [CommunityFeedController::class, 'approve'])->name('admin.community-feed.approve');
-    Route::post('/admin/community-feed/{id}/reject', [CommunityFeedController::class, 'reject'])->name('admin.community-feed.reject');
-    Route::post('/admin/community-feed/{id}/delete', [CommunityFeedController::class, 'delete'])->name('admin.community-feed.delete');
 
     Route::get('/teaching-plans', [TeachingPlanController::class, 'index'])->name('teaching-plans');
     Route::post('/teaching-plans/store', [TeachingPlanController::class, 'store'])->name('teaching-plans.store');
     Route::post('/teaching-plan-templates/store', [TeachingPlanController::class, 'storeTemplate'])->name('teaching-plan-templates.store');
     Route::post('/teaching-plan-templates/deploy', [TeachingPlanController::class, 'deployTemplates'])->name('teaching-plan-templates.deploy');
     Route::post('/teaching-plans/update/{id}', [TeachingPlanController::class, 'update'])->name('teaching-plans.update');
+    Route::post('/teaching-plans/{id}/ai-training', [TeachingPlanController::class, 'deployAiTraining'])->name('teaching-plans.ai-training.deploy');
     Route::post('/teaching-plans/{id}/release-next', [TeachingPlanController::class, 'releaseNext'])->name('teaching-plans.release-next');
     Route::post('/teaching-plans/{id}/lagged-content', [TeachingPlanController::class, 'storeLaggedContent'])->name('teaching-plans.lagged-content.store');
     Route::post('/teaching-plans/{id}/weeks/{week}', [TeachingPlanController::class, 'updateWeek'])->name('teaching-plans.weeks.update');
@@ -188,16 +234,11 @@ Route::middleware(['admin.auth', 'super.admin'])->group(function () {
     Route::post('/institutes/update/{id}', [InstituteController::class, 'update'])->name('institutes.update');
     Route::get('/institutes/delete/{id}', [InstituteController::class, 'delete'])->name('institutes.delete');
 
-    Route::get('/admin/institute-requests', [UserController::class, 'instituteRequests'])->name('admin.institute.requests');
-    Route::post('/admin/institute-requests/{id}/approve', [UserController::class, 'approveInstituteRequest']) ->name('admin.institute.requests.approve');
-    Route::post('/admin/institute-requests/{id}/reject', [UserController::class, 'rejectInstituteRequest']) ->name('admin.institute.requests.reject');
-
     Route::get('/admin/independent-learners', [IndependentLearnerController::class, 'adminIndex'])->name('admin.independent.learners');
     Route::post('/admin/independent-learners/{id}/toggle-status', [IndependentLearnerController::class, 'toggleStatus'])->name('admin.independent.learners.toggle-status');
     Route::get('/admin/independent-learners/{id}', [IndependentLearnerController::class, 'showLearner'])->name('admin.independent.learners.show');
 
     Route::get('/admin/activity-monitoring', [PageController::class, 'activityMonitoring'])->name('admin.activity.monitoring');
-    Route::get('/admin/export-activity-report', [PageController::class, 'exportActivityReport'])->name('admin.export.activity');
 
 });
 
@@ -210,6 +251,9 @@ Route::post('/teacher-login', [UserController::class, 'teacherLogin'])->name('te
 Route::middleware(['teacher.auth','track.activity'])->group(function () {
 
     Route::get('/teacher-dashboard', [PageController::class, 'teacherDashboard'])->name('teacher.dashboard');
+    Route::get('/teacher/sessions', [PageController::class, 'teacherSessionsHub'])->name('teacher.sessions');
+    Route::get('/teacher/assessments-hub', [PageController::class, 'teacherAssessmentsHub'])->name('teacher.assessments.hub');
+    Route::get('/teacher/students', [PageController::class, 'teacherStudentsHub'])->name('teacher.students.hub');
 
     Route::get('/teacher/my-classes', [PageController::class, 'teacherClasses'])->name('teacher.classes');
     Route::get('/teacher/pending-sessions', [PageController::class, 'teacherPendingSessions'])->name('teacher.pending-sessions');
@@ -222,9 +266,6 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::get('/teacher/content/{id}/ai-prep/quiz', [PageController::class, 'teacherAiPrepQuiz'])->name('teacher.ai-prep.quiz');
     Route::post('/teacher/content/{id}/ai-prep/quiz', [PageController::class, 'submitTeacherAiPrep'])->name('teacher.ai-prep.submit');
 
-    Route::get('/teacher/reports', [PageController::class, 'teacherReports'])->name('teacher.reports');
-    Route::get('/teacher/reports/export', [PageController::class, 'exportTeacherReports'])->name('teacher.reports.export');
-
     Route::get('/teacher/certificates', [PageController::class, 'teacherCertificates'])->name('teacher.certificates');
     Route::post('/teacher/certificates/approve/{id}', [PageController::class, 'approveCertificate'])->name('teacher.certificates.approve');
 
@@ -235,12 +276,6 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::get('/teacher/feedback', [FeedbackController::class, 'teacherCreate'])->name('teacher.feedback');
     Route::post('/teacher/feedback', [FeedbackController::class, 'teacherStore'])->name('teacher.feedback.store');
     Route::get('/teacher/notifications', [LmsNotificationController::class, 'teacherIndex'])->name('teacher.notifications');
-    Route::get('/teacher/community-feed', [CommunityFeedController::class, 'index'])->name('teacher.community-feed');
-    Route::post('/teacher/community-feed', [CommunityFeedController::class, 'store'])->name('teacher.community-feed.store');
-    Route::post('/teacher/community-feed/{id}/like', [CommunityFeedController::class, 'toggleLike'])->name('teacher.community-feed.like');
-    Route::post('/teacher/community-feed/{id}/approve', [CommunityFeedController::class, 'approve'])->name('teacher.community-feed.approve');
-    Route::post('/teacher/community-feed/{id}/reject', [CommunityFeedController::class, 'reject'])->name('teacher.community-feed.reject');
-    Route::post('/teacher/community-feed/{id}/delete', [CommunityFeedController::class, 'delete'])->name('teacher.community-feed.delete');
     Route::get('/teacher/achievements', [PageController::class, 'teacherAchievements'])->name('teacher.achievements');
     Route::post('/teacher/achievements', [PageController::class, 'storeTeacherAchievement'])->name('teacher.achievements.store');
     Route::post('/teacher/achievements/{id}/delete', [PageController::class, 'deleteTeacherAchievement'])->name('teacher.achievements.delete');
@@ -249,7 +284,6 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::post('/teacher-results/ai-insights', [PageController::class, 'generateTeacherResultsAiInsights'])->name('teacher.results.ai-insights');
     Route::post('/teacher-results/ai-insights/download', [PageController::class, 'downloadTeacherResultsAiInsights'])->name('teacher.results.ai-insights.download');
     Route::delete('/teacher/results/disqualify/{id}', [PageController::class, 'disqualifyResult'])->name('teacher.results.disqualify');
-    Route::get('/results/export', [PageController::class, 'exportResults'])->name('results.export');
 
     Route::get('/teacher/student-profiles', [TeacherStudentProfileController::class, 'index'])->name('teacher.student.profiles');
     Route::get('/teacher/student-details/export', [TeacherStudentProfileController::class, 'export'])->name('teacher.student.profiles.export');
@@ -277,6 +311,7 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
 
     Route::get('/teacher/assessments', [AssessmentController::class, 'index'])->name('teacher.assessments');
     Route::post('/teacher/assessments/store', [AssessmentController::class, 'store'])->name('teacher.assessments.store');
+    Route::post('/teacher/assessments/ai-generate', [AssessmentController::class, 'generateAiQuestionPaper'])->name('teacher.assessments.ai-generate');
     Route::post('/teacher/assessments/update/{id}', [AssessmentController::class, 'update'])->name('teacher.assessments.update');
     Route::get('/teacher/assessments/delete/{id}', [AssessmentController::class, 'delete'])->name('teacher.assessments.delete');
 
@@ -305,11 +340,6 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::get('/student/feedback', [FeedbackController::class, 'studentCreate'])->name('student.feedback');
     Route::post('/student/feedback', [FeedbackController::class, 'studentStore'])->name('student.feedback.store');
     Route::get('/student/notifications', [LmsNotificationController::class, 'studentIndex'])->name('student.notifications');
-    Route::get('/student/community-feed', [CommunityFeedController::class, 'index'])->name('student.community-feed');
-    Route::post('/student/community-feed', [CommunityFeedController::class, 'store'])->name('student.community-feed.store');
-    Route::post('/student/community-feed/{id}/like', [CommunityFeedController::class, 'toggleLike'])->name('student.community-feed.like');
-    Route::post('/student/community-feed/{id}/delete', [CommunityFeedController::class, 'delete'])->name('student.community-feed.delete');
-
     Route::post('/assessment-results/store',[AssessmentResultController::class, 'store'])->name('assessment-results.store');
     Route::get('/student/certificate/download', [PageController::class, 'downloadStudentCertificate'])->name('student.certificate.download');
 

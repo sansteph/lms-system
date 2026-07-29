@@ -15,18 +15,37 @@ use App\Models\TeachingPlan;
 use App\Models\TeachingPlanItem;
 use App\Models\TeachingPlanWeek;
 use App\Models\AiQuizAttempt;
+use App\Support\BuildsInstituteSectionPager;
 use App\Services\Ai\GeminiAiService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
-    public function index()
+    use BuildsInstituteSectionPager;
+
+    public function index(Request $request)
     {
+        $reportMode = request()->route('reportMode') ?? 'overview';
         $today = now()->format('Y-m-d');
+        [$periodFrom, $periodTo, $periodLabel] = $this->reportDateWindow($request, $reportMode);
+        $sectionPager = null;
+        $selectedReportInstitute = null;
 
-        if (session('user_role') == 'InstituteAdmin') {
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $selectedReportInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, $request->route()?->getName() ?: 'reports.student-ai-review');
+        }
 
-            $institute = session('user_institute');
+        $isInstituteScoped = session('user_role') == 'InstituteAdmin'
+            || (session('user_role') == 'Admin' && $selectedReportInstitute);
+        $institute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : $selectedReportInstitute;
+
+        if ($isInstituteScoped) {
+
+            $institute = (string) $institute;
 
             $studentCount = Student::where('institute', $institute)->count();
 
@@ -179,8 +198,8 @@ class ReportController extends Controller
         }
 
         $classScope = SchoolClass::query()
-            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->where('institute', session('user_institute'));
+            ->when($isInstituteScoped, function ($query) use ($institute) {
+                $query->where('institute', $institute);
             });
 
         $classBreakdowns = $classScope
@@ -188,23 +207,33 @@ class ReportController extends Controller
             ->orderBy('class_name')
             ->orderBy('section')
             ->get()
-            ->map(function ($class) {
+            ->map(function ($class) use ($periodFrom, $periodTo, $reportMode) {
                 $studentIds = Student::where('institute', $class->institute)
                     ->where('class', $class->class_name)
                     ->where('section', $class->section)
                     ->pluck('id');
                 $aiReviewAttempts = AiQuizAttempt::whereIn('student_id', $studentIds)
                     ->where('attempt_type', 'student')
-                    ->whereIn('status', ['passed', 'failed']);
+                    ->whereIn('status', ['passed', 'failed'])
+                    ->when($periodFrom, fn ($query) => $query->whereDate('submitted_at', '>=', $periodFrom))
+                    ->when($periodTo, fn ($query) => $query->whereDate('submitted_at', '<=', $periodTo));
+
+                $sessionQuery = ClassContentSession::where('institute', $class->institute)
+                    ->where('class', $class->class_name)
+                    ->where('section', $class->section)
+                    ->when($periodFrom, fn ($query) => $query->whereDate('session_date', '>=', $periodFrom))
+                    ->when($periodTo, fn ($query) => $query->whereDate('session_date', '<=', $periodTo));
+
+                $assessmentResultQuery = AssessmentResult::whereIn('student_id', $studentIds)
+                    ->where('status', 'Completed')
+                    ->when($periodFrom, fn ($query) => $query->whereDate('evaluated_at', '>=', $periodFrom))
+                    ->when($periodTo, fn ($query) => $query->whereDate('evaluated_at', '<=', $periodTo));
 
                 return [
                     'institute' => $class->institute ?? 'N/A',
                     'class_label' => trim($class->class_name . ' ' . $class->section),
                     'students' => $studentIds->count(),
-                    'sessions' => ClassContentSession::where('institute', $class->institute)
-                        ->where('class', $class->class_name)
-                        ->where('section', $class->section)
-                        ->count(),
+                    'sessions' => (clone $sessionQuery)->count(),
                     'active_plans' => TeachingPlan::where('institute', $class->institute)
                         ->where('class', $class->class_name)
                         ->where('section', $class->section)
@@ -213,21 +242,27 @@ class ReportController extends Controller
                     'ai_reviews' => (clone $aiReviewAttempts)->count(),
                     'ai_reviews_passed' => (clone $aiReviewAttempts)->where('status', 'passed')->count(),
                     'ai_review_average' => round((clone $aiReviewAttempts)->avg('percentage') ?? 0, 2),
+                    'assessment_results' => (clone $assessmentResultQuery)->count(),
+                    'assessment_average' => round((clone $assessmentResultQuery)->avg('percentage') ?? 0, 2),
                 ];
             });
 
         $teacherPerformance = User::where('role', 'Teacher')
-            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->where('institute', session('user_institute'));
+            ->when($isInstituteScoped, function ($query) use ($institute) {
+                $query->where('institute', $institute);
             })
             ->orderBy('institute')
             ->orderBy('name')
             ->get()
-            ->map(function ($teacher) {
-                $sessions = ClassContentSession::where('stem_engineer_id', $teacher->id);
+            ->map(function ($teacher) use ($periodFrom, $periodTo) {
+                $sessions = ClassContentSession::where('stem_engineer_id', $teacher->id)
+                    ->when($periodFrom, fn ($query) => $query->whereDate('session_date', '>=', $periodFrom))
+                    ->when($periodTo, fn ($query) => $query->whereDate('session_date', '<=', $periodTo));
                 $aiPrepAttempts = AiQuizAttempt::where('teacher_id', $teacher->id)
                     ->where('attempt_type', 'teacher_prep')
-                    ->whereIn('status', ['passed', 'failed']);
+                    ->whereIn('status', ['passed', 'failed'])
+                    ->when($periodFrom, fn ($query) => $query->whereDate('submitted_at', '>=', $periodFrom))
+                    ->when($periodTo, fn ($query) => $query->whereDate('submitted_at', '<=', $periodTo));
 
                 return [
                     'institute' => $teacher->institute ?? 'N/A',
@@ -245,7 +280,9 @@ class ReportController extends Controller
 
         $instituteBreakdowns = (session('user_role') == 'InstituteAdmin'
                 ? Institute::where('institute_name', session('user_institute'))
-                : Institute::query()
+                : ($isInstituteScoped
+                    ? Institute::where('institute_name', $institute)
+                    : Institute::query())
             )
             ->orderBy('institute_name')
             ->get()
@@ -265,24 +302,28 @@ class ReportController extends Controller
             });
 
         $studentIdsForAi = Student::query()
-            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->where('institute', session('user_institute'));
+            ->when($isInstituteScoped, function ($query) use ($institute) {
+                $query->where('institute', $institute);
             })
             ->pluck('id');
 
         $teacherIdsForAi = User::where('role', 'Teacher')
-            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->where('institute', session('user_institute'));
+            ->when($isInstituteScoped, function ($query) use ($institute) {
+                $query->where('institute', $institute);
             })
             ->pluck('id');
 
         $studentAiReviews = AiQuizAttempt::whereIn('student_id', $studentIdsForAi)
             ->where('attempt_type', 'student')
-            ->whereIn('status', ['passed', 'failed']);
+            ->whereIn('status', ['passed', 'failed'])
+            ->when($periodFrom, fn ($query) => $query->whereDate('submitted_at', '>=', $periodFrom))
+            ->when($periodTo, fn ($query) => $query->whereDate('submitted_at', '<=', $periodTo));
 
         $teacherAiPrep = AiQuizAttempt::whereIn('teacher_id', $teacherIdsForAi)
             ->where('attempt_type', 'teacher_prep')
-            ->whereIn('status', ['passed', 'failed']);
+            ->whereIn('status', ['passed', 'failed'])
+            ->when($periodFrom, fn ($query) => $query->whereDate('submitted_at', '>=', $periodFrom))
+            ->when($periodTo, fn ($query) => $query->whereDate('submitted_at', '<=', $periodTo));
 
         $studentAiReviewCount = (clone $studentAiReviews)->count();
         $studentAiReviewPassedCount = (clone $studentAiReviews)->where('status', 'passed')->count();
@@ -322,249 +363,311 @@ class ReportController extends Controller
             'studentAiReviewAverage',
             'teacherAiPrepCount',
             'teacherAiPrepPassedCount',
-            'teacherAiPrepAverage'
+            'teacherAiPrepAverage',
+            'reportMode',
+            'sectionPager',
+            'periodFrom',
+            'periodTo',
+            'periodLabel'
         ));
     }
 
-    public function generateAiInsights(GeminiAiService $ai)
+    public function downloadPdf(Request $request, GeminiAiService $ai)
     {
-        $metrics = $this->adminReportAiMetrics();
+        $reportMode = $request->route('reportMode') ?? 'student-ai-review';
+        $payload = $this->downloadableReportPayload($request, $reportMode);
 
         try {
-            return redirect()
-                ->route('reports')
-                ->with('aiInsights', $ai->generateReportInsights('Admin LMS Reports', $metrics));
+            $insights = $ai->generateReportInsights($payload['title'], $payload['metrics']);
         } catch (\Throwable $exception) {
             return redirect()
-                ->route('reports')
-                ->with('error', 'AI insights could not be generated: ' . $exception->getMessage());
-        }
-    }
-
-    public function downloadAiInsights(GeminiAiService $ai)
-    {
-        $metrics = $this->adminReportAiMetrics();
-
-        try {
-            $insights = $ai->generateReportInsights('Admin LMS Reports', $metrics);
-        } catch (\Throwable $exception) {
-            return redirect()
-                ->route('reports')
+                ->back()
                 ->with('error', 'AI report PDF could not be generated: ' . $exception->getMessage());
         }
 
-        $pdf = Pdf::loadView('pdf.ai-insights-report', [
-            'title' => 'AI Generated LMS Report',
-            'scope' => $metrics['scope'] ?? 'All Institutes',
-            'metrics' => $metrics,
+        $pdf = Pdf::loadView('pdf.generated-lms-report', [
+            'title' => $payload['title'],
+            'scope' => $payload['scope'],
+            'periodLabel' => $payload['period_label'],
+            'metrics' => $payload['metrics'],
+            'tableTitle' => $payload['table_title'],
+            'tableHeaders' => $payload['table_headers'],
+            'tableRows' => $payload['table_rows'],
+            'visuals' => $payload['visuals'],
             'insights' => $insights,
         ])->setPaper('a4', 'portrait');
 
-        return $pdf->download('ai_lms_report_' . now()->format('Ymd_His') . '.pdf');
+        return $pdf->download($payload['file_name']);
     }
 
-    private function adminReportAiMetrics(): array
+    private function downloadableReportPayload(Request $request, string $reportMode): array
     {
-        $today = now()->format('Y-m-d');
-        $isInstituteAdmin = session('user_role') == 'InstituteAdmin';
-        $institute = session('user_institute');
-        $scopeLabel = $isInstituteAdmin ? $institute : 'All Institutes';
+        [$periodFrom, $periodTo, $periodLabel] = $this->reportDateWindow($request, $reportMode);
+        $institute = $this->selectedReportInstitute($request, $this->reportDownloadRouteName($reportMode));
+        $scope = $institute ?: 'All Institutes';
+        $isStudentReport = in_array($reportMode, ['student-ai-review', 'weekly-student-performance', 'monthly-student-performance'], true);
+        $isTeacherReport = in_array($reportMode, ['stem-engineer-prep', 'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance'], true);
 
-        $studentQuery = Student::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute));
-        $teacherQuery = User::where('role', 'Teacher')
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute));
-        $classQuery = SchoolClass::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute));
-        $contentQuery = Content::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute));
-        $assessmentQuery = Assessment::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute));
-        $resultQuery = AssessmentResult::query()
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->whereHas('student', fn ($studentQuery) => $studentQuery->where('institute', $institute));
-            });
-        $certificateQuery = Certificate::query()
-            ->when($isInstituteAdmin, function ($query) use ($institute) {
-                $query->whereHas('student', fn ($studentQuery) => $studentQuery->where('institute', $institute));
-            });
-        $sessionQuery = ClassContentSession::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute));
+        $studentIds = Student::query()
+            ->when($institute, fn ($query) => $query->where('institute', $institute))
+            ->pluck('id');
+
+        $teacherIds = User::where('role', 'Teacher')
+            ->when($institute, fn ($query) => $query->where('institute', $institute))
+            ->pluck('id');
+
+        $studentAttempts = AiQuizAttempt::whereIn('student_id', $studentIds)
+            ->where('attempt_type', 'student')
+            ->whereIn('status', ['passed', 'failed'])
+            ->when($periodFrom, fn ($query) => $query->whereDate('submitted_at', '>=', $periodFrom))
+            ->when($periodTo, fn ($query) => $query->whereDate('submitted_at', '<=', $periodTo));
+
+        $teacherAttempts = AiQuizAttempt::whereIn('teacher_id', $teacherIds)
+            ->where('attempt_type', 'teacher_prep')
+            ->whereIn('status', ['passed', 'failed'])
+            ->when($periodFrom, fn ($query) => $query->whereDate('submitted_at', '>=', $periodFrom))
+            ->when($periodTo, fn ($query) => $query->whereDate('submitted_at', '<=', $periodTo));
+
+        $sessions = ClassContentSession::query()
+            ->when($institute, fn ($query) => $query->where('institute', $institute))
+            ->when($periodFrom, fn ($query) => $query->whereDate('session_date', '>=', $periodFrom))
+            ->when($periodTo, fn ($query) => $query->whereDate('session_date', '<=', $periodTo));
+
+        $results = AssessmentResult::whereIn('student_id', $studentIds)
+            ->where('status', 'Completed')
+            ->when($periodFrom, fn ($query) => $query->whereDate('evaluated_at', '>=', $periodFrom))
+            ->when($periodTo, fn ($query) => $query->whereDate('evaluated_at', '<=', $periodTo));
+
+        $studentAttemptCount = (clone $studentAttempts)->count();
+        $studentPassedCount = (clone $studentAttempts)->where('status', 'passed')->count();
+        $teacherAttemptCount = (clone $teacherAttempts)->count();
+        $teacherPassedCount = (clone $teacherAttempts)->where('status', 'passed')->count();
+        $sessionCount = (clone $sessions)->count();
+        $completedSessions = (clone $sessions)->where('status', 'completed')->count();
+        $resultCount = (clone $results)->count();
+
+        $metrics = [
+            'scope' => $scope,
+            'period' => $periodLabel,
+            'students' => $studentIds->count(),
+            'stem_engineers' => $teacherIds->count(),
+            'student_ai_attempts' => $studentAttemptCount,
+            'student_ai_passed' => $studentPassedCount,
+            'student_ai_pass_rate' => $studentAttemptCount ? round(($studentPassedCount / $studentAttemptCount) * 100, 2) : 0,
+            'student_ai_average' => round((clone $studentAttempts)->avg('percentage') ?? 0, 2),
+            'stem_engineer_prep_attempts' => $teacherAttemptCount,
+            'stem_engineer_prep_passed' => $teacherPassedCount,
+            'stem_engineer_prep_pass_rate' => $teacherAttemptCount ? round(($teacherPassedCount / $teacherAttemptCount) * 100, 2) : 0,
+            'stem_engineer_prep_average' => round((clone $teacherAttempts)->avg('percentage') ?? 0, 2),
+            'sessions' => $sessionCount,
+            'completed_sessions' => $completedSessions,
+            'session_completion_rate' => $sessionCount ? round(($completedSessions / $sessionCount) * 100, 2) : 0,
+            'teaching_hours' => round(((clone $sessions)->sum('duration_seconds') ?? 0) / 3600, 2),
+            'assessment_results' => $resultCount,
+            'assessment_average' => round((clone $results)->avg('percentage') ?? 0, 2),
+        ];
+
+        $title = match ($reportMode) {
+            'student-ai-review' => 'Weekly Student AI Review Report',
+            'stem-engineer-prep' => 'Weekly STEM Engineer Prep Report',
+            'weekly-student-performance' => 'Weekly Student Performance Report',
+            'monthly-student-performance' => 'Monthly Student Performance Report',
+            'weekly-stem-engineer-performance' => 'Weekly STEM Engineer Performance Report',
+            'monthly-stem-engineer-performance' => 'Monthly STEM Engineer Performance Report',
+            default => 'LMS Report',
+        };
+
+        $tableRows = $isTeacherReport
+            ? $this->teacherReportRows($teacherIds, $periodFrom, $periodTo)
+            : $this->studentClassReportRows($studentIds, $periodFrom, $periodTo);
 
         return [
-            'scope' => $scopeLabel,
-            'generated_at' => now()->format('Y-m-d H:i:s'),
-            'students' => (clone $studentQuery)->count(),
-            'stem_engineers' => (clone $teacherQuery)->count(),
-            'classes' => (clone $classQuery)->count(),
-            'uploaded_content' => (clone $contentQuery)->count(),
-            'released_content' => (clone $contentQuery)->where('is_released', 1)->count(),
-            'assessments' => (clone $assessmentQuery)->count(),
-            'completed_results' => (clone $resultQuery)->where('status', 'Completed')->count(),
-            'pending_manual_reviews' => (clone $resultQuery)->where('status', 'Pending Review')->count(),
-            'average_score' => round((clone $resultQuery)->where('status', 'Completed')->avg('percentage') ?? 0, 2),
-            'certificates_issued' => (clone $certificateQuery)->count(),
-            'total_sessions' => (clone $sessionQuery)->count(),
-            'sessions_today' => (clone $sessionQuery)->where('session_date', $today)->count(),
-            'completed_sessions_today' => (clone $sessionQuery)->where('session_date', $today)->whereIn('status', ['completed', 'partially_completed'])->count(),
-            'active_sessions' => (clone $sessionQuery)->where('status', 'in_progress')->count(),
-            'teaching_hours' => round(((clone $sessionQuery)->sum('duration_seconds') ?? 0) / 3600, 1),
-            'ai_student_reviews' => (clone $this->studentAiAttemptQuery($isInstituteAdmin, $institute))->count(),
-            'ai_student_reviews_passed' => (clone $this->studentAiAttemptQuery($isInstituteAdmin, $institute))->where('status', 'passed')->count(),
-            'ai_student_review_average' => round((clone $this->studentAiAttemptQuery($isInstituteAdmin, $institute))->avg('percentage') ?? 0, 2),
-            'ai_teacher_prep_quizzes' => (clone $this->teacherAiAttemptQuery($isInstituteAdmin, $institute))->count(),
-            'ai_teacher_prep_passed' => (clone $this->teacherAiAttemptQuery($isInstituteAdmin, $institute))->where('status', 'passed')->count(),
-            'ai_teacher_prep_average' => round((clone $this->teacherAiAttemptQuery($isInstituteAdmin, $institute))->avg('percentage') ?? 0, 2),
+            'title' => $title,
+            'scope' => $scope,
+            'period_label' => $periodLabel,
+            'metrics' => $metrics,
+            'table_title' => $isTeacherReport ? 'STEM Engineer Metrics' : 'Class-wise Student Metrics',
+            'table_headers' => $isTeacherReport
+                ? ['STEM Engineer', 'Institute', 'Sessions', 'Completed', 'Hours', 'Prep Attempts', 'Prep Passed', 'Prep Avg']
+                : ['Class', 'Institute', 'Students', 'Assessments', 'Assessment Avg', 'AI Attempts', 'AI Passed', 'AI Avg'],
+            'table_rows' => $tableRows,
+            'visuals' => $this->reportVisuals($metrics, $isStudentReport, $isTeacherReport),
+            'file_name' => (string) str($title)->slug('_') . '_' . now()->format('Ymd_His') . '.pdf',
         ];
     }
 
-    private function studentAiAttemptQuery(bool $isInstituteAdmin, ?string $institute)
+    private function selectedReportInstitute(Request $request, string $routeName): ?string
     {
-        $studentIds = Student::query()
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute))
-            ->pluck('id');
-
-        return AiQuizAttempt::whereIn('student_id', $studentIds)
-            ->where('attempt_type', 'student')
-            ->whereIn('status', ['passed', 'failed']);
-    }
-
-    private function teacherAiAttemptQuery(bool $isInstituteAdmin, ?string $institute)
-    {
-        $teacherIds = User::where('role', 'Teacher')
-            ->when($isInstituteAdmin, fn ($query) => $query->where('institute', $institute))
-            ->pluck('id');
-
-        return AiQuizAttempt::whereIn('teacher_id', $teacherIds)
-            ->where('attempt_type', 'teacher_prep')
-            ->whereIn('status', ['passed', 'failed']);
-    }
-
-    public function exportCsv()
-    {
-        $today = now()->format('Y-m-d');
-        $scopeLabel = session('user_role') == 'InstituteAdmin'
-            ? session('user_institute')
-            : 'All Institutes';
-
         if (session('user_role') == 'InstituteAdmin') {
-            $institute = session('user_institute');
-
-            $studentCount = Student::where('institute', $institute)->count();
-            $teacherCount = User::where('role', 'Teacher')->where('institute', $institute)->count();
-            $classCount = SchoolClass::where('institute', $institute)->count();
-            $instituteCount = 1;
-            $contentCount = Content::where('institute', $institute)->count();
-            $assessmentCount = Assessment::where('institute', $institute)->count();
-            $completedResults = AssessmentResult::whereHas('student', fn ($q) => $q->where('institute', $institute))
-                ->where('status', 'Completed')
-                ->count();
-            $pendingReviewResults = AssessmentResult::whereHas('student', fn ($q) => $q->where('institute', $institute))
-                ->where('status', 'Pending Review')
-                ->count();
-            $averageScore = AssessmentResult::whereHas('student', fn ($q) => $q->where('institute', $institute))
-                ->where('status', 'Completed')
-                ->avg('percentage') ?? 0;
-            $certificateCount = Certificate::whereHas('student', fn ($q) => $q->where('institute', $institute))->count();
-            $classSessionCount = ClassContentSession::where('institute', $institute)->count();
-            $todayClassCount = ClassContentSession::where('institute', $institute)->where('session_date', $today)->count();
-            $todayCompletedSessions = ClassContentSession::where('institute', $institute)
-                ->where('session_date', $today)
-                ->whereIn('status', ['completed', 'partially_completed'])
-                ->count();
-            $activeSessions = ClassContentSession::where('institute', $institute)->where('status', 'in_progress')->count();
-            $totalTeachingHours = round(ClassContentSession::where('institute', $institute)->sum('duration_seconds') / 3600, 1);
-            $contentReleasedCount = Content::where('institute', $institute)->where('is_released', 1)->count();
-            $approvedTeachingPlans = TeachingPlan::where('institute', $institute)->where('status', 'active')->count();
-            $pendingTeachingPlans = TeachingPlan::where('institute', $institute)->where('status', 'inactive')->count();
-            $releasedTeachingWeeks = TeachingPlanWeek::whereHas('plan', fn ($query) => $query->where('institute', $institute))
-                ->where('status', 'released')
-                ->count();
-            $lockedTeachingWeeks = TeachingPlanWeek::whereHas('plan', fn ($query) => $query->where('institute', $institute))
-                ->where('status', 'locked')
-                ->count();
-            $completedTeachingWeeks = TeachingPlanWeek::whereHas('plan', fn ($query) => $query->where('institute', $institute))
-                ->where('status', 'completed')
-                ->count();
-            $pendingTeachingItems = TeachingPlanItem::whereHas('plan', fn ($query) => $query->where('institute', $institute))
-                ->whereIn('status', ['locked', 'released'])
-                ->count();
-        } else {
-            $studentCount = Student::count();
-            $teacherCount = User::where('role', 'Teacher')->count();
-            $classCount = SchoolClass::count();
-            $instituteCount = Institute::count();
-            $contentCount = Content::count();
-            $assessmentCount = Assessment::count();
-            $completedResults = AssessmentResult::where('status', 'Completed')->count();
-            $pendingReviewResults = AssessmentResult::where('status', 'Pending Review')->count();
-            $averageScore = AssessmentResult::where('status', 'Completed')->avg('percentage') ?? 0;
-            $certificateCount = Certificate::count();
-            $classSessionCount = ClassContentSession::count();
-            $todayClassCount = ClassContentSession::where('session_date', $today)->count();
-            $todayCompletedSessions = ClassContentSession::where('session_date', $today)
-                ->whereIn('status', ['completed', 'partially_completed'])
-                ->count();
-            $activeSessions = ClassContentSession::where('status', 'in_progress')->count();
-            $totalTeachingHours = round(ClassContentSession::sum('duration_seconds') / 3600, 1);
-            $contentReleasedCount = Content::where('is_released', 1)->count();
-            $approvedTeachingPlans = TeachingPlan::where('status', 'active')->count();
-            $pendingTeachingPlans = TeachingPlan::where('status', 'inactive')->count();
-            $releasedTeachingWeeks = TeachingPlanWeek::where('status', 'released')->count();
-            $lockedTeachingWeeks = TeachingPlanWeek::where('status', 'locked')->count();
-            $completedTeachingWeeks = TeachingPlanWeek::where('status', 'completed')->count();
-            $pendingTeachingItems = TeachingPlanItem::whereIn('status', ['locked', 'released'])->count();
+            return session('user_institute');
         }
 
-        $rows = [
-            ['Report Scope', $scopeLabel],
-            ['Generated At', now()->format('Y-m-d H:i:s')],
-            [],
-            ['Report Area', 'Metric', 'Current Value', 'Status'],
-            ['Institutes', 'Total Institutes', $instituteCount, 'Live'],
-            ['Students', 'Total Registered Students', $studentCount, 'Live'],
-            ['STEM Engineers', 'Total STEM Engineers', $teacherCount, 'Live'],
-            ['Classes', 'Total Classes', $classCount, 'Live'],
-            ['Content', 'Total Uploaded Content', $contentCount, 'Live'],
-            ['Content', 'Released Learning Content', $contentReleasedCount, 'Available'],
-            ['Assessments', 'Total Assessments', $assessmentCount, 'Live'],
-            ['Assessment Results', 'Completed Results', $completedResults, 'Completed'],
-            ['Assessment Results', 'Pending Manual Review', $pendingReviewResults, 'Pending'],
-            ['Performance', 'Average Score', number_format($averageScore, 2) . '%', 'Calculated'],
-            ['Certificates', 'Total Certificates Issued', $certificateCount, 'Live'],
-            ['Class Sessions', 'Total Sessions Conducted', $classSessionCount, 'Tracked'],
-            ['Class Sessions', 'Classes Scheduled Today', $todayClassCount, 'Scheduled'],
-            ['Class Sessions', 'Sessions Completed Today', $todayCompletedSessions, 'Completed'],
-            ['Class Sessions', 'Active Live Sessions', $activeSessions, 'Live'],
-            ['Class Sessions', 'Total Teaching Hours Delivered', $totalTeachingHours, 'Tracked'],
-            ['Teaching Plans', 'Active Plans', $approvedTeachingPlans, 'Active'],
-            ['Teaching Plans', 'Inactive Plans', $pendingTeachingPlans, 'Inactive'],
-            ['Teaching Plan Weeks', 'Released Weeks', $releasedTeachingWeeks, 'Released'],
-            ['Teaching Plan Weeks', 'Locked Weeks', $lockedTeachingWeeks, 'Locked'],
-            ['Teaching Plan Weeks', 'Completed Weeks', $completedTeachingWeeks, 'Completed'],
-            ['Teaching Plan Items', 'Pending Plan Items', $pendingTeachingItems, 'Pending'],
-        ];
+        if (session('user_role') != 'Admin') {
+            return null;
+        }
 
-        $isInstituteAdmin = session('user_role') == 'InstituteAdmin';
-        $institute = session('user_institute');
-        $studentAiReviews = $this->studentAiAttemptQuery($isInstituteAdmin, $institute);
-        $teacherAiPrep = $this->teacherAiAttemptQuery($isInstituteAdmin, $institute);
+        ['currentInstitute' => $currentInstitute] = $this->buildInstituteSectionPager($request, $routeName);
 
-        $rows[] = ['AI Progress', 'Student AI Reviews', (clone $studentAiReviews)->count() . ' total | ' . (clone $studentAiReviews)->where('status', 'passed')->count() . ' passed | ' . number_format((clone $studentAiReviews)->avg('percentage') ?? 0, 2) . '% avg', 'Progress Only'];
-        $rows[] = ['AI Progress', 'STEM Engineer Prep Quizzes', (clone $teacherAiPrep)->count() . ' total | ' . (clone $teacherAiPrep)->where('status', 'passed')->count() . ' passed | ' . number_format((clone $teacherAiPrep)->avg('percentage') ?? 0, 2) . '% avg', 'Progress Only'];
-
-        $filename = 'admin_report_' . now()->format('Ymd_His') . '.csv';
-
-        return response()->streamDownload(function () use ($rows) {
-            $file = fopen('php://output', 'w');
-
-            foreach ($rows as $row) {
-                fputcsv($file, $row);
-            }
-
-            fclose($file);
-        }, $filename, [
-            'Content-Type' => 'text/csv',
-        ]);
+        return $currentInstitute;
     }
+
+    private function reportDownloadRouteName(string $reportMode): string
+    {
+        return match ($reportMode) {
+            'student-ai-review' => 'reports.student-ai-review.download',
+            'stem-engineer-prep' => 'reports.stem-engineer-prep.download',
+            'weekly-student-performance' => 'reports.student-performance.weekly.download',
+            'monthly-student-performance' => 'reports.student-performance.monthly.download',
+            'weekly-stem-engineer-performance' => 'reports.stem-engineer-performance.weekly.download',
+            'monthly-stem-engineer-performance' => 'reports.stem-engineer-performance.monthly.download',
+            default => 'reports.student-ai-review.download',
+        };
+    }
+
+    private function studentClassReportRows($studentIds, ?string $periodFrom, ?string $periodTo): array
+    {
+        return SchoolClass::orderBy('institute')
+            ->orderBy('class_name')
+            ->orderBy('section')
+            ->get()
+            ->map(function ($class) use ($studentIds, $periodFrom, $periodTo) {
+                $classStudentIds = Student::whereIn('id', $studentIds)
+                    ->where('institute', $class->institute)
+                    ->where('class', $class->class_name)
+                    ->where('section', $class->section)
+                    ->pluck('id');
+
+                if ($classStudentIds->isEmpty()) {
+                    return null;
+                }
+
+                $results = AssessmentResult::whereIn('student_id', $classStudentIds)
+                    ->where('status', 'Completed')
+                    ->when($periodFrom, fn ($query) => $query->whereDate('evaluated_at', '>=', $periodFrom))
+                    ->when($periodTo, fn ($query) => $query->whereDate('evaluated_at', '<=', $periodTo));
+
+                $attempts = AiQuizAttempt::whereIn('student_id', $classStudentIds)
+                    ->where('attempt_type', 'student')
+                    ->whereIn('status', ['passed', 'failed'])
+                    ->when($periodFrom, fn ($query) => $query->whereDate('submitted_at', '>=', $periodFrom))
+                    ->when($periodTo, fn ($query) => $query->whereDate('submitted_at', '<=', $periodTo));
+
+                return [
+                    trim($class->class_name . ' ' . $class->section),
+                    $class->institute,
+                    $classStudentIds->count(),
+                    (clone $results)->count(),
+                    number_format((clone $results)->avg('percentage') ?? 0, 2) . '%',
+                    (clone $attempts)->count(),
+                    (clone $attempts)->where('status', 'passed')->count(),
+                    number_format((clone $attempts)->avg('percentage') ?? 0, 2) . '%',
+                ];
+            })
+            ->filter()
+            ->take(40)
+            ->values()
+            ->all();
+    }
+
+    private function teacherReportRows($teacherIds, ?string $periodFrom, ?string $periodTo): array
+    {
+        return User::whereIn('id', $teacherIds)
+            ->orderBy('institute')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($teacher) use ($periodFrom, $periodTo) {
+                $sessions = ClassContentSession::where('stem_engineer_id', $teacher->id)
+                    ->when($periodFrom, fn ($query) => $query->whereDate('session_date', '>=', $periodFrom))
+                    ->when($periodTo, fn ($query) => $query->whereDate('session_date', '<=', $periodTo));
+
+                $attempts = AiQuizAttempt::where('teacher_id', $teacher->id)
+                    ->where('attempt_type', 'teacher_prep')
+                    ->whereIn('status', ['passed', 'failed'])
+                    ->when($periodFrom, fn ($query) => $query->whereDate('submitted_at', '>=', $periodFrom))
+                    ->when($periodTo, fn ($query) => $query->whereDate('submitted_at', '<=', $periodTo));
+
+                return [
+                    $teacher->name,
+                    $teacher->institute,
+                    (clone $sessions)->count(),
+                    (clone $sessions)->where('status', 'completed')->count(),
+                    number_format(((clone $sessions)->sum('duration_seconds') ?? 0) / 3600, 2),
+                    (clone $attempts)->count(),
+                    (clone $attempts)->where('status', 'passed')->count(),
+                    number_format((clone $attempts)->avg('percentage') ?? 0, 2) . '%',
+                ];
+            })
+            ->take(40)
+            ->values()
+            ->all();
+    }
+
+    private function reportVisuals(array $metrics, bool $isStudentReport, bool $isTeacherReport): array
+    {
+        $visuals = [];
+
+        if ($isStudentReport) {
+            $visuals[] = [
+                'title' => 'Student AI Review Pass Rate',
+                'labels' => ['Passed', 'Remaining'],
+                'values' => [$metrics['student_ai_passed'], max(0, $metrics['student_ai_attempts'] - $metrics['student_ai_passed'])],
+            ];
+            $visuals[] = [
+                'title' => 'Assessment Average vs Target',
+                'labels' => ['Average', 'Target'],
+                'values' => [$metrics['assessment_average'], 60],
+            ];
+        }
+
+        if ($isTeacherReport) {
+            $visuals[] = [
+                'title' => 'STEM Engineer Prep Pass Rate',
+                'labels' => ['Passed', 'Remaining'],
+                'values' => [$metrics['stem_engineer_prep_passed'], max(0, $metrics['stem_engineer_prep_attempts'] - $metrics['stem_engineer_prep_passed'])],
+            ];
+            $visuals[] = [
+                'title' => 'Session Completion',
+                'labels' => ['Completed', 'Remaining'],
+                'values' => [$metrics['completed_sessions'], max(0, $metrics['sessions'] - $metrics['completed_sessions'])],
+            ];
+        }
+
+        return $visuals;
+    }
+
+    private function reportDateWindow(Request $request, string $reportMode): array
+    {
+        if (str_starts_with($reportMode, 'monthly-')) {
+            $month = $request->input('report_month', now()->format('Y-m'));
+            $start = \Carbon\Carbon::parse($month . '-01')->startOfMonth();
+            $end = $start->copy()->endOfMonth();
+
+            return [$start->toDateString(), $end->toDateString(), $start->format('F Y')];
+        }
+
+        if (str_starts_with($reportMode, 'weekly-')) {
+            $start = $request->filled('from_date')
+                ? \Carbon\Carbon::parse($request->from_date)
+                : now()->startOfWeek();
+            $end = $request->filled('to_date')
+                ? \Carbon\Carbon::parse($request->to_date)
+                : now()->endOfWeek();
+
+            return [$start->toDateString(), $end->toDateString(), $start->format('d M Y') . ' - ' . $end->format('d M Y')];
+        }
+
+        if (in_array($reportMode, ['student-ai-review', 'stem-engineer-prep'], true)) {
+            $start = $request->filled('from_date')
+                ? \Carbon\Carbon::parse($request->from_date)
+                : now()->startOfWeek();
+            $end = $request->filled('to_date')
+                ? \Carbon\Carbon::parse($request->to_date)
+                : now()->endOfWeek();
+
+            return [$start->toDateString(), $end->toDateString(), $start->format('d M Y') . ' - ' . $end->format('d M Y')];
+        }
+
+        return [null, null, 'All available data'];
+    }
+
 }

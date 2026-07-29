@@ -7,92 +7,33 @@
         Dashboard
     </a>
 
-    <a href="{{ route('admin.change.password') }}" class="sidebar-link">
+    <a href="{{ route('admin.change.password') }}" class="sidebar-link {{ request()->routeIs('admin.change.password') ? 'active' : '' }}">
         Change Password
     </a>
 
-    <a href="{{ route('users') }}" class="sidebar-link {{ request()->routeIs('users') ? 'active' : '' }}">
-        STEM Engineers Management
+    <a href="{{ route('admin.management') }}" class="sidebar-link {{ request()->routeIs('admin.management') || request()->routeIs('users') || request()->routeIs('students') || request()->routeIs('classes') || request()->routeIs('courses*') || request()->routeIs('teaching-plans*') || request()->routeIs('institutes') ? 'active' : '' }}">
+        Management
     </a>
 
-    <a href="{{ route('classes') }}" class="sidebar-link {{ request()->routeIs('classes') ? 'active' : '' }}">
-        Class Management
-    </a>
-
-    <a href="{{ route('teaching-plans') }}"class="sidebar-link {{ request()->routeIs('teaching-plans*') ? 'active' : '' }}">
-        Teaching Plans
-    </a>
-
-    <a href="{{ route('courses') }}"class="sidebar-link {{ request()->routeIs('courses*') ? 'active' : '' }}">
-        Courses Management
-    </a>
-
-    <a href="{{ route('students') }}" class="sidebar-link {{ request()->routeIs('students') ? 'active' : '' }}">
-        Student Management
-    </a>
-
-    <a href="{{ route('reports') }}" class="sidebar-link {{ request()->routeIs('reports') ? 'active' : '' }}">
+    <a href="{{ route('admin.reports.hub') }}" class="sidebar-link {{ request()->routeIs('admin.reports.hub') || request()->routeIs('admin.class-session.report*') || request()->routeIs('reports.*') ? 'active' : '' }}">
         Reports
     </a>
 
-    <a href="{{ route('admin.analytics') }}" class="sidebar-link {{ request()->routeIs('admin.analytics') ? 'active' : '' }}">
-        Analytics
+    <a href="{{ route('admin.approvals') }}" class="sidebar-link {{ request()->routeIs('admin.approvals') || request()->routeIs('admin.question-papers*') || request()->routeIs('admin.certificates') || request()->routeIs('admin.my-space*') || request()->routeIs('admin.teacher-achievements*') || request()->routeIs('admin.achievements') ? 'active' : '' }}">
+        Approvals
     </a>
 
-    <a href="{{ route('admin.certificates') }}"class="sidebar-link {{ request()->routeIs('admin.certificates') ? 'active' : '' }}">
-        Certificates
+    <a href="{{ route('admin.monitoring') }}" class="sidebar-link {{ request()->routeIs('admin.monitoring') || request()->routeIs('admin.activity.monitoring') || request()->routeIs('admin.assessment.monitoring') || request()->routeIs('admin.assessment.review.monitoring') ? 'active' : '' }}">
+        Monitoring
     </a>
 
-    <a href="{{ route('admin.achievements') }}"class="sidebar-link {{ request()->routeIs('admin.achievements') ? 'active' : '' }}">
-        Student Achievements
-    </a>
-
-    <a href="{{ route('admin.my-space') }}"class="sidebar-link {{ request()->routeIs('admin.my-space*') ? 'active' : '' }}">
-        My Space Review
-    </a>
-
-    <a href="{{ route('admin.community-feed') }}"class="sidebar-link {{ request()->routeIs('admin.community-feed*') ? 'active' : '' }}">
-        Blogs
-    </a>
-
-    <a href="{{ route('admin.assessment.monitoring') }}" class="sidebar-link {{ request()->routeIs('admin.assessment.monitoring') ? 'active' : '' }}">
-        Assessment Monitoring
-    </a>
-
-    <a href="{{ route('admin.question-papers') }}" class="sidebar-link {{ request()->routeIs('admin.question-papers*') ? 'active' : '' }}">
-        Question Paper Approval
-    </a>
-
-    <a href="{{ route('admin.class-session.report') }}"class="sidebar-link {{ request()->routeIs('admin.class-session.report') ? 'active' : '' }}">
-        Class Session Report
-    </a>
-
-    <a href="{{ route('notifications') }}"class="sidebar-link {{ request()->routeIs('notifications*') ? 'active' : '' }}">
+    <a href="{{ route('notifications') }}" class="sidebar-link {{ request()->routeIs('notifications*') ? 'active' : '' }}">
         Notifications
     </a>
 
     @if(session('user_role') == 'Admin')
-
-        <a href="{{ route('admin.activity.monitoring') }}"class="sidebar-link {{ request()->routeIs('admin.activity.monitoring') ? 'active' : '' }}">
-            Activity Monitoring
-        </a>
-
-        <a href="{{ route('institutes') }}" class="sidebar-link {{ request()->routeIs('institutes') ? 'active' : '' }}">
-            Institute Management
-        </a>
-
-        <a href="{{ route('admin.institute.requests') }}"class="sidebar-link {{ request()->routeIs('admin.institute.requests') ? 'active' : '' }}">
-            Institute Requests
-        </a>
-
-        <a href="{{ route('admin.independent.learners') }}"class="sidebar-link {{ request()->routeIs('admin.independent.learners*') ? 'active' : '' }}">
+        <a href="{{ route('admin.independent.learners') }}" class="sidebar-link {{ request()->routeIs('admin.independent.learners*') ? 'active' : '' }}">
             Hybrid Learners
         </a>
-
     @endif
-
-    <a href="{{ route('admin.assessment.review.monitoring') }}"class="sidebar-link {{ request()->routeIs('admin.assessment.review.monitoring') ? 'active' : '' }}">
-        Assessment Review Monitoring
-    </a>
-
 </div>

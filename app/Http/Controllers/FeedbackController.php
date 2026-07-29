@@ -11,6 +11,10 @@ use Illuminate\Support\Str;
 class FeedbackController extends Controller
 {
     private const RECIPIENT_EMAIL = 'tinkedgemain@gmail.com';
+    private const CC_EMAILS = [
+        'support@tinkedge.com',
+        'shah@tinkedge.com',
+    ];
 
     public function teacherCreate()
     {
@@ -79,6 +83,7 @@ class FeedbackController extends Controller
                 'submittedAt' => now()->format('d M Y, h:i A'),
             ], function ($message) use ($validated, $replyTo) {
                 $message->to(self::RECIPIENT_EMAIL)
+                    ->cc(self::CC_EMAILS)
                     ->subject('InnovatEdge Feedback: ' . Str::limit($validated['subject'], 110));
 
                 if ($replyTo) {

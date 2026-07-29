@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+@section('title', 'InnovatEdge | STEM Education, Robotics and AI Learning Platform')
+@section('meta_description', 'InnovatEdge helps schools and institutes manage STEM education, ATL labs, robotics learning, assessments, certificates, AI prep quizzes, and learner progress.')
+
 @section('content')
 
 @php
@@ -85,7 +88,7 @@
 
                         <div class="hero-badge">
                             <i class="fa fa-sparkles"></i>
-                            ADVANCED LEARNING ECOSYSTEM
+                            AI POWERED LEARNING ECOSYSTEM
                         </div>
 
                         <h1 class="hero-title">
@@ -94,7 +97,7 @@
                         </h1>
 
                         <p class="hero-description">
-                            Empowering institutions, STEM Engineers and learners with automated
+                            Empowering institutions, STEM Engineers and learners with AI powered
                             assessments, analytics, certificates and a complete
                             learning management system.
                         </p>
@@ -195,7 +198,7 @@
                 </h2>
 
                 <p>
-                    Advanced tools and intelligent features to enhance teaching
+                    AI powered tools and intelligent features to enhance teaching
                     and accelerate learning outcomes.
                 </p>
 
@@ -208,7 +211,7 @@
                         <div class="feature-icon purple">
                             <i class="fa fa-brain"></i>
                         </div>
-                        <h4>Automated Assessments</h4>
+                        <h4>AI Powered Assessments</h4>
                         <p>Experience progress wise assessment flow for enhanced learning.</p>
                     </div>
                 </div>
@@ -293,7 +296,7 @@
                                 <h3>Hybrid Learning</h3>
                                 <p>
                                     Learn independently through premium courses,
-                                    automated assessments and skill certifications.
+                                    AI powered assessments and skill certifications.
                                 </p>
 
                                 <a href="{{ route('coming.soon') }}" class="btn access-btn-alt">
@@ -333,7 +336,7 @@
 
                         <div>
                             <h4>InnovatEdge</h4>
-                            <p>Advanced Learning Ecosystem</p>
+                            <p>AI Powered Learning Ecosystem</p>
                         </div>
                     </div>
 

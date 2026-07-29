@@ -37,6 +37,8 @@
                 <div class="alert alert-danger">{{ $errors->first() }}</div>
             @endif
 
+            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+
             <div class="card shadow border-0">
                 <div class="card-body">
 
@@ -71,7 +73,8 @@
 
                         <tbody>
                             @php
-                                $groupedClasses = $classes
+                                $classRows = method_exists($classes, 'getCollection') ? $classes->getCollection() : collect($classes);
+                                $groupedClasses = $classRows
                                     ->sortBy([
                                         ['institute', 'asc'],
                                         ['class_name', 'asc'],
@@ -255,6 +258,12 @@
                     </table>
 
                 </div>
+
+                @if(method_exists($classes, 'links'))
+                    <div class="px-3 pb-3">
+                        {{ $classes->links('pagination::bootstrap-5') }}
+                    </div>
+                @endif
             </div>
 
         </div>

@@ -12,9 +12,12 @@ use App\Models\Student;
 use App\Models\SchoolClass;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
+use App\Support\BuildsInstituteSectionPager;
 
 class AssessmentResultController extends Controller
 {
+    use BuildsInstituteSectionPager;
+
     public function store(Request $request)
     {
         $request->validate([
@@ -91,6 +94,13 @@ class AssessmentResultController extends Controller
     {
         $selectedClass = $request->input('class');
         $classOptions = collect();
+        $sectionPager = null;
+        $currentInstitute = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, 'assessment.review');
+        }
 
         $pendingResults = AssessmentResult::with([
                 'student',
@@ -128,10 +138,16 @@ class AssessmentResultController extends Controller
                     $q->where('institute', session('user_institute'));
                 });
             })
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $query->whereHas('assessment', function ($q) use ($currentInstitute) {
+                    $q->where('institute', $currentInstitute);
+                });
+            })
             ->latest()
-            ->get();
+            ->paginate(20)
+            ->withQueryString();
 
-        return view('review-assessment-answers', compact('pendingResults', 'classOptions', 'selectedClass'));
+        return view('review-assessment-answers', compact('pendingResults', 'classOptions', 'selectedClass', 'sectionPager'));
     }
 
     public function reviewAnswer(Request $request, $id)
@@ -281,16 +297,38 @@ class AssessmentResultController extends Controller
 
         if (
             !$assessment ||
-            (
-                $assessment->assessment_date &&
-                $assessment->assessment_date > today()->toDateString()
-            )
+            !$this->assessmentWindowIsOpen($assessment)
         ) {
             return false;
         }
 
         return $this->studentClassName($student) ==
             preg_replace('/\s+/', ' ', trim((string) $assessment->assigned_class));
+    }
+
+    private function assessmentWindowIsOpen(Assessment $assessment): bool
+    {
+        if ($assessment->assessment_date) {
+            $today = today()->toDateString();
+
+            if ($assessment->assessment_date > $today) {
+                return false;
+            }
+
+            if (($assessment->start_time || $assessment->end_time) && $assessment->assessment_date < $today) {
+                return false;
+            }
+        }
+
+        if ($assessment->start_time && now()->format('H:i:s') < $assessment->start_time) {
+            return false;
+        }
+
+        if ($assessment->end_time && now()->format('H:i:s') > $assessment->end_time) {
+            return false;
+        }
+
+        return true;
     }
 
     private function calculateBadge($percentage)

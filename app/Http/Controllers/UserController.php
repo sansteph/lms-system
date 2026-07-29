@@ -10,25 +10,35 @@ use App\Models\PendingPasswordChange;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use App\Models\InstituteRegistrationRequest;
 use App\Models\Content;
 use Illuminate\Support\Facades\DB;
 use App\Models\SchoolClass;
 use App\Models\ClassContentSession;
 use App\Support\DeletesAssessments;
+use App\Support\BuildsInstituteSectionPager;
 
 
 class UserController extends Controller
 {
-    use DeletesAssessments;
+    use BuildsInstituteSectionPager, DeletesAssessments;
 
     public function index(Request $request)
     {
         $search = $request->search;
+        $sectionPager = null;
+        $currentInstitute = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, 'users');
+        }
 
         $users = User::where('role', 'Teacher')
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
+            })
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
             })
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -40,9 +50,10 @@ class UserController extends Controller
             })
             ->orderBy('institute')
             ->orderBy('name')
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
-        return view('users', compact('users'));
+        return view('users', compact('users', 'sectionPager'));
     }
 
     public function store(Request $request)
@@ -249,46 +260,6 @@ class UserController extends Controller
     }
 
 
-    public function instituteRegister()
-    {
-        return view('institute-register');
-    }
-
-    public function instituteRegisterSubmit(Request $request)
-    {
-        $request->validate([
-            'admin_name' => 'required|string|max:255',
-            'admin_email' => 'required|email|max:255',
-            'institute_name' => 'required|string|max:255',
-            'phone' => 'required|string|max:20',
-            'location' => 'required|string|max:255',
-        ]);
-
-        $instituteName = trim($request->institute_name);
-
-        $adminExistsForInstitute = User::where('role', 'Admin')
-            ->where('institute', $instituteName)
-            ->exists();
-
-        if ($adminExistsForInstitute) {
-            return redirect()->back()
-                ->with('error', 'This institute already has an admin account.');
-        }
-
-        InstituteRegistrationRequest::create([
-            'request_id' => 'REQ' . rand(100000, 999999),
-            'admin_name' => $request->admin_name,
-            'admin_email' => $request->admin_email,
-            'phone' => $request->phone,
-            'institute_name' => $instituteName,
-            'location' => $request->location,
-            'status' => 'Pending',
-        ]);
-
-        return redirect()->route('admin.login')
-            ->with('success', 'Registration request submitted successfully. You will receive login credentials after approval.');
-    }
-
     public function changePassword()
     {
         return view('change-password', [
@@ -437,112 +408,6 @@ class UserController extends Controller
             'status' => 'success',
             'message' => 'Password changed successfully.',
         ]);
-    }
-
-    public function instituteRequests()
-    {
-        $requests = InstituteRegistrationRequest::latest()->get();
-
-        return view('institute-requests', compact('requests'));
-    }
-
-    public function approveInstituteRequest($id)
-    {
-        $requestData = InstituteRegistrationRequest::findOrFail($id);
-
-        if ($requestData->status != 'Pending') {
-            return redirect()->back()
-                ->with('error', 'This request has already been processed.');
-        }
-
-        $instituteName = trim($requestData->institute_name);
-
-        $adminExistsForInstitute = User::where('role', 'InstituteAdmin')
-            ->where('institute', $instituteName)
-            ->exists();
-
-        if ($adminExistsForInstitute) {
-            return redirect()->back()
-                ->with('error', 'This institute already has an admin account.');
-        }
-
-        $slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $instituteName));
-        $customEmail = $slug . '.admin@InnovatEdge.local';
-
-        $temporaryPassword = Str::random(10);
-
-        do {
-            $adminUserId = 'ADM' . rand(100000, 999999);
-        } while (User::where('user_id', $adminUserId)->exists());
-
-        User::create([
-            'user_id' => $adminUserId,
-            'name' => $requestData->admin_name,
-            'email' => $customEmail,
-            'phone' => $requestData->phone,
-            'institute' => $instituteName,
-            'role' => 'InstituteAdmin',
-            'password' => Hash::make($temporaryPassword),
-            'status' => 1,
-            'password_changed_at' => null,
-        ]);
-
-        $existingInstitute = Institute::where('institute_name', $instituteName)->first();
-
-        if (!$existingInstitute) {
-            do {
-                $instituteId = 'INS' . rand(100000, 999999);
-            } while (Institute::where('institute_id', $instituteId)->exists());
-
-            Institute::create([
-                'institute_id' => $instituteId,
-                'institute_name' => $instituteName,
-                'location' => $requestData->location,
-                'contact_person' => $requestData->admin_name,
-                'email' => $customEmail,
-                'phone' => $requestData->phone,
-                'status' => 1,
-            ]);
-        }
-
-        $requestData->update([
-            'status' => 'Approved',
-            'remarks' => 'Approved and InstituteAdmin account created.',
-        ]);
-
-        Mail::raw(
-            "Your InnovatEdge Institute Admin account has been approved.\n\n" .
-            "Institute: " . $instituteName . "\n" .
-            "Login Email: " . $customEmail . "\n" .
-            "Temporary Password: " . $temporaryPassword . "\n\n" .
-            "Use these credentials to login to the LMS Admin Portal.\n" .
-            "Please change your password after login for security.",
-            function ($message) use ($requestData) {
-                $message->to($requestData->admin_email)
-                    ->subject('InnovatEdge Institute Admin Credentials');
-            }
-        );
-
-        return redirect()->back()
-            ->with('success', 'Institute request approved and credentials sent.');
-    }
-
-    public function rejectInstituteRequest($id)
-    {
-        $requestData = InstituteRegistrationRequest::findOrFail($id);
-
-        if ($requestData->status != 'Pending') {
-            return redirect()->back()
-                ->with('error', 'This request has already been processed.');
-        }
-
-        $requestData->update([
-            'status' => 'Rejected',
-            'remarks' => 'Registration request rejected.',
-        ]);
-
-        return redirect()->back()
-            ->with('success', 'Institute request rejected.');
     }
 
     public function markTopicComplete($contentId)

@@ -36,6 +36,11 @@ class CommunityPost extends Model
         return $this->hasMany(CommunityPostLike::class);
     }
 
+    public function comments()
+    {
+        return $this->hasMany(CommunityPostComment::class);
+    }
+
     public function author()
     {
         if ($this->author_type === 'Student') {

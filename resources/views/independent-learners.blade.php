@@ -104,7 +104,7 @@
                             @empty
 
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted">
+                                    <td colspan="8" class="text-center text-muted">
                                         No hybrid learners found.
                                     </td>
                                 </tr>
@@ -114,6 +114,12 @@
                         </tbody>
 
                     </table>
+
+                    @if($learners->hasPages())
+                        <div class="mt-3">
+                            {{ $learners->links('pagination::bootstrap-5') }}
+                        </div>
+                    @endif
 
                 </div>
             </div>

@@ -19,7 +19,6 @@
         'independent.register',
         'independent.login',
         'coming.soon',
-        'admin.institute.register',
         'independent.courses.learn'
     );
 

@@ -7,10 +7,24 @@
     $routePrefix = $isBlogsModule
         ? 'blogs'
         : ($actor['type'] === 'Teacher'
-        ? 'teacher'
-        : ($actor['type'] === 'Student' ? 'student' : 'admin'));
+            ? 'teacher'
+            : ($actor['type'] === 'Student' ? 'student' : 'admin'));
     $isAdmin = in_array($actor['type'], ['Admin', 'InstituteAdmin'], true);
     $canModerate = in_array($actor['type'], ['Admin', 'InstituteAdmin', 'Teacher'], true);
+    $activeTab = $activeTab ?? 'feed';
+    $baseRoute = $routePrefix . '.community-feed';
+    $actorLabel = $actor['type'] === 'Teacher' ? 'STEM Engineer' : ($actor['type'] === 'InstituteAdmin' ? 'Institute Admin' : $actor['type']);
+
+    $navItems = [
+        'feed' => ['label' => 'Feed', 'icon' => 'fa-newspaper', 'description' => 'Active posts'],
+        'profile' => ['label' => 'Profile', 'icon' => 'fa-user-circle', 'description' => 'Your profile'],
+    ];
+
+    if ($canModerate) {
+        $navItems['approvals'] = ['label' => 'Approvals', 'icon' => 'fa-user-shield', 'description' => 'Review posts'];
+    }
+
+    $navItems['post'] = ['label' => 'Post', 'icon' => 'fa-edit', 'description' => 'Create post'];
 @endphp
 
 <div class="container-fluid {{ $isBlogsModule ? 'blogs-social-page' : '' }}">
@@ -28,26 +42,28 @@
 
         <div class="{{ $isBlogsModule ? 'col-12 blogs-social-shell' : 'col-md-10 col-lg-10 p-4' }}">
 
-            @if($isBlogsModule)
-                <div class="blogs-social-hero">
-                    <div>
-                        <span class="blogs-social-kicker">InnovatEdge Community</span>
-                        <h2>Blogs</h2>
-                        <p>Share relevant STEM updates, achievements, project ideas and classroom highlights.</p>
-                    </div>
-                    <div class="blogs-social-user">
-                        <span>{{ $actor['name'] }}</span>
-                        <strong>{{ $actor['type'] === 'Teacher' ? 'STEM Engineer' : $actor['type'] }}</strong>
-                    </div>
-                </div>
-            @else
-                <div class="page-header mb-4">
+            <div class="blogs-social-hero">
+                <div>
+                    <span class="blogs-social-kicker">InnovatEdge Community</span>
                     <h2>Blogs</h2>
-                    <p class="text-muted mb-0">
-                        Share relevant STEM updates, achievements, project ideas and classroom highlights.
-                    </p>
+                    <p>Share STEM updates, achievements, project ideas and classroom highlights in one moderated community space.</p>
                 </div>
-            @endif
+                <div class="blogs-social-user">
+                    @if(!empty($actor['profile_image']))
+                        <img src="{{ \Illuminate\Support\Facades\Storage::url($actor['profile_image']) }}"
+                             alt="{{ $actor['name'] }}"
+                             class="blogs-social-user-photo">
+                    @else
+                        <div class="blogs-social-user-mark">
+                            {{ strtoupper(substr($actor['name'] ?? 'U', 0, 1)) }}
+                        </div>
+                    @endif
+                    <div class="blogs-social-user-copy">
+                        <span>{{ $actor['name'] }}</span>
+                        <strong>{{ $actorLabel }}</strong>
+                    </div>
+                </div>
+            </div>
 
             @if(session('success'))
                 <div class="alert alert-success">{{ session('success') }}</div>
@@ -59,17 +75,35 @@
                 </div>
             @endif
 
-            <div class="community-feed-layout">
-                <div class="community-compose-card">
-                    <div class="d-flex align-items-center gap-3 mb-3">
+            <nav class="community-icon-nav" aria-label="Blogs sections">
+                @foreach($navItems as $tab => $item)
+                    <a href="{{ route($baseRoute, ['tab' => $tab]) }}"
+                       class="community-icon-link {{ $activeTab === $tab ? 'active' : '' }}">
+                        <span class="community-icon-orb">
+                            <i class="fa {{ $item['icon'] }}"></i>
+                            @if($tab === 'approvals' && $pendingCount)
+                                <em>{{ $pendingCount }}</em>
+                            @endif
+                        </span>
+                        <span>
+                            <strong>{{ $item['label'] }}</strong>
+                            <small>{{ $item['description'] }}</small>
+                        </span>
+                    </a>
+                @endforeach
+            </nav>
+
+            @if($activeTab === 'post')
+                <section class="community-compose-card community-feature-panel">
+                    <div class="community-panel-heading">
                         <div class="community-avatar">
                             {{ strtoupper(substr($actor['name'] ?? 'U', 0, 1)) }}
                         </div>
                         <div>
-                            <h5 class="mb-1">Create a Post</h5>
-                            <p class="text-muted mb-0">
+                            <h3>Create a Post</h3>
+                            <p>
                                 @if($actor['type'] === 'Student')
-                                    Student posts are sent for Admin or STEM Engineer approval.
+                                    Student posts are submitted for Admin or STEM Engineer approval before appearing in the feed.
                                 @else
                                     Your post will be published immediately.
                                 @endif
@@ -108,7 +142,7 @@
                                 <label class="form-label">Post</label>
                                 <textarea name="body"
                                           class="form-control community-post-textarea"
-                                          rows="5"
+                                          rows="6"
                                           maxlength="3000"
                                           required>{{ old('body') }}</textarea>
                             </div>
@@ -131,181 +165,107 @@
                             </button>
                         </div>
                     </form>
-                </div>
+                </section>
+            @elseif($activeTab === 'profile')
+                <section class="community-profile-panel community-feature-panel">
+                    <div class="community-profile-cover"></div>
+                    <div class="community-profile-body">
+                        @if(!empty($profile['image']))
+                            <img src="{{ \Illuminate\Support\Facades\Storage::url($profile['image']) }}"
+                                 alt="{{ $profile['name'] }}"
+                                 class="community-profile-avatar">
+                        @elseif($profile['type'] === 'Student')
+                            <div class="community-profile-avatar community-profile-symbol">
+                                <i class="fa fa-user-graduate"></i>
+                            </div>
+                        @else
+                            <div class="community-profile-avatar community-profile-symbol">
+                                {{ strtoupper(substr($profile['name'] ?? 'U', 0, 1)) }}
+                            </div>
+                        @endif
 
-                <div class="community-filter-card">
-                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
-                        <div class="d-flex flex-wrap gap-2">
-                            <a href="{{ route($routePrefix . '.community-feed') }}"
-                               class="btn btn-sm {{ !request('type') && !request('status') ? 'btn-primary' : 'btn-outline-primary' }}">
+                        <div class="community-profile-info">
+                            <span class="community-profile-role">{{ $profile['role'] }}</span>
+                            <h3>{{ $profile['name'] }}</h3>
+                            <p>
+                                {{ $profile['institute'] ?: 'InnovatEdge' }}
+                                @if($profile['type'] === 'Student' && ($profile['class'] || $profile['section']))
+                                    &middot; Class {{ trim(($profile['class'] ?? '') . ' ' . ($profile['section'] ?? '')) }}
+                                @endif
+                            </p>
+
+                            @if($profile['qualification'])
+                                <div class="community-profile-note">
+                                    <i class="fa fa-graduation-cap"></i>
+                                    {{ $profile['qualification'] }}
+                                </div>
+                            @elseif($profile['designation'])
+                                <div class="community-profile-note">
+                                    <i class="fa fa-id-badge"></i>
+                                    {{ $profile['designation'] }}
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="community-profile-stats">
+                            <div>
+                                <strong>{{ $profile['approved_posts'] }}</strong>
+                                <span>Posts</span>
+                            </div>
+                            <div>
+                                <strong>{{ $profile['likes'] }}</strong>
+                                <span>Likes</span>
+                            </div>
+                            @if($profile['pending_posts'])
+                                <div>
+                                    <strong>{{ $profile['pending_posts'] }}</strong>
+                                    <span>Pending</span>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </section>
+
+                @include('community-feed.partials.posts', [
+                    'posts' => $posts,
+                    'actor' => $actor,
+                    'routePrefix' => $routePrefix,
+                    'baseRoute' => $baseRoute,
+                    'canModerate' => $canModerate,
+                    'isAdmin' => $isAdmin,
+                    'emptyTitle' => 'No posts from this profile yet',
+                    'emptyBody' => 'Approved posts from this user will appear here.'
+                ])
+            @else
+                @if($activeTab === 'feed')
+                    <div class="community-filter-card">
+                        <div class="community-filter-scroll">
+                            <a href="{{ route($baseRoute, ['tab' => 'feed']) }}"
+                               class="btn btn-sm {{ !request('type') ? 'btn-primary' : 'btn-outline-primary' }}">
                                 All Posts
                             </a>
 
                             @foreach($postTypes as $postType)
-                                <a href="{{ route($routePrefix . '.community-feed', ['type' => $postType]) }}"
+                                <a href="{{ route($baseRoute, ['tab' => 'feed', 'type' => $postType]) }}"
                                    class="btn btn-sm {{ request('type') === $postType ? 'btn-primary' : 'btn-outline-primary' }}">
                                     {{ $postType }}
                                 </a>
                             @endforeach
                         </div>
-
-                        @if($canModerate)
-                            <div class="d-flex flex-wrap gap-2">
-                                <a href="{{ route($routePrefix . '.community-feed', ['status' => 'Pending']) }}"
-                                   class="btn btn-sm {{ request('status') === 'Pending' ? 'btn-warning' : 'btn-outline-warning' }}">
-                                    Pending {{ $pendingCount ? '(' . $pendingCount . ')' : '' }}
-                                </a>
-                                <a href="{{ route($routePrefix . '.community-feed', ['status' => 'Approved']) }}"
-                                   class="btn btn-sm {{ request('status') === 'Approved' ? 'btn-success' : 'btn-outline-success' }}">
-                                    Approved
-                                </a>
-                                <a href="{{ route($routePrefix . '.community-feed', ['status' => 'Rejected']) }}"
-                                   class="btn btn-sm {{ request('status') === 'Rejected' ? 'btn-danger' : 'btn-outline-danger' }}">
-                                    Rejected
-                                </a>
-                            </div>
-                        @endif
                     </div>
-                </div>
+                @endif
 
-                <div class="community-post-list">
-                    @forelse($posts as $post)
-                        @php
-                            $liked = $post->isLikedBy($actor['type'], $actor['id']);
-                            $isOwner = $post->author_type === $actor['type'] && (int) $post->author_id === (int) $actor['id'];
-                            $authorImage = $post->authorProfileImage();
-                            $canModeratePost = $canModerate
-                                && $post->status === 'Pending'
-                                && (
-                                    $isAdmin
-                                    || (
-                                        $actor['type'] === 'Teacher'
-                                        && $post->author_type === 'Student'
-                                        && $post->institute === $actor['institute']
-                                    )
-                                );
-                        @endphp
-
-                        <article class="community-post-card community-post-{{ strtolower($post->author_type) }}">
-                            <div class="community-post-header">
-                                @if($authorImage)
-                                    <img src="{{ \Illuminate\Support\Facades\Storage::url($authorImage) }}"
-                                         alt="{{ $post->authorName() }}"
-                                         class="community-avatar-img small">
-                                @elseif($post->author_type === 'Student')
-                                    <div class="community-avatar small community-avatar-icon">
-                                        <i class="fa fa-user-graduate"></i>
-                                    </div>
-                                @else
-                                    <div class="community-avatar small">
-                                        {{ strtoupper(substr($post->authorName(), 0, 1)) }}
-                                    </div>
-                                @endif
-
-                                <div class="flex-grow-1">
-                                    <div class="d-flex flex-wrap align-items-center gap-2">
-                                        <h5 class="mb-0">{{ $post->authorName() }}</h5>
-                                        @if($post->author_type !== 'Student')
-                                            <span class="badge bg-light text-dark border">{{ $post->roleLabel() }}</span>
-                                        @endif
-                                        <span class="badge bg-primary-subtle text-primary">{{ $post->post_type }}</span>
-                                        @if($post->isSystemSynced())
-                                            <span class="badge bg-success-subtle text-success">Auto Shared</span>
-                                        @endif
-                                        @if($post->status !== 'Approved')
-                                            <span class="badge {{ $post->status === 'Pending' ? 'bg-warning text-dark' : 'bg-danger' }}">
-                                                {{ $post->status }}
-                                            </span>
-                                        @endif
-                                    </div>
-                                    <div class="text-muted small">
-                                        {{ $post->authorMeta() ?: 'InnovatEdge' }}
-                                        &middot;
-                                        {{ optional($post->published_at ?? $post->created_at)->format('d M Y, h:i A') }}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="community-post-body">
-                                <h4>{{ $post->title }}</h4>
-                                <p>{{ $post->body }}</p>
-                            </div>
-
-                            @if($post->image_path)
-                                <img src="{{ \Illuminate\Support\Facades\Storage::url($post->image_path) }}"
-                                     alt="{{ $post->title }}"
-                                     class="community-post-image">
-                            @endif
-
-                            @if($post->attachment_path)
-                                <a href="{{ \Illuminate\Support\Facades\Storage::url($post->attachment_path) }}"
-                                   target="_blank"
-                                   rel="noopener"
-                                   class="community-attachment">
-                                    <i class="fa fa-paperclip"></i>
-                                    {{ $post->attachment_original_name ?: 'View Attachment' }}
-                                </a>
-                            @endif
-
-                            <div class="community-post-actions">
-                                @if($post->status === 'Approved')
-                                    <form method="POST" action="{{ route($routePrefix . '.community-feed.like', $post->id) }}">
-                                        @csrf
-                                        <button type="submit" class="btn btn-sm {{ $liked ? 'btn-primary' : 'btn-outline-primary' }}">
-                                            <i class="{{ $liked ? 'fa fa-heart' : 'fa-regular fa-heart' }}"></i>
-                                            {{ $post->likes->count() }}
-                                        </button>
-                                    </form>
-                                @else
-                                    <span class="text-muted small">
-                                        <i class="fa fa-clock me-1"></i>
-                                        Awaiting publication
-                                    </span>
-                                @endif
-
-                                <div class="ms-auto d-flex flex-wrap gap-2">
-                                    @if($canModeratePost)
-                                        <form method="POST" action="{{ route($routePrefix . '.community-feed.approve', $post->id) }}">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-success">
-                                                Approve
-                                            </button>
-                                        </form>
-
-                                        <form method="POST" action="{{ route($routePrefix . '.community-feed.reject', $post->id) }}">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                Reject
-                                            </button>
-                                        </form>
-                                    @endif
-
-                                    @if($isAdmin || ($isOwner && $post->status !== 'Approved'))
-                                        <form method="POST" action="{{ route($routePrefix . '.community-feed.delete', $post->id) }}">
-                                            @csrf
-                                            <button type="submit"
-                                                    class="btn btn-sm btn-outline-danger"
-                                                    onclick="return confirm('Delete this community post?')">
-                                                Delete
-                                            </button>
-                                        </form>
-                                    @endif
-                                </div>
-                            </div>
-                        </article>
-                    @empty
-                        <div class="community-empty-state">
-                            <i class="fa fa-comments"></i>
-                                <h4>No community posts yet</h4>
-                            <p>Share the first blog update, achievement or classroom highlight.</p>
-                        </div>
-                    @endforelse
-                </div>
-
-                <div class="mt-4">
-                    {{ $posts->links() }}
-                </div>
-            </div>
+                @include('community-feed.partials.posts', [
+                    'posts' => $posts,
+                    'actor' => $actor,
+                    'routePrefix' => $routePrefix,
+                    'baseRoute' => $baseRoute,
+                    'canModerate' => $canModerate,
+                    'isAdmin' => $isAdmin,
+                    'emptyTitle' => $activeTab === 'approvals' ? 'No posts awaiting approval' : 'No community posts yet',
+                    'emptyBody' => $activeTab === 'approvals' ? 'Pending student posts will appear here for review.' : 'Share the first blog update, achievement or classroom highlight.'
+                ])
+            @endif
 
         </div>
     </div>

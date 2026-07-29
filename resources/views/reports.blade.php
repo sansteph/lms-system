@@ -2,6 +2,45 @@
 
 @section('content')
 
+@php
+    $reportMode = $reportMode ?? 'overview';
+    $reportTitles = [
+        'overview' => 'Reports',
+        'student-ai-review' => 'Weekly Student AI Review Report',
+        'stem-engineer-prep' => 'Weekly STEM Engineer Prep Report',
+        'weekly-student-performance' => 'Weekly Student Performance Report',
+        'monthly-student-performance' => 'Monthly Student Performance Report',
+        'weekly-stem-engineer-performance' => 'Weekly STEM Engineer Performance Report',
+        'monthly-stem-engineer-performance' => 'Monthly STEM Engineer Performance Report',
+    ];
+    $reportDescriptions = [
+        'overview' => 'Generate, view, and download LMS performance reports.',
+        'student-ai-review' => 'Track weekly student AI review quiz completion, attempts, pass rates, and readiness.',
+        'stem-engineer-prep' => 'Track weekly STEM Engineer prep quiz attempts, pass rates, and readiness.',
+        'weekly-student-performance' => 'Track student progress and assessment outcomes for the selected week.',
+        'monthly-student-performance' => 'Track student progress and assessment outcomes for the selected month.',
+        'weekly-stem-engineer-performance' => 'Track STEM Engineer weekly sessions, completion patterns, teaching hours, and prep readiness.',
+        'monthly-stem-engineer-performance' => 'Track STEM Engineer monthly consistency, completion patterns, teaching hours, and prep readiness.',
+    ];
+    $isFocusedReport = $reportMode !== 'overview';
+    $isStudentPrepReport = $reportMode == 'student-ai-review';
+    $isTeacherPrepReport = $reportMode == 'stem-engineer-prep';
+    $isStudentPerformanceReport = in_array($reportMode, ['weekly-student-performance', 'monthly-student-performance'], true);
+    $isTeacherPerformanceReport = in_array($reportMode, ['weekly-stem-engineer-performance', 'monthly-stem-engineer-performance'], true);
+    $isWeeklyReport = str_starts_with($reportMode, 'weekly-');
+    $isWeeklyPrepReport = in_array($reportMode, ['student-ai-review', 'stem-engineer-prep'], true);
+    $isMonthlyReport = str_starts_with($reportMode, 'monthly-');
+    $downloadRoute = match ($reportMode) {
+        'student-ai-review' => route('reports.student-ai-review.download'),
+        'stem-engineer-prep' => route('reports.stem-engineer-prep.download'),
+        'weekly-student-performance' => route('reports.student-performance.weekly.download'),
+        'monthly-student-performance' => route('reports.student-performance.monthly.download'),
+        'weekly-stem-engineer-performance' => route('reports.stem-engineer-performance.weekly.download'),
+        'monthly-stem-engineer-performance' => route('reports.stem-engineer-performance.monthly.download'),
+        default => null,
+    };
+@endphp
+
 <div class="container-fluid">
     <div class="row">
 
@@ -11,31 +50,10 @@
 
             <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                 <div>
-                    <h2 class="mb-1">Reports</h2>
+                    <h2 class="mb-1">{{ $reportTitles[$reportMode] ?? 'Reports' }}</h2>
                     <p class="text-muted mb-0">
-                        Generate, view, and download LMS performance reports.
+                        {{ $reportDescriptions[$reportMode] ?? $reportDescriptions['overview'] }}
                     </p>
-                </div>
-
-                <div class="d-flex gap-2 flex-wrap">
-                    <form method="POST" action="{{ route('reports.ai-insights') }}">
-                        @csrf
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            <i class="fa fa-wand-magic-sparkles me-1"></i>
-                            Generate AI Insights
-                        </button>
-                    </form>
-                    <form method="POST" action="{{ route('reports.ai-insights.download') }}">
-                        @csrf
-                        <button type="submit" class="btn btn-outline-primary btn-sm">
-                            <i class="fa fa-file-pdf me-1"></i>
-                            Download AI PDF
-                        </button>
-                    </form>
-                    <a href="{{ url('/reports/export') }}" class="btn btn-success btn-sm">
-                        <i class="fa fa-file-csv me-1"></i>
-                        Export CSV
-                    </a>
                 </div>
 
             </div>
@@ -43,6 +61,51 @@
             @if(session('error'))
                 <div class="alert alert-danger">
                     {{ session('error') }}
+                </div>
+            @endif
+
+            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+
+            @if($isFocusedReport)
+                <div class="card shadow border-0 mb-4">
+                    <div class="card-body">
+                        <form method="POST" action="{{ $downloadRoute }}" class="row g-3 align-items-end">
+                            @csrf
+                            <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
+                            @if($isMonthlyReport)
+                                <div class="col-md-3">
+                                    <label class="form-label">Report Month</label>
+                                    <input type="month" name="report_month" class="form-control" value="{{ request('report_month', now()->format('Y-m')) }}">
+                                </div>
+                            @else
+                                <div class="col-md-3">
+                                    <label class="form-label">From Date</label>
+                                    <input type="date" name="from_date" class="form-control" value="{{ request('from_date', ($isWeeklyReport || $isWeeklyPrepReport) ? ($periodFrom ?? '') : '') }}">
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label">To Date</label>
+                                    <input type="date" name="to_date" class="form-control" value="{{ request('to_date', ($isWeeklyReport || $isWeeklyPrepReport) ? ($periodTo ?? '') : '') }}">
+                                </div>
+                            @endif
+
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    Generate Report
+                                </button>
+                            </div>
+
+                            <div class="col-md-3">
+                                <a href="{{ url()->current() }}" class="btn btn-outline-secondary w-100">
+                                    Clear
+                                </a>
+                            </div>
+                        </form>
+
+                        <div class="text-muted small mt-3">
+                            Current range: {{ $periodLabel ?? 'All available data' }}
+                        </div>
+                    </div>
                 </div>
             @endif
 
@@ -57,6 +120,7 @@
                 ])
             @endif
 
+            @if(!$isFocusedReport)
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
                     <div class="dashboard-card">
@@ -86,8 +150,11 @@
                     </div>
                 </div>
             </div>
+            @endif
 
+            @if(in_array($reportMode, ['overview', 'student-ai-review', 'stem-engineer-prep', 'weekly-student-performance', 'monthly-student-performance'], true))
             <div class="row g-4 mb-4">
+                @if(in_array($reportMode, ['overview', 'student-ai-review', 'weekly-student-performance', 'monthly-student-performance'], true))
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>AI Reviews</h6>
@@ -103,7 +170,9 @@
                         <small class="text-muted">{{ number_format($studentAiReviewAverage, 2) }}% avg</small>
                     </div>
                 </div>
+                @endif
 
+                @if(in_array($reportMode, ['overview', 'stem-engineer-prep'], true))
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>Prep Quizzes</h6>
@@ -119,8 +188,11 @@
                         <small class="text-muted">{{ number_format($teacherAiPrepAverage, 2) }}% avg</small>
                     </div>
                 </div>
+                @endif
             </div>
+            @endif
 
+            @if(!$isFocusedReport)
             <div class="row g-4 mb-4">
 
                 <div class="col-md-3">
@@ -152,7 +224,9 @@
                 </div>
 
             </div>
+            @endif
 
+            @if(!$isFocusedReport)
             <div class="row g-4 mb-4">
 
                 <div class="col-md-3">
@@ -184,7 +258,9 @@
                 </div>
 
             </div>
+            @endif
 
+            @if(!$isFocusedReport)
             <div class="row g-4 mb-4">
 
                 <div class="col-md-3">
@@ -216,8 +292,11 @@
                 </div>
 
             </div>
+            @endif
 
+            @if(in_array($reportMode, ['overview', 'stem-engineer-prep', 'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance'], true))
             <div class="row g-4 mb-4">
+                @if($reportMode == 'overview')
                 <div class="col-lg-6">
                     <div class="card shadow border-0 h-100">
                         <div class="card-body">
@@ -251,11 +330,14 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
-                <div class="col-lg-6">
+                <div class="{{ $reportMode == 'overview' ? 'col-lg-6' : 'col-12' }}">
                     <div class="card shadow border-0 h-100">
                         <div class="card-body">
-                            <h5 class="mb-3">STEM Engineer Performance</h5>
+                            <h5 class="mb-3">
+                                {{ $isTeacherPrepReport ? 'STEM Engineer Prep Quiz Readiness' : 'STEM Engineer Performance' }}
+                            </h5>
                             <div class="table-responsive">
                                 <table class="table table-bordered table-hover align-middle">
                                     <thead class="table-light">
@@ -294,10 +376,14 @@
                     </div>
                 </div>
             </div>
+            @endif
 
+            @if(in_array($reportMode, ['overview', 'student-ai-review', 'weekly-student-performance', 'monthly-student-performance'], true))
             <div class="card shadow border-0 mb-4">
                 <div class="card-body">
-                    <h5 class="mb-3">Class-wise Tracking</h5>
+                    <h5 class="mb-3">
+                        {{ $isStudentPrepReport ? 'Student AI Review Tracking' : 'Class-wise Student Performance' }}
+                    </h5>
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover align-middle">
                             <thead class="table-light">
@@ -307,13 +393,14 @@
                                     <th>Students</th>
                                     <th>Sessions</th>
                                     <th>Active Plans</th>
+                                    <th>Assessments</th>
                                     <th>AI Reviews</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($classBreakdowns->groupBy('institute') as $instituteName => $classes)
                                     <tr class="table-primary">
-                                        <td colspan="6" class="fw-semibold">{{ $instituteName }} · {{ $classes->count() }} class section{{ $classes->count() == 1 ? '' : 's' }}</td>
+                                        <td colspan="7" class="fw-semibold">{{ $instituteName }} · {{ $classes->count() }} class section{{ $classes->count() == 1 ? '' : 's' }}</td>
                                     </tr>
                                     @foreach($classes as $class)
                                         <tr>
@@ -323,6 +410,10 @@
                                             <td>{{ $class['sessions'] }}</td>
                                             <td>{{ $class['active_plans'] }}</td>
                                             <td>
+                                                {{ $class['assessment_results'] }} results |
+                                                {{ number_format($class['assessment_average'], 2) }}% avg
+                                            </td>
+                                            <td>
                                                 {{ $class['ai_reviews'] }} total |
                                                 {{ $class['ai_reviews_passed'] }} passed |
                                                 {{ number_format($class['ai_review_average'], 2) }}%
@@ -330,14 +421,16 @@
                                         </tr>
                                     @endforeach
                                 @empty
-                                    <tr><td colspan="6" class="text-center text-muted">No class tracking data available.</td></tr>
+                                    <tr><td colspan="7" class="text-center text-muted">No class tracking data available.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
+            @endif
 
+            @if(!$isFocusedReport)
             <div class="card shadow border-0">
 
                 <div class="card-body">
@@ -447,7 +540,9 @@
                 </div>
 
             </div>
+            @endif
 
+            @if(!$isFocusedReport)
             <div class="card shadow border-0 mt-4">
                 <div class="card-body">
 
@@ -565,6 +660,7 @@
 
                 </div>
             </div>
+            @endif
 
         </div>
     </div>

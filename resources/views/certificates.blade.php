@@ -24,6 +24,8 @@
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
 
+            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+
             <div class="card shadow border-0">
                 <div class="card-body">
 
@@ -45,7 +47,8 @@
 
                         <tbody>
                             @php
-                                $groupedCertificates = $certificates
+                                $certificateRows = method_exists($certificates, 'getCollection') ? $certificates->getCollection() : collect($certificates);
+                                $groupedCertificates = $certificateRows
                                     ->sortBy([
                                         fn ($certificate) => $certificate->student->institute ?? '',
                                         fn ($certificate) => $certificate->student->class ?? '',
@@ -137,6 +140,12 @@
                     </table>
 
                 </div>
+
+                @if(method_exists($certificates, 'links'))
+                    <div class="px-3 pb-3">
+                        {{ $certificates->links('pagination::bootstrap-5') }}
+                    </div>
+                @endif
             </div>
 
         </div>

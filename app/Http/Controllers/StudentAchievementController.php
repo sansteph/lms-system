@@ -5,24 +5,39 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\StudentAchievement;
 use App\Support\SyncsCommunityPosts;
+use App\Support\BuildsInstituteSectionPager;
 use Illuminate\Support\Facades\Storage;
 
 class StudentAchievementController extends Controller
 {
-    use SyncsCommunityPosts;
+    use BuildsInstituteSectionPager, SyncsCommunityPosts;
 
-    public function adminIndex()
+    public function adminIndex(Request $request)
     {
+        $sectionPager = null;
+        $currentInstitute = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, 'admin.achievements');
+        }
+
         $achievements = StudentAchievement::with('student')
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->whereHas('student', function ($q) {
                     $q->where('institute', session('user_institute'));
                 });
             })
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $query->whereHas('student', function ($q) use ($currentInstitute) {
+                    $q->where('institute', $currentInstitute);
+                });
+            })
             ->latest()
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
-        return view('admin-achievements', compact('achievements'));
+        return view('admin-achievements', compact('achievements', 'sectionPager'));
     }
 
     public function approve($id)

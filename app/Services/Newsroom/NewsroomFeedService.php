@@ -206,6 +206,11 @@ class NewsroomFeedService
         return match (true) {
             str_contains($keyword, 'robot') => 'Robotics',
             str_contains($keyword, 'atl') => 'ATL',
+            str_contains($keyword, 'component') || str_contains($keyword, 'sensor') || str_contains($keyword, 'actuator') || str_contains($keyword, 'microcontroller') => 'Components',
+            str_contains($keyword, 'competition') || str_contains($keyword, 'challenge') => 'Competitions',
+            str_contains($keyword, 'science fair') => 'Science Fair',
+            str_contains($keyword, 'hackathon') => 'Hackathon',
+            str_contains($keyword, 'global') || str_contains($keyword, 'project') => 'Global Projects',
             str_contains($keyword, 'iot') => 'IoT',
             str_contains($keyword, 'arduino') => 'Electronics',
             str_contains($keyword, 'ai') => 'AI',

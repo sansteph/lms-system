@@ -20,7 +20,6 @@ Artisan::command('teaching-plans:release-weekly', function (TeachingPlanReleaseS
 })->purpose('Release scheduled Teaching Plan weeks when their release date arrives');
 
 Artisan::command('ai-content:generate-upcoming {--limit=} {--retry-failed}', function (AiContentSummaryService $summaryService) {
-    $startDate = \Carbon\Carbon::parse(config('ai.content.auto_generation_start_date', '2026-07-31'))->toDateString();
     $limit = (int) ($this->option('limit') ?: config('ai.content.auto_generation_limit', 2));
     $limit = max(1, min($limit, 10));
     $retryFailed = (bool) $this->option('retry-failed');
@@ -30,21 +29,32 @@ Artisan::command('ai-content:generate-upcoming {--limit=} {--retry-failed}', fun
             'content.courseContent.sourceTemplateContent.aiSummary',
             'content.courseContent.sourceTemplateContent',
             'week',
+            'plan',
         ])
         ->whereIn('status', ['locked', 'released'])
-        ->whereHas('week', function ($query) use ($startDate) {
+        ->whereHas('week', function ($query) {
             $query->whereIn('status', ['locked', 'released'])
-                ->whereDate('release_date', '>=', $startDate);
+                ->whereNotNull('release_date');
         })
         ->whereHas('plan', function ($query) {
             $query->where('is_template', false)
-                ->where('status', 'active');
+                ->where('status', 'active')
+                ->whereNotNull('ai_training_start_date');
         })
         ->orderBy('teaching_plan_week_id')
         ->orderBy('sort_order')
-        ->get();
+        ->get()
+        ->filter(function ($item) {
+            if (!$item->week?->release_date || !$item->plan?->ai_training_start_date) {
+                return false;
+            }
 
-    $ensureQuiz = function ($content, AiContentSummary $summary, string $audience): void {
+            return \Carbon\Carbon::parse($item->week->release_date)->toDateString()
+                >= \Carbon\Carbon::parse($item->plan->ai_training_start_date)->toDateString();
+        });
+
+    $ensureQuiz = function ($content, AiContentSummary $summary, string $audience, ?string $gradeLevel): void {
+        $gradeLevel = $gradeLevel ? preg_replace('/\s+/', ' ', trim($gradeLevel)) : null;
         $passingRatio = $audience == 'teacher'
             ? ((float) config('ai.content.teacher_passing_percentage', 50) / 100)
             : ((float) config('ai.content.student_passing_percentage', 60) / 100);
@@ -53,12 +63,13 @@ Artisan::command('ai-content:generate-upcoming {--limit=} {--retry-failed}', fun
             [
                 'content_id' => $content->id,
                 'audience' => $audience,
+                'grade_level' => $gradeLevel,
                 'status' => 'active',
             ],
             [
                 'provider' => $summary->provider,
                 'model' => $summary->model,
-                'title' => ($audience == 'teacher' ? 'AI Prep - ' : 'AI Review - ') . $content->content_title,
+                'title' => ($audience == 'teacher' ? 'AI Prep - ' : 'AI Review - ') . ($gradeLevel ? $gradeLevel . ' - ' : '') . $content->content_title,
                 'instructions' => $audience == 'teacher'
                     ? 'Answer these prep questions before teaching this lesson.'
                     : 'Answer these questions after reviewing the completed lesson.',
@@ -137,8 +148,8 @@ Artisan::command('ai-content:generate-upcoming {--limit=} {--retry-failed}', fun
         $existing = AiContentSummary::where('content_id', $summaryContent->id)->first();
 
         if ($existing && $existing->status == 'generated') {
-            $ensureQuiz($summaryContent, $existing, 'teacher');
-            $ensureQuiz($summaryContent, $existing, 'student');
+            $ensureQuiz($summaryContent, $existing, 'teacher', $item->plan?->class);
+            $ensureQuiz($summaryContent, $existing, 'student', $item->plan?->class);
             $skipped++;
             continue;
         }
@@ -150,8 +161,8 @@ Artisan::command('ai-content:generate-upcoming {--limit=} {--retry-failed}', fun
 
         try {
             $summary = $summaryService->generate($summaryContent);
-            $ensureQuiz($summaryContent, $summary, 'teacher');
-            $ensureQuiz($summaryContent, $summary, 'student');
+            $ensureQuiz($summaryContent, $summary, 'teacher', $item->plan?->class);
+            $ensureQuiz($summaryContent, $summary, 'student', $item->plan?->class);
             $processed++;
             $this->line('Generated AI prep for: ' . $summaryContent->content_title);
         } catch (\Throwable $exception) {

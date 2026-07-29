@@ -299,6 +299,94 @@ class TeachingPlanController extends Controller
             ->with($week ? 'success' : 'error', $week ? 'Next week released.' : 'No locked week is available to release.');
     }
 
+    public function deployAiTraining(Request $request, $id)
+    {
+        $plan = TeachingPlan::with('weeks')->findOrFail($id);
+        $this->authorizePlan($plan);
+
+        if ($plan->is_template) {
+            abort(403, 'AI prep training can only be deployed to live institute Teaching Plans.');
+        }
+
+        $selectedInstituteIds = session('user_role') == 'Admin'
+            ? collect($request->input('selected_institute_ids', []))->map(fn ($id) => (int) $id)->filter()->unique()->values()
+            : collect();
+
+        if (session('user_role') == 'Admin' && $selectedInstituteIds->isEmpty()) {
+            return redirect()->back()
+                ->withErrors(['selected_institute_ids' => 'Select at least one institute.']);
+        }
+
+        $selectedInstituteNames = session('user_role') == 'Admin'
+            ? Institute::whereIn('id', $selectedInstituteIds)->pluck('institute_name')
+            : collect([$plan->institute]);
+
+        $availableReleaseDates = TeachingPlanWeek::whereHas('plan', function ($query) use ($selectedInstituteNames) {
+                $query->where('is_template', false)
+                    ->whereIn('institute', $selectedInstituteNames)
+                    ->whereIn('status', ['active', 'completed']);
+            })
+            ->whereNotNull('release_date')
+            ->pluck('release_date')
+            ->filter()
+            ->map(fn ($date) => Carbon::parse($date)->toDateString())
+            ->unique()
+            ->values();
+
+        $request->validate([
+            'selected_institute_ids' => session('user_role') == 'Admin' ? 'required|array|min:1' : 'nullable|array',
+            'selected_institute_ids.*' => 'integer|exists:institutes,id',
+            'ai_training_start_date' => [
+                'nullable',
+                'date',
+                function ($attribute, $value, $fail) use ($availableReleaseDates) {
+                    if ($value && !$availableReleaseDates->contains(Carbon::parse($value)->toDateString())) {
+                        $fail('Select a valid content release date from the selected institute Teaching Plans.');
+                    }
+                },
+            ],
+        ]);
+
+        $selectedDate = $request->filled('ai_training_start_date')
+            ? Carbon::parse($request->ai_training_start_date)->toDateString()
+            : null;
+
+        $matchingPlans = TeachingPlan::with('weeks')
+            ->where('is_template', false)
+            ->whereIn('institute', $selectedInstituteNames)
+            ->whereIn('status', ['active', 'completed'])
+            ->get();
+
+        $updatedCount = 0;
+        $skippedCount = 0;
+
+        DB::transaction(function () use ($matchingPlans, $selectedDate, &$updatedCount, &$skippedCount) {
+            foreach ($matchingPlans as $matchingPlan) {
+                if ($selectedDate && !$matchingPlan->weeks->contains(fn ($week) => $week->release_date && Carbon::parse($week->release_date)->toDateString() == $selectedDate)) {
+                    $skippedCount++;
+                    continue;
+                }
+
+                $matchingPlan->update([
+                    'ai_training_start_date' => $selectedDate,
+                ]);
+
+                $updatedCount++;
+            }
+        });
+
+        $redirect = redirect()->back()
+            ->with('success', $selectedDate
+                ? 'AI prep training deployed from ' . Carbon::parse($selectedDate)->format('d M Y') . " for {$updatedCount} institute grade plan(s)."
+                : "AI prep training disabled for {$updatedCount} institute grade plan(s).");
+
+        if ($skippedCount > 0) {
+            $redirect->with('error', "{$skippedCount} matching plan(s) were skipped because that release date does not exist in their weekly schedule.");
+        }
+
+        return $redirect;
+    }
+
     public function storeLaggedContent(Request $request, $id)
     {
         $plan = TeachingPlan::with(['course.courseContents.content', 'weeks'])->findOrFail($id);

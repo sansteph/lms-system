@@ -2,6 +2,21 @@
 
 @section('content')
 
+@php
+    $reportType = $reportType ?? request('report_type', 'weekly');
+    $isDailyReport = $reportType == 'daily';
+    $reportTitle = $isDailyReport ? 'Daily Session Report' : 'Weekly Session Report';
+    $reportDescription = $isDailyReport
+        ? 'Select one date and generate a focused session execution report.'
+        : 'Select a date range and generate a weekly session execution report.';
+    $reportRoute = $isDailyReport
+        ? route('admin.class-session.report.daily')
+        : route('admin.class-session.report.weekly');
+    $downloadRoute = $isDailyReport
+        ? route('admin.class-session.report.daily.download')
+        : route('admin.class-session.report.weekly.download');
+@endphp
+
 <div class="container-fluid">
     <div class="row">
 
@@ -10,45 +25,39 @@
         <div class="col-md-10 col-lg-10 p-4">
 
             <div class="page-header mb-4">
-                <h2 class="mb-1">Class Session Report</h2>
+                <h2 class="mb-1">{{ $reportTitle }}</h2>
                 <p class="text-muted mb-0">
-                    Track which STEM Engineer handled each class and how long they spent on assigned content.
+                    {{ $reportDescription }}
                 </p>
             </div>
 
+            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+
             <div class="card shadow border-0 mb-4">
                 <div class="card-body">
-                    <form method="GET" action="{{ route('admin.class-session.report') }}" class="row g-3 align-items-end">
-                        @if(session('user_role') == 'Admin')
+                    <form method="POST" action="{{ $downloadRoute }}" class="row g-3 align-items-end">
+                        @csrf
+                        <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
+                        @if($isDailyReport)
                             <div class="col-md-3">
-                                <label class="form-label">Institute</label>
-                                <select name="institute" class="form-select">
-                                    <option value="">All Institutes</option>
-                                    @foreach($institutes as $institute)
-                                        <option value="{{ $institute->institute_name }}" {{ request('institute') == $institute->institute_name ? 'selected' : '' }}>
-                                            {{ $institute->institute_name }}
-                                        </option>
-                                    @endforeach
-                                </select>
+                                <label class="form-label">Report Date</label>
+                                <input type="date" name="report_date" class="form-control" value="{{ request('report_date', now()->toDateString()) }}">
+                            </div>
+                        @else
+                            <div class="col-md-3">
+                                <label class="form-label">From Date</label>
+                                <input type="date" name="from_date" class="form-control" value="{{ request('from_date') }}">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">To Date</label>
+                                <input type="date" name="to_date" class="form-control" value="{{ request('to_date') }}">
                             </div>
                         @endif
 
-                        <div class="col-md-3">
-                            <label class="form-label">From Date</label>
-                            <input type="date" name="from_date" class="form-control" value="{{ request('from_date') }}">
-                        </div>
-
-                        <div class="col-md-3">
-                            <label class="form-label">To Date</label>
-                            <input type="date" name="to_date" class="form-control" value="{{ request('to_date') }}">
-                        </div>
-
                         <div class="col-md-3 d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">Apply Filter</button>
-                            <a href="{{ route('admin.class-session.report') }}" class="btn btn-outline-secondary">Clear</a>
-                            <a href="{{ route('admin.class-session.report.export', request()->query()) }}" class="btn btn-success">
-                                Export CSV
-                            </a>
+                            <button type="submit" class="btn btn-primary">Generate Report</button>
+                            <a href="{{ $reportRoute }}" class="btn btn-outline-secondary">Clear</a>
                         </div>
                     </form>
                 </div>
@@ -76,7 +85,8 @@
                         <tbody>
 
                             @php
-                                $groupedSessions = $sessions
+                                $sessionRows = method_exists($sessions, 'getCollection') ? $sessions->getCollection() : collect($sessions);
+                                $groupedSessions = $sessionRows
                                     ->sortBy([
                                         fn ($session) => $session->institute ?? $session->schoolClass->institute ?? '',
                                         fn ($session) => trim(($session->class ?? $session->schoolClass->class_name ?? '') . ' ' . ($session->section ?? $session->schoolClass->section ?? '')),
@@ -165,6 +175,12 @@
                     </table>
 
                 </div>
+
+                @if(method_exists($sessions, 'links'))
+                    <div class="px-3 pb-3">
+                        {{ $sessions->links('pagination::bootstrap-5') }}
+                    </div>
+                @endif
             </div>
 
         </div>

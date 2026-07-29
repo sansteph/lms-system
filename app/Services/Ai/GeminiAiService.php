@@ -80,6 +80,28 @@ class GeminiAiService
         ];
     }
 
+    public function generateAssessmentQuestionPaper(array $context): array
+    {
+        $apiKey = config('ai.gemini.api_key');
+        $model = config('ai.gemini.model');
+
+        if (blank($apiKey)) {
+            throw new RuntimeException('Gemini API key is missing. Add GEMINI_API_KEY to the .env file.');
+        }
+
+        $prompt = $this->assessmentQuestionPaperPrompt($context);
+        $responseText = $this->generateText($model, $prompt);
+        $payload = $this->decodeJsonResponse($responseText);
+
+        return [
+            'title' => $payload['title'] ?? ($context['assessment_title'] ?? 'Assessment Question Paper'),
+            'instructions' => $payload['instructions'] ?? [],
+            'sections' => $payload['sections'] ?? [],
+            'blueprint' => $payload['blueprint'] ?? [],
+            'model' => $model,
+        ];
+    }
+
     public function answerChatQuestion(string $question, array $contextItems, string $audienceLabel): array
     {
         $apiKey = config('ai.gemini.api_key');
@@ -309,6 +331,61 @@ Rules:
 PROMPT;
     }
 
+    private function assessmentQuestionPaperPrompt(array $context): string
+    {
+        $maxChars = (int) config('ai.content.max_summary_input_chars', 24000);
+        $context['content_text'] = mb_substr((string) ($context['content_text'] ?? ''), 0, $maxChars);
+        $payload = json_encode($context, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        return <<<PROMPT
+You are creating a school STEM assessment question paper for InnovatEdge LMS.
+
+Assessment request and source content:
+{$payload}
+
+Return only valid JSON with this exact structure:
+{
+  "title": "Question paper title",
+  "instructions": ["Instruction 1", "Instruction 2"],
+  "blueprint": [
+    {
+      "topic": "Topic name",
+      "marks": 10,
+      "difficulty": "Easy/Medium/Hard",
+      "reason": "Why this topic is included"
+    }
+  ],
+  "sections": [
+    {
+      "heading": "Section A",
+      "description": "Short answer questions",
+      "questions": [
+        {
+          "number": 1,
+          "question": "Question text",
+          "marks": 2,
+          "difficulty": "Easy",
+          "expected_points": ["Point 1", "Point 2"]
+        }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Use only the supplied source content and learning summaries.
+- Do not invent facts outside the supplied content.
+- Total marks across all questions must equal requested total_marks.
+- Monthly assessments should focus on current content understanding and application.
+- Annual assessments should include broader application, reasoning, and project-style thinking.
+- Include a balanced mix of recall, reasoning, and application questions.
+- Do not create MCQs.
+- Keep questions clear for the class level.
+- expected_points are for evaluator reference only.
+- If source content is limited, create fewer high-quality questions but still match total marks.
+PROMPT;
+    }
+
     private function chatPrompt(string $question, array $contextItems, string $audienceLabel): string
     {
         $contextPayload = json_encode($contextItems, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
@@ -377,13 +454,13 @@ Return only valid JSON with this exact structure:
 }
 
 Rules:
-- Select only items relevant to STEM education, ATL labs, robotics, electronics, AI, IoT, coding, school innovation, science learning, edtech, or student projects.
+- Select only items relevant to STEM education, ATL labs, robotics, electronics components, sensors, actuators, microcontrollers, AI, IoT, coding, school innovation, science learning, edtech, student projects, global STEM projects, maker projects, robotics competitions, STEM competitions, science fairs, student hackathons, or innovation challenges.
 - Exclude politics, entertainment, sports, unrelated business, celebrity news, generic product launches, and gossip.
 - Use only the supplied title/source/snippet/date fields.
 - Do not invent article facts.
 - Choose up to 12 strongest items.
 - relevance_score must be 0 to 100.
-- category should be short, such as Robotics, AI, ATL, EdTech, Electronics, IoT, Coding, STEM Policy, or School Innovation.
+- category should be short, such as Robotics, AI, ATL, EdTech, Components, Electronics, IoT, Coding, Global Projects, Competitions, Science Fair, Hackathon, STEM Policy, or School Innovation.
 - Keep summaries practical and suitable for a school LMS newsroom.
 PROMPT;
     }

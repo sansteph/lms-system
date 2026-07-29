@@ -33,7 +33,7 @@ class TrackUserActivity
                     ]);
                 }
 
-                UserActivityLog::create([
+                $activityLog = UserActivityLog::create([
                     'user_session_id' => session('tracking_session_id'),
                     'user_type' => $userType,
                     'user_id' => session('user_id') ?? session('student_id'),
@@ -44,6 +44,8 @@ class TrackUserActivity
                     'ended_at' => null,
                     'duration_seconds' => 0,
                 ]);
+
+                session(['active_activity_log_id' => $activityLog->id]);
             }
         }
 
@@ -54,10 +56,10 @@ class TrackUserActivity
     {
         return match ($routeName) {
             'teacher.dashboard', 'student.dashboard' => 'Dashboard',
-            'teacher.content' => 'Content',
+            'teacher.content', 'student.content' => 'Learning Content',
+            'content.preview' => 'Learning Content Preview',
             'teacher.assessments', 'student.assessment' => 'Assessment',
             'teacher.results', 'student.history' => 'Results / History',
-            'teacher.reports' => 'Reports',
             'teacher.profile', 'student.student-profile' => 'Profile',
             'student.badges' => 'Achievements',
             'student.certificate.download' => 'Certificate',

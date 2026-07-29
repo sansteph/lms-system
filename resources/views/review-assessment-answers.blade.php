@@ -116,6 +116,13 @@
                     <div class="alert alert-danger">Please check the marks, status, and feedback fields.</div>
                 @endif
 
+                @if(session('user_role') == 'Admin')
+                    @include('partials.section-navigator', [
+                        'sectionPager' => $sectionPager ?? null,
+                        'sectionDescription' => 'Pending assessment evaluations are shown one institute at a time to keep review pages fast.',
+                    ])
+                @endif
+
                 @if(session('user_role') == 'Teacher')
                     <div class="card review-card mb-4">
                         <div class="card-body">
@@ -142,7 +149,7 @@
                     </div>
                 @endif
 
-                @forelse($pendingResults->groupBy(fn ($result) => $result->student ? trim($result->student->class . ' ' . $result->student->section) : 'Unassigned Class') as $classLabel => $classResults)
+                @forelse($pendingResults->getCollection()->groupBy(fn ($result) => $result->student ? trim($result->student->class . ' ' . $result->student->section) : 'Unassigned Class') as $classLabel => $classResults)
                     <div class="fw-bold text-primary mb-3">{{ $classLabel }}</div>
                     @foreach($classResults as $result)
                     @php
@@ -302,6 +309,12 @@
                         </div>
                     </div>
                 @endforelse
+
+                @if($pendingResults->hasPages())
+                    <div class="mt-3">
+                        {{ $pendingResults->links('pagination::bootstrap-5') }}
+                    </div>
+                @endif
             </div>
         </div>
     </div>

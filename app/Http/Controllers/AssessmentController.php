@@ -7,19 +7,32 @@ use App\Models\Assessment;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\User;
+use App\Models\Content;
+use App\Models\TeachingPlanItem;
+use App\Services\Ai\GeminiAiService;
+use App\Services\Ai\PdfTextExtractionService;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Support\DeletesAssessments;
+use App\Support\BuildsInstituteSectionPager;
 
 class AssessmentController extends Controller
 {
-    use DeletesAssessments;
+    use BuildsInstituteSectionPager, DeletesAssessments;
 
     public function index(Request $request)
     {
         $search = $request->search;
         $selectedClass = $request->input('class');
         $teacherClassNames = $this->teacherInstituteClassNames();
+        $sectionPager = null;
+        $currentInstitute = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, $request->route()?->getName() ?: 'teacher.assessments');
+        }
 
         $assessments = Assessment::with(['teacher', 'questionPaperReviewer'])
             ->when(session('user_role') == 'Teacher', function ($query) {
@@ -30,6 +43,9 @@ class AssessmentController extends Controller
             })
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
+            })
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
             })
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -43,13 +59,15 @@ class AssessmentController extends Controller
             })
             ->orderBy('assigned_class')
             ->latest()
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
         $teacher = User::find(session('user_id'));
+        $availableContents = $this->teacherAssessmentContents($teacher);
 
         $classOptions = $teacherClassNames;
 
-        return view('assessments', compact('assessments', 'classOptions', 'teacher', 'selectedClass'));
+        return view('assessments', compact('assessments', 'classOptions', 'teacher', 'selectedClass', 'availableContents', 'sectionPager'));
     }
 
     public function store(Request $request)
@@ -64,6 +82,8 @@ class AssessmentController extends Controller
             'assigned_class' => 'required|string',
             'assessment_category' => 'required|in:Monthly,Annual',
             'assessment_date' => 'required|date',
+            'start_time' => 'nullable|date_format:H:i',
+            'end_time' => 'nullable|date_format:H:i|after:start_time',
             'total_marks' => 'required|integer|min:1',
             'duration' => 'required|string|max:50',
             'file' => 'required|file|mimes:pdf|max:51200',
@@ -87,6 +107,8 @@ class AssessmentController extends Controller
             'assigned_class' => $request->assigned_class,
             'assessment_category' => $request->assessment_category,
             'assessment_date' => $request->assessment_date,
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
             'total_marks' => $request->total_marks,
             'duration' => $request->duration,
             'question_paper_type' => 'Uploaded Question Paper',
@@ -105,6 +127,112 @@ class AssessmentController extends Controller
             ->with('success', 'Assessment uploaded and sent for admin approval.');
     }
 
+    public function generateAiQuestionPaper(
+        Request $request,
+        GeminiAiService $ai,
+        PdfTextExtractionService $pdfTextExtractionService
+    ) {
+        if (session('user_role') != 'Teacher') {
+            abort(403, 'Only STEM Engineers can create AI question papers.');
+        }
+
+        $request->validate([
+            'assessment_title' => 'required|string|max:255',
+            'assessment_type' => 'required|string',
+            'assigned_class' => 'required|string',
+            'assessment_category' => 'required|in:Monthly,Annual',
+            'assessment_date' => 'required|date',
+            'start_time' => 'nullable|date_format:H:i',
+            'end_time' => 'nullable|date_format:H:i|after:start_time',
+            'total_marks' => 'required|integer|min:1',
+            'duration' => 'required|string|max:50',
+            'content_ids' => 'required|array|min:1',
+            'content_ids.*' => 'integer|exists:contents,id',
+            'status' => 'required|boolean',
+        ]);
+
+        $teacher = User::findOrFail(session('user_id'));
+        $teacherClassNames = $this->teacherInstituteClassNames();
+
+        $this->authorizeTeacherAssessmentScope(
+            $request->assigned_class,
+            $teacherClassNames
+        );
+
+        $contents = $this->authorizedAssessmentContentsQuery($teacher, $request->assigned_class)
+            ->whereIn('contents.id', $request->content_ids)
+            ->get()
+            ->unique('id')
+            ->values();
+
+        if ($contents->count() != count(array_unique($request->content_ids))) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'One or more selected contents are not available for this institute and class.');
+        }
+
+        try {
+            $contentContext = $this->extractAssessmentContentContext($contents, $pdfTextExtractionService);
+
+            $paper = $ai->generateAssessmentQuestionPaper([
+                'assessment_title' => $request->assessment_title,
+                'assessment_category' => $request->assessment_category,
+                'assigned_class' => $request->assigned_class,
+                'total_marks' => (int) $request->total_marks,
+                'duration_minutes' => $request->duration,
+                'content_titles' => $contents->pluck('content_title')->values()->all(),
+                'content_text' => $contentContext,
+            ]);
+
+            [$filePath, $previewPath] = $this->storeAiQuestionPaperPdf($paper, [
+                'assessment_title' => $request->assessment_title,
+                'assessment_category' => $request->assessment_category,
+                'assigned_class' => $request->assigned_class,
+                'assessment_date' => $request->assessment_date,
+                'start_time' => $request->start_time,
+                'end_time' => $request->end_time,
+                'total_marks' => $request->total_marks,
+                'duration' => $request->duration,
+                'teacher_name' => $teacher->name,
+                'institute' => $teacher->institute,
+                'contents' => $contents,
+            ]);
+        } catch (\Throwable $exception) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'AI question paper could not be generated: ' . $exception->getMessage());
+        }
+
+        Assessment::create([
+            'institute' => $teacher->institute,
+            'assessment_title' => $request->assessment_title,
+            'assessment_type' => $request->assessment_type,
+            'assigned_class' => $request->assigned_class,
+            'assessment_category' => $request->assessment_category,
+            'assessment_date' => $request->assessment_date,
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
+            'total_marks' => $request->total_marks,
+            'duration' => $request->duration,
+            'question_paper_type' => 'AI Generated Question Paper',
+            'ai_generated' => true,
+            'ai_source_content_ids' => $contents->pluck('id')->values()->all(),
+            'ai_generation_payload' => json_encode($paper, JSON_UNESCAPED_SLASHES),
+            'file_path' => $filePath,
+            'question_paper_preview_path' => $previewPath,
+            'question_paper_status' => 'Pending Approval',
+            'question_paper_reviewed_by' => null,
+            'question_paper_reviewed_at' => null,
+            'question_paper_feedback' => null,
+            'status' => $request->status,
+            'content_id' => $contents->first()?->id,
+            'teacher_id' => $teacher->id,
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'AI question paper generated and sent for admin approval.');
+    }
+
     public function update(Request $request, $id)
     {
         if (session('user_role') != 'Teacher') {
@@ -117,6 +245,8 @@ class AssessmentController extends Controller
             'assigned_class' => 'required|string',
             'assessment_category' => 'required|in:Monthly,Annual',
             'assessment_date' => 'required|date',
+            'start_time' => 'nullable|date_format:H:i',
+            'end_time' => 'nullable|date_format:H:i|after:start_time',
             'total_marks' => 'required|integer|min:1',
             'duration' => 'required|string|max:50',
             'file' => 'nullable|file|mimes:pdf|max:51200',
@@ -144,6 +274,8 @@ class AssessmentController extends Controller
             'assigned_class' => $request->assigned_class,
             'assessment_category' => $request->assessment_category,
             'assessment_date' => $request->assessment_date,
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
             'total_marks' => $request->total_marks,
             'duration' => $request->duration,
             'question_paper_type' => 'Uploaded Question Paper',
@@ -351,7 +483,8 @@ class AssessmentController extends Controller
             $assessment->status != 1 ||
             $assessment->institute != $student->institute ||
             $assessment->question_paper_status != 'Approved' ||
-            !$assessment->file_path
+            !$assessment->file_path ||
+            !$this->assessmentWindowIsOpen($assessment)
         ) {
             return false;
         }
@@ -381,5 +514,122 @@ class AssessmentController extends Controller
             : null;
 
         return [$filePath, $previewPath];
+    }
+
+    private function teacherAssessmentContents(?User $teacher)
+    {
+        if (!$teacher) {
+            return collect();
+        }
+
+        return $this->authorizedAssessmentContentsQuery($teacher)
+            ->orderBy('contents.assigned_class')
+            ->orderBy('contents.lesson_order')
+            ->orderBy('contents.content_title')
+            ->get()
+            ->unique('id')
+            ->values();
+    }
+
+    private function authorizedAssessmentContentsQuery(User $teacher, ?string $assignedClass = null)
+    {
+        return Content::query()
+            ->select('contents.*')
+            ->selectRaw("REPLACE(TRIM(CONCAT(COALESCE(teaching_plans.class, ''), ' ', COALESCE(teaching_plans.section, ''))), '  ', ' ') as assessment_class_label")
+            ->join('teaching_plan_items', 'teaching_plan_items.content_id', '=', 'contents.id')
+            ->join('teaching_plans', 'teaching_plans.id', '=', 'teaching_plan_items.teaching_plan_id')
+            ->where('contents.institute', $teacher->institute)
+            ->where('contents.status', 1)
+            ->whereNotNull('contents.file_path')
+            ->where('teaching_plans.institute', $teacher->institute)
+            ->where('teaching_plans.status', 'active')
+            ->whereIn('teaching_plan_items.status', ['released', 'completed'])
+            ->when($assignedClass, function ($query) use ($assignedClass) {
+                $query->whereRaw(
+                    "REPLACE(TRIM(CONCAT(COALESCE(teaching_plans.class, ''), ' ', COALESCE(teaching_plans.section, ''))), '  ', ' ') = ?",
+                    [$this->normalizedClassName($assignedClass)]
+                );
+            });
+    }
+
+    private function extractAssessmentContentContext($contents, PdfTextExtractionService $pdfTextExtractionService): string
+    {
+        $parts = [];
+
+        foreach ($contents as $content) {
+            $path = $this->preferredAssessmentPdfPath($content);
+
+            if (!$path || !Storage::disk('local')->exists($path)) {
+                continue;
+            }
+
+            $text = $pdfTextExtractionService->extract(Storage::disk('local')->path($path));
+
+            $parts[] = "Content: {$content->content_title}\n" . mb_substr($text, 0, 8000);
+        }
+
+        $combined = trim(implode("\n\n---\n\n", $parts));
+
+        if (mb_strlen($combined) < 100) {
+            throw new \RuntimeException('Selected contents do not have enough readable PDF text for AI question paper generation.');
+        }
+
+        return $combined;
+    }
+
+    private function preferredAssessmentPdfPath(Content $content): ?string
+    {
+        foreach ([
+            $content->student_preview_pdf_path,
+            $content->preview_pdf_path,
+            $content->student_file_path,
+            $content->file_path,
+        ] as $path) {
+            if ($path && strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf') {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    private function storeAiQuestionPaperPdf(array $paper, array $meta): array
+    {
+        $pdf = Pdf::loadView('pdf.ai-question-paper', [
+            'paper' => $paper,
+            'meta' => $meta,
+        ])->setPaper('a4', 'portrait');
+
+        $fileName = 'ai_question_paper_' . now()->format('Ymd_His') . '_' . uniqid() . '.pdf';
+        $filePath = 'assessment-papers/' . $fileName;
+
+        Storage::disk('local')->put($filePath, $pdf->output());
+
+        return [$filePath, $filePath];
+    }
+
+    private function assessmentWindowIsOpen(Assessment $assessment): bool
+    {
+        if ($assessment->assessment_date) {
+            $today = today()->toDateString();
+
+            if ($assessment->assessment_date > $today) {
+                return false;
+            }
+
+            if (($assessment->start_time || $assessment->end_time) && $assessment->assessment_date < $today) {
+                return false;
+            }
+        }
+
+        if ($assessment->start_time && now()->format('H:i:s') < $assessment->start_time) {
+            return false;
+        }
+
+        if ($assessment->end_time && now()->format('H:i:s') > $assessment->end_time) {
+            return false;
+        }
+
+        return true;
     }
 }

@@ -80,7 +80,7 @@
                                 Prep Cleared
                             </button>
                         @else
-                            <a href="{{ route('teacher.ai-prep.quiz', $content->id) }}" class="btn btn-success">
+                            <a href="{{ route('teacher.ai-prep.quiz', ['id' => $content->id, 'grade' => $gradeLevel]) }}" class="btn btn-success">
                                 Start Prep Quiz
                                 <i class="fa fa-arrow-right ms-2"></i>
                             </a>

@@ -10,6 +10,7 @@ class AiQuizAttempt extends Model
         'ai_quiz_id',
         'content_id',
         'attempt_type',
+        'grade_level',
         'student_id',
         'teacher_id',
         'score',

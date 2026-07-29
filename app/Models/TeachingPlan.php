@@ -22,6 +22,7 @@ class TeachingPlan extends Model
         'contents_per_week',
         'current_batch',
         'release_policy',
+        'ai_training_start_date',
         'created_by',
         'plan_start_date',
         'plan_end_date',
@@ -33,6 +34,7 @@ class TeachingPlan extends Model
 
     protected $casts = [
         'is_template' => 'boolean',
+        'ai_training_start_date' => 'date',
     ];
 
     public function course()

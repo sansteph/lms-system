@@ -25,6 +25,8 @@
 
             @endif
 
+            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+
             <div class="card shadow border-0">
 
                 <div class="card-body">
@@ -62,7 +64,8 @@
                             <tbody>
 
                                 @php
-                                    $groupedAchievements = $achievements
+                                    $achievementRows = method_exists($achievements, 'getCollection') ? $achievements->getCollection() : collect($achievements);
+                                    $groupedAchievements = $achievementRows
                                         ->sortBy([
                                             fn ($achievement) => $achievement->student->institute ?? '',
                                             fn ($achievement) => $achievement->student->class ?? '',
@@ -214,6 +217,12 @@
                     </div>
 
                 </div>
+
+                @if(method_exists($achievements, 'links'))
+                    <div class="px-3 pb-3">
+                        {{ $achievements->links('pagination::bootstrap-5') }}
+                    </div>
+                @endif
 
             </div>
         </div>

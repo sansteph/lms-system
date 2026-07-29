@@ -17,14 +17,21 @@ use App\Models\AssessmentResult;
 use App\Models\Assessment;
 use App\Models\ClassTimetable;
 use App\Models\ClassContentSession;
+use App\Support\BuildsInstituteSectionPager;
 
 class ClassController extends Controller
 {
-    use DeletesAssessments;
+    use BuildsInstituteSectionPager, DeletesAssessments;
     public function index(Request $request)
     {
         $search = $request->search;
+        $sectionPager = null;
+        $currentInstitute = null;
 
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, 'classes');
+        }
 
         $classes = SchoolClass::when(
                 session('user_role') == 'InstituteAdmin',
@@ -32,6 +39,9 @@ class ClassController extends Controller
                     $query->where('institute', session('user_institute'));
                 }
             )
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
+            })
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
 
@@ -44,12 +54,14 @@ class ClassController extends Controller
             ->orderBy('institute')
             ->orderBy('class_name')
             ->orderBy('section')
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
         return view(
             'classes',
             compact(
-                'classes'
+                'classes',
+                'sectionPager'
             )
         );
     }

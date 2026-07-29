@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+@section('title', 'Verify Certificate | InnovatEdge')
+@section('meta_description', 'Verify InnovatEdge LMS certificates securely using a valid certificate ID or certificate code.')
+
 @section('content')
 
 <div class="container py-5">

@@ -151,11 +151,6 @@
                                     Evaluate Assessments
                                 </a>
 
-                                <a href="{{ route('teacher.reports') }}"
-                                class="btn btn-primary">
-                                    View Reports
-                                </a>
-
                             </div>
 
                         </div>

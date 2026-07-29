@@ -26,7 +26,8 @@ class IndependentLearnerController extends Controller
 
         })
         ->latest()
-        ->get();
+        ->paginate(30)
+        ->withQueryString();
 
         return view(
             'independent-learners',

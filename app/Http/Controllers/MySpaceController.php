@@ -5,11 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\MySpace;
 use App\Support\SyncsCommunityPosts;
+use App\Support\BuildsInstituteSectionPager;
 use Illuminate\Support\Facades\Storage;
 
 class MySpaceController extends Controller
 {
-    use SyncsCommunityPosts;
+    use BuildsInstituteSectionPager, SyncsCommunityPosts;
 
     public function index()
     {
@@ -88,9 +89,40 @@ class MySpaceController extends Controller
             ->with('success', 'Submission created successfully.');
     }
 
-    public function adminIndex()
+    public function adminIndex(Request $request)
     {
-        $items = MySpace::when(session('user_role') == 'InstituteAdmin', function ($query) {
+        $submitterType = $request->route('submitterType') ?? $request->query('submitter');
+        $sectionPager = null;
+        $currentInstitute = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, $request->route()?->getName() ?: 'admin.my-space');
+        }
+
+        $items = MySpace::when(in_array($submitterType, ['Teacher', 'Student'], true), function ($query) use ($submitterType) {
+                $query->where('created_by_type', $submitterType);
+            })
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $studentIds = \App\Models\Student::where('institute', $currentInstitute)
+                    ->pluck('id');
+
+                $teacherIds = \App\Models\User::where('role', 'Teacher')
+                    ->where('institute', $currentInstitute)
+                    ->pluck('id');
+
+                $query->where(function ($q) use ($studentIds, $teacherIds) {
+                    $q->where(function ($sub) use ($studentIds) {
+                        $sub->where('created_by_type', 'Student')
+                            ->whereIn('created_by_id', $studentIds);
+                    })
+                    ->orWhere(function ($sub) use ($teacherIds) {
+                        $sub->where('created_by_type', 'Teacher')
+                            ->whereIn('created_by_id', $teacherIds);
+                    });
+                });
+            })
+            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
 
                 $studentIds = \App\Models\Student::where('institute', session('user_institute'))
                     ->pluck('id');
@@ -112,9 +144,10 @@ class MySpaceController extends Controller
 
             })
             ->latest()
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
-        return view('my-space.admin-index', compact('items'));
+        return view('my-space.admin-index', compact('items', 'submitterType', 'sectionPager'));
     }
 
     private function authorizeAdminAccess($item)

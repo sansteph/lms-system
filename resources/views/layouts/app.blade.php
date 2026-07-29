@@ -1,109 +1,173 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LMS System</title>
+    @php
+        $seoPublicRoutes = [
+            'home',
+            'newsroom',
+            'certificate.verify',
+            'coming.soon',
+            'independent.register',
+            'independent.courses',
+        ];
+
+        $seoIsPublic = request()->routeIs(...$seoPublicRoutes);
+        $seoTitle = trim($__env->yieldContent('title', 'InnovatEdge | STEM Education and Robotics Learning Platform'));
+        $seoDescription = trim($__env->yieldContent(
+            'meta_description',
+            'InnovatEdge is a modern STEM education platform for schools, ATL labs, robotics programs, assessments, certificates, and AI-assisted learning.'
+        ));
+        $seoImage = asset('images/InnovatEdgeLogo.png');
+        $seoUrl = url()->current();
+        $showParticles = request()->routeIs(
+            'home',
+            'portal',
+            'admin.login',
+            'teacher.login',
+            'student.login',
+            'independent.register',
+            'independent.login',
+            'coming.soon',
+            'newsroom'
+        );
+        $showPanelNav = !request()->routeIs(
+            'home',
+            'portal',
+            'admin.login',
+            'teacher.login',
+            'student.login',
+            'independent.register',
+            'independent.login',
+            'coming.soon',
+            'newsroom'
+        );
+        $enableScrollRestore = !request()->routeIs(
+            'home',
+            'portal',
+            'admin.login*',
+            'teacher.login*',
+            'student.login*',
+            'blogs.login*',
+            'independent.login*',
+            'independent.register*',
+            'coming.soon',
+            'content.preview*',
+            'content.file*',
+            'assessment.paper*',
+            'assessment.answer.file*',
+            'student.assessment.take*',
+            'student.assessment-taking*',
+            'teacher.ai-prep.quiz*',
+            'student.content.ai-review.quiz*'
+        );
+        $showNotifications = !request()->routeIs('blogs*');
+        $panelHomeUrl = route('home');
+
+        if (session('user_role') == 'Admin') {
+            $panelHomeUrl = route('admin.dashboard');
+        } elseif (session('user_role') == 'Teacher') {
+            $panelHomeUrl = route('teacher.dashboard');
+        } elseif (session('student_id')) {
+            $panelHomeUrl = route('student.dashboard');
+        } elseif (session('independent_learner_id')) {
+            $panelHomeUrl = route('independent.dashboard');
+        }
+
+        $panelUserName = session('user_name') ?? session('student_name') ?? session('independent_learner_name');
+        $panelUserRoleLabel = null;
+
+        if (session('user_role') == 'Admin') {
+            $panelUserRoleLabel = 'Admin';
+        } elseif (session('user_role') == 'InstituteAdmin') {
+            $panelUserRoleLabel = 'Institute Admin';
+        } elseif (session('user_role') == 'Teacher') {
+            $panelUserRoleLabel = 'STEM Engineer';
+        } elseif (session('student_id')) {
+            $panelUserRoleLabel = 'Student';
+        } elseif (session('independent_learner_id')) {
+            $panelUserRoleLabel = 'Hybrid Learner';
+        }
+
+        $showLogout = session()->has('user_id') || session()->has('student_id') || session()->has('independent_learner_id');
+    @endphp
+
+    <title>{{ $seoTitle }}</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="description" content="{{ $seoDescription }}">
+    <meta name="robots" content="{{ $seoIsPublic ? 'index, follow' : 'noindex, nofollow' }}">
+    <link rel="canonical" href="{{ $seoUrl }}">
+
+    <meta property="og:title" content="{{ $seoTitle }}">
+    <meta property="og:description" content="{{ $seoDescription }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ $seoUrl }}">
+    <meta property="og:image" content="{{ $seoImage }}">
+    <meta property="og:site_name" content="InnovatEdge">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $seoTitle }}">
+    <meta name="twitter:description" content="{{ $seoDescription }}">
+    <meta name="twitter:image" content="{{ $seoImage }}">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ asset('images/InnovatEdgeLogo.png') }}">
 
     <link rel="stylesheet" href="{{ asset('css/style.css') }}?v={{ file_exists(public_path('css/style.css')) ? filemtime(public_path('css/style.css')) : time() }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    @if($seoIsPublic)
+        <script type="application/ld+json">
+            {
+                "@@context": "https://schema.org",
+                "@type": "Organization",
+                "name": "InnovatEdge",
+                "url": "https://tinkedge.tech",
+                "logo": "https://tinkedge.tech/images/InnovatEdgeLogo.png",
+                "sameAs": [
+                    "https://www.linkedin.com/company/tinkedge/posts/?feedView=all",
+                    "https://www.instagram.com/tinkedge_/",
+                    "https://www.youtube.com/@tinkedge9223",
+                    "https://www.google.com/maps/place/TinkEdge/@13.0051806,77.5668533,17z"
+                ]
+            }
+        </script>
+    @endif
 </head>
 
 <body>
 
-@if(
-    request()->routeIs('home') ||
-    request()->routeIs('portal') ||
-    request()->routeIs('admin.login') ||
-    request()->routeIs('teacher.login') ||
-    request()->routeIs('student.login') ||
-    request()->routeIs('independent.register') ||
-    request()->routeIs('independent.login') ||
-    request()->routeIs('coming.soon') ||
-    request()->routeIs('newsroom') ||
-    request()->routeIs('admin.institute.register')
-)
+@if($showParticles)
     <div id="particles-js"></div>
 @endif
 
-@if(!request()->routeIs('home') &&
-    !request()->routeIs('portal') &&
-    !request()->routeIs('admin.login') &&
-    !request()->routeIs('teacher.login') &&
-    !request()->routeIs('student.login') &&
-    !request()->routeIs('independent.register') &&
-    !request()->routeIs('independent.login') &&
-    !request()->routeIs('coming.soon') &&
-    !request()->routeIs('newsroom') &&
-    !request()->routeIs('admin.institute.register'))
+@if($showPanelNav)
 
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
 
         <a class="navbar-brand fw-bold text-primary"
-           href="
-            @if(session('user_role') == 'Admin')
-                {{ route('admin.dashboard') }}
-            @elseif(session('user_role') == 'Teacher')
-                {{ route('teacher.dashboard') }}
-            @elseif(session('student_id'))
-                {{ route('student.dashboard') }}
-            @elseif(session('independent_learner_id'))
-                {{ route('independent.dashboard') }}
-            @else
-                {{ route('home') }}
-            @endif
-            ">
+           href="{{ $panelHomeUrl }}">
             InnovatEdge Panel
         </a>
 
         <div class="ms-auto d-flex align-items-center gap-3">
 
-            @if(
-                session('user_name') ||
-                session('student_name') ||
-                session('independent_learner_name')
-            )
+            @if($panelUserName)
                 <span class="text-muted fw-semibold">
 
-                    {{ session('user_name')
-                        ?? session('student_name')
-                        ?? session('independent_learner_name') }}
+                    {{ $panelUserName }}
 
-                    @if(session('user_role') == 'Admin')
-
-                        (Admin)
-
-                    @elseif(session('user_role') == 'InstituteAdmin')
-
-                        (Institute Admin)
-
-                    @elseif(session('user_role') == 'Teacher')
-
-                        (STEM Engineer)
-
-                    @elseif(session('student_id'))
-
-                        (Student)
-
-                    @elseif(session('independent_learner_id'))
-
-                        (Hybrid Learner)
-
+                    @if($panelUserRoleLabel)
+                        ({{ $panelUserRoleLabel }})
                     @endif
 
                 </span>
             @endif
 
-            @if(
-                session()->has('user_id') ||
-                session()->has('student_id') ||
-                session()->has('independent_learner_id')
-            )
+            @if($showLogout)
                 <a href="{{ route('logout') }}"
                    class="btn btn-sm btn-outline-danger">
                     Logout
@@ -172,25 +236,7 @@
     });
 </script>
 
-@unless(
-    request()->routeIs('home') ||
-    request()->routeIs('portal') ||
-    request()->routeIs('admin.login*') ||
-    request()->routeIs('teacher.login*') ||
-    request()->routeIs('student.login*') ||
-    request()->routeIs('blogs.login*') ||
-    request()->routeIs('independent.login*') ||
-    request()->routeIs('independent.register*') ||
-    request()->routeIs('coming.soon') ||
-    request()->routeIs('content.preview*') ||
-    request()->routeIs('content.file*') ||
-    request()->routeIs('assessment.paper*') ||
-    request()->routeIs('assessment.answer.file*') ||
-    request()->routeIs('student.assessment.take*') ||
-    request()->routeIs('student.assessment-taking*') ||
-    request()->routeIs('teacher.ai-prep.quiz*') ||
-    request()->routeIs('student.content.ai-review.quiz*')
-)
+@if($enableScrollRestore)
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const scrollKey = 'innovatedge-scroll:' + window.location.pathname + window.location.search;
@@ -281,9 +327,11 @@
         }, true);
     });
 </script>
-@endunless
+@endif
 
-@include('notifications.popup')
+@if($showNotifications)
+    @include('notifications.popup')
+@endif
 @include('partials.ai-chatbot')
 
 </body>

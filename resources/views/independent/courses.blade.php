@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+@section('title', 'Explore STEM Courses | InnovatEdge')
+@section('meta_description', 'Explore InnovatEdge hybrid STEM courses for robotics, AI, ATL labs, school innovation programs, and hands-on learning.')
+
 @section('content')
 
 <div class="container py-5">

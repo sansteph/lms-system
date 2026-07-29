@@ -98,6 +98,7 @@
                                     @php
                                         $teachingStatus = $teachingStatusByContentId[$content->id] ?? null;
                                         $effectiveAiSummary = $content->effective_ai_summary;
+                                        $aiTrainingApplies = $aiTrainingRequiredContentIds->contains($content->id);
                                     @endphp
                                     <tr>
                                         <td>{{ $rowNumber++ }}</td>
@@ -134,10 +135,12 @@
                                             </div>
                                         </td>
                                         <td>
-                                            @if($effectiveAiSummary && $effectiveAiSummary->status == 'generated')
+                                            @if(!$aiTrainingApplies)
+                                                <span class="badge bg-light text-dark border">Not Required</span>
+                                            @elseif($effectiveAiSummary && $effectiveAiSummary->status == 'generated')
                                                 <span class="badge bg-success mb-2">Training Ready</span>
                                                 <br>
-                                                <a href="{{ route('teacher.ai-prep', $content->id) }}"
+                                                <a href="{{ route('teacher.ai-prep', ['id' => $content->id, 'grade' => $contentGradeByContentId->get($content->id)]) }}"
                                                    class="btn btn-sm btn-outline-success">
                                                     Prep Assessment
                                                 </a>

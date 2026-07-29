@@ -22,18 +22,32 @@ use App\Models\TeachingPlanWeek;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Support\DeletesAssessments;
+use App\Support\BuildsInstituteSectionPager;
 
 class ContentController extends Controller
 {
-    use DeletesAssessments;
+    use BuildsInstituteSectionPager, DeletesAssessments;
     public function index(Request $request)
     {
         $search = $request->search;
         $selectedCourseId = $request->course_id;
+        $sectionPager = null;
+        $currentInstitute = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, 'content');
+        }
 
         $courses = Course::where('status', 1)
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
+            })
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where(function ($q) use ($currentInstitute) {
+                    $q->where('institute', $currentInstitute)
+                        ->orWhere('is_template_source', 1);
+                });
             })
             ->orderBy('course_title')
             ->get();
@@ -41,6 +55,9 @@ class ContentController extends Controller
         $contents = Content::with(['course', 'courseContent', 'aiSummary'])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
+            })
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
             })
             ->when($selectedCourseId, function ($query, $courseId) {
                 $query->where('course_id', $courseId);
@@ -57,9 +74,10 @@ class ContentController extends Controller
             })
             ->orderBy('course_id')
             ->orderBy('lesson_order')
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
-        return view('content', compact('contents', 'courses', 'selectedCourseId'));
+        return view('content', compact('contents', 'courses', 'selectedCourseId', 'sectionPager'));
     }
 
     public function bulkStore(Request $request)

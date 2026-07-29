@@ -249,7 +249,9 @@
                                     @foreach($items as $item)
                                         @php
                                             $effectiveAiSummary = $item->content?->effective_ai_summary;
-                                            $prepRequired = $item->content
+                                            $aiTrainingApplies = $aiTrainingRequiredItemIds->contains($item->id);
+                                            $prepRequired = $aiTrainingApplies
+                                                && $item->content
                                                 && $effectiveAiSummary
                                                 && $effectiveAiSummary->status == 'generated'
                                                 && !$teacherPassedPrepContentIds->contains($item->content->id)
@@ -267,9 +269,11 @@
                                                 </small>
                                             </td>
                                             <td>
-                                                @if($item->content && $effectiveAiSummary && $effectiveAiSummary->status == 'generated')
+                                                @if(!$aiTrainingApplies)
+                                                    <span class="badge bg-light text-dark border">Not Required</span>
+                                                @elseif($item->content && $effectiveAiSummary && $effectiveAiSummary->status == 'generated')
                                                     @if($prepRequired)
-                                                        <a href="{{ route('teacher.ai-prep', $item->content->id) }}"
+                                                        <a href="{{ route('teacher.ai-prep', ['id' => $item->content->id, 'grade' => $item->plan?->class]) }}"
                                                            class="btn btn-sm btn-outline-success">
                                                             Prep Required
                                                         </a>
@@ -282,7 +286,7 @@
                                             </td>
                                             <td>
                                                 @if($prepRequired)
-                                                    <a href="{{ route('teacher.ai-prep', $item->content->id) }}"
+                                                    <a href="{{ route('teacher.ai-prep', ['id' => $item->content->id, 'grade' => $item->plan?->class]) }}"
                                                        class="btn btn-sm btn-outline-success w-100">
                                                         Start Prep
                                                     </a>

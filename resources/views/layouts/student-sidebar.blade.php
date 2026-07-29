@@ -27,10 +27,6 @@
         My Space
     </a>
 
-    <a href="{{ route('student.community-feed') }}"class="sidebar-link {{ request()->routeIs('student.community-feed*') ? 'active' : '' }}">
-        Blogs
-    </a>
-
     <a href="{{ route('student.profile') }}"class="sidebar-link {{ request()->routeIs('student.profile') ? 'active' : '' }}">
         Profile
     </a>

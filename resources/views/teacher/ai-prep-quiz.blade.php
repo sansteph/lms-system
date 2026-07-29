@@ -54,7 +54,7 @@
                             Prep quiz already cleared. No further attempts are needed.
                         </div>
                     @else
-                    <form id="lockedPrepQuizForm" action="{{ route('teacher.ai-prep.submit', $content->id) }}" method="POST">
+                    <form id="lockedPrepQuizForm" action="{{ route('teacher.ai-prep.submit', ['id' => $content->id, 'grade' => $gradeLevel]) }}" method="POST">
                         @csrf
                         <input type="hidden" name="auto_submitted" id="autoSubmitted" value="0">
 

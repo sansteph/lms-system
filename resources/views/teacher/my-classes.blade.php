@@ -86,7 +86,9 @@
                                 @foreach($releasedItems as $item)
                                     @php
                                         $effectiveAiSummary = $item->content?->effective_ai_summary;
-                                        $prepRequired = $item->content
+                                        $aiTrainingApplies = $aiTrainingRequiredItemIds->contains($item->id);
+                                        $prepRequired = $aiTrainingApplies
+                                            && $item->content
                                             && $effectiveAiSummary
                                             && $effectiveAiSummary->status == 'generated'
                                             && !$teacherPassedPrepContentIds->contains($item->content->id)
@@ -170,8 +172,10 @@
                                             </td>
                                             <td>
                                                 @php $effectiveAiSummary = $item->content?->effective_ai_summary; @endphp
-                                                @if($item->content && $effectiveAiSummary && $effectiveAiSummary->status == 'generated')
-                                                    <a href="{{ route('teacher.ai-prep', $item->content->id) }}"
+                                                @if(!$aiTrainingRequiredItemIds->contains($item->id))
+                                                    <span class="badge bg-light text-dark border">Not Required</span>
+                                                @elseif($item->content && $effectiveAiSummary && $effectiveAiSummary->status == 'generated')
+                                                    <a href="{{ route('teacher.ai-prep', ['id' => $item->content->id, 'grade' => $item->plan?->class]) }}"
                                                        class="btn btn-sm btn-outline-success">
                                                         Prep Assessment
                                                     </a>

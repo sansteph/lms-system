@@ -21,7 +21,6 @@ use App\Models\LessonProgress;
 use App\Models\UserSession;
 use App\Models\ClassTimetable;
 use App\Models\ClassContentSession;
-use App\Models\InstituteRegistrationRequest;
 use App\Models\CourseContent;
 use App\Models\TeachingPlan;
 use App\Models\TeachingPlanItem;
@@ -34,17 +33,25 @@ class InstituteController extends Controller
     {
         $search = $request->search;
 
-        $institutes = Institute::when($search, function ($query, $search) {
+        $instituteQuery = Institute::when($search, function ($query, $search) {
             return $query->where('institute_id', 'like', "%{$search}%")
                         ->orWhere('institute_name', 'like', "%{$search}%")
                         ->orWhere('location', 'like', "%{$search}%")
                         ->orWhere('contact_person', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%");
-        })->get();
+        });
+
+        $totalInstitutes = Institute::count();
+        $activeInstitutes = Institute::where('status', 1)->count();
+
+        $institutes = $instituteQuery
+            ->orderBy('institute_name')
+            ->paginate(30)
+            ->withQueryString();
 
         $studentCount = Student::count();
 
-        return view('institutes', compact('institutes', 'studentCount'));
+        return view('institutes', compact('institutes', 'studentCount', 'totalInstitutes', 'activeInstitutes'));
     }
 
     public function store(Request $request)
@@ -190,8 +197,6 @@ class InstituteController extends Controller
                 CourseContent::where('course_id', $course->id)->delete();
                 $course->delete();
             }
-
-            InstituteRegistrationRequest::where('institute_name', $instituteName)->delete();
 
             $institute->delete();
         });

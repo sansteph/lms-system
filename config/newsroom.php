@@ -9,7 +9,7 @@ return [
         'trim',
         explode(',', env(
             'NEWSROOM_KEYWORDS',
-            'STEM education,ATL lab,robotics for schools,AI in education,IoT projects for students,Arduino robotics,school innovation labs'
+            'STEM education,ATL lab,robotics for schools,AI in education,IoT projects for students,Arduino robotics,electronics components,sensors actuators microcontrollers,global STEM projects,student robotics competition,STEM innovation competition,science fair projects,hackathons for students,school innovation labs'
         ))
     ))),
 

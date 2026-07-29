@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+@section('title', 'Coming Soon | InnovatEdge Hybrid Learning')
+@section('meta_description', 'InnovatEdge hybrid learning features are coming soon for students, schools, and STEM learners.')
+
 @section('content')
 
 <div class="coming-soon-container">

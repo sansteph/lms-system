@@ -7,6 +7,11 @@ use App\Models\AssessmentResult;
 
 class Assessment extends Model
 {
+    protected $casts = [
+        'ai_generated' => 'boolean',
+        'ai_source_content_ids' => 'array',
+    ];
+
     public function results()
     {
         return $this->hasMany(
@@ -36,9 +41,14 @@ class Assessment extends Model
         'assigned_class',
         'assessment_category',
         'assessment_date',
+        'start_time',
+        'end_time',
         'total_marks',
         'duration',
         'question_paper_type',
+        'ai_generated',
+        'ai_source_content_ids',
+        'ai_generation_payload',
         'file_path',
         'question_paper_status',
         'question_paper_reviewed_by',

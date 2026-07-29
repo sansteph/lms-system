@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CommunityPost;
+use App\Models\CommunityPostComment;
 use App\Models\CommunityPostLike;
 use App\Models\Student;
 use App\Models\User;
@@ -18,6 +19,12 @@ class CommunityFeedController extends Controller
 
     public function blogsEntry()
     {
+        if (session('independent_learner_id')) {
+            return redirect()
+                ->route('home')
+                ->with('error', 'Blogs are available only for Admins, STEM Engineers, and Students.');
+        }
+
         if (!session('student_id') && !session('user_id')) {
             return redirect()->route('blogs.login');
         }
@@ -27,6 +34,12 @@ class CommunityFeedController extends Controller
 
     public function blogsLogin()
     {
+        if (session('independent_learner_id')) {
+            return redirect()
+                ->route('home')
+                ->with('error', 'Blogs are available only for Admins, STEM Engineers, and Students.');
+        }
+
         if (session('student_id') || session('user_id')) {
             return redirect()->route('blogs.community-feed');
         }
@@ -36,6 +49,12 @@ class CommunityFeedController extends Controller
 
     public function blogsLoginSubmit(Request $request)
     {
+        if (session('independent_learner_id')) {
+            return redirect()
+                ->route('home')
+                ->with('error', 'Blogs are available only for Admins, STEM Engineers, and Students.');
+        }
+
         $request->validate([
             'login' => 'required|string|max:255',
             'password' => 'required|string',
@@ -96,60 +115,71 @@ class CommunityFeedController extends Controller
 
     public function index(Request $request)
     {
+        if (session('independent_learner_id')) {
+            return redirect()
+                ->route('home')
+                ->with('error', 'Blogs are available only for Admins, STEM Engineers, and Students.');
+        }
+
         if (!session('student_id') && !session('user_id')) {
             return redirect()->route('blogs.login');
         }
 
         $actor = $this->currentActor();
-        $status = $request->query('status');
+        $tab = $request->query('tab', 'feed');
         $type = $request->query('type');
+        $canModerate = $this->canModerateStudentPosts($actor);
 
-        $posts = CommunityPost::with('likes')
+        if (!in_array($tab, ['feed', 'profile', 'approvals', 'post'], true)) {
+            $tab = 'feed';
+        }
+
+        if ($tab === 'approvals' && !$canModerate) {
+            abort(403, 'Only Admins and STEM Engineers can approve blog posts.');
+        }
+
+        $posts = CommunityPost::with(['likes', 'comments'])
             ->when($type, fn ($query) => $query->where('post_type', $type))
-            ->when($this->canModerateStudentPosts($actor) && in_array($status, ['Pending', 'Approved', 'Rejected'], true), function ($query) use ($status) {
-                $query->where('status', $status);
-            })
-            ->when(!$this->canModerateStudentPosts($actor), function ($query) use ($actor) {
-                $query->where(function ($visibility) use ($actor) {
-                    $visibility->where(function ($approved) use ($actor) {
-                        $approved->where('status', 'Approved')
-                            ->where(function ($scope) use ($actor) {
-                                $scope->where('institute', $actor['institute'])
-                                    ->orWhereNull('institute');
-                            });
-                    })
-                    ->orWhere(function ($own) use ($actor) {
-                        $own->where('author_type', $actor['type'])
-                            ->where('author_id', $actor['id']);
+            ->when($tab === 'feed', function ($query) use ($actor) {
+                $query->where('status', 'Approved')
+                    ->when(!$this->isSuperAdmin($actor), function ($scope) use ($actor) {
+                        $scope->where(function ($visibility) use ($actor) {
+                            $visibility->where('institute', $actor['institute'])
+                                ->orWhereNull('institute');
+                        });
                     });
-                });
             })
-            ->when($actor['type'] === 'Teacher', function ($query) use ($actor) {
-                $query->where(function ($visibility) use ($actor) {
-                    $visibility->where(function ($approved) use ($actor) {
-                        $approved->where('status', 'Approved')
-                            ->where(function ($scope) use ($actor) {
-                                $scope->where('institute', $actor['institute'])
-                                    ->orWhereNull('institute');
+            ->when($tab === 'approvals', function ($query) use ($actor) {
+                $query->where('status', 'Pending')
+                    ->when(!$this->isSuperAdmin($actor), fn ($scope) => $scope->where('institute', $actor['institute']))
+                    ->when($actor['type'] === 'Teacher', fn ($scope) => $scope->where('author_type', 'Student'));
+            })
+            ->when($tab === 'profile', function ($query) use ($request, $actor) {
+                $profileType = $request->query('profile_type', $actor['type']);
+                $profileId = (int) $request->query('profile_id', $actor['id']);
+
+                $query->where('author_type', $profileType)
+                    ->where('author_id', $profileId)
+                    ->where(function ($visibility) use ($actor, $profileType, $profileId) {
+                        $visibility->where('status', 'Approved')
+                            ->orWhere(function ($own) use ($actor, $profileType, $profileId) {
+                                $own->where('author_type', $actor['type'])
+                                    ->where('author_id', $actor['id'])
+                                    ->where('author_type', $profileType)
+                                    ->where('author_id', $profileId);
                             });
-                    })
-                    ->orWhere(function ($pendingStudent) use ($actor) {
-                        $pendingStudent->where('status', 'Pending')
-                            ->where('author_type', 'Student')
-                            ->where('institute', $actor['institute']);
-                    })
-                    ->orWhere(function ($own) use ($actor) {
-                        $own->where('author_type', $actor['type'])
-                            ->where('author_id', $actor['id']);
                     });
-                });
             })
-            ->when($this->isInstituteAdmin($actor), fn ($query) => $query->where('institute', $actor['institute']))
+            ->when($tab === 'post', fn ($query) => $query->whereRaw('1 = 0'))
             ->latest()
             ->paginate(10)
             ->withQueryString();
 
-        $pendingCount = $this->canModerateStudentPosts($actor)
+        $profile = $tab === 'profile'
+            ? $this->blogProfile($request->query('profile_type', $actor['type']), (int) $request->query('profile_id', $actor['id']), $actor)
+            : $this->blogProfile($actor['type'], $actor['id'], $actor);
+
+        $pendingCount = $canModerate
             ? CommunityPost::when(!$this->isSuperAdmin($actor), fn ($query) => $query->where('institute', $actor['institute']))
                 ->when($actor['type'] === 'Teacher', fn ($query) => $query->where('author_type', 'Student'))
                 ->where('status', 'Pending')
@@ -159,6 +189,8 @@ class CommunityFeedController extends Controller
         return view('community-feed.index', [
             'posts' => $posts,
             'actor' => $actor,
+            'activeTab' => $tab,
+            'profile' => $profile,
             'pendingCount' => $pendingCount,
             'postTypes' => $this->postTypes(),
             'isBlogsModule' => $request->routeIs('blogs*'),
@@ -270,6 +302,63 @@ class CommunityFeedController extends Controller
         return redirect()->back();
     }
 
+    public function storeComment(Request $request, int $id)
+    {
+        $actor = $this->currentActor();
+        $post = CommunityPost::findOrFail($id);
+
+        if (!$this->canViewPost($post, $actor) || $post->status !== 'Approved') {
+            abort(403, 'You cannot comment on this post.');
+        }
+
+        $data = $request->validate([
+            'body' => 'required|string|max:1200',
+        ]);
+
+        CommunityPostComment::create([
+            'community_post_id' => $post->id,
+            'commenter_type' => $actor['type'],
+            'commenter_id' => $actor['id'],
+            'body' => $data['body'],
+        ]);
+
+        return redirect()->back()->with('success', 'Comment added.');
+    }
+
+    public function updateComment(Request $request, int $id)
+    {
+        $actor = $this->currentActor();
+        $comment = CommunityPostComment::with('post')->findOrFail($id);
+
+        if (!$this->ownsComment($comment, $actor) || !$this->canViewPost($comment->post, $actor)) {
+            abort(403, 'You cannot edit this comment.');
+        }
+
+        $data = $request->validate([
+            'body' => 'required|string|max:1200',
+        ]);
+
+        $comment->update([
+            'body' => $data['body'],
+        ]);
+
+        return redirect()->back()->with('success', 'Comment updated.');
+    }
+
+    public function deleteComment(int $id)
+    {
+        $actor = $this->currentActor();
+        $comment = CommunityPostComment::with('post')->findOrFail($id);
+
+        if (!$this->ownsComment($comment, $actor) || !$this->canViewPost($comment->post, $actor)) {
+            abort(403, 'You cannot delete this comment.');
+        }
+
+        $comment->delete();
+
+        return redirect()->back()->with('success', 'Comment deleted.');
+    }
+
     public function delete(int $id)
     {
         $actor = $this->currentActor();
@@ -304,6 +393,7 @@ class CommunityFeedController extends Controller
                 'id' => $student->id,
                 'name' => $student->name,
                 'institute' => $student->institute,
+                'profile_image' => $student->profile_image,
             ];
         }
 
@@ -314,6 +404,7 @@ class CommunityFeedController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'institute' => $user->institute,
+            'profile_image' => $user->profile_image,
         ];
     }
 
@@ -389,17 +480,68 @@ class CommunityFeedController extends Controller
         return in_array($actor['type'], ['Admin', 'InstituteAdmin', 'Teacher'], true);
     }
 
-    private function routePrefix(array $actor, ?Request $request = null): string
+    private function ownsComment(CommunityPostComment $comment, array $actor): bool
     {
-        if ($request && $request->routeIs('blogs*')) {
-            return 'blogs';
+        return $comment->commenter_type === $actor['type']
+            && (int) $comment->commenter_id === (int) $actor['id'];
+    }
+
+    private function blogProfile(?string $type, int $id, array $actor): array
+    {
+        $type = in_array($type, ['Admin', 'InstituteAdmin', 'Teacher', 'Student'], true) ? $type : $actor['type'];
+        $model = $type === 'Student'
+            ? Student::find($id)
+            : User::where('id', $id)->where('role', $type)->first();
+
+        if (!$model) {
+            abort(404, 'Blog profile not found.');
         }
 
-        return match ($actor['type']) {
-            'Teacher' => 'teacher',
-            'Student' => 'student',
-            default => 'admin',
-        };
+        $profileInstitute = $model->institute ?? null;
+
+        if (!$this->isSuperAdmin($actor) && $profileInstitute && $profileInstitute !== $actor['institute']) {
+            abort(403, 'You cannot view a profile from another institute.');
+        }
+
+        $approvedPosts = CommunityPost::where('author_type', $type)
+            ->where('author_id', $id)
+            ->where('status', 'Approved')
+            ->count();
+
+        $pendingPosts = $type === $actor['type'] && $id === $actor['id']
+            ? CommunityPost::where('author_type', $type)
+                ->where('author_id', $id)
+                ->where('status', 'Pending')
+                ->count()
+            : 0;
+
+        $likeCount = CommunityPostLike::whereHas('post', function ($query) use ($type, $id) {
+                $query->where('author_type', $type)
+                    ->where('author_id', $id)
+                    ->where('status', 'Approved');
+            })
+            ->count();
+
+        return [
+            'type' => $type,
+            'id' => $id,
+            'name' => $model->name,
+            'role' => $type === 'Teacher' ? 'STEM Engineer' : ($type === 'InstituteAdmin' ? 'Institute Admin' : $type),
+            'institute' => $profileInstitute,
+            'class' => $type === 'Student' ? ($model->class ?? null) : null,
+            'section' => $type === 'Student' ? ($model->section ?? null) : null,
+            'qualification' => $type === 'Teacher' ? ($model->qualification ?? null) : null,
+            'designation' => $type !== 'Student' ? ($model->designation ?? null) : null,
+            'image' => $type === 'Student' ? null : ($model->profile_image ?? null),
+            'approved_posts' => $approvedPosts,
+            'pending_posts' => $pendingPosts,
+            'likes' => $likeCount,
+        ];
+    }
+
+    private function routePrefix(array $actor, ?Request $request = null): string
+    {
+        return 'blogs';
     }
 
     private function trackBlogLogin(Request $request, string $type, int $id): void
