@@ -97,6 +97,42 @@
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
 
+            @if(session('skipped_ai_training_plans'))
+                <div class="alert alert-warning">
+                    <div class="fw-semibold mb-2">Skipped AI prep training plans</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Institute</th>
+                                    <th>Class</th>
+                                    <th>Course</th>
+                                    <th>Plan</th>
+                                    <th>Available Release Dates</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach(session('skipped_ai_training_plans') as $skippedPlan)
+                                    <tr>
+                                        <td>{{ $skippedPlan['institute'] }}</td>
+                                        <td>{{ $skippedPlan['class'] ?: 'N/A' }}</td>
+                                        <td>{{ $skippedPlan['course'] }}</td>
+                                        <td>{{ $skippedPlan['title'] }}</td>
+                                        <td>
+                                            @if(!empty($skippedPlan['release_dates']))
+                                                {{ implode(', ', $skippedPlan['release_dates']) }}
+                                            @else
+                                                No release dates found
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
+
             @if(session('deployment_messages'))
                 <div class="alert alert-info">
                     @foreach(session('deployment_messages') as $message)

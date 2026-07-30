@@ -353,17 +353,33 @@ class TeachingPlanController extends Controller
 
         $matchingPlans = TeachingPlan::with('weeks')
             ->where('is_template', false)
+            ->with('course')
             ->whereIn('institute', $selectedInstituteNames)
             ->whereIn('status', ['active', 'completed'])
             ->get();
 
         $updatedCount = 0;
         $skippedCount = 0;
+        $skippedPlans = [];
 
-        DB::transaction(function () use ($matchingPlans, $selectedDate, &$updatedCount, &$skippedCount) {
+        DB::transaction(function () use ($matchingPlans, $selectedDate, &$updatedCount, &$skippedCount, &$skippedPlans) {
             foreach ($matchingPlans as $matchingPlan) {
                 if ($selectedDate && !$matchingPlan->weeks->contains(fn ($week) => $week->release_date && Carbon::parse($week->release_date)->toDateString() == $selectedDate)) {
                     $skippedCount++;
+                    $releaseDates = $matchingPlan->weeks
+                        ->filter(fn ($week) => $week->release_date)
+                        ->map(fn ($week) => Carbon::parse($week->release_date)->format('d M Y'))
+                        ->unique()
+                        ->values()
+                        ->all();
+
+                    $skippedPlans[] = [
+                        'title' => $matchingPlan->title ?: ($matchingPlan->course->course_title ?? 'Teaching Plan'),
+                        'institute' => $matchingPlan->institute,
+                        'class' => trim(($matchingPlan->class ?? '') . ' ' . ($matchingPlan->section ?? '')),
+                        'course' => $matchingPlan->course->course_title ?? 'Course removed',
+                        'release_dates' => $releaseDates,
+                    ];
                     continue;
                 }
 
@@ -381,7 +397,9 @@ class TeachingPlanController extends Controller
                 : "AI prep training disabled for {$updatedCount} institute grade plan(s).");
 
         if ($skippedCount > 0) {
-            $redirect->with('error', "{$skippedCount} matching plan(s) were skipped because that release date does not exist in their weekly schedule.");
+            $redirect
+                ->with('error', "{$skippedCount} matching plan(s) were skipped because that release date does not exist in their weekly schedule.")
+                ->with('skipped_ai_training_plans', $skippedPlans);
         }
 
         return $redirect;
