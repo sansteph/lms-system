@@ -15,7 +15,7 @@ trait BuildsInstituteSectionPager
             ->values();
 
         $lastPage = max($institutes->count(), 1);
-        $currentPage = min(max((int) $request->query('section_page', 1), 1), $lastPage);
+        $currentPage = min(max((int) $request->input('section_page', 1), 1), $lastPage);
         $currentInstitute = $institutes->get($currentPage - 1);
         $query = $request->except(['section_page', 'page']);
 

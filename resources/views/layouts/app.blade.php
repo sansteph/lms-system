@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     @php
         $seoPublicRoutes = [
@@ -91,12 +91,17 @@
         $showLogout = session()->has('user_id') || session()->has('student_id') || session()->has('independent_learner_id');
     @endphp
 
+    <meta charset="utf-8">
+
     <title>{{ $seoTitle }}</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="{{ $seoDescription }}">
-    <meta name="robots" content="{{ $seoIsPublic ? 'index, follow' : 'noindex, nofollow' }}">
+    <meta name="robots" content="{{ $seoIsPublic ? 'index, follow, max-image-preview:large' : 'noindex, nofollow' }}">
+    <meta name="theme-color" content="#07184a">
+    <meta name="application-name" content="InnovatEdge">
+    <meta name="apple-mobile-web-app-title" content="InnovatEdge">
     <link rel="canonical" href="{{ $seoUrl }}">
 
     <meta property="og:title" content="{{ $seoTitle }}">
@@ -105,6 +110,7 @@
     <meta property="og:url" content="{{ $seoUrl }}">
     <meta property="og:image" content="{{ $seoImage }}">
     <meta property="og:site_name" content="InnovatEdge">
+    <meta property="og:locale" content="en_IN">
 
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $seoTitle }}">
