@@ -19,7 +19,7 @@
     </a>
 
     <a href="{{ route('teacher.students.hub') }}"
-       class="sidebar-link {{ request()->routeIs('teacher.students.hub') || request()->routeIs('teacher.results') || request()->routeIs('teacher.student.profiles*') || request()->routeIs('teacher.certificates') ? 'active' : '' }}">
+       class="sidebar-link {{ request()->routeIs('teacher.students.hub') || request()->routeIs('teacher.student-management') || request()->routeIs('teacher.students.*') || request()->routeIs('teacher.results') || request()->routeIs('teacher.student.profiles*') || request()->routeIs('teacher.certificates') ? 'active' : '' }}">
         Students
     </a>
 

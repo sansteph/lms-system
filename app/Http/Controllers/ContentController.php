@@ -744,15 +744,14 @@ class ContentController extends Controller
     private function studentAvailableContentIds(Student $student)
     {
         $assignedClass = preg_replace('/\s+/', ' ', trim($student->class . ' ' . $student->section));
-        $studentGrade = preg_replace('/\s+/', ' ', trim((string) $student->class));
 
         $teachingPlanContentIds = TeachingPlanItem::where('status', 'completed')
             ->whereNotNull('content_id')
-            ->whereHas('plan', function ($query) use ($student, $assignedClass, $studentGrade) {
+            ->whereHas('plan', function ($query) use ($student, $assignedClass) {
                 $query->where('is_template', false)
                     ->where('institute', $student->institute)
                     ->whereIn('status', ['active', 'completed'])
-                    ->where(function ($classQuery) use ($assignedClass, $studentGrade) {
+                    ->where(function ($classQuery) use ($assignedClass) {
                         $classQuery
                             ->whereRaw(
                                 "REPLACE(TRIM(class), '  ', ' ') = ?",
@@ -761,17 +760,7 @@ class ContentController extends Controller
                             ->orWhereRaw(
                                 "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
                                 [$assignedClass]
-                            )
-                            ->orWhere(function ($gradeQuery) use ($studentGrade) {
-                                $gradeQuery
-                                    ->whereRaw("REPLACE(TRIM(class), '  ', ' ') = ?", [$studentGrade])
-                                    ->where(function ($sectionQuery) {
-                                        $sectionQuery
-                                            ->whereNull('section')
-                                            ->orWhereRaw("TRIM(COALESCE(section, '')) = ''")
-                                            ->orWhereRaw("LOWER(TRIM(section)) = 'combined'");
-                                    });
-                            });
+                            );
                     });
             })
             ->whereHas('content', function ($query) {
@@ -782,17 +771,10 @@ class ContentController extends Controller
             ->values();
 
         $legacyCourseIds = Course::where('institute', $student->institute)
-            ->where(function ($query) use ($assignedClass, $studentGrade) {
-                $query
-                    ->whereRaw(
-                        "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                        [$assignedClass]
-                    )
-                    ->orWhereRaw(
-                        "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                        [$studentGrade]
-                    );
-            })
+            ->whereRaw(
+                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                [$assignedClass]
+            )
             ->pluck('id');
 
         $legacyReleasedContentIds = Content::whereIn('course_id', $legacyCourseIds)

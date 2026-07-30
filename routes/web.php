@@ -12,7 +12,6 @@ use App\Http\Controllers\AssessmentResultController;
 use App\Http\Controllers\StudentAchievementController;
 use App\Http\Controllers\LessonProgressController;
 use App\Http\Controllers\CourseController;
-use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\MySpaceController;
 use App\Http\Controllers\TeacherStudentProfileController;
 use App\Http\Controllers\IndependentLearnerController;
@@ -101,6 +100,8 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
 
     Route::get('/students', [PageController::class, 'students'])->name('students');
     Route::post('/students/store', [PageController::class, 'storeStudent'])->name('students.store');
+    Route::post('/students/bulk-upload', [PageController::class, 'bulkUploadStudents'])->name('students.bulk-upload');
+    Route::get('/students/bulk-template', [PageController::class, 'downloadStudentBulkTemplate'])->name('students.bulk-template');
     Route::post('/students/update/{id}', [PageController::class, 'updateStudent'])->name('students.update');
     Route::get('/students/delete/{id}', [PageController::class, 'deleteStudent'])->name('students.delete');
 
@@ -287,6 +288,12 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
 
     Route::get('/teacher/student-profiles', [TeacherStudentProfileController::class, 'index'])->name('teacher.student.profiles');
     Route::get('/teacher/student-details/export', [TeacherStudentProfileController::class, 'export'])->name('teacher.student.profiles.export');
+    Route::get('/teacher/student-management', [PageController::class, 'teacherStudentManagement'])->name('teacher.student-management');
+    Route::post('/teacher/student-management/store', [PageController::class, 'storeStudent'])->name('teacher.students.store');
+    Route::post('/teacher/student-management/bulk-upload', [PageController::class, 'bulkUploadStudents'])->name('teacher.students.bulk-upload');
+    Route::get('/teacher/student-management/bulk-template', [PageController::class, 'downloadStudentBulkTemplate'])->name('teacher.students.bulk-template');
+    Route::post('/teacher/student-management/update/{id}', [PageController::class, 'updateStudent'])->name('teacher.students.update');
+    Route::get('/teacher/student-management/delete/{id}', [PageController::class, 'deleteStudent'])->name('teacher.students.delete');
 
     Route::get('/teacher/my-space', [MySpaceController::class, 'index'])->name('teacher.my-space');
     Route::get('/teacher/my-space/create', [MySpaceController::class, 'create'])->name('teacher.my-space.create');
@@ -326,7 +333,7 @@ Route::post('/student-login', [PageController::class, 'studentLoginSubmit'])->na
 // Student protected routes
 Route::middleware(['student.auth','track.activity'])->group(function () {
 
-    Route::get('/student-dashboard',[PageController::class, 'studentDashboard'])->middleware('student.profile.completed')->name('student.dashboard');
+    Route::get('/student-dashboard',[PageController::class, 'studentDashboard'])->name('student.dashboard');
 
     Route::get('/student/take-assessment',[PageController::class, 'studentTakeAssessment'])->name('student.assessment');
     Route::get('/student/take-assessment/{assessment}/start',[PageController::class, 'studentAssessmentTaking'])->name('student.assessment.take');
@@ -355,9 +362,6 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::post('/student/content/{id}/ai-review/quiz',[PageController::class, 'submitStudentAiReview'])->name('student.content.ai-review.submit');
     Route::post('/student/lesson/{id}/complete',[PageController::class, 'completeLesson'])->name('student.lesson.complete');
 
-    Route::get('/student/basic-details', [StudentProfileController::class, 'create'])->name('student.basic-details');
-    Route::post('/student/basic-details', [StudentProfileController::class, 'store'])->name('student.basic-details.store');
-    
     Route::get('/student/my-space', [MySpaceController::class, 'index'])->name('student.my-space');
     Route::get('/student/my-space/create', [MySpaceController::class, 'create'])->name('student.my-space.create');
     Route::post('/student/my-space/store', [MySpaceController::class, 'store'])->name('student.my-space.store');

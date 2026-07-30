@@ -16,12 +16,12 @@
                     <h2>Student Details</h2>
 
                     <p>
-                        View student details collected during first login.
+                        View student details by class and section.
                     </p>
 
                 </div>
 
-                <a href="{{ route('teacher.student.profiles.export', request()->query()) }}"
+                <a href="{{ route('teacher.student.profiles.export', array_merge(request()->query(), ['class' => $selectedClass])) }}"
                     class="btn btn-success">
 
                     <i class="fa fa-file-excel me-2"></i>
@@ -33,11 +33,15 @@
             </div>
 
             <div class="card shadow-sm border-0 p-4">
+                @include('partials.section-navigator', [
+                    'sectionPager' => $sectionPager ?? null,
+                    'sectionDescription' => 'Browse one class-section at a time to keep student details fast and easy to review.',
+                ])
+
                 <form method="GET" action="{{ route('teacher.student.profiles') }}" class="row g-3 align-items-end mb-4">
                     <div class="col-md-4">
-                        <label class="form-label">Class</label>
+                        <label class="form-label">Jump to Class / Section</label>
                         <select name="class" class="form-control">
-                            <option value="">All Classes</option>
                             @foreach($classOptions as $classOption)
                                 <option value="{{ $classOption }}" {{ $selectedClass == $classOption ? 'selected' : '' }}>
                                     {{ $classOption }}
@@ -49,9 +53,21 @@
                         <button type="submit" class="btn btn-primary w-100">Apply</button>
                     </div>
                     <div class="col-md-2">
-                        <a href="{{ route('teacher.student.profiles') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                        <a href="{{ route('teacher.student.profiles') }}" class="btn btn-outline-secondary w-100">First Section</a>
                     </div>
                 </form>
+
+                @if($selectedClass)
+                    <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <strong>{{ $selectedClass }}</strong>
+                            <span class="text-muted">student details</span>
+                        </div>
+                        <span class="badge bg-primary">
+                            {{ $students->count() }} student{{ $students->count() == 1 ? '' : 's' }}
+                        </span>
+                    </div>
+                @endif
 
                 <div class="table-responsive">
 

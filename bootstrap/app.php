@@ -3,7 +3,6 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\EnsureStudentProfileCompleted;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -17,7 +16,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'teacher.auth' => \App\Http\Middleware\TeacherAuth::class,
             'student.auth' => \App\Http\Middleware\StudentAuth::class,
             'track.activity' => \App\Http\Middleware\TrackUserActivity::class,
-            'student.profile.completed' => EnsureStudentProfileCompleted::class,
             'super.admin' => \App\Http\Middleware\SuperAdminOnly::class,
             'independent.auth' => \App\Http\Middleware\IndependentAuth::class,
 

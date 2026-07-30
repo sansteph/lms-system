@@ -352,7 +352,40 @@ class PageController extends Controller
             ->paginate(30)
             ->withQueryString();
 
-        return view('students', compact('students', 'sectionPager'));
+        return view('students', [
+            'students' => $students,
+            'sectionPager' => $sectionPager,
+            'studentManagementContext' => 'admin',
+            'managedInstitute' => session('user_role') == 'InstituteAdmin' ? session('user_institute') : null,
+        ]);
+    }
+
+    public function teacherStudentManagement(Request $request)
+    {
+        $teacher = User::findOrFail(session('user_id'));
+        $search = $request->search;
+
+        $students = Student::where('institute', $teacher->institute)
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('student_id', 'like', "%{$search}%")
+                        ->orWhere('class', 'like', "%{$search}%")
+                        ->orWhere('section', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('class')
+            ->orderBy('section')
+            ->orderBy('name')
+            ->paginate(30)
+            ->withQueryString();
+
+        return view('students', [
+            'students' => $students,
+            'sectionPager' => null,
+            'studentManagementContext' => 'teacher',
+            'managedInstitute' => $teacher->institute,
+        ]);
     }
     public function classes()
     {
@@ -382,7 +415,9 @@ class PageController extends Controller
     {
         $institute = session('user_role') == 'InstituteAdmin'
             ? session('user_institute')
-            : $request->institute;
+            : (session('user_role') == 'Teacher'
+                ? User::findOrFail(session('user_id'))->institute
+                : $request->institute);
 
         $request->validate([
             'student_id' => [
@@ -398,28 +433,243 @@ class PageController extends Controller
             'class' => 'required|string|max:50',
             'section' => 'required|string|max:20',
             'contact' => 'required|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'guardian_name' => 'nullable|string|max:255',
+            'guardian_contact' => 'nullable|string|max:20',
+            'is_robotics_club_member' => 'required|boolean',
             'password' => 'required|min:6',
         ]);
 
-        Student::create([
+        $studentData = [
             'student_id' => $request->student_id,
             'name' => $request->name,
             'institute' => $institute,
             'class' => $request->class,
             'section' => $request->section,
             'contact' => $request->contact,
+            'email' => $request->email,
+            'guardian_name' => $request->guardian_name,
+            'guardian_contact' => $request->guardian_contact,
+            'is_robotics_club_member' => $request->boolean('is_robotics_club_member'),
             'password' => Hash::make($request->password),
             'status' => 1,
-        ]);
+            'profile_completed' => true,
+        ];
+
+        Student::create($studentData);
 
         return redirect()->back()->with('success', 'Student added successfully');
     }
+
+    public function downloadStudentBulkTemplate()
+    {
+        $managedInstitute = null;
+
+        if (session('user_role') == 'InstituteAdmin') {
+            $managedInstitute = session('user_institute');
+        } elseif (session('user_role') == 'Teacher') {
+            $managedInstitute = User::findOrFail(session('user_id'))->institute;
+        }
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="student_bulk_upload_template.csv"',
+        ];
+
+        $callback = function () use ($managedInstitute) {
+            $file = fopen('php://output', 'w');
+
+            fputcsv($file, [
+                'student_id',
+                'name',
+                'institute',
+                'class',
+                'section',
+                'contact',
+                'email',
+                'guardian_name',
+                'guardian_contact',
+                'is_robotics_club_member',
+                'password',
+                'status',
+            ]);
+
+            fputcsv($file, [
+                'STU001',
+                'Student Name',
+                $managedInstitute ?: 'Institute Name',
+                'Class 10',
+                'A',
+                '9876543210',
+                'student@example.com',
+                'Guardian Name',
+                '9876500000',
+                'No',
+                'Student@123',
+                'Active',
+            ]);
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function bulkUploadStudents(Request $request)
+    {
+        $request->validate([
+            'students_csv' => 'required|file|mimes:csv,txt|max:5120',
+        ]);
+
+        $path = $request->file('students_csv')->getRealPath();
+        $handle = fopen($path, 'r');
+
+        if (!$handle) {
+            return redirect()->back()->with('error', 'Unable to read the uploaded CSV file.');
+        }
+
+        $header = fgetcsv($handle);
+
+        if (!$header) {
+            fclose($handle);
+            return redirect()->back()->with('error', 'The uploaded CSV file is empty.');
+        }
+
+        $normalizedHeader = array_map(function ($value) {
+            return strtolower(trim((string) $value, " \t\n\r\0\x0B\xEF\xBB\xBF"));
+        }, $header);
+        $requiredColumns = ['student_id', 'name', 'class', 'section', 'contact', 'password'];
+
+        if (session('user_role') == 'Admin') {
+            $requiredColumns[] = 'institute';
+        }
+        $missingColumns = array_values(array_diff($requiredColumns, $normalizedHeader));
+
+        if (!empty($missingColumns)) {
+            fclose($handle);
+            return redirect()->back()->with('error', 'Missing required CSV columns: ' . implode(', ', $missingColumns));
+        }
+
+        $created = 0;
+        $skipped = 0;
+        $errors = [];
+        $rowNumber = 1;
+        $seenStudentKeys = [];
+        $managedInstitute = null;
+
+        if (session('user_role') == 'InstituteAdmin') {
+            $managedInstitute = session('user_institute');
+        } elseif (session('user_role') == 'Teacher') {
+            $managedInstitute = User::findOrFail(session('user_id'))->institute;
+        }
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn ($value) => trim((string) $value) !== '')) === 0) {
+                continue;
+            }
+
+            $data = [];
+
+            foreach ($normalizedHeader as $index => $column) {
+                $data[$column] = trim((string) ($row[$index] ?? ''));
+            }
+
+            $institute = $managedInstitute ?: ($data['institute'] ?? '');
+
+            $studentId = $data['student_id'] ?? '';
+            $studentKey = strtolower($institute . '|' . $studentId);
+            $rowErrors = [];
+
+            foreach ($requiredColumns as $column) {
+                if ($column === 'institute' && in_array(session('user_role'), ['InstituteAdmin', 'Teacher'], true)) {
+                    continue;
+                }
+
+                if (($data[$column] ?? '') === '') {
+                    $rowErrors[] = "{$column} is required";
+                }
+            }
+
+            if (($data['email'] ?? '') !== '' && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+                $rowErrors[] = 'email is invalid';
+            }
+
+            if (strlen($data['password'] ?? '') < 6) {
+                $rowErrors[] = 'password must be at least 6 characters';
+            }
+
+            if (isset($seenStudentKeys[$studentKey])) {
+                $rowErrors[] = 'duplicate student_id in this CSV for the same institute';
+            }
+
+            if ($studentId !== '' && Student::where('student_id', $studentId)->where('institute', $institute)->exists()) {
+                $rowErrors[] = 'student_id already exists in this institute';
+            }
+
+            $classExists = SchoolClass::where('institute', $institute)
+                ->whereRaw("REPLACE(TRIM(class_name), '  ', ' ') = ?", [preg_replace('/\s+/', ' ', trim($data['class'] ?? ''))])
+                ->whereRaw("REPLACE(TRIM(section), '  ', ' ') = ?", [preg_replace('/\s+/', ' ', trim($data['section'] ?? ''))])
+                ->exists();
+
+            if (!$classExists) {
+                $rowErrors[] = 'class and section do not exist for this institute';
+            }
+
+            if (!empty($rowErrors)) {
+                $skipped++;
+                $errors[] = 'Row ' . $rowNumber . ': ' . implode('; ', $rowErrors);
+                continue;
+            }
+
+            $seenStudentKeys[$studentKey] = true;
+
+            Student::create([
+                'student_id' => $studentId,
+                'name' => $data['name'],
+                'institute' => $institute,
+                'class' => $data['class'],
+                'section' => $data['section'],
+                'contact' => $data['contact'],
+                'email' => $data['email'] ?: null,
+                'guardian_name' => $data['guardian_name'] ?? null,
+                'guardian_contact' => $data['guardian_contact'] ?? null,
+                'is_robotics_club_member' => $this->csvBoolean($data['is_robotics_club_member'] ?? 'No'),
+                'password' => Hash::make($data['password']),
+                'status' => $this->csvStatus($data['status'] ?? 'Active'),
+                'profile_completed' => true,
+            ]);
+
+            $created++;
+        }
+
+        fclose($handle);
+
+        return redirect()
+            ->back()
+            ->with('success', "Bulk upload completed. Created {$created} student(s), skipped {$skipped} row(s).")
+            ->with('bulk_upload_errors', array_slice($errors, 0, 30));
+    }
+
+    private function csvBoolean(?string $value): bool
+    {
+        return in_array(strtolower(trim((string) $value)), ['1', 'yes', 'y', 'true'], true);
+    }
+
+    private function csvStatus(?string $value): bool
+    {
+        return !in_array(strtolower(trim((string) $value)), ['0', 'inactive', 'disabled', 'false', 'no'], true);
+    }
+
     public function updateStudent(Request $request, $id)
     {
         $student = Student::findOrFail($id);
         $institute = session('user_role') == 'InstituteAdmin'
             ? session('user_institute')
-            : $request->institute;
+            : (session('user_role') == 'Teacher'
+                ? User::findOrFail(session('user_id'))->institute
+                : $request->institute);
 
         $request->validate([
             'student_id' => [
@@ -431,10 +681,16 @@ class PageController extends Controller
                     ->ignore($student->id),
             ],
             'name' => 'required|string|max:100',
-            'institute' => 'required|string|max:100',
+            'institute' => session('user_role') == 'Admin'
+                ? 'required|string|max:100'
+                : 'nullable|string|max:100',
             'class' => 'required|string|max:50',
             'section' => 'required|string|max:20',
             'contact' => 'required|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'guardian_name' => 'nullable|string|max:255',
+            'guardian_contact' => 'nullable|string|max:20',
+            'is_robotics_club_member' => 'required|boolean',
             'password' => 'nullable|min:6',
             'status' => 'required|boolean',
         ]);
@@ -442,9 +698,16 @@ class PageController extends Controller
         if (
             session('user_role') == 'InstituteAdmin' &&
             $student->institute != session('user_institute')
-        ) 
-        {
+        ) {
             abort(403, 'Unauthorized action.');
+        }
+
+        if (session('user_role') == 'Teacher') {
+            $teacher = User::findOrFail(session('user_id'));
+
+            if ($student->institute != $teacher->institute) {
+                abort(403, 'Unauthorized action.');
+            }
         }
 
         $studentData = [
@@ -454,7 +717,12 @@ class PageController extends Controller
             'class' => $request->class,
             'section' => $request->section,
             'contact' => $request->contact,
+            'email' => $request->email,
+            'guardian_name' => $request->guardian_name,
+            'guardian_contact' => $request->guardian_contact,
+            'is_robotics_club_member' => $request->boolean('is_robotics_club_member'),
             'status' => $request->status,
+            'profile_completed' => true,
         ];
 
         if ($request->filled('password')) {
@@ -476,12 +744,20 @@ class PageController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        if (session('user_role') == 'Teacher') {
+            $teacher = User::findOrFail(session('user_id'));
+
+            if ($student->institute != $teacher->institute) {
+                abort(403, 'Unauthorized action.');
+            }
+        }
+
         DB::transaction(function () use ($student) {
             $this->deleteStudentCompletely($student);
         });
 
         return redirect()
-            ->route('students')
+            ->route(session('user_role') == 'Teacher' ? 'teacher.student-management' : 'students')
             ->with('success', 'Student and all related records deleted successfully.');
     }
 
@@ -711,6 +987,12 @@ class PageController extends Controller
             'title' => 'Students',
             'description' => 'Review student outcomes, profiles, and approved certificates.',
             'items' => [
+                [
+                    'title' => 'Student Management',
+                    'description' => 'Add, update, bulk upload, and manage institute students.',
+                    'icon' => 'fa-users-gear',
+                    'route' => route('teacher.student-management'),
+                ],
                 [
                     'title' => 'Student Results',
                     'description' => 'View assessment scores, badges, and performance insights.',
@@ -1769,10 +2051,6 @@ class PageController extends Controller
             session([
                 'tracking_session_id' => $userSession->id
             ]);
-
-            if (!$student->profile_completed) {
-                return redirect()->route('student.basic-details');
-            }
 
             return redirect()->route('student.dashboard');
         }
@@ -3161,19 +3439,18 @@ class PageController extends Controller
         }
 
         $assignedClass = $this->studentClassName($student);
-        $studentGrade = $this->studentGradeName($student);
 
         return TeachingPlanItem::with(['week', 'plan'])
             ->whereIn('content_id', $contentIds)
             ->whereHas('week', function ($query) {
                 $query->whereNotNull('release_date');
             })
-            ->whereHas('plan', function ($query) use ($student, $assignedClass, $studentGrade) {
+            ->whereHas('plan', function ($query) use ($student, $assignedClass) {
                 $query->where('is_template', false)
                     ->where('institute', $student->institute)
                     ->whereNotNull('ai_training_start_date')
                     ->whereIn('status', ['active', 'completed'])
-                    ->where(function ($classQuery) use ($assignedClass, $studentGrade) {
+                    ->where(function ($classQuery) use ($assignedClass) {
                         $classQuery
                             ->whereRaw(
                                 "REPLACE(TRIM(class), '  ', ' ') = ?",
@@ -3182,17 +3459,7 @@ class PageController extends Controller
                             ->orWhereRaw(
                                 "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
                                 [$assignedClass]
-                            )
-                            ->orWhere(function ($gradeQuery) use ($studentGrade) {
-                                $gradeQuery
-                                    ->whereRaw("REPLACE(TRIM(class), '  ', ' ') = ?", [$studentGrade])
-                                    ->where(function ($sectionQuery) {
-                                        $sectionQuery
-                                            ->whereNull('section')
-                                            ->orWhereRaw("TRIM(COALESCE(section, '')) = ''")
-                                            ->orWhereRaw("LOWER(TRIM(section)) = 'combined'");
-                                    });
-                            });
+                            );
                     });
             })
             ->whereIn('status', ['released', 'completed'])
@@ -3547,15 +3814,14 @@ class PageController extends Controller
     private function studentAvailableContentIds(Student $student)
     {
         $assignedClass = $this->studentClassName($student);
-        $studentGrade = $this->studentGradeName($student);
 
         $teachingPlanContentIds = TeachingPlanItem::where('status', 'completed')
             ->whereNotNull('content_id')
-            ->whereHas('plan', function ($query) use ($student, $assignedClass, $studentGrade) {
+            ->whereHas('plan', function ($query) use ($student, $assignedClass) {
                 $query->where('is_template', false)
                     ->where('institute', $student->institute)
                     ->whereIn('status', ['active', 'completed'])
-                    ->where(function ($classQuery) use ($assignedClass, $studentGrade) {
+                    ->where(function ($classQuery) use ($assignedClass) {
                         $classQuery
                             ->whereRaw(
                                 "REPLACE(TRIM(class), '  ', ' ') = ?",
@@ -3564,17 +3830,7 @@ class PageController extends Controller
                             ->orWhereRaw(
                                 "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
                                 [$assignedClass]
-                            )
-                            ->orWhere(function ($gradeQuery) use ($studentGrade) {
-                                $gradeQuery
-                                    ->whereRaw("REPLACE(TRIM(class), '  ', ' ') = ?", [$studentGrade])
-                                    ->where(function ($sectionQuery) {
-                                        $sectionQuery
-                                            ->whereNull('section')
-                                            ->orWhereRaw("TRIM(COALESCE(section, '')) = ''")
-                                            ->orWhereRaw("LOWER(TRIM(section)) = 'combined'");
-                                    });
-                            });
+                            );
                     });
             })
             ->whereHas('content', function ($query) {
@@ -3585,17 +3841,10 @@ class PageController extends Controller
             ->values();
 
         $legacyCourseIds = Course::where('institute', $student->institute)
-            ->where(function ($query) use ($assignedClass, $studentGrade) {
-                $query
-                    ->whereRaw(
-                        "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                        [$assignedClass]
-                    )
-                    ->orWhereRaw(
-                        "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                        [$studentGrade]
-                    );
-            })
+            ->whereRaw(
+                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                [$assignedClass]
+            )
             ->pluck('id');
 
         $legacyReleasedContentIds = Content::whereIn('course_id', $legacyCourseIds)

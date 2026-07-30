@@ -1,11 +1,24 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $studentManagementContext = $studentManagementContext ?? 'admin';
+    $isTeacherStudentManagement = $studentManagementContext === 'teacher';
+    $managedInstitute = $managedInstitute ?? session('user_institute');
+    $studentRouteNames = [
+        'index' => $isTeacherStudentManagement ? 'teacher.student-management' : 'students',
+        'store' => $isTeacherStudentManagement ? 'teacher.students.store' : 'students.store',
+        'bulkUpload' => $isTeacherStudentManagement ? 'teacher.students.bulk-upload' : 'students.bulk-upload',
+        'bulkTemplate' => $isTeacherStudentManagement ? 'teacher.students.bulk-template' : 'students.bulk-template',
+        'update' => $isTeacherStudentManagement ? 'teacher.students.update' : 'students.update',
+        'delete' => $isTeacherStudentManagement ? 'teacher.students.delete' : 'students.delete',
+    ];
+@endphp
 
 <div class="container-fluid">
     <div class="row">
 
-        @include('layouts.sidebar')
+        @include($isTeacherStudentManagement ? 'layouts.teacher-sidebar' : 'layouts.sidebar')
 
         <div class="col-md-10 col-lg-10 p-4">
 
@@ -18,6 +31,17 @@
                 </div>
 
                 <div class="d-flex gap-2 flex-wrap">
+                    <a href="{{ route($studentRouteNames['bulkTemplate']) }}"
+                       class="btn btn-outline-primary btn-sm">
+                        Download CSV Template
+                    </a>
+
+                    <button class="btn btn-outline-primary btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#bulkUploadStudentsModal">
+                        Bulk Upload
+                    </button>
+
                     <button class="btn btn-primary btn-sm"
                             data-bs-toggle="modal"
                             data-bs-target="#addStudentModal">
@@ -41,9 +65,23 @@
                         </div>
                     @endif
 
+                    @if(session('bulk_upload_errors'))
+                        <div class="alert alert-warning">
+                            <div class="fw-semibold mb-2">Skipped rows</div>
+                            <ul class="mb-0">
+                                @foreach(session('bulk_upload_errors') as $bulkUploadError)
+                                    <li>{{ $bulkUploadError }}</li>
+                                @endforeach
+                            </ul>
+                            @if(count(session('bulk_upload_errors')) >= 30)
+                                <div class="small text-muted mt-2">Only the first 30 skipped-row messages are shown.</div>
+                            @endif
+                        </div>
+                    @endif
+
                     @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
 
-                    <form method="GET" action="{{ route('students') }}" class="row mb-3">
+                    <form method="GET" action="{{ route($studentRouteNames['index']) }}" class="row mb-3">
                         <div class="col-md-4">
                             <input type="text"
                                    name="search"
@@ -125,7 +163,7 @@
                                                     Edit
                                                 </button>
 
-                                                <a href="{{ route('students.delete', $student->id) }}"
+                                                <a href="{{ route($studentRouteNames['delete'], $student->id) }}"
                                                    class="btn btn-sm btn-outline-danger"
                                                    onclick="return confirm('Are you sure you want to delete this student? This will also remove their assessment history, badges, and certificate eligibility.')">
                                                     Delete
@@ -137,10 +175,11 @@
 
                                 @foreach($instituteStudents as $student)
                                     <div class="modal fade" id="editStudentModal{{ $student->id }}" tabindex="-1">
-                                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                                    <div class="modal-dialog modal-xl modal-dialog-centered">
                                         <div class="modal-content">
 
-                                            <form method="POST" action="{{ route('students.update', $student->id) }}">
+                                            <form method="POST"
+                                                  action="{{ route($studentRouteNames['update'], $student->id) }}">
                                                 @csrf
 
                                                 <div class="modal-header">
@@ -164,14 +203,14 @@
                                                         <div class="col-md-6">
                                                             <label class="form-label">Institute</label>
 
-                                                            @if(session('user_role') == 'InstituteAdmin')
+                                                            @if(in_array(session('user_role'), ['InstituteAdmin', 'Teacher'], true))
                                                                 <input type="hidden"
                                                                        name="institute"
-                                                                       value="{{ session('user_institute') }}">
+                                                                       value="{{ $managedInstitute }}">
 
                                                                 <input type="text"
                                                                        class="form-control"
-                                                                       value="{{ session('user_institute') }}"
+                                                                       value="{{ $managedInstitute }}"
                                                                        readonly>
                                                             @else
                                                                 <input type="text"
@@ -196,10 +235,33 @@
                                                             <label class="form-label">Contact</label>
                                                             <input type="text" name="contact" class="form-control" value="{{ $student->contact }}" required>
                                                         </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Email Address</label>
+                                                            <input type="email" name="email" class="form-control" value="{{ $student->email }}">
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Guardian Name</label>
+                                                            <input type="text" name="guardian_name" class="form-control" value="{{ $student->guardian_name }}">
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Guardian Contact</label>
+                                                            <input type="text" name="guardian_contact" class="form-control" value="{{ $student->guardian_contact }}">
+                                                        </div>
                                                         
                                                         <div class="col-md-6">
                                                             <label class="form-label">Password</label>
                                                             <input type="password" name="password" class="form-control" placeholder="Leave blank to keep existing password">
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <label class="form-label">Robotics Club Member</label>
+                                                            <select name="is_robotics_club_member" class="form-control" required>
+                                                                <option value="0" {{ !$student->is_robotics_club_member ? 'selected' : '' }}>No</option>
+                                                                <option value="1" {{ $student->is_robotics_club_member ? 'selected' : '' }}>Yes</option>
+                                                            </select>
                                                         </div>
 
                                                         <div class="col-md-6">
@@ -248,10 +310,11 @@
 </div>
 
 <div class="modal fade" id="addStudentModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content">
 
-            <form method="POST" action="{{ route('students.store') }}">
+            <form method="POST"
+                  action="{{ route($studentRouteNames['store']) }}">
                 @csrf
 
                 <div class="modal-header">
@@ -264,52 +327,76 @@
 
                         <div class="col-md-6">
                             <label class="form-label">Student ID</label>
-                            <input type="text" name="student_id" class="form-control" required>
+                            <input type="text" name="student_id" class="form-control" value="{{ old('student_id') }}" required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Student Name</label>
-                            <input type="text" name="name" class="form-control" required>
+                            <input type="text" name="name" class="form-control" value="{{ old('name') }}" required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Institute</label>
 
-                            @if(session('user_role') == 'InstituteAdmin')
+                            @if(in_array(session('user_role'), ['InstituteAdmin', 'Teacher'], true))
                                 <input type="hidden"
                                        name="institute"
-                                       value="{{ session('user_institute') }}">
+                                       value="{{ $managedInstitute }}">
 
                                 <input type="text"
                                        class="form-control"
-                                       value="{{ session('user_institute') }}"
+                                       value="{{ $managedInstitute }}"
                                        readonly>
                             @else
                                 <input type="text"
                                        name="institute"
                                        class="form-control"
+                                       value="{{ old('institute') }}"
                                        required>
                             @endif
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label">Class</label>
-                            <input type="text" name="class" class="form-control" required>
+                            <input type="text" name="class" class="form-control" value="{{ old('class') }}" required>
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label">Section</label>
-                            <input type="text" name="section" class="form-control" required>
+                            <input type="text" name="section" class="form-control" value="{{ old('section') }}" required>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Contact</label>
-                            <input type="text" name="contact" class="form-control" required>
+                            <input type="text" name="contact" class="form-control" value="{{ old('contact') }}" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" name="email" class="form-control" value="{{ old('email') }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Guardian Name</label>
+                            <input type="text" name="guardian_name" class="form-control" value="{{ old('guardian_name') }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Guardian Contact</label>
+                            <input type="text" name="guardian_contact" class="form-control" value="{{ old('guardian_contact') }}">
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Password</label>
                             <input type="password" name="password" class="form-control" placeholder="Enter Password" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Robotics Club Member</label>
+                            <select name="is_robotics_club_member" class="form-control" required>
+                                <option value="0" {{ old('is_robotics_club_member', '0') == '0' ? 'selected' : '' }}>No</option>
+                                <option value="1" {{ old('is_robotics_club_member') == '1' ? 'selected' : '' }}>Yes</option>
+                            </select>
                         </div>
 
                     </div>
@@ -324,5 +411,71 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="bulkUploadStudentsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST"
+                  action="{{ route($studentRouteNames['bulkUpload']) }}"
+                  enctype="multipart/form-data">
+                @csrf
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Bulk Upload Students</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        Upload a CSV using the provided template. Valid rows will be added; invalid or duplicate rows will be skipped with row-wise reasons.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Student CSV File</label>
+                        <input type="file"
+                               name="students_csv"
+                               class="form-control"
+                               accept=".csv,text/csv,text/plain"
+                               required>
+                    </div>
+
+                    <div class="border rounded p-3 bg-light small">
+                        <div class="fw-semibold mb-2">Required columns</div>
+                        <div>
+                            student_id, name,
+                            @if(session('user_role') == 'Admin')
+                                institute,
+                            @endif
+                            class, section, contact, password
+                        </div>
+                        <div class="fw-semibold mt-3 mb-2">Optional columns</div>
+                        <div>email, guardian_name, guardian_contact, is_robotics_club_member, status</div>
+                        @if(in_array(session('user_role'), ['InstituteAdmin', 'Teacher'], true))
+                            <div class="text-muted mt-3">
+                                Uploads are automatically assigned to {{ $managedInstitute }}, even if the CSV contains a different institute value.
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <a href="{{ route($studentRouteNames['bulkTemplate']) }}" class="btn btn-outline-primary me-auto">
+                        Download Template
+                    </a>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload Students</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    #addStudentModal .modal-body,
+    [id^="editStudentModal"] .modal-body {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+</style>
 
 @endsection
