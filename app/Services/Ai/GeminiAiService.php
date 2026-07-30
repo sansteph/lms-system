@@ -196,9 +196,10 @@ Return only valid JSON with this exact structure:
   "key_points": ["5 to 8 important learning points"],
   "quiz_seed": [
     {
-      "question": "A short assessment question based only on the content",
-      "expected_answer": "The expected answer",
-      "marks": 2
+      "question": "A multiple choice question based only on the content",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct_answer": "The exact correct option text",
+      "marks": 1
     }
   ]
 }
@@ -208,6 +209,9 @@ Rules:
 - Do not invent facts.
 - Keep language clear for school students.
 - Create exactly 5 quiz_seed questions.
+- Every quiz_seed item must be MCQ only.
+- Every quiz_seed item must contain exactly 4 options.
+- correct_answer must exactly match one option.
 
 Content:
 {$limitedText}

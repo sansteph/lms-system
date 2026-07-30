@@ -764,11 +764,7 @@ class PageController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $teacherPassedPrepContentIds = AiQuizAttempt::where('teacher_id', $teacher->id)
-            ->where('attempt_type', 'teacher_prep')
-            ->where('status', 'passed')
-            ->pluck('content_id')
-            ->unique();
+        $teacherPassedPrepKeys = $this->teacherPassedPrepKeys($teacher);
 
         $aiTrainingRequiredItemIds = $releasedItems
             ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
@@ -818,7 +814,7 @@ class PageController extends Controller
                 'activeSessions',
                 'classOptions',
                 'selectedClass',
-                'teacherPassedPrepContentIds',
+                'teacherPassedPrepKeys',
                 'aiTrainingRequiredItemIds',
                 'sessionCompletionVideoUrl'
             )
@@ -907,11 +903,7 @@ class PageController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $teacherPassedPrepContentIds = AiQuizAttempt::where('teacher_id', $teacher->id)
-            ->where('attempt_type', 'teacher_prep')
-            ->where('status', 'passed')
-            ->pluck('content_id')
-            ->unique();
+        $teacherPassedPrepKeys = $this->teacherPassedPrepKeys($teacher);
 
         $aiTrainingRequiredItemIds = $laggedItems
             ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
@@ -924,7 +916,7 @@ class PageController extends Controller
             'laggedItems',
             'classOptions',
             'selectedClass',
-            'teacherPassedPrepContentIds',
+            'teacherPassedPrepKeys',
             'aiTrainingRequiredItemIds'
         ));
     }
@@ -1065,6 +1057,8 @@ class PageController extends Controller
             ->unique()
             ->values();
 
+        $teacherPassedPrepKeys = $this->teacherPassedPrepKeys($teacher);
+
         $contents = Content::with(['aiSummary', 'courseContent.sourceTemplateContent.aiSummary'])
             ->whereIn('id', $approvedContentIds)
             ->orderBy('lesson_order')
@@ -1086,6 +1080,7 @@ class PageController extends Controller
             'contentClassByContentId',
             'contentGradeByContentId',
             'aiTrainingRequiredContentIds',
+            'teacherPassedPrepKeys',
             'classOptions',
             'selectedClass'
         ));
@@ -1175,7 +1170,7 @@ class PageController extends Controller
         ));
     }
 
-    public function submitTeacherAiPrep(Request $request, $id, GeminiAiService $geminiAiService)
+    public function submitTeacherAiPrep(Request $request, $id)
     {
         $teacher = User::findOrFail(session('user_id'));
         $content = $this->teacherAccessibleContent($teacher, $id);
@@ -1218,7 +1213,7 @@ class PageController extends Controller
 
         $request->validate([
             'answers' => [$autoSubmitted ? 'nullable' : 'required', 'array'],
-            'answers.*' => ['nullable', 'string', 'max:5000'],
+            'answers.*' => ['nullable', 'string', 'max:500'],
             'auto_submitted' => ['nullable', 'boolean'],
         ]);
 
@@ -1265,31 +1260,7 @@ class PageController extends Controller
                 ->with('error', 'Prep quiz was automatically submitted after 3 restricted actions. Please review the content and try again.');
         }
 
-        try {
-            $evaluation = $geminiAiService->evaluateQuizAnswers(
-                $content->content_title,
-                $questions->map(fn ($question) => [
-                    'id' => $question->id,
-                    'question_order' => $question->question_order,
-                    'question' => $question->question_text,
-                    'expected_answer' => $question->expected_answer,
-                    'marks' => $question->marks,
-                ])->values()->all(),
-                $answers->all()
-            );
-        } catch (\Throwable $exception) {
-            $attempt->update([
-                'status' => 'failed',
-                'feedback' => 'AI evaluation failed: ' . $exception->getMessage(),
-                'evaluated_at' => now(),
-            ]);
-
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with('error', 'AI evaluation could not be completed. Please try again.');
-        }
-
+        $evaluation = $this->evaluateMcqQuizAttempt($questions, $answers);
         $percentage = (float) ($evaluation['percentage'] ?? 0);
         $passingPercentage = $this->teacherAiPassingPercentage();
         $status = $percentage >= $passingPercentage ? 'passed' : 'failed';
@@ -1302,22 +1273,12 @@ class PageController extends Controller
             'evaluated_at' => now(),
         ]);
 
-        $feedbackByQuestion = collect($evaluation['answer_feedback'] ?? [])
-            ->keyBy(fn ($item) => (int) ($item['question_id'] ?? $item['question_order'] ?? 0));
-
-        foreach ($questions as $question) {
-            $questionFeedback = $feedbackByQuestion->get($question->id)
-                ?? $feedbackByQuestion->get((int) $question->question_order);
-
-            if (!$questionFeedback) {
-                continue;
-            }
-
+        foreach ($evaluation['answer_feedback'] as $questionFeedback) {
             AiQuizAnswer::where('ai_quiz_attempt_id', $attempt->id)
-                ->where('ai_quiz_question_id', $question->id)
+                ->where('ai_quiz_question_id', $questionFeedback['question_id'])
                 ->update([
-                    'score' => $questionFeedback['score'] ?? null,
-                    'feedback' => $questionFeedback['feedback'] ?? null,
+                    'score' => $questionFeedback['score'],
+                    'feedback' => $questionFeedback['feedback'],
                 ]);
         }
 
@@ -2380,6 +2341,7 @@ class PageController extends Controller
             ->get();
 
         $aiReviewRequiredContentIds = $this->studentAiReviewRequiredContentIds($student, $contentIds);
+        $studentPassedAiReviewContentIds = $this->studentPassedAiReviewContentIds($student, $contents);
 
         $completedContentIds = LessonProgress::where('student_id', session('student_id'))
             ->whereIn('content_id', $contents->pluck('id'))
@@ -2405,6 +2367,7 @@ class PageController extends Controller
             'completedLessons',
             'progressPercentage',
             'aiReviewRequiredContentIds',
+            'studentPassedAiReviewContentIds',
             'completedContentIds',
             'lockedContentIds'
         ));
@@ -2809,7 +2772,7 @@ class PageController extends Controller
         ));
     }
 
-    public function submitStudentAiReview(Request $request, $id, GeminiAiService $geminiAiService)
+    public function submitStudentAiReview(Request $request, $id)
     {
         $studentId = session('student_id');
         $student = Student::findOrFail($studentId);
@@ -2860,15 +2823,18 @@ class PageController extends Controller
                 ->with('success', 'Training assessment already cleared. This lesson is complete.');
         }
 
+        $autoSubmitted = $request->boolean('auto_submitted');
+
         $request->validate([
-            'answers' => ['required', 'array'],
-            'answers.*' => ['nullable', 'string', 'max:5000'],
+            'answers' => [$autoSubmitted ? 'nullable' : 'required', 'array'],
+            'answers.*' => ['nullable', 'string', 'max:500'],
+            'auto_submitted' => ['nullable', 'boolean'],
         ]);
 
         $answers = collect($request->input('answers', []))
             ->map(fn ($answer) => trim((string) $answer));
 
-        if ($answers->filter()->isEmpty()) {
+        if (!$autoSubmitted && $answers->filter()->isEmpty()) {
             return redirect()
                 ->back()
                 ->withInput()
@@ -2894,31 +2860,21 @@ class PageController extends Controller
             ]);
         }
 
-        try {
-            $evaluation = $geminiAiService->evaluateQuizAnswers(
-                $content->content_title,
-                $questions->map(fn ($question) => [
-                    'id' => $question->id,
-                    'question_order' => $question->question_order,
-                    'question' => $question->question_text,
-                    'expected_answer' => $question->expected_answer,
-                    'marks' => $question->marks,
-                ])->values()->all(),
-                $answers->all()
-            );
-        } catch (\Throwable $exception) {
+        if ($autoSubmitted) {
             $attempt->update([
+                'score' => 0,
+                'percentage' => 0,
                 'status' => 'failed',
-                'feedback' => 'AI evaluation failed: ' . $exception->getMessage(),
+                'feedback' => 'Training assessment was automatically submitted after repeated restricted actions.',
                 'evaluated_at' => now(),
             ]);
 
             return redirect()
-                ->back()
-                ->withInput()
-                ->with('error', 'AI evaluation could not be completed. Please try again.');
+                ->route('student.dashboard')
+                ->with('error', 'Training assessment was automatically submitted after 3 restricted actions. Please review the content and try again.');
         }
 
+        $evaluation = $this->evaluateMcqQuizAttempt($questions, $answers);
         $percentage = (float) ($evaluation['percentage'] ?? 0);
         $passingPercentage = $this->studentAiPassingPercentage();
         $status = $percentage >= $passingPercentage ? 'passed' : 'failed';
@@ -2931,22 +2887,12 @@ class PageController extends Controller
             'evaluated_at' => now(),
         ]);
 
-        $feedbackByQuestion = collect($evaluation['answer_feedback'] ?? [])
-            ->keyBy(fn ($item) => (int) ($item['question_id'] ?? $item['question_order'] ?? 0));
-
-        foreach ($questions as $question) {
-            $questionFeedback = $feedbackByQuestion->get($question->id)
-                ?? $feedbackByQuestion->get((int) $question->question_order);
-
-            if (!$questionFeedback) {
-                continue;
-            }
-
+        foreach ($evaluation['answer_feedback'] as $questionFeedback) {
             AiQuizAnswer::where('ai_quiz_attempt_id', $attempt->id)
-                ->where('ai_quiz_question_id', $question->id)
+                ->where('ai_quiz_question_id', $questionFeedback['question_id'])
                 ->update([
-                    'score' => $questionFeedback['score'] ?? null,
-                    'feedback' => $questionFeedback['feedback'] ?? null,
+                    'score' => $questionFeedback['score'],
+                    'feedback' => $questionFeedback['feedback'],
                 ]);
         }
 
@@ -2988,6 +2934,31 @@ class PageController extends Controller
             ->where('attempt_type', self::AI_STUDENT_ATTEMPT_TYPE)
             ->where('status', 'passed')
             ->exists();
+    }
+
+    private function studentPassedAiReviewContentIds(Student $student, $contents)
+    {
+        $contents = collect($contents);
+        $sourceIdsByContentId = $contents
+            ->mapWithKeys(function (Content $content) {
+                return [
+                    (int) $content->id => (int) $this->aiQuizOwnerContent($content)->id,
+                ];
+            });
+
+        $passedAttemptContentIds = AiQuizAttempt::where('student_id', $student->id)
+            ->where('attempt_type', self::AI_STUDENT_ATTEMPT_TYPE)
+            ->where('status', 'passed')
+            ->whereIn('content_id', $sourceIdsByContentId->values()->unique()->all())
+            ->pluck('content_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique();
+
+        return $sourceIdsByContentId
+            ->filter(fn ($sourceId) => $passedAttemptContentIds->contains((int) $sourceId))
+            ->keys()
+            ->map(fn ($id) => (int) $id)
+            ->values();
     }
 
     private function studentContentIsSequenceLocked(Student $student, Content $content): bool
@@ -3102,10 +3073,55 @@ class PageController extends Controller
             return false;
         }
 
+        if ($item->week->release_reason === 'lagged_content') {
+            return false;
+        }
+
         $startDate = $this->planAiTrainingStartDate($item->plan);
 
         return $startDate
             && \Carbon\Carbon::parse($item->week->release_date)->toDateString() >= $startDate;
+    }
+
+    private function teachingPlanItemBypassesAiPrepForTeacher(TeachingPlanItem $item, User $teacher): bool
+    {
+        if ($item->week?->release_reason === 'lagged_content') {
+            return true;
+        }
+
+        return ClassContentSession::where('teaching_plan_item_id', $item->id)
+            ->where('stem_engineer_id', $teacher->id)
+            ->where('institute', $teacher->institute)
+            ->whereIn('status', ['partially_completed', 'cancelled'])
+            ->exists();
+    }
+
+    private function teacherPassedPrepKeys(User $teacher)
+    {
+        return AiQuizAttempt::where('teacher_id', $teacher->id)
+            ->where('attempt_type', self::AI_TEACHER_ATTEMPT_TYPE)
+            ->where('status', 'passed')
+            ->get(['content_id', 'grade_level'])
+            ->flatMap(function ($attempt) {
+                $gradeLevel = $this->gradeLevelFromClass($attempt->grade_level);
+
+                return collect([
+                    $this->aiPrepPassKey((int) $attempt->content_id, $gradeLevel),
+                    $this->aiPrepPassKey((int) $attempt->content_id, null),
+                ]);
+            })
+            ->filter()
+            ->unique()
+            ->values();
+    }
+
+    private function aiPrepPassKey(?int $contentId, ?string $gradeLevel): ?string
+    {
+        if (!$contentId) {
+            return null;
+        }
+
+        return $contentId . '|' . ($this->gradeLevelFromClass($gradeLevel) ?: 'all');
     }
 
     private function teacherContentRequiresAiTraining(User $teacher, Content $content): bool
@@ -3145,18 +3161,19 @@ class PageController extends Controller
         }
 
         $assignedClass = $this->studentClassName($student);
+        $studentGrade = $this->studentGradeName($student);
 
         return TeachingPlanItem::with(['week', 'plan'])
             ->whereIn('content_id', $contentIds)
             ->whereHas('week', function ($query) {
                 $query->whereNotNull('release_date');
             })
-            ->whereHas('plan', function ($query) use ($student, $assignedClass) {
+            ->whereHas('plan', function ($query) use ($student, $assignedClass, $studentGrade) {
                 $query->where('is_template', false)
                     ->where('institute', $student->institute)
                     ->whereNotNull('ai_training_start_date')
                     ->whereIn('status', ['active', 'completed'])
-                    ->where(function ($classQuery) use ($assignedClass) {
+                    ->where(function ($classQuery) use ($assignedClass, $studentGrade) {
                         $classQuery
                             ->whereRaw(
                                 "REPLACE(TRIM(class), '  ', ' ') = ?",
@@ -3165,7 +3182,17 @@ class PageController extends Controller
                             ->orWhereRaw(
                                 "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
                                 [$assignedClass]
-                            );
+                            )
+                            ->orWhere(function ($gradeQuery) use ($studentGrade) {
+                                $gradeQuery
+                                    ->whereRaw("REPLACE(TRIM(class), '  ', ' ') = ?", [$studentGrade])
+                                    ->where(function ($sectionQuery) {
+                                        $sectionQuery
+                                            ->whereNull('section')
+                                            ->orWhereRaw("TRIM(COALESCE(section, '')) = ''")
+                                            ->orWhereRaw("LOWER(TRIM(section)) = 'combined'");
+                                    });
+                            });
                     });
             })
             ->whereIn('status', ['released', 'completed'])
@@ -3278,6 +3305,9 @@ class PageController extends Controller
         );
 
         if ($quiz->questions()->exists()) {
+            $this->ensureAiQuizQuestionsAreMcq($quiz, $summary);
+            $quiz->refresh();
+
             if ($quiz->total_marks > 0) {
                 $quiz->update([
                     'passing_marks' => (int) ceil($quiz->total_marks * $passingRatio),
@@ -3287,35 +3317,21 @@ class PageController extends Controller
             return $quiz->load('questions');
         }
 
-        $seeds = array_values($summary->quiz_seed ?? []);
-
-        if (empty($seeds)) {
-            $seeds = [
-                [
-                    'question' => 'Write a short summary of the main idea from this lesson.',
-                    'expected_answer' => $summary->summary,
-                    'marks' => 2,
-                ],
-                [
-                    'question' => 'List two important points you learned from this lesson.',
-                    'expected_answer' => implode('; ', $summary->key_points ?? []),
-                    'marks' => 2,
-                ],
-            ];
-        }
+        $seeds = $this->mcqSeedsForSummary($summary);
 
         $totalMarks = 0;
 
         foreach ($seeds as $index => $seed) {
-            $marks = max(1, (int) ($seed['marks'] ?? 2));
+            $marks = max(1, (int) ($seed['marks'] ?? 1));
             $totalMarks += $marks;
 
             AiQuizQuestion::create([
                 'ai_quiz_id' => $quiz->id,
                 'question_order' => $index + 1,
-                'question_type' => 'short_answer',
-                'question_text' => $seed['question'] ?? 'Explain one key idea from this lesson.',
-                'expected_answer' => $seed['expected_answer'] ?? null,
+                'question_type' => 'mcq',
+                'question_text' => $seed['question'],
+                'options' => $seed['options'],
+                'expected_answer' => $seed['correct_answer'],
                 'marks' => $marks,
             ]);
         }
@@ -3326,6 +3342,173 @@ class PageController extends Controller
         ]);
 
         return $quiz->load('questions');
+    }
+
+    private function ensureAiQuizQuestionsAreMcq(AiQuiz $quiz, AiContentSummary $summary): void
+    {
+        $questions = $quiz->questions()->get();
+        $hasOnlyValidMcq = $questions->isNotEmpty()
+            && $questions->every(function ($question) {
+                return $question->question_type === 'mcq'
+                    && is_array($question->options)
+                    && count($question->options) === 4
+                    && filled($question->expected_answer)
+                    && in_array($question->expected_answer, $question->options, true);
+            });
+
+        if ($hasOnlyValidMcq) {
+            return;
+        }
+
+        $quiz->questions()->delete();
+        $totalMarks = 0;
+
+        foreach ($this->mcqSeedsForSummary($summary) as $index => $seed) {
+            $marks = max(1, (int) ($seed['marks'] ?? 1));
+            $totalMarks += $marks;
+
+            AiQuizQuestion::create([
+                'ai_quiz_id' => $quiz->id,
+                'question_order' => $index + 1,
+                'question_type' => 'mcq',
+                'question_text' => $seed['question'],
+                'options' => $seed['options'],
+                'expected_answer' => $seed['correct_answer'],
+                'marks' => $marks,
+            ]);
+        }
+
+        $quiz->update(['total_marks' => $totalMarks]);
+    }
+
+    private function mcqSeedsForSummary(AiContentSummary $summary): array
+    {
+        $seeds = collect($summary->quiz_seed ?? [])
+            ->map(fn ($seed) => $this->normalizeMcqSeed((array) $seed))
+            ->filter()
+            ->values()
+            ->all();
+
+        if (count($seeds) >= 5) {
+            return array_slice($seeds, 0, 5);
+        }
+
+        return array_slice(array_merge($seeds, $this->fallbackMcqSeedsForSummary($summary)), 0, 5);
+    }
+
+    private function normalizeMcqSeed(array $seed): ?array
+    {
+        $question = trim((string) ($seed['question'] ?? ''));
+        $options = array_values(array_filter(array_map(
+            fn ($option) => trim((string) $option),
+            (array) ($seed['options'] ?? [])
+        )));
+        $correctAnswer = trim((string) ($seed['correct_answer'] ?? $seed['expected_answer'] ?? ''));
+
+        if ($question === '' || count($options) !== 4 || $correctAnswer === '') {
+            return null;
+        }
+
+        if (!in_array($correctAnswer, $options, true)) {
+            return null;
+        }
+
+        return [
+            'question' => $question,
+            'options' => $options,
+            'correct_answer' => $correctAnswer,
+            'marks' => max(1, (int) ($seed['marks'] ?? 1)),
+        ];
+    }
+
+    private function fallbackMcqSeedsForSummary(AiContentSummary $summary): array
+    {
+        $points = collect($summary->key_points ?? [])
+            ->map(fn ($point) => trim((string) $point))
+            ->filter()
+            ->values();
+
+        if ($points->isEmpty() && filled($summary->summary)) {
+            $points = collect(preg_split('/(?<=[.!?])\s+/', strip_tags((string) $summary->summary)))
+                ->map(fn ($point) => trim($point))
+                ->filter()
+                ->take(8)
+                ->values();
+        }
+
+        $genericDistractors = collect([
+            'It is not related to this lesson.',
+            'It explains only the certificate workflow.',
+            'It is mainly about login permissions.',
+            'It describes unrelated administrative setup.',
+            'It focuses only on payment settings.',
+        ]);
+
+        if ($points->isEmpty()) {
+            $points = collect([
+                'The lesson explains an important STEM concept.',
+                'The lesson connects theory with practical learning.',
+                'The lesson supports project-based understanding.',
+                'The lesson includes key ideas students should remember.',
+                'The lesson is part of the InnovatEdge learning sequence.',
+            ]);
+        }
+
+        return $points->take(5)->map(function ($point, $index) use ($points, $genericDistractors) {
+            $distractors = $points
+                ->reject(fn ($candidate) => $candidate === $point)
+                ->take(3)
+                ->merge($genericDistractors)
+                ->unique()
+                ->take(3)
+                ->values()
+                ->all();
+
+            $options = array_values(array_slice(array_merge([$point], $distractors), 0, 4));
+
+            while (count($options) < 4) {
+                $options[] = 'None of the above statements match this lesson.';
+            }
+
+            return [
+                'question' => 'Which statement is an important point from this lesson?',
+                'options' => $options,
+                'correct_answer' => $point,
+                'marks' => 1,
+            ];
+        })->all();
+    }
+
+    private function evaluateMcqQuizAttempt($questions, $answers): array
+    {
+        $score = 0;
+        $totalMarks = max(1, (int) $questions->sum('marks'));
+        $feedback = [];
+
+        foreach ($questions as $question) {
+            $selected = trim((string) $answers->get($question->id, ''));
+            $correct = trim((string) $question->expected_answer);
+            $isCorrect = $selected !== '' && hash_equals($correct, $selected);
+            $questionScore = $isCorrect ? (int) $question->marks : 0;
+            $score += $questionScore;
+
+            $feedback[] = [
+                'question_id' => $question->id,
+                'question_order' => $question->question_order,
+                'score' => $questionScore,
+                'feedback' => $isCorrect ? 'Correct answer.' : 'Incorrect answer.',
+            ];
+        }
+
+        $percentage = round(($score / $totalMarks) * 100, 2);
+
+        return [
+            'score' => $score,
+            'total_marks' => $totalMarks,
+            'percentage' => $percentage,
+            'feedback' => 'MCQ quiz evaluated automatically. Score: ' . $percentage . '%.',
+            'answer_feedback' => $feedback,
+        ];
     }
 
     private function aiQuizOwnerContent(Content $content): Content
@@ -3364,14 +3547,15 @@ class PageController extends Controller
     private function studentAvailableContentIds(Student $student)
     {
         $assignedClass = $this->studentClassName($student);
+        $studentGrade = $this->studentGradeName($student);
 
         $teachingPlanContentIds = TeachingPlanItem::where('status', 'completed')
             ->whereNotNull('content_id')
-            ->whereHas('plan', function ($query) use ($student, $assignedClass) {
+            ->whereHas('plan', function ($query) use ($student, $assignedClass, $studentGrade) {
                 $query->where('is_template', false)
                     ->where('institute', $student->institute)
                     ->whereIn('status', ['active', 'completed'])
-                    ->where(function ($classQuery) use ($assignedClass) {
+                    ->where(function ($classQuery) use ($assignedClass, $studentGrade) {
                         $classQuery
                             ->whereRaw(
                                 "REPLACE(TRIM(class), '  ', ' ') = ?",
@@ -3380,7 +3564,17 @@ class PageController extends Controller
                             ->orWhereRaw(
                                 "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
                                 [$assignedClass]
-                            );
+                            )
+                            ->orWhere(function ($gradeQuery) use ($studentGrade) {
+                                $gradeQuery
+                                    ->whereRaw("REPLACE(TRIM(class), '  ', ' ') = ?", [$studentGrade])
+                                    ->where(function ($sectionQuery) {
+                                        $sectionQuery
+                                            ->whereNull('section')
+                                            ->orWhereRaw("TRIM(COALESCE(section, '')) = ''")
+                                            ->orWhereRaw("LOWER(TRIM(section)) = 'combined'");
+                                    });
+                            });
                     });
             })
             ->whereHas('content', function ($query) {
@@ -3391,10 +3585,17 @@ class PageController extends Controller
             ->values();
 
         $legacyCourseIds = Course::where('institute', $student->institute)
-            ->whereRaw(
-                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                [$assignedClass]
-            )
+            ->where(function ($query) use ($assignedClass, $studentGrade) {
+                $query
+                    ->whereRaw(
+                        "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                        [$assignedClass]
+                    )
+                    ->orWhereRaw(
+                        "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                        [$studentGrade]
+                    );
+            })
             ->pluck('id');
 
         $legacyReleasedContentIds = Content::whereIn('course_id', $legacyCourseIds)
@@ -3564,12 +3765,15 @@ class PageController extends Controller
                 ->with('error', 'Only currently released Teaching Plan topics can be started.');
         }
 
-        if ($this->teachingPlanItemRequiresAiTraining($item) && !$this->generatedAiSummaryForContentRecord($item->content)) {
+        $requiresAiPrep = $this->teachingPlanItemRequiresAiTraining($item)
+            && !$this->teachingPlanItemBypassesAiPrepForTeacher($item, $teacher);
+
+        if ($requiresAiPrep && !$this->generatedAiSummaryForContentRecord($item->content)) {
             return redirect()->back()
                 ->with('error', 'AI prep is still being prepared for this content. Please try again shortly.');
         }
 
-        if ($this->teachingPlanItemRequiresAiTraining($item) && $this->teacherNeedsAiPrep($item->content, $teacher->id, $this->gradeLevelFromClass($item->plan?->class))) {
+        if ($requiresAiPrep && $this->teacherNeedsAiPrep($item->content, $teacher->id, $this->gradeLevelFromClass($item->plan?->class))) {
             return redirect()
                 ->route('teacher.ai-prep', ['id' => $item->content->id, 'grade' => $this->gradeLevelFromClass($item->plan?->class)])
                 ->with('error', 'Please pass the training prep assessment before starting this session.');

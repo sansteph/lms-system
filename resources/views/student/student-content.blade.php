@@ -105,6 +105,10 @@
 
                         $isLocked = $lockedContentIds->contains($content->id);
                         $completed = $completedContentIds->contains($content->id);
+                        $aiReviewRequired = $aiReviewRequiredContentIds->contains($content->id)
+                            && $content->effective_ai_summary
+                            && $content->effective_ai_summary->status == 'generated';
+                        $aiReviewCleared = $studentPassedAiReviewContentIds->contains($content->id);
 
                     @endphp
 
@@ -283,14 +287,29 @@
 
                                     @elseif($completed)
 
-                                        <button class="btn btn-success w-100"
-                                                disabled>
+                                        @if($aiReviewRequired && $aiReviewCleared)
 
-                                            <i class="fa fa-check-circle me-2"></i>
+                                            <a href="{{ route('student.content.ai-review', $content->id) }}"
+                                               class="btn btn-outline-primary w-100">
 
-                                            Lesson Completed
+                                                <i class="fa fa-brain me-2"></i>
 
-                                        </button>
+                                                AI Summary
+
+                                            </a>
+
+                                        @else
+
+                                            <button class="btn btn-success w-100"
+                                                    disabled>
+
+                                                <i class="fa fa-check-circle me-2"></i>
+
+                                                Lesson Completed
+
+                                            </button>
+
+                                        @endif
 
                                     @else
 
@@ -304,7 +323,7 @@
 
                                                 <i class="fa fa-check me-2"></i>
 
-                                                @if($aiReviewRequiredContentIds->contains($content->id) && $content->effective_ai_summary && $content->effective_ai_summary->status == 'generated')
+                                                @if($aiReviewRequired)
                                                     Start Training Assessment
                                                 @else
                                                     Mark as Complete

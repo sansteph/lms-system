@@ -49,11 +49,108 @@ Artisan::command('ai-content:generate-upcoming {--limit=} {--retry-failed}', fun
                 return false;
             }
 
+            if ($item->week?->release_reason === 'lagged_content') {
+                return false;
+            }
+
             return \Carbon\Carbon::parse($item->week->release_date)->toDateString()
                 >= \Carbon\Carbon::parse($item->plan->ai_training_start_date)->toDateString();
         });
 
-    $ensureQuiz = function ($content, AiContentSummary $summary, string $audience, ?string $gradeLevel): void {
+    $mcqSeedsForSummary = function (AiContentSummary $summary): array {
+        $normalizeMcqSeed = function (array $seed): ?array {
+            $question = trim((string) ($seed['question'] ?? ''));
+            $options = array_values(array_filter(array_map(
+                fn ($option) => trim((string) $option),
+                (array) ($seed['options'] ?? [])
+            )));
+            $correctAnswer = trim((string) ($seed['correct_answer'] ?? $seed['expected_answer'] ?? ''));
+
+            if ($question === '' || count($options) !== 4 || $correctAnswer === '') {
+                return null;
+            }
+
+            if (!in_array($correctAnswer, $options, true)) {
+                return null;
+            }
+
+            return [
+                'question' => $question,
+                'options' => $options,
+                'correct_answer' => $correctAnswer,
+                'marks' => max(1, (int) ($seed['marks'] ?? 1)),
+            ];
+        };
+
+        $seeds = collect($summary->quiz_seed ?? [])
+            ->map(fn ($seed) => $normalizeMcqSeed((array) $seed))
+            ->filter()
+            ->values()
+            ->all();
+
+        if (count($seeds) >= 5) {
+            return array_slice($seeds, 0, 5);
+        }
+
+        $points = collect($summary->key_points ?? [])
+            ->map(fn ($point) => trim((string) $point))
+            ->filter()
+            ->values();
+
+        if ($points->isEmpty() && filled($summary->summary)) {
+            $points = collect(preg_split('/(?<=[.!?])\s+/', strip_tags((string) $summary->summary)))
+                ->map(fn ($point) => trim($point))
+                ->filter()
+                ->take(8)
+                ->values();
+        }
+
+        if ($points->isEmpty()) {
+            $points = collect([
+                'The lesson explains an important STEM concept.',
+                'The lesson connects theory with practical learning.',
+                'The lesson supports project-based understanding.',
+                'The lesson includes key ideas students should remember.',
+                'The lesson is part of the InnovatEdge learning sequence.',
+            ]);
+        }
+
+        $genericDistractors = collect([
+            'It is not related to this lesson.',
+            'It explains only the certificate workflow.',
+            'It is mainly about login permissions.',
+            'It describes unrelated administrative setup.',
+            'It focuses only on payment settings.',
+        ]);
+
+        $fallbackSeeds = $points->take(5)->map(function ($point) use ($points, $genericDistractors) {
+            $distractors = $points
+                ->reject(fn ($candidate) => $candidate === $point)
+                ->take(3)
+                ->merge($genericDistractors)
+                ->unique()
+                ->take(3)
+                ->values()
+                ->all();
+
+            $options = array_values(array_slice(array_merge([$point], $distractors), 0, 4));
+
+            while (count($options) < 4) {
+                $options[] = 'None of the above statements match this lesson.';
+            }
+
+            return [
+                'question' => 'Which statement is an important point from this lesson?',
+                'options' => $options,
+                'correct_answer' => $point,
+                'marks' => 1,
+            ];
+        })->all();
+
+        return array_slice(array_merge($seeds, $fallbackSeeds), 0, 5);
+    };
+
+    $ensureQuiz = function ($content, AiContentSummary $summary, string $audience, ?string $gradeLevel) use ($mcqSeedsForSummary): void {
         $gradeLevel = $gradeLevel ? preg_replace('/\s+/', ' ', trim($gradeLevel)) : null;
         $passingRatio = $audience == 'teacher'
             ? ((float) config('ai.content.teacher_passing_percentage', 50) / 100)
@@ -79,6 +176,37 @@ Artisan::command('ai-content:generate-upcoming {--limit=} {--retry-failed}', fun
         );
 
         if ($quiz->questions()->exists()) {
+            $questions = $quiz->questions()->get();
+            $hasOnlyValidMcq = $questions->isNotEmpty()
+                && $questions->every(function ($question) {
+                    return $question->question_type === 'mcq'
+                        && is_array($question->options)
+                        && count($question->options) === 4
+                        && filled($question->expected_answer)
+                        && in_array($question->expected_answer, $question->options, true);
+                });
+
+            if (!$hasOnlyValidMcq) {
+                $quiz->questions()->delete();
+
+                foreach ($mcqSeedsForSummary($summary) as $index => $seed) {
+                    AiQuizQuestion::create([
+                        'ai_quiz_id' => $quiz->id,
+                        'question_order' => $index + 1,
+                        'question_type' => 'mcq',
+                        'question_text' => $seed['question'],
+                        'options' => $seed['options'],
+                        'expected_answer' => $seed['correct_answer'],
+                        'marks' => max(1, (int) ($seed['marks'] ?? 1)),
+                    ]);
+                }
+
+                $quiz->update([
+                    'total_marks' => $quiz->questions()->sum('marks'),
+                ]);
+                $quiz->refresh();
+            }
+
             if ($quiz->total_marks > 0) {
                 $quiz->update([
                     'passing_marks' => (int) ceil($quiz->total_marks * $passingRatio),
@@ -88,35 +216,21 @@ Artisan::command('ai-content:generate-upcoming {--limit=} {--retry-failed}', fun
             return;
         }
 
-        $seeds = array_values($summary->quiz_seed ?? []);
-
-        if (empty($seeds)) {
-            $seeds = [
-                [
-                    'question' => 'Write a short summary of the main idea from this lesson.',
-                    'expected_answer' => $summary->summary,
-                    'marks' => 2,
-                ],
-                [
-                    'question' => 'List two important points you learned from this lesson.',
-                    'expected_answer' => implode('; ', $summary->key_points ?? []),
-                    'marks' => 2,
-                ],
-            ];
-        }
+        $seeds = $mcqSeedsForSummary($summary);
 
         $totalMarks = 0;
 
         foreach ($seeds as $index => $seed) {
-            $marks = max(1, (int) ($seed['marks'] ?? 2));
+            $marks = max(1, (int) ($seed['marks'] ?? 1));
             $totalMarks += $marks;
 
             AiQuizQuestion::create([
                 'ai_quiz_id' => $quiz->id,
                 'question_order' => $index + 1,
-                'question_type' => 'short_answer',
-                'question_text' => $seed['question'] ?? 'Explain one key idea from this lesson.',
-                'expected_answer' => $seed['expected_answer'] ?? null,
+                'question_type' => 'mcq',
+                'question_text' => $seed['question'],
+                'options' => $seed['options'],
+                'expected_answer' => $seed['correct_answer'],
                 'marks' => $marks,
             ]);
         }

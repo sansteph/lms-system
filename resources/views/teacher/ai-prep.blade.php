@@ -2,6 +2,10 @@
 
 @section('content')
 
+@php
+    $prepCleared = $latestAttempt && $latestAttempt->status == 'passed';
+@endphp
+
 <div class="container-fluid">
     <div class="row">
         @include('layouts.teacher-sidebar')
@@ -9,9 +13,9 @@
         <div class="col-md-10 col-lg-10 p-4">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                 <div>
-                    <h2 class="fw-bold mb-1">AI Prep Study</h2>
+                    <h2 class="fw-bold mb-1">{{ $prepCleared ? 'AI Summary' : 'AI Prep Study' }}</h2>
                     <p class="text-muted mb-0">
-                        Study the AI summary and key points before taking the prep quiz.
+                        {{ $prepCleared ? 'Review the cleared AI summary for this teaching content.' : 'Study the AI summary and key points before taking the prep quiz.' }}
                     </p>
                 </div>
 
@@ -29,7 +33,7 @@
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
 
-            @if($latestAttempt)
+            @if($latestAttempt && !$prepCleared)
                 <div class="alert {{ $latestAttempt->status == 'passed' ? 'alert-success' : 'alert-warning' }}">
                     <div class="fw-bold mb-1">
                         Latest Prep Result:
@@ -56,7 +60,7 @@
                         {{ $summary->summary }}
                     </div>
 
-                    @if(!empty($summary->key_points))
+                    @if(!$prepCleared && !empty($summary->key_points))
                         <h5 class="fw-bold mb-3">Key Points</h5>
                         <div class="row g-3 mb-4">
                             @foreach($summary->key_points as $point)
@@ -72,19 +76,14 @@
 
                     <div class="d-flex justify-content-end gap-2">
                         <a href="{{ route('teacher.content') }}" class="btn btn-outline-secondary">
-                            Cancel
+                            Back
                         </a>
-                        @if($latestAttempt && $latestAttempt->status == 'passed')
-                            <button type="button" class="btn btn-success" disabled>
-                                <i class="fa fa-check-circle me-2"></i>
-                                Prep Cleared
-                            </button>
-                        @else
+                        @unless($prepCleared)
                             <a href="{{ route('teacher.ai-prep.quiz', ['id' => $content->id, 'grade' => $gradeLevel]) }}" class="btn btn-success">
                                 Start Prep Quiz
                                 <i class="fa fa-arrow-right ms-2"></i>
                             </a>
-                        @endif
+                        @endunless
                     </div>
                 </div>
             </div>

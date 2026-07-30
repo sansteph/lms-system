@@ -174,7 +174,7 @@
                         <i class="fa fa-pen-nib"></i>
                     </div>
                     <div class="home-module-card-copy">
-                        <strong>Blogs</strong>
+                        <strong>Community</strong>
                         <small>Achievements, ideas, projects and classroom stories from the InnovatEdge community.</small>
                     </div>
                 </a>

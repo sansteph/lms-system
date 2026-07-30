@@ -247,16 +247,6 @@
                                         <td colspan="6" class="fw-semibold">{{ $classLabel }}</td>
                                     </tr>
                                     @foreach($items as $item)
-                                        @php
-                                            $effectiveAiSummary = $item->content?->effective_ai_summary;
-                                            $aiTrainingApplies = $aiTrainingRequiredItemIds->contains($item->id);
-                                            $prepRequired = $aiTrainingApplies
-                                                && $item->content
-                                                && $effectiveAiSummary
-                                                && $effectiveAiSummary->status == 'generated'
-                                                && !$teacherPassedPrepContentIds->contains($item->content->id)
-                                                && !$teacherPassedPrepContentIds->contains($item->content->ai_quiz_content_id);
-                                        @endphp
                                         <tr>
                                             <td>{{ $item->plan->class }} {{ $item->plan->section }}</td>
                                             <td>{{ $item->course->course_title ?? 'N/A' }}</td>
@@ -269,39 +259,19 @@
                                                 </small>
                                             </td>
                                             <td>
-                                                @if(!$aiTrainingApplies)
-                                                    <span class="badge bg-light text-dark border">Not Required</span>
-                                                @elseif($item->content && $effectiveAiSummary && $effectiveAiSummary->status == 'generated')
-                                                    @if($prepRequired)
-                                                        <a href="{{ route('teacher.ai-prep', ['id' => $item->content->id, 'grade' => $item->plan?->class]) }}"
-                                                           class="btn btn-sm btn-outline-success">
-                                                            Prep Required
-                                                        </a>
-                                                    @else
-                                                        <span class="badge bg-success">Passed</span>
-                                                    @endif
-                                                @else
-                                                    <span class="badge bg-secondary">Not Generated</span>
-                                                @endif
+                                                <span class="badge bg-light text-dark border">Not Required</span>
                                             </td>
                                             <td>
-                                                @if($prepRequired)
-                                                    <a href="{{ route('teacher.ai-prep', ['id' => $item->content->id, 'grade' => $item->plan?->class]) }}"
-                                                       class="btn btn-sm btn-outline-success w-100">
-                                                        Start Prep
-                                                    </a>
-                                                @else
-                                                    <form method="POST" action="{{ route('teacher.class-session.start') }}">
-                                                        @csrf
-                                                        <input type="hidden" name="teaching_plan_item_id" value="{{ $item->id }}">
-                                                        <input type="hidden" name="session_day" value="{{ now()->format('l') }}">
-                                                        <input type="hidden" name="session_date" value="{{ now()->format('Y-m-d') }}">
-                                                        <input type="hidden" name="start_time" value="{{ now()->format('H:i') }}">
-                                                        <button type="submit" class="btn btn-sm btn-primary w-100">
-                                                            Start Session
-                                                        </button>
-                                                    </form>
-                                                @endif
+                                                <form method="POST" action="{{ route('teacher.class-session.start') }}">
+                                                    @csrf
+                                                    <input type="hidden" name="teaching_plan_item_id" value="{{ $item->id }}">
+                                                    <input type="hidden" name="session_day" value="{{ now()->format('l') }}">
+                                                    <input type="hidden" name="session_date" value="{{ now()->format('Y-m-d') }}">
+                                                    <input type="hidden" name="start_time" value="{{ now()->format('H:i') }}">
+                                                    <button type="submit" class="btn btn-sm btn-primary w-100">
+                                                        Start Session
+                                                    </button>
+                                                </form>
                                             </td>
                                         </tr>
                                     @endforeach

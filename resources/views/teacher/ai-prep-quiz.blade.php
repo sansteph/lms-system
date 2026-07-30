@@ -42,7 +42,7 @@
                     <div class="text-muted small fw-semibold text-uppercase mb-2">
                         {{ $content->content_title }}
                     </div>
-                    <h5 class="fw-bold mb-1">Prep Questions</h5>
+                    <h5 class="fw-bold mb-1">MCQ Prep Quiz</h5>
                     <p class="text-muted mb-0">
                         Passing score is {{ rtrim(rtrim(number_format(config('ai.content.teacher_passing_percentage', 50), 2), '0'), '.') }}%. This score is required before starting an AI-enabled session.
                     </p>
@@ -69,11 +69,21 @@
                                     </span>
                                 </div>
 
-                                <textarea id="answer-{{ $question->id }}"
-                                          name="answers[{{ $question->id }}]"
-                                          class="form-control @error('answers.' . $question->id) is-invalid @enderror"
-                                          rows="4"
-                                          placeholder="Type your answer here">{{ old('answers.' . $question->id) }}</textarea>
+                                <div class="ai-mcq-options @error('answers.' . $question->id) is-invalid @enderror">
+                                    @foreach(($question->options ?? []) as $optionIndex => $option)
+                                        @php
+                                            $optionId = 'answer-' . $question->id . '-' . $optionIndex;
+                                        @endphp
+                                        <label for="{{ $optionId }}" class="ai-mcq-option">
+                                            <input type="radio"
+                                                   id="{{ $optionId }}"
+                                                   name="answers[{{ $question->id }}]"
+                                                   value="{{ $option }}"
+                                                   @checked(old('answers.' . $question->id) === $option)>
+                                            <span>{{ $option }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
 
                                 @error('answers.' . $question->id)
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -96,9 +106,38 @@
 </div>
 
 <style>
-    textarea.form-control {
-        line-height: 1.6;
-        resize: vertical;
+    .ai-mcq-options {
+        display: grid;
+        gap: 12px;
+    }
+
+    .ai-mcq-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px 16px;
+        border: 1px solid #dbe7f6;
+        border-radius: 14px;
+        background: #f8fbff;
+        cursor: pointer;
+        transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+
+    .ai-mcq-option:hover,
+    .ai-mcq-option:has(input:checked) {
+        border-color: #0b63ce;
+        background: #eef6ff;
+        box-shadow: 0 10px 24px rgba(11, 99, 206, 0.10);
+    }
+
+    .ai-mcq-option input {
+        margin-top: 4px;
+        flex: 0 0 auto;
+    }
+
+    .ai-mcq-option span {
+        line-height: 1.5;
+        color: #0f172a;
     }
 
     .locked-prep-warning {
@@ -156,6 +195,7 @@
             let warningTimer = null;
             let tabSwitchAttempted = false;
             let violationCount = 0;
+            const allowedViolations = 2;
 
             if (form) {
                 form.addEventListener('submit', function () {
@@ -171,7 +211,7 @@
                 }
 
                 if (warningTitle) {
-                    warningTitle.textContent = violationCount >= 3
+                    warningTitle.textContent = violationCount > allowedViolations
                         ? 'Assessment Auto-Submitting'
                         : 'Restricted Action';
                 }
@@ -212,16 +252,20 @@
 
                 violationCount++;
 
-                if (violationCount >= 3) {
+                if (violationCount > allowedViolations) {
                     submitForViolation();
                     return;
                 }
 
-                showWarning('Warning ' + violationCount + ' of 2. On the third restricted action, the prep assessment will be submitted automatically.');
+                showWarning('Warning ' + violationCount + ' of ' + allowedViolations + '. On the next restricted action, the prep assessment will be submitted automatically.');
             };
 
             const blockEvent = function (event) {
                 if (event) {
+                    if (event.type === 'selectstart' && event.target.closest('.ai-mcq-option')) {
+                        return true;
+                    }
+
                     event.preventDefault();
                     event.stopPropagation();
                 }
@@ -256,8 +300,16 @@
                 }
             });
 
-            ['contextmenu', 'copy', 'cut', 'paste', 'dragstart', 'selectstart'].forEach(function (eventName) {
+            ['contextmenu', 'copy', 'cut', 'paste', 'dragstart'].forEach(function (eventName) {
                 document.addEventListener(eventName, blockEvent);
+            });
+
+            document.addEventListener('selectstart', function (event) {
+                if (event.target.closest('.ai-mcq-option')) {
+                    return true;
+                }
+
+                return blockEvent(event);
             });
 
             document.addEventListener('keydown', function (event) {

@@ -99,6 +99,15 @@
                                         $teachingStatus = $teachingStatusByContentId[$content->id] ?? null;
                                         $effectiveAiSummary = $content->effective_ai_summary;
                                         $aiTrainingApplies = $aiTrainingRequiredContentIds->contains($content->id);
+                                        $gradeLevel = preg_replace('/\s+/', ' ', trim($contentGradeByContentId->get($content->id) ?? ''));
+                                        $contentPassKey = $content->id . '|' . ($gradeLevel ?: 'all');
+                                        $sourcePassKey = $content->ai_quiz_content_id ? $content->ai_quiz_content_id . '|' . ($gradeLevel ?: 'all') : null;
+                                        $contentAnyGradePassKey = $content->id . '|all';
+                                        $sourceAnyGradePassKey = $content->ai_quiz_content_id ? $content->ai_quiz_content_id . '|all' : null;
+                                        $prepCleared = $teacherPassedPrepKeys->contains($contentPassKey)
+                                            || $teacherPassedPrepKeys->contains($sourcePassKey)
+                                            || $teacherPassedPrepKeys->contains($contentAnyGradePassKey)
+                                            || $teacherPassedPrepKeys->contains($sourceAnyGradePassKey);
                                     @endphp
                                     <tr>
                                         <td>{{ $rowNumber++ }}</td>
@@ -142,7 +151,7 @@
                                                 <br>
                                                 <a href="{{ route('teacher.ai-prep', ['id' => $content->id, 'grade' => $contentGradeByContentId->get($content->id)]) }}"
                                                    class="btn btn-sm btn-outline-success">
-                                                    Prep Assessment
+                                                    {{ $prepCleared ? 'AI Summary' : 'Prep Assessment' }}
                                                 </a>
                                             @elseif($effectiveAiSummary && $effectiveAiSummary->status == 'failed')
                                                 <span class="badge bg-danger">Training Failed</span>

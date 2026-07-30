@@ -86,20 +86,33 @@
                                 @foreach($releasedItems as $item)
                                     @php
                                         $effectiveAiSummary = $item->content?->effective_ai_summary;
+                                        $gradeLevel = preg_replace('/\s+/', ' ', trim($item->plan?->class ?? ''));
+                                        $contentPassKey = $item->content ? $item->content->id . '|' . ($gradeLevel ?: 'all') : null;
+                                        $sourcePassKey = $item->content?->ai_quiz_content_id ? $item->content->ai_quiz_content_id . '|' . ($gradeLevel ?: 'all') : null;
+                                        $contentAnyGradePassKey = $item->content ? $item->content->id . '|all' : null;
+                                        $sourceAnyGradePassKey = $item->content?->ai_quiz_content_id ? $item->content->ai_quiz_content_id . '|all' : null;
                                         $aiTrainingApplies = $aiTrainingRequiredItemIds->contains($item->id);
-                                        $prepRequired = $aiTrainingApplies
-                                            && $item->content
-                                            && $effectiveAiSummary
-                                            && $effectiveAiSummary->status == 'generated'
-                                            && !$teacherPassedPrepContentIds->contains($item->content->id)
-                                            && !$teacherPassedPrepContentIds->contains($item->content->ai_quiz_content_id);
+                                        $prepCleared = $item->content
+                                            && (
+                                                $teacherPassedPrepKeys->contains($contentPassKey)
+                                                || $teacherPassedPrepKeys->contains($sourcePassKey)
+                                                || $teacherPassedPrepKeys->contains($contentAnyGradePassKey)
+                                                || $teacherPassedPrepKeys->contains($sourceAnyGradePassKey)
+                                            );
+                                        $prepBlocksSession = $aiTrainingApplies
+                                            && (
+                                                !$item->content
+                                                || !$effectiveAiSummary
+                                                || $effectiveAiSummary->status != 'generated'
+                                                || !$prepCleared
+                                            );
                                     @endphp
+                                    @continue($prepBlocksSession)
                                     <option value="{{ $item->id }}">
                                         {{ $item->plan->class }} {{ $item->plan->section }}
                                         - {{ $item->course->course_title ?? 'Course' }}
                                         - Week {{ $item->week->week_number ?? '-' }}
                                         - {{ $item->content->content_title ?? 'Content' }}
-                                        {{ $prepRequired ? '- Prep Required' : '' }}
                                     </option>
                                 @endforeach
                             </select>
@@ -171,14 +184,29 @@
                                                 </small>
                                             </td>
                                             <td>
-                                                @php $effectiveAiSummary = $item->content?->effective_ai_summary; @endphp
+                                                @php
+                                                    $effectiveAiSummary = $item->content?->effective_ai_summary;
+                                                    $gradeLevel = preg_replace('/\s+/', ' ', trim($item->plan?->class ?? ''));
+                                                    $contentPassKey = $item->content ? $item->content->id . '|' . ($gradeLevel ?: 'all') : null;
+                                                    $sourcePassKey = $item->content?->ai_quiz_content_id ? $item->content->ai_quiz_content_id . '|' . ($gradeLevel ?: 'all') : null;
+                                                    $contentAnyGradePassKey = $item->content ? $item->content->id . '|all' : null;
+                                                    $sourceAnyGradePassKey = $item->content?->ai_quiz_content_id ? $item->content->ai_quiz_content_id . '|all' : null;
+                                                    $prepCleared = $item->content
+                                                        && (
+                                                            $teacherPassedPrepKeys->contains($contentPassKey)
+                                                            || $teacherPassedPrepKeys->contains($sourcePassKey)
+                                                            || $teacherPassedPrepKeys->contains($contentAnyGradePassKey)
+                                                            || $teacherPassedPrepKeys->contains($sourceAnyGradePassKey)
+                                                        );
+                                                @endphp
                                                 @if(!$aiTrainingRequiredItemIds->contains($item->id))
                                                     <span class="badge bg-light text-dark border">Not Required</span>
                                                 @elseif($item->content && $effectiveAiSummary && $effectiveAiSummary->status == 'generated')
-                                                    <a href="{{ route('teacher.ai-prep', ['id' => $item->content->id, 'grade' => $item->plan?->class]) }}"
-                                                       class="btn btn-sm btn-outline-success">
-                                                        Prep Assessment
-                                                    </a>
+                                                    @if($prepCleared)
+                                                        <span class="badge bg-success">Prep Cleared</span>
+                                                    @else
+                                                        <span class="badge bg-warning text-dark">Clear from Learning Content</span>
+                                                    @endif
                                                 @else
                                                     <span class="badge bg-secondary">Not Generated</span>
                                                 @endif
