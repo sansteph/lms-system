@@ -28,7 +28,12 @@
 @endphp
 
 <div class="container-fluid {{ $isBlogsModule ? 'blogs-social-page' : '' }}">
-    <div class="community-post-focus-backdrop" data-community-post-backdrop></div>
+    @if($isBlogsModule)
+        <div class="blogs-particle-field" data-blogs-particle-field aria-hidden="true"></div>
+    @endif
+    @if(!$isBlogsModule)
+        <div class="community-post-focus-backdrop" data-community-post-backdrop></div>
+    @endif
 
     <div class="row">
 
@@ -43,6 +48,9 @@
         @endif
 
         <div class="{{ $isBlogsModule ? 'col-12 blogs-social-shell' : 'col-md-10 col-lg-10 p-4' }}">
+            @if($isBlogsModule)
+                <div class="community-post-focus-backdrop" data-community-post-backdrop></div>
+            @endif
 
             <div class="blogs-social-hero">
                 <div>
@@ -275,6 +283,92 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const particleField = document.querySelector('[data-blogs-particle-field]');
+        if (particleField) {
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const palette = ['particle-blue', 'particle-cyan', 'particle-gold', 'particle-green'];
+            const particleCount = window.innerWidth < 576 ? 76 : (window.innerWidth < 992 ? 128 : 180);
+            const particles = [];
+            let fieldWidth = 0;
+            let fieldHeight = 0;
+            let animationFrame = null;
+
+            const measureField = function () {
+                fieldWidth = Math.max(particleField.clientWidth, window.innerWidth);
+                fieldHeight = Math.max(particleField.clientHeight, document.documentElement.scrollHeight);
+            };
+
+            const createParticles = function () {
+                measureField();
+
+                for (let index = 0; index < particleCount; index++) {
+                    const element = document.createElement('span');
+                    const size = 2 + Math.random() * 4;
+                    element.className = 'blogs-particle ' + palette[index % palette.length];
+                    element.style.width = size + 'px';
+                    element.style.height = size + 'px';
+                    particleField.appendChild(element);
+
+                    particles.push({
+                        element: element,
+                        x: Math.random() * fieldWidth,
+                        y: Math.random() * fieldHeight,
+                        angle: Math.random() * Math.PI * 2,
+                        speed: 0.08 + Math.random() * 0.18,
+                        turnRate: (Math.random() - 0.5) * 0.009,
+                        targetTurn: (Math.random() - 0.5) * 0.013,
+                        nextSteerAt: performance.now() + 500 + Math.random() * 1500,
+                        phase: Math.random() * Math.PI * 2,
+                        opacity: 0.25 + Math.random() * 0.42,
+                    });
+                }
+            };
+
+            const renderParticles = function (time) {
+                particles.forEach(function (particle, index) {
+                    if (!reducedMotion) {
+                        if (time >= particle.nextSteerAt) {
+                            particle.targetTurn = (Math.random() - 0.5) * 0.014;
+                            particle.nextSteerAt = time + 500 + Math.random() * 1700;
+                        }
+
+                        particle.turnRate += (particle.targetTurn - particle.turnRate) * 0.012;
+                        particle.angle += particle.turnRate + Math.sin(time * 0.0007 + particle.phase) * 0.0015;
+                        particle.x += Math.cos(particle.angle) * particle.speed;
+                        particle.y += Math.sin(particle.angle) * particle.speed;
+
+                        if (particle.x < -12) particle.x = fieldWidth + 12;
+                        if (particle.x > fieldWidth + 12) particle.x = -12;
+                        if (particle.y < -12) particle.y = fieldHeight + 12;
+                        if (particle.y > fieldHeight + 12) particle.y = -12;
+                    }
+
+                    const glow = particle.opacity + Math.sin(time * 0.0012 + index) * 0.12;
+                    particle.element.style.opacity = Math.max(0.12, glow).toFixed(2);
+                    particle.element.style.transform = 'translate3d(' + particle.x.toFixed(1) + 'px,' + particle.y.toFixed(1) + 'px,0)';
+                });
+
+                if (!reducedMotion) {
+                    animationFrame = window.requestAnimationFrame(renderParticles);
+                }
+            };
+
+            createParticles();
+            renderParticles(performance.now());
+
+            let resizeTimer = null;
+            window.addEventListener('resize', function () {
+                window.clearTimeout(resizeTimer);
+                resizeTimer = window.setTimeout(measureField, 160);
+            });
+
+            window.addEventListener('beforeunload', function () {
+                if (animationFrame) {
+                    window.cancelAnimationFrame(animationFrame);
+                }
+            });
+        }
+
         const cards = document.querySelectorAll('[data-community-post-card]');
         const backdrop = document.querySelector('[data-community-post-backdrop]');
         const interactiveSelector = 'a, button, input, textarea, select, label, summary, details, form';

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class CommunityPost extends Model
@@ -33,12 +34,38 @@ class CommunityPost extends Model
 
     public function likes()
     {
-        return $this->hasMany(CommunityPostLike::class);
+        return $this->hasMany(CommunityPostLike::class)->withExistingActor();
     }
 
     public function comments()
     {
-        return $this->hasMany(CommunityPostComment::class);
+        return $this->hasMany(CommunityPostComment::class)->withExistingActor();
+    }
+
+    public function scopeWithExistingAuthor(Builder $query): Builder
+    {
+        return $query->where(function (Builder $authors) {
+            $authors->where(function (Builder $students) {
+                $students->where('author_type', 'Student')
+                    ->whereExists(function ($exists) {
+                        $exists->selectRaw('1')
+                            ->from('students')
+                            ->whereColumn('students.id', 'community_posts.author_id');
+                    });
+            });
+
+            foreach (['Admin', 'InstituteAdmin', 'Teacher'] as $role) {
+                $authors->orWhere(function (Builder $users) use ($role) {
+                    $users->where('author_type', $role)
+                        ->whereExists(function ($exists) use ($role) {
+                            $exists->selectRaw('1')
+                                ->from('users')
+                                ->whereColumn('users.id', 'community_posts.author_id')
+                                ->where('users.role', $role);
+                        });
+                });
+            }
+        });
     }
 
     public function author()

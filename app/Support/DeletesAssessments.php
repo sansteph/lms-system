@@ -10,10 +10,15 @@ use App\Models\AssessmentSession;
 use App\Models\Certificate;
 use App\Models\CertificateVerificationLog;
 use App\Models\ClassContentSession;
+use App\Models\CommunityPost;
+use App\Models\CommunityPostComment;
+use App\Models\CommunityPostLike;
 use App\Models\CourseEnrollment;
 use App\Models\IndependentLearner;
 use App\Models\LessonProgress;
+use App\Models\LmsNotification;
 use App\Models\MySpace;
+use App\Models\PendingPasswordChange;
 use App\Models\Student;
 use App\Models\StudentAchievement;
 use App\Models\TeacherAchievement;
@@ -73,6 +78,8 @@ trait DeletesAssessments
 
     protected function deleteStudentCompletely(Student $student): void
     {
+        $this->deleteCommunityRecordsForActor('Student', $student->id);
+
         $this->deleteAssessmentResultsForStudent($student->id);
 
         LessonProgress::where('student_id', $student->id)->delete();
@@ -97,6 +104,8 @@ trait DeletesAssessments
 
     protected function deleteTeacherCompletely(User $teacher): void
     {
+        $this->deleteCommunityRecordsForActor('Teacher', $teacher->id);
+
         Assessment::where('teacher_id', $teacher->id)
             ->get()
             ->each(function (Assessment $assessment) {
@@ -231,6 +240,35 @@ trait DeletesAssessments
                 $this->deleteStoredFile($item->blueprint_pdf);
                 $item->delete();
             });
+    }
+
+    protected function deleteCommunityRecordsForActor(string $actorType, $actorId): void
+    {
+        if ($actorType !== 'Student') {
+            PendingPasswordChange::where('user_id', $actorId)->delete();
+            LmsNotification::where('created_by', $actorId)->update(['created_by' => null]);
+            CommunityPost::where('approved_by', $actorId)->update(['approved_by' => null]);
+        }
+
+        CommunityPost::where('author_type', $actorType)
+            ->where('author_id', $actorId)
+            ->get()
+            ->each(function (CommunityPost $post) {
+                if (!$post->isSystemSynced()) {
+                    $this->deleteStoredFile($post->image_path);
+                    $this->deleteStoredFile($post->attachment_path);
+                }
+
+                $post->delete();
+            });
+
+        CommunityPostLike::where('liker_type', $actorType)
+            ->where('liker_id', $actorId)
+            ->delete();
+
+        CommunityPostComment::where('commenter_type', $actorType)
+            ->where('commenter_id', $actorId)
+            ->delete();
     }
 
     protected function deleteAssessmentResultCompletely(AssessmentResult $result): void

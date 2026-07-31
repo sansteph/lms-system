@@ -138,7 +138,8 @@ class CommunityFeedController extends Controller
             abort(403, 'Only Admins and STEM Engineers can approve blog posts.');
         }
 
-        $posts = CommunityPost::with(['likes', 'comments'])
+        $posts = CommunityPost::withExistingAuthor()
+            ->with(['likes', 'comments'])
             ->when($type, fn ($query) => $query->where('post_type', $type))
             ->when($tab === 'feed', function ($query) use ($actor) {
                 $query->where('status', 'Approved')
@@ -180,7 +181,8 @@ class CommunityFeedController extends Controller
             : $this->blogProfile($actor['type'], $actor['id'], $actor);
 
         $pendingCount = $canModerate
-            ? CommunityPost::when(!$this->isSuperAdmin($actor), fn ($query) => $query->where('institute', $actor['institute']))
+            ? CommunityPost::withExistingAuthor()
+                ->when(!$this->isSuperAdmin($actor), fn ($query) => $query->where('institute', $actor['institute']))
                 ->when($actor['type'] === 'Teacher', fn ($query) => $query->where('author_type', 'Student'))
                 ->where('status', 'Pending')
                 ->count()

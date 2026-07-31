@@ -1280,6 +1280,18 @@ class PageController extends Controller
                 'courseContent',
             ])
             ->where('status', 'released')
+            ->whereDoesntHave('sessions', function ($query) {
+                $query->where('status', 'completed');
+            })
+            ->whereNotExists(function ($query) {
+                $query->selectRaw('1')
+                    ->from('class_content_sessions')
+                    ->whereNull('class_content_sessions.teaching_plan_item_id')
+                    ->where('class_content_sessions.status', 'completed')
+                    ->whereColumn('class_content_sessions.teaching_plan_id', 'teaching_plan_items.teaching_plan_id')
+                    ->whereColumn('class_content_sessions.teaching_plan_week_id', 'teaching_plan_items.teaching_plan_week_id')
+                    ->whereColumn('class_content_sessions.content_id', 'teaching_plan_items.content_id');
+            })
             ->whereHas('plan', function ($query) use ($teacher, $selectedClass) {
                 $query->where('institute', $teacher->institute)
                     ->where('status', 'active')
@@ -4322,6 +4334,18 @@ class PageController extends Controller
                 'courseContent',
             ])
             ->where('status', 'released')
+            ->whereDoesntHave('sessions', function ($query) {
+                $query->where('status', 'completed');
+            })
+            ->whereNotExists(function ($query) {
+                $query->selectRaw('1')
+                    ->from('class_content_sessions')
+                    ->whereNull('class_content_sessions.teaching_plan_item_id')
+                    ->where('class_content_sessions.status', 'completed')
+                    ->whereColumn('class_content_sessions.teaching_plan_id', 'teaching_plan_items.teaching_plan_id')
+                    ->whereColumn('class_content_sessions.teaching_plan_week_id', 'teaching_plan_items.teaching_plan_week_id')
+                    ->whereColumn('class_content_sessions.content_id', 'teaching_plan_items.content_id');
+            })
             ->whereHas('plan', function ($query) use ($teacher) {
                 $query->where('institute', $teacher->institute)
                     ->where('status', 'active');

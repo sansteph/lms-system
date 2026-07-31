@@ -185,6 +185,7 @@ class InstituteController extends Controller
                     }
 
                     $this->deleteTrackingRecords('InstituteAdmin', $user->id);
+                    $this->deleteCommunityRecordsForActor('InstituteAdmin', $user->id);
                     $this->deleteMySpaceForSubmitter('InstituteAdmin', $user->id);
                     $user->delete();
                 });

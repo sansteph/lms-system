@@ -2,7 +2,7 @@
 
 @section('content')
 
-<div class="auth-page">
+<div class="auth-page admin-auth-page">
 
     <div class="auth-bg-glow glow-1"></div>
     <div class="auth-bg-glow glow-2"></div>

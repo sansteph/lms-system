@@ -159,7 +159,7 @@
     <section class="home-module-rail-section" aria-label="News and blogs">
         <div class="container">
             <div class="home-module-gateway">
-                <a href="{{ $newsroomRoute }}" class="home-module-card home-module-card-active home-module-newsroom">
+                <a href="{{ $newsroomRoute }}" class="home-module-card home-module-card-active">
                     <div class="home-module-card-icon">
                         <i class="fa fa-newspaper"></i>
                     </div>
@@ -169,7 +169,7 @@
                     </div>
                 </a>
 
-                <a href="{{ $blogsRoute }}" class="home-module-card home-module-card-active home-module-community">
+                <a href="{{ $blogsRoute }}" class="home-module-card home-module-card-active">
                     <div class="home-module-card-icon">
                         <i class="fa fa-pen-nib"></i>
                     </div>
@@ -184,8 +184,6 @@
 
     <!-- FEATURES SECTION -->
     <section class="feature-section" id="features">
-
-        <div class="homepage-particle-field" aria-hidden="true"></div>
 
         <div class="container">
 
@@ -256,8 +254,6 @@
 
     <!-- ACCESS SECTION -->
     <section class="access-section">
-
-        <div class="homepage-particle-field homepage-particle-field-alt" aria-hidden="true"></div>
 
         <div class="container">
 
@@ -743,114 +739,6 @@
         activateSection(currentSection() || 'hero');
         window.addEventListener('scroll', handleViewport, { passive: true });
         window.addEventListener('resize', handleViewport);
-    });
-</script>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const colors = [
-            'rgba(23, 105, 210, .68)',
-            'rgba(19, 168, 199, .7)',
-            'rgba(21, 149, 109, .58)',
-            'rgba(227, 154, 35, .62)'
-        ];
-
-        const randomBetween = function (minimum, maximum) {
-            return minimum + Math.random() * (maximum - minimum);
-        };
-
-        document.querySelectorAll('.homepage-particle-field').forEach(function (field) {
-            const particleCount = window.innerWidth < 768
-                ? 52
-                : (window.innerWidth < 1200 ? 88 : 124);
-            const particles = [];
-            let fieldWidth = field.clientWidth;
-            let fieldHeight = field.clientHeight;
-
-            for (let index = 0; index < particleCount; index += 1) {
-                const particle = document.createElement('span');
-                const size = randomBetween(1.5, 4.4);
-                const color = colors[Math.floor(Math.random() * colors.length)];
-
-                particle.className = 'homepage-particle';
-                particle.style.setProperty('--particle-size', size.toFixed(2) + 'px');
-                particle.style.setProperty('--particle-glow', randomBetween(4, 10).toFixed(1) + 'px');
-                particle.style.setProperty('--particle-color', color);
-                field.appendChild(particle);
-
-                const state = {
-                    element: particle,
-                    x: randomBetween(0, fieldWidth),
-                    y: randomBetween(0, fieldHeight),
-                    angle: randomBetween(0, Math.PI * 2),
-                    speed: randomBetween(8, 22),
-                    turnRate: randomBetween(-.7, .7),
-                    targetTurn: randomBetween(-1.15, 1.15),
-                    nextSteerAt: performance.now() + randomBetween(450, 1800),
-                    wobble: randomBetween(.18, .5),
-                    wobbleSpeed: randomBetween(.7, 1.8),
-                    phase: randomBetween(0, Math.PI * 2),
-                    pulseSpeed: randomBetween(.7, 1.7)
-                };
-
-                particles.push(state);
-                particle.style.transform = 'translate3d(' + state.x + 'px,' + state.y + 'px,0)';
-                particle.style.opacity = reducedMotion ? '.45' : randomBetween(.45, .9).toFixed(2);
-            }
-
-            if (reducedMotion) {
-                return;
-            }
-
-            let previousTime = performance.now();
-
-            const moveParticles = function (currentTime) {
-                const elapsed = Math.min((currentTime - previousTime) / 1000, .04);
-                previousTime = currentTime;
-
-                particles.forEach(function (state) {
-                    if (currentTime >= state.nextSteerAt) {
-                        state.targetTurn = randomBetween(-1.15, 1.15);
-                        state.nextSteerAt = currentTime + randomBetween(450, 1800);
-                    }
-
-                    state.turnRate += (state.targetTurn - state.turnRate) * Math.min(1, elapsed * 2.4);
-                    state.angle += (
-                        state.turnRate
-                        + Math.sin(currentTime / 1000 * state.wobbleSpeed + state.phase) * state.wobble
-                    ) * elapsed;
-
-                    state.x += Math.cos(state.angle) * state.speed * elapsed;
-                    state.y += Math.sin(state.angle) * state.speed * elapsed;
-
-                    if (state.x <= 0 || state.x >= fieldWidth) {
-                        state.x = Math.min(fieldWidth, Math.max(0, state.x));
-                        state.angle = Math.PI - state.angle;
-                        state.turnRate *= -1;
-                    }
-
-                    if (state.y <= 0 || state.y >= fieldHeight) {
-                        state.y = Math.min(fieldHeight, Math.max(0, state.y));
-                        state.angle = -state.angle;
-                        state.turnRate *= -1;
-                    }
-
-                    const pulse = .78 + Math.sin(currentTime / 1000 * state.pulseSpeed + state.phase) * .22;
-                    state.element.style.transform = 'translate3d(' + state.x.toFixed(2) + 'px,' + state.y.toFixed(2) + 'px,0) scale(' + pulse.toFixed(2) + ')';
-                    state.element.style.opacity = (.48 + pulse * .38).toFixed(2);
-                });
-
-                window.requestAnimationFrame(moveParticles);
-            };
-
-            window.addEventListener('resize', function () {
-                fieldWidth = field.clientWidth;
-                fieldHeight = field.clientHeight;
-            });
-
-            window.requestAnimationFrame(moveParticles);
-        });
     });
 </script>
 
