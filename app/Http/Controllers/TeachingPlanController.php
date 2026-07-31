@@ -360,40 +360,14 @@ class TeachingPlanController extends Controller
 
         $matchingPlans = TeachingPlan::with('weeks')
             ->where('is_template', false)
-            ->with('course')
             ->whereIn('institute', $selectedInstituteNames)
             ->whereIn('status', ['active', 'completed'])
             ->get();
 
         $updatedCount = 0;
-        $skippedCount = 0;
-        $skippedPlans = [];
 
-        DB::transaction(function () use ($matchingPlans, $selectedDate, &$updatedCount, &$skippedCount, &$skippedPlans) {
+        DB::transaction(function () use ($matchingPlans, $selectedDate, &$updatedCount) {
             foreach ($matchingPlans as $matchingPlan) {
-                if ($selectedDate && !$matchingPlan->weeks->contains(fn ($week) => $this->weekMatchesAiTrainingDate($week, $selectedDate))) {
-                    $skippedCount++;
-                    $releaseDates = $matchingPlan->weeks
-                        ->flatMap(fn ($week) => [
-                            $week->release_date ? Carbon::parse($week->release_date)->format('d M Y') : null,
-                            $week->week_start_date ? Carbon::parse($week->week_start_date)->format('d M Y') : null,
-                        ])
-                        ->filter()
-                        ->unique()
-                        ->sort()
-                        ->values()
-                        ->all();
-
-                    $skippedPlans[] = [
-                        'title' => $matchingPlan->title ?: ($matchingPlan->course->course_title ?? 'Teaching Plan'),
-                        'institute' => $matchingPlan->institute,
-                        'class' => trim(($matchingPlan->class ?? '') . ' ' . ($matchingPlan->section ?? '')),
-                        'course' => $matchingPlan->course->course_title ?? 'Course removed',
-                        'release_dates' => $releaseDates,
-                    ];
-                    continue;
-                }
-
                 $matchingPlan->update([
                     'ai_training_start_date' => $selectedDate,
                 ]);
@@ -402,29 +376,10 @@ class TeachingPlanController extends Controller
             }
         });
 
-        $redirect = redirect()->back()
+        return redirect()->back()
             ->with('success', $selectedDate
                 ? 'AI prep training deployed from ' . Carbon::parse($selectedDate)->format('d M Y') . " for {$updatedCount} institute grade plan(s)."
                 : "AI prep training disabled for {$updatedCount} institute grade plan(s).");
-
-        if ($skippedCount > 0) {
-            $redirect
-                ->with('error', "{$skippedCount} matching plan(s) were skipped because that release date does not exist in their weekly schedule.")
-                ->with('skipped_ai_training_plans', $skippedPlans);
-        }
-
-        return $redirect;
-    }
-
-    private function weekMatchesAiTrainingDate(TeachingPlanWeek $week, string $selectedDate): bool
-    {
-        foreach ([$week->release_date, $week->week_start_date] as $date) {
-            if ($date && Carbon::parse($date)->toDateString() == $selectedDate) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     public function storeLaggedContent(Request $request, $id)
