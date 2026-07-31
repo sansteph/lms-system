@@ -25,6 +25,10 @@ class TeachingPlanController extends Controller
             ->get();
 
         $teachingPlanSectionPager = null;
+        $teachingPlanClassPager = null;
+        $teachingPlanStudentSectionPager = null;
+        $selectedTeachingPlanClass = null;
+        $selectedTeachingPlanSection = null;
         $currentInstituteName = session('user_role') == 'InstituteAdmin'
             ? session('user_institute')
             : null;
@@ -64,6 +68,12 @@ class TeachingPlanController extends Controller
         $plans = collect();
 
         if (session('user_role') == 'InstituteAdmin' || $currentInstituteName) {
+            ['selectedClass' => $selectedTeachingPlanClass, 'sectionPager' => $teachingPlanClassPager] =
+                $this->buildTeachingPlanClassPager($request, $currentInstituteName);
+
+            ['selectedSection' => $selectedTeachingPlanSection, 'sectionPager' => $teachingPlanStudentSectionPager] =
+                $this->buildTeachingPlanSectionPager($request, $currentInstituteName, $selectedTeachingPlanClass);
+
             $plans = TeachingPlan::with([
                     'course.courseContents.content',
                     'parentTemplate',
@@ -71,6 +81,27 @@ class TeachingPlanController extends Controller
                 ])
                 ->where('is_template', false)
                 ->where('institute', $currentInstituteName)
+                ->when($selectedTeachingPlanClass, function ($query) use ($selectedTeachingPlanClass) {
+                    $query->whereRaw(
+                        "REPLACE(TRIM(class), '  ', ' ') = ?",
+                        [$selectedTeachingPlanClass]
+                    );
+                })
+                ->when($selectedTeachingPlanSection, function ($query) use ($selectedTeachingPlanSection) {
+                    if ($selectedTeachingPlanSection === '__unassigned') {
+                        $query->where(function ($sectionQuery) {
+                            $sectionQuery->whereNull('section')
+                                ->orWhere('section', '');
+                        });
+
+                        return;
+                    }
+
+                    $query->whereRaw(
+                        "REPLACE(TRIM(section), '  ', ' ') = ?",
+                        [$selectedTeachingPlanSection]
+                    );
+                })
                 ->latest()
                 ->get();
         }
@@ -141,8 +172,134 @@ class TeachingPlanController extends Controller
             'institutes',
             'classesByInstitute',
             'teachingPlanSectionPager',
+            'teachingPlanClassPager',
+            'teachingPlanStudentSectionPager',
+            'selectedTeachingPlanClass',
+            'selectedTeachingPlanSection',
             'currentInstituteName'
         ));
+    }
+
+    private function buildTeachingPlanClassPager(Request $request, ?string $institute): array
+    {
+        if (!$institute) {
+            return ['selectedClass' => null, 'sectionPager' => null];
+        }
+
+        $planClasses = TeachingPlan::where('is_template', false)
+            ->where('institute', $institute)
+            ->whereNotNull('class')
+            ->pluck('class');
+
+        $classes = $planClasses
+            ->map(fn ($className) => preg_replace('/\s+/', ' ', trim((string) $className)))
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
+            ->sort(fn ($first, $second) => strnatcasecmp($first, $second))
+            ->values();
+
+        if ($classes->isEmpty()) {
+            return ['selectedClass' => null, 'sectionPager' => null];
+        }
+
+        $requestedClass = trim((string) $request->input('plan_class'));
+        $requestedIndex = $requestedClass !== '' ? $classes->search($requestedClass) : false;
+        $lastPage = $classes->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('plan_class_page', 1), 1), $lastPage);
+
+        $selectedClass = $classes->get($currentPage - 1);
+        $previousClass = $currentPage > 1 ? $classes->get($currentPage - 2) : null;
+        $nextClass = $currentPage < $lastPage ? $classes->get($currentPage) : null;
+        $query = $request->except([
+            'plan_class_page',
+            'plan_class',
+            'plan_section_page',
+            'plan_section',
+        ]);
+
+        return [
+            'selectedClass' => $selectedClass,
+            'sectionPager' => [
+                'current_label' => 'Class ' . $selectedClass,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousClass ? 'Class ' . $previousClass : null,
+                'next_label' => $nextClass ? 'Class ' . $nextClass : null,
+                'previous_url' => $previousClass
+                    ? route('teaching-plans', array_merge($query, [
+                        'plan_class_page' => $currentPage - 1,
+                        'plan_class' => $previousClass,
+                    ]))
+                    : null,
+                'next_url' => $nextClass
+                    ? route('teaching-plans', array_merge($query, [
+                        'plan_class_page' => $currentPage + 1,
+                        'plan_class' => $nextClass,
+                    ]))
+                    : null,
+            ],
+        ];
+    }
+
+    private function buildTeachingPlanSectionPager(Request $request, ?string $institute, ?string $className): array
+    {
+        if (!$institute || !$className) {
+            return ['selectedSection' => null, 'sectionPager' => null];
+        }
+
+        $planSections = TeachingPlan::where('is_template', false)
+            ->where('institute', $institute)
+            ->whereRaw("REPLACE(TRIM(class), '  ', ' ') = ?", [$className])
+            ->pluck('section')
+            ->map(fn ($section) => filled($section) ? preg_replace('/\s+/', ' ', trim((string) $section)) : '__unassigned');
+
+        $sections = $planSections
+            ->filter()
+            ->unique(fn ($section) => mb_strtolower($section))
+            ->sortBy(fn ($section) => $section === '__unassigned' ? 'zzzz' : $section, SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        if ($sections->isEmpty()) {
+            return ['selectedSection' => null, 'sectionPager' => null];
+        }
+
+        $requestedSection = trim((string) $request->input('plan_section'));
+        $requestedIndex = $requestedSection !== '' ? $sections->search($requestedSection) : false;
+        $lastPage = $sections->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('plan_section_page', 1), 1), $lastPage);
+
+        $selectedSection = $sections->get($currentPage - 1);
+        $previousSection = $currentPage > 1 ? $sections->get($currentPage - 2) : null;
+        $nextSection = $currentPage < $lastPage ? $sections->get($currentPage) : null;
+        $query = $request->except(['plan_section_page', 'plan_section']);
+        $label = fn ($section) => $section === '__unassigned' ? 'No Section' : 'Section ' . $section;
+
+        return [
+            'selectedSection' => $selectedSection,
+            'sectionPager' => [
+                'current_label' => $label($selectedSection),
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousSection ? $label($previousSection) : null,
+                'next_label' => $nextSection ? $label($nextSection) : null,
+                'previous_url' => $previousSection
+                    ? route('teaching-plans', array_merge($query, [
+                        'plan_section_page' => $currentPage - 1,
+                        'plan_section' => $previousSection,
+                    ]))
+                    : null,
+                'next_url' => $nextSection
+                    ? route('teaching-plans', array_merge($query, [
+                        'plan_section_page' => $currentPage + 1,
+                        'plan_section' => $nextSection,
+                    ]))
+                    : null,
+            ],
+        ];
     }
 
     public function store(Request $request)

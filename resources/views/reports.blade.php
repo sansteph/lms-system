@@ -26,6 +26,7 @@
     $isStudentPrepReport = $reportMode == 'student-ai-review';
     $isTeacherPrepReport = $reportMode == 'stem-engineer-prep';
     $isStudentPerformanceReport = in_array($reportMode, ['weekly-student-performance', 'monthly-student-performance'], true);
+    $isStudentScopedReport = in_array($reportMode, ['student-ai-review', 'weekly-student-performance', 'monthly-student-performance'], true);
     $isTeacherPerformanceReport = in_array($reportMode, ['weekly-stem-engineer-performance', 'monthly-stem-engineer-performance'], true);
     $isWeeklyReport = str_starts_with($reportMode, 'weekly-');
     $isWeeklyPrepReport = in_array($reportMode, ['student-ai-review', 'stem-engineer-prep'], true);
@@ -39,6 +40,14 @@
         'monthly-stem-engineer-performance' => route('reports.stem-engineer-performance.monthly.download'),
         default => null,
     };
+    $reportScopeQuery = array_filter([
+        'section_page' => request('section_page'),
+        'student_class_page' => request('student_class_page'),
+        'student_class' => request('student_class'),
+        'student_section_page' => request('student_section_page'),
+        'student_section' => request('student_section'),
+    ], fn ($value) => filled($value));
+    $clearReportUrl = url()->current() . ($reportScopeQuery ? '?' . http_build_query($reportScopeQuery) : '');
 @endphp
 
 <div class="container-fluid">
@@ -66,11 +75,40 @@
 
             @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
 
+            @if($isStudentScopedReport)
+                @include('partials.section-navigator', [
+                    'sectionPager' => $studentReportClassPager ?? null,
+                    'sectionDescription' => 'Browse student report data one class at a time within the selected institute.',
+                ])
+
+                @include('partials.section-navigator', [
+                    'sectionPager' => $studentReportSectionPager ?? null,
+                    'sectionDescription' => 'Review the selected class one section at a time.',
+                ])
+
+                @if($selectedStudentReportClass ?? null)
+                    <div class="alert alert-info mb-4">
+                        Current report scope:
+                        <strong>{{ ($sectionPager['current_label'] ?? session('user_institute')) ?: 'Institute' }}</strong>
+                        / <strong>Class {{ $selectedStudentReportClass }}</strong>
+                        @if($selectedStudentReportSection ?? null)
+                            / <strong>{{ $selectedStudentReportSection === '__unassigned' ? 'No Section' : 'Section ' . $selectedStudentReportSection }}</strong>
+                        @endif
+                    </div>
+                @endif
+            @endif
+
             @if($isFocusedReport)
                 <div class="card shadow border-0 mb-4">
                     <div class="card-body">
                         <form method="GET" action="{{ url()->current() }}" class="row g-3 align-items-end">
                             <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
+                            @if($isStudentScopedReport)
+                                <input type="hidden" name="student_class_page" value="{{ request('student_class_page', 1) }}">
+                                <input type="hidden" name="student_class" value="{{ $selectedStudentReportClass ?? request('student_class') }}">
+                                <input type="hidden" name="student_section_page" value="{{ request('student_section_page', 1) }}">
+                                <input type="hidden" name="student_section" value="{{ $selectedStudentReportSection ?? request('student_section') }}">
+                            @endif
                             @if($isMonthlyReport)
                                 <div class="col-md-3">
                                     <label class="form-label">Report Month</label>
@@ -95,7 +133,7 @@
                             </div>
 
                             <div class="col-md-3">
-                                <a href="{{ url()->current() }}" class="btn btn-outline-secondary w-100">
+                                <a href="{{ $clearReportUrl }}" class="btn btn-outline-secondary w-100">
                                     Clear
                                 </a>
                             </div>
@@ -109,6 +147,12 @@
                             <form method="POST" action="{{ $downloadRoute }}" class="mt-3">
                                 @csrf
                                 <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
+                                @if($isStudentScopedReport)
+                                    <input type="hidden" name="student_class_page" value="{{ request('student_class_page', 1) }}">
+                                    <input type="hidden" name="student_class" value="{{ $selectedStudentReportClass ?? request('student_class') }}">
+                                    <input type="hidden" name="student_section_page" value="{{ request('student_section_page', 1) }}">
+                                    <input type="hidden" name="student_section" value="{{ $selectedStudentReportSection ?? request('student_section') }}">
+                                @endif
                                 @if($isMonthlyReport)
                                     <input type="hidden" name="report_month" value="{{ request('report_month', now()->format('Y-m')) }}">
                                 @else

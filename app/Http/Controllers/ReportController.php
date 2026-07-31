@@ -31,6 +31,15 @@ class ReportController extends Controller
         [$periodFrom, $periodTo, $periodLabel] = $this->reportDateWindow($request, $reportMode);
         $sectionPager = null;
         $selectedReportInstitute = null;
+        $studentReportClassPager = null;
+        $studentReportSectionPager = null;
+        $selectedStudentReportClass = null;
+        $selectedStudentReportSection = null;
+        $isStudentScopedReport = in_array($reportMode, [
+            'student-ai-review',
+            'weekly-student-performance',
+            'monthly-student-performance',
+        ], true);
 
         if (session('user_role') == 'Admin') {
             ['currentInstitute' => $selectedReportInstitute, 'sectionPager' => $sectionPager] =
@@ -42,6 +51,19 @@ class ReportController extends Controller
         $institute = session('user_role') == 'InstituteAdmin'
             ? session('user_institute')
             : $selectedReportInstitute;
+
+        if ($isStudentScopedReport && $institute) {
+            ['selectedClass' => $selectedStudentReportClass, 'sectionPager' => $studentReportClassPager] =
+                $this->buildStudentReportClassPager($request, (string) $institute, $request->route()?->getName() ?: 'reports.student-ai-review');
+
+            ['selectedSection' => $selectedStudentReportSection, 'sectionPager' => $studentReportSectionPager] =
+                $this->buildStudentReportSectionPager(
+                    $request,
+                    (string) $institute,
+                    $selectedStudentReportClass,
+                    $request->route()?->getName() ?: 'reports.student-ai-review'
+                );
+        }
 
         if ($isInstituteScoped) {
 
@@ -200,6 +222,20 @@ class ReportController extends Controller
         $classScope = SchoolClass::query()
             ->when($isInstituteScoped, function ($query) use ($institute) {
                 $query->where('institute', $institute);
+            })
+            ->when($isStudentScopedReport && $selectedStudentReportClass, function ($query) use ($selectedStudentReportClass) {
+                $query->where('class_name', $selectedStudentReportClass);
+            })
+            ->when($isStudentScopedReport && $selectedStudentReportSection, function ($query) use ($selectedStudentReportSection) {
+                if ($selectedStudentReportSection === '__unassigned') {
+                    $query->where(function ($sectionQuery) {
+                        $sectionQuery->whereNull('section')->orWhere('section', '');
+                    });
+
+                    return;
+                }
+
+                $query->where('section', $selectedStudentReportSection);
             });
 
         $classBreakdowns = $classScope
@@ -305,6 +341,20 @@ class ReportController extends Controller
             ->when($isInstituteScoped, function ($query) use ($institute) {
                 $query->where('institute', $institute);
             })
+            ->when($isStudentScopedReport && $selectedStudentReportClass, function ($query) use ($selectedStudentReportClass) {
+                $query->where('class', $selectedStudentReportClass);
+            })
+            ->when($isStudentScopedReport && $selectedStudentReportSection, function ($query) use ($selectedStudentReportSection) {
+                if ($selectedStudentReportSection === '__unassigned') {
+                    $query->where(function ($sectionQuery) {
+                        $sectionQuery->whereNull('section')->orWhere('section', '');
+                    });
+
+                    return;
+                }
+
+                $query->where('section', $selectedStudentReportSection);
+            })
             ->pluck('id');
 
         $teacherIdsForAi = User::where('role', 'Teacher')
@@ -366,6 +416,10 @@ class ReportController extends Controller
             'teacherAiPrepAverage',
             'reportMode',
             'sectionPager',
+            'studentReportClassPager',
+            'studentReportSectionPager',
+            'selectedStudentReportClass',
+            'selectedStudentReportSection',
             'periodFrom',
             'periodTo',
             'periodLabel'
@@ -403,13 +457,48 @@ class ReportController extends Controller
     private function downloadableReportPayload(Request $request, string $reportMode): array
     {
         [$periodFrom, $periodTo, $periodLabel] = $this->reportDateWindow($request, $reportMode);
-        $institute = $this->selectedReportInstitute($request, $this->reportDownloadRouteName($reportMode));
-        $scope = $institute ?: 'All Institutes';
+        $downloadRouteName = $this->reportDownloadRouteName($reportMode);
+        $institute = $this->selectedReportInstitute($request, $downloadRouteName);
         $isStudentReport = in_array($reportMode, ['student-ai-review', 'weekly-student-performance', 'monthly-student-performance'], true);
         $isTeacherReport = in_array($reportMode, ['stem-engineer-prep', 'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance'], true);
+        $selectedClass = null;
+        $selectedSection = null;
+
+        if ($isStudentReport && $institute) {
+            ['selectedClass' => $selectedClass] = $this->buildStudentReportClassPager(
+                $request,
+                $institute,
+                $downloadRouteName
+            );
+            ['selectedSection' => $selectedSection] = $this->buildStudentReportSectionPager(
+                $request,
+                $institute,
+                $selectedClass,
+                $downloadRouteName
+            );
+        }
+
+        $scopeParts = array_filter([
+            $institute ?: 'All Institutes',
+            $selectedClass ? 'Class ' . $selectedClass : null,
+            $selectedSection ? ($selectedSection === '__unassigned' ? 'No Section' : 'Section ' . $selectedSection) : null,
+        ]);
+        $scope = implode(' / ', $scopeParts);
 
         $studentIds = Student::query()
             ->when($institute, fn ($query) => $query->where('institute', $institute))
+            ->when($isStudentReport && $selectedClass, fn ($query) => $query->where('class', $selectedClass))
+            ->when($isStudentReport && $selectedSection, function ($query) use ($selectedSection) {
+                if ($selectedSection === '__unassigned') {
+                    $query->where(function ($sectionQuery) {
+                        $sectionQuery->whereNull('section')->orWhere('section', '');
+                    });
+
+                    return;
+                }
+
+                $query->where('section', $selectedSection);
+            })
             ->pluck('id');
 
         $teacherIds = User::where('role', 'Teacher')
@@ -430,6 +519,18 @@ class ReportController extends Controller
 
         $sessions = ClassContentSession::query()
             ->when($institute, fn ($query) => $query->where('institute', $institute))
+            ->when($isStudentReport && $selectedClass, fn ($query) => $query->where('class', $selectedClass))
+            ->when($isStudentReport && $selectedSection, function ($query) use ($selectedSection) {
+                if ($selectedSection === '__unassigned') {
+                    $query->where(function ($sectionQuery) {
+                        $sectionQuery->whereNull('section')->orWhere('section', '');
+                    });
+
+                    return;
+                }
+
+                $query->where('section', $selectedSection);
+            })
             ->when($periodFrom, fn ($query) => $query->whereDate('session_date', '>=', $periodFrom))
             ->when($periodTo, fn ($query) => $query->whereDate('session_date', '<=', $periodTo));
 
@@ -509,6 +610,120 @@ class ReportController extends Controller
         ['currentInstitute' => $currentInstitute] = $this->buildInstituteSectionPager($request, $routeName);
 
         return $currentInstitute;
+    }
+
+    private function buildStudentReportClassPager(Request $request, string $institute, string $routeName): array
+    {
+        $classes = Student::where('institute', $institute)
+            ->whereNotNull('class')
+            ->pluck('class')
+            ->map(fn ($className) => preg_replace('/\s+/', ' ', trim((string) $className)))
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
+            ->sort(fn ($first, $second) => strnatcasecmp($first, $second))
+            ->values();
+
+        if ($classes->isEmpty()) {
+            return ['selectedClass' => null, 'sectionPager' => null];
+        }
+
+        $requestedClass = trim((string) $request->input('student_class'));
+        $requestedIndex = $requestedClass !== '' ? $classes->search($requestedClass) : false;
+        $lastPage = $classes->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('student_class_page', 1), 1), $lastPage);
+        $selectedClass = $classes->get($currentPage - 1);
+        $previousClass = $currentPage > 1 ? $classes->get($currentPage - 2) : null;
+        $nextClass = $currentPage < $lastPage ? $classes->get($currentPage) : null;
+        $query = $request->except([
+            'student_class_page',
+            'student_class',
+            'student_section_page',
+            'student_section',
+        ]);
+
+        return [
+            'selectedClass' => $selectedClass,
+            'sectionPager' => [
+                'current_label' => 'Class ' . $selectedClass,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousClass ? 'Class ' . $previousClass : null,
+                'next_label' => $nextClass ? 'Class ' . $nextClass : null,
+                'previous_url' => $previousClass
+                    ? route($routeName, array_merge($query, [
+                        'student_class_page' => $currentPage - 1,
+                        'student_class' => $previousClass,
+                    ]))
+                    : null,
+                'next_url' => $nextClass
+                    ? route($routeName, array_merge($query, [
+                        'student_class_page' => $currentPage + 1,
+                        'student_class' => $nextClass,
+                    ]))
+                    : null,
+            ],
+        ];
+    }
+
+    private function buildStudentReportSectionPager(
+        Request $request,
+        string $institute,
+        ?string $className,
+        string $routeName
+    ): array {
+        if (!$className) {
+            return ['selectedSection' => null, 'sectionPager' => null];
+        }
+
+        $sections = Student::where('institute', $institute)
+            ->where('class', $className)
+            ->pluck('section')
+            ->map(fn ($section) => filled($section) ? preg_replace('/\s+/', ' ', trim((string) $section)) : '__unassigned')
+            ->filter()
+            ->unique(fn ($section) => mb_strtolower($section))
+            ->sort(fn ($first, $second) => strnatcasecmp($first === '__unassigned' ? 'zzzz' : $first, $second === '__unassigned' ? 'zzzz' : $second))
+            ->values();
+
+        if ($sections->isEmpty()) {
+            return ['selectedSection' => null, 'sectionPager' => null];
+        }
+
+        $requestedSection = trim((string) $request->input('student_section'));
+        $requestedIndex = $requestedSection !== '' ? $sections->search($requestedSection) : false;
+        $lastPage = $sections->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('student_section_page', 1), 1), $lastPage);
+        $selectedSection = $sections->get($currentPage - 1);
+        $previousSection = $currentPage > 1 ? $sections->get($currentPage - 2) : null;
+        $nextSection = $currentPage < $lastPage ? $sections->get($currentPage) : null;
+        $query = $request->except(['student_section_page', 'student_section']);
+        $label = fn ($section) => $section === '__unassigned' ? 'No Section' : 'Section ' . $section;
+
+        return [
+            'selectedSection' => $selectedSection,
+            'sectionPager' => [
+                'current_label' => $label($selectedSection),
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousSection ? $label($previousSection) : null,
+                'next_label' => $nextSection ? $label($nextSection) : null,
+                'previous_url' => $previousSection
+                    ? route($routeName, array_merge($query, [
+                        'student_section_page' => $currentPage - 1,
+                        'student_section' => $previousSection,
+                    ]))
+                    : null,
+                'next_url' => $nextSection
+                    ? route($routeName, array_merge($query, [
+                        'student_section_page' => $currentPage + 1,
+                        'student_section' => $nextSection,
+                    ]))
+                    : null,
+            ],
+        ];
     }
 
     private function reportDownloadRouteName(string $reportMode): string

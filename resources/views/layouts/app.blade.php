@@ -63,7 +63,7 @@
         $showNotifications = !request()->routeIs('blogs*');
         $panelHomeUrl = route('home');
 
-        if (session('user_role') == 'Admin') {
+        if (in_array(session('user_role'), ['Admin', 'InstituteAdmin'], true)) {
             $panelHomeUrl = route('admin.dashboard');
         } elseif (session('user_role') == 'Teacher') {
             $panelHomeUrl = route('teacher.dashboard');
@@ -144,7 +144,7 @@
     @endif
 </head>
 
-<body>
+<body class="{{ $showPanelNav ? 'lms-panel-body' : 'lms-public-body' }}">
 
 @if($showParticles)
     <div id="particles-js"></div>
@@ -152,31 +152,37 @@
 
 @if($showPanelNav)
 
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4">
+    <nav class="navbar navbar-expand-lg panel-navbar px-3 px-md-4">
 
-        <a class="navbar-brand fw-bold text-primary"
+        <a class="navbar-brand panel-navbar-brand"
            href="{{ $panelHomeUrl }}">
-            InnovatEdge Panel
+            <img src="{{ asset('images/InnovatEdgeLogo.png') }}" alt="InnovatEdge">
+            <span>
+                <strong>InnovatEdge</strong>
+                <small>{{ $panelUserRoleLabel ?: 'Learning Panel' }}</small>
+            </span>
         </a>
 
-        <div class="ms-auto d-flex align-items-center gap-3">
+        <div class="ms-auto d-flex align-items-center gap-2 gap-md-3 panel-navbar-actions">
 
             @if($panelUserName)
-                <span class="text-muted fw-semibold">
-
-                    {{ $panelUserName }}
-
-                    @if($panelUserRoleLabel)
-                        ({{ $panelUserRoleLabel }})
-                    @endif
-
+                <span class="panel-user-chip">
+                    <i class="fa-regular fa-circle-user"></i>
+                    <span>
+                        <strong>{{ $panelUserName }}</strong>
+                        @if($panelUserRoleLabel)
+                            <small>{{ $panelUserRoleLabel }}</small>
+                        @endif
+                    </span>
                 </span>
             @endif
 
             @if($showLogout)
                 <a href="{{ route('logout') }}"
-                   class="btn btn-sm btn-outline-danger">
-                    Logout
+                   class="btn btn-sm btn-outline-danger panel-logout-btn"
+                   title="Logout">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span>Logout</span>
                 </a>
             @endif
 

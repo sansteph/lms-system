@@ -118,6 +118,29 @@
                 ])
             @endif
 
+            @if(session('user_role') != 'Admin' || !$teachingPlanSectionPager || $teachingPlanSectionPager['current_type'] == 'institute')
+                @include('partials.section-navigator', [
+                    'sectionPager' => $teachingPlanClassPager,
+                    'sectionDescription' => 'Browse one class at a time within ' . ($currentInstituteName ?: 'this institute') . '.',
+                ])
+
+                @include('partials.section-navigator', [
+                    'sectionPager' => $teachingPlanStudentSectionPager,
+                    'sectionDescription' => 'Showing Teaching Plans for ' . ($selectedTeachingPlanClass ? 'Class ' . $selectedTeachingPlanClass : 'the selected class') . ', one section at a time.',
+                ])
+
+                @if($selectedTeachingPlanClass)
+                    <div class="alert alert-info mb-4">
+                        Current Teaching Plan scope:
+                        <strong>{{ $currentInstituteName ?: 'Institute' }}</strong>
+                        / <strong>Class {{ $selectedTeachingPlanClass }}</strong>
+                        @if($selectedTeachingPlanSection)
+                            / <strong>{{ $selectedTeachingPlanSection === '__unassigned' ? 'No Section' : 'Section ' . $selectedTeachingPlanSection }}</strong>
+                        @endif
+                    </div>
+                @endif
+            @endif
+
             @if(session('user_role') == 'Admin' && (!$teachingPlanSectionPager || $teachingPlanSectionPager['current_type'] == 'templates'))
                 <div class="card shadow border-0 mb-4">
                     <div class="card-body">
