@@ -25,7 +25,10 @@
                     <form method="POST" action="{{ route('teacher.results.ai-insights') }}">
                         @csrf
                         <input type="hidden" name="search" value="{{ request('search') }}">
-                        <input type="hidden" name="class" value="{{ request('class') }}">
+                        <input type="hidden" name="class_page" value="{{ request('class_page') }}">
+                        <input type="hidden" name="student_class" value="{{ request('student_class') }}">
+                        <input type="hidden" name="student_section_page" value="{{ request('student_section_page') }}">
+                        <input type="hidden" name="student_section" value="{{ request('student_section') }}">
                         <input type="hidden" name="badge" value="{{ request('badge') }}">
                         <input type="hidden" name="status" value="{{ request('status') }}">
                         <input type="hidden" name="sort" value="{{ request('sort') }}">
@@ -38,7 +41,10 @@
                     <form method="POST" action="{{ route('teacher.results.ai-insights.download') }}">
                         @csrf
                         <input type="hidden" name="search" value="{{ request('search') }}">
-                        <input type="hidden" name="class" value="{{ request('class') }}">
+                        <input type="hidden" name="class_page" value="{{ request('class_page') }}">
+                        <input type="hidden" name="student_class" value="{{ request('student_class') }}">
+                        <input type="hidden" name="student_section_page" value="{{ request('student_section_page') }}">
+                        <input type="hidden" name="student_section" value="{{ request('student_section') }}">
                         <input type="hidden" name="badge" value="{{ request('badge') }}">
                         <input type="hidden" name="status" value="{{ request('status') }}">
                         <input type="hidden" name="sort" value="{{ request('sort') }}">
@@ -77,6 +83,28 @@
                     'aiInsights' => $aiInsights,
                     'reportTitle' => 'AI Generated Student Result Report'
                 ])
+            @endif
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $classSectionPager ?? null,
+                'sectionDescription' => 'Browse student results one class at a time.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $studentSectionPager ?? null,
+                'sectionDescription' => 'Showing student results for this section only.',
+            ])
+
+            @if(!empty($selectedStudentClass))
+                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="fw-semibold">Current result scope:</span>
+                        Class {{ $selectedStudentClass }}
+                        @if(!empty($selectedStudentSection))
+                            &middot; Section {{ $selectedStudentSection }}
+                        @endif
+                    </div>
+                </div>
             @endif
 
             <div class="row g-4 mb-4">
@@ -224,6 +252,11 @@
                           action="{{ route('teacher.results') }}">
 
                         <div class="row g-3">
+                            @foreach(['class_page', 'student_class', 'student_section_page', 'student_section'] as $filterKey)
+                                @if(request()->has($filterKey))
+                                    <input type="hidden" name="{{ $filterKey }}" value="{{ request($filterKey) }}">
+                                @endif
+                            @endforeach
 
                             <div class="col-md-3">
 
@@ -232,25 +265,6 @@
                                        class="form-control"
                                        placeholder="Search student/assessment"
                                        value="{{ request('search') }}">
-
-                            </div>
-
-                            <div class="col-md-2">
-
-                                <select name="class" class="form-control">
-
-                                    <option value="">
-                                        All Classes
-                                    </option>
-
-                                    @foreach($classOptions as $classOption)
-                                        <option value="{{ $classOption }}"
-                                            {{ $selectedClass == $classOption ? 'selected' : '' }}>
-                                            {{ $classOption }}
-                                        </option>
-                                    @endforeach
-
-                                </select>
 
                             </div>
 

@@ -16,6 +16,37 @@
                 </p>
             </div>
 
+            @include('partials.section-navigator', [
+                'sectionPager' => $sectionPager ?? null,
+                'sectionDescription' => 'Browse assessment review monitoring institute by institute.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $classSectionPager ?? null,
+                'sectionDescription' => 'Browse assessment reviews one class at a time inside the selected institute.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $studentSectionPager ?? null,
+                'sectionDescription' => 'Showing assessment reviews for this section only.',
+            ])
+
+            @if(!empty($selectedStudentClass))
+                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="fw-semibold">Current assessment review scope:</span>
+                        Class {{ $selectedStudentClass }}
+                        @if(!empty($selectedStudentSection))
+                            &middot; Section {{ $selectedStudentSection }}
+                        @endif
+                    </div>
+
+                    @if(!empty($currentInstitute))
+                        <span class="text-muted small">{{ $currentInstitute }}</span>
+                    @endif
+                </div>
+            @endif
+
             <div class="card shadow border-0">
                 <div class="card-body">
 
@@ -34,7 +65,8 @@
 
                         <tbody>
                             @php
-                                $groupedResults = $results
+                                $resultRows = method_exists($results, 'getCollection') ? $results->getCollection() : collect($results);
+                                $groupedResults = $resultRows
                                     ->sortBy([
                                         fn ($result) => $result->student->institute ?? '',
                                         fn ($result) => $result->student->class ?? '',
@@ -98,6 +130,12 @@
                     </table>
 
                 </div>
+
+                @if(method_exists($results, 'links'))
+                    <div class="px-3 pb-3">
+                        {{ $results->links('pagination::bootstrap-5') }}
+                    </div>
+                @endif
             </div>
 
         </div>

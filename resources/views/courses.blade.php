@@ -121,6 +121,32 @@
                 ])
             @endif
 
+            @include('partials.section-navigator', [
+                'sectionPager' => $courseClassPager ?? null,
+                'sectionDescription' => 'Browse courses one class at a time inside the selected institute.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $contentSectionPager ?? null,
+                'sectionDescription' => 'Showing courses that contain content for this section.',
+            ])
+
+            @if(!empty($selectedCourseClass))
+                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="fw-semibold">Current course scope:</span>
+                        Class {{ $selectedCourseClass }}
+                        @if(!empty($selectedContentSection))
+                            · Section {{ $selectedContentSection }}
+                        @endif
+                    </div>
+
+                    @if(!empty($currentInstitute))
+                        <span class="text-muted small">{{ $currentInstitute }}</span>
+                    @endif
+                </div>
+            @endif
+
             @if(session('success'))
                 <div class="alert alert-success">{{ session('success') }}</div>
             @endif
@@ -135,6 +161,11 @@
 
                     <form action="{{ route('courses.store') }}" method="POST" enctype="multipart/form-data">
                         @csrf
+                        <input type="hidden" name="page" value="{{ request('page') }}">
+                        <input type="hidden" name="course_class_page" value="{{ request('course_class_page') }}">
+                        <input type="hidden" name="course_class" value="{{ request('course_class') }}">
+                        <input type="hidden" name="content_section_page" value="{{ request('content_section_page') }}">
+                        <input type="hidden" name="content_section" value="{{ request('content_section') }}">
 
                         <div class="row g-3">
                             <div class="col-md-6">
@@ -251,6 +282,14 @@
                                                         <option value="archived">Archived</option>
                                                     </select>
                                                 </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Class</label>
+                                                    <input type="text" name="contents[0][assigned_class]" class="form-control">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Section</label>
+                                                    <input type="text" name="contents[0][section]" class="form-control">
+                                                </div>
                                                 <div class="col-md-6">
                                                     <label class="form-label">STEM Engineer File</label>
                                                     <input type="file" name="contents[0][file]" class="form-control" accept=".pdf">
@@ -331,6 +370,9 @@
                                                                     <strong>{{ $courseContent->content->content_title ?? 'Content' }}</strong>
                                                                     <div class="text-muted small">
                                                                         {{ $courseContent->content->assigned_class ?? $course->assigned_class ?? 'No class set' }}
+                                                                        @if(!empty($courseContent->content->section))
+                                                                            · Section {{ $courseContent->content->section }}
+                                                                        @endif
                                                                     </div>
                                                                 </td>
                                                                 <td>{{ $courseContent->content->content_type ?? '-' }}</td>
@@ -355,6 +397,7 @@
                                                                                 data-order="{{ $courseContent->content->lesson_order ?? $courseContent->sort_order }}"
                                                                                 data-description="{{ $courseContent->content->description }}"
                                                                                 data-assigned-class="{{ $courseContent->content->assigned_class ?? $course->assigned_class }}"
+                                                                                data-section="{{ $courseContent->content->section }}"
                                                                                 data-status="{{ $courseContent->content->status ? 1 : 0 }}">
                                                                             Edit Content
                                                                         </button>
@@ -418,6 +461,11 @@
             <div class="modal-content">
                 <form method="POST" action="{{ route('courses.update', $course->id) }}">
                     @csrf
+                    <input type="hidden" name="page" value="{{ request('page') }}">
+                    <input type="hidden" name="course_class_page" value="{{ request('course_class_page') }}">
+                    <input type="hidden" name="course_class" value="{{ request('course_class') }}">
+                    <input type="hidden" name="content_section_page" value="{{ request('content_section_page') }}">
+                    <input type="hidden" name="content_section" value="{{ request('content_section') }}">
                     <div class="modal-header">
                         <h5 class="modal-title">Edit Course</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -516,6 +564,11 @@
             <div class="modal-content">
                 <form method="POST" action="{{ route('courses.upload-content', $course->id) }}" enctype="multipart/form-data">
                     @csrf
+                    <input type="hidden" name="page" value="{{ request('page') }}">
+                    <input type="hidden" name="course_class_page" value="{{ request('course_class_page') }}">
+                    <input type="hidden" name="course_class" value="{{ request('course_class') }}">
+                    <input type="hidden" name="content_section_page" value="{{ request('content_section_page') }}">
+                    <input type="hidden" name="content_section" value="{{ request('content_section') }}">
                     <div class="modal-header">
                         <h5 class="modal-title">Upload Content to {{ $course->course_title }}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -597,6 +650,11 @@
                 @csrf
                 <input type="hidden" name="course_id" id="editContentCourseId">
                 <input type="hidden" name="institute" id="editContentInstitute">
+                <input type="hidden" name="page" value="{{ request('page') }}">
+                <input type="hidden" name="course_class_page" value="{{ request('course_class_page') }}">
+                <input type="hidden" name="course_class" value="{{ request('course_class') }}">
+                <input type="hidden" name="content_section_page" value="{{ request('content_section_page') }}">
+                <input type="hidden" name="content_section" value="{{ request('content_section') }}">
 
                 <div class="modal-header">
                     <h5 class="modal-title">Edit Content</h5>
@@ -628,6 +686,11 @@
                         <div class="col-md-6">
                             <label class="form-label">Assigned Class</label>
                             <input type="text" name="assigned_class" id="editContentAssignedClass" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Section</label>
+                            <input type="text" name="section" id="editContentSection" class="form-control">
                         </div>
 
                         <div class="col-md-6">
@@ -723,6 +786,7 @@
                 document.getElementById('editContentOrder').value = button.dataset.order || '1';
                 document.getElementById('editContentDescription').value = button.dataset.description || '';
                 document.getElementById('editContentAssignedClass').value = button.dataset.assignedClass || '';
+                document.getElementById('editContentSection').value = button.dataset.section || '';
                 document.getElementById('editContentStatus').value = button.dataset.status || '1';
                 document.getElementById('editContentFile').value = '';
                 document.getElementById('editContentStudentFile').value = '';
@@ -741,6 +805,8 @@
                         <div class="col-md-2"><label class="form-label">Type</label><input type="text" name="contents[${index}][content_type]" class="form-control" placeholder="Auto"></div>
                         <div class="col-md-2"><label class="form-label">Order</label><input type="number" name="contents[${index}][sort_order]" class="form-control" min="1"></div>
                         <div class="col-md-2"><label class="form-label">Status</label><select name="contents[${index}][status]" class="form-select"><option value="active">Active</option><option value="draft">Draft</option><option value="archived">Archived</option></select></div>
+                        <div class="col-md-3"><label class="form-label">Class</label><input type="text" name="contents[${index}][assigned_class]" class="form-control"></div>
+                        <div class="col-md-3"><label class="form-label">Section</label><input type="text" name="contents[${index}][section]" class="form-control"></div>
                         <div class="col-md-6"><label class="form-label">STEM Engineer File</label><input type="file" name="contents[${index}][file]" class="form-control" accept=".pdf"></div>
                         <div class="col-md-6"><label class="form-label">Student File</label><input type="file" name="contents[${index}][student_file]" class="form-control" accept=".pdf"></div>
                         <div class="col-md-12 text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-course-upload-row">Remove</button></div>

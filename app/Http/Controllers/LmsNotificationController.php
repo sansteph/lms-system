@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 
 class LmsNotificationController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $notifications = LmsNotification::query()
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
@@ -17,6 +17,12 @@ class LmsNotificationController extends Controller
                     $scope->whereNull('institute')
                         ->orWhere('institute', session('user_institute'));
                 });
+            })
+            ->when($request->filled('from_date'), function ($query) use ($request) {
+                $query->whereDate('created_at', '>=', $request->from_date);
+            })
+            ->when($request->filled('to_date'), function ($query) use ($request) {
+                $query->whereDate('created_at', '<=', $request->to_date);
             })
             ->latest()
             ->get();
@@ -67,9 +73,9 @@ class LmsNotificationController extends Controller
         return redirect()->back()->with('success', 'Notification deleted successfully.');
     }
 
-    public function teacherIndex()
+    public function teacherIndex(Request $request)
     {
-        $notifications = $this->audienceNotifications('teachers', session('user_institute'));
+        $notifications = $this->audienceNotifications('teachers', session('user_institute'), $request);
 
         return view('notifications.audience', [
             'title' => 'Notifications',
@@ -78,10 +84,10 @@ class LmsNotificationController extends Controller
         ]);
     }
 
-    public function studentIndex()
+    public function studentIndex(Request $request)
     {
         $student = Student::findOrFail(session('student_id'));
-        $notifications = $this->audienceNotifications('students', $student->institute);
+        $notifications = $this->audienceNotifications('students', $student->institute, $request);
 
         return view('notifications.audience', [
             'title' => 'Notifications',
@@ -90,7 +96,7 @@ class LmsNotificationController extends Controller
         ]);
     }
 
-    private function audienceNotifications(string $audience, ?string $institute)
+    private function audienceNotifications(string $audience, ?string $institute, Request $request)
     {
         $today = now()->toDateString();
 
@@ -108,6 +114,12 @@ class LmsNotificationController extends Controller
             ->where(function ($query) use ($today) {
                 $query->whereNull('expires_at')
                     ->orWhereDate('expires_at', '>=', $today);
+            })
+            ->when($request->filled('from_date'), function ($query) use ($request) {
+                $query->whereDate('created_at', '>=', $request->from_date);
+            })
+            ->when($request->filled('to_date'), function ($query) use ($request) {
+                $query->whereDate('created_at', '<=', $request->to_date);
             })
             ->latest()
             ->get();

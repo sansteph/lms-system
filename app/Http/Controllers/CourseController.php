@@ -18,6 +18,7 @@ use App\Models\TeachingPlan;
 use App\Models\TeachingPlanItem;
 use App\Models\TeachingPlanWeek;
 use App\Models\Institute;
+use App\Models\SchoolClass;
 use Illuminate\Validation\ValidationException;
 
 class CourseController extends Controller
@@ -30,6 +31,14 @@ class CourseController extends Controller
             : collect();
 
         $courseSectionPager = null;
+        $courseClassPager = null;
+        $contentSectionPager = null;
+        $selectedCourseClass = null;
+        $selectedContentSection = null;
+        $currentSection = null;
+        $currentInstitute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : null;
 
         $courseQuery = Course::with([
                 'courseContents' => function ($query) {
@@ -52,11 +61,12 @@ class CourseController extends Controller
                         'content_title',
                         'description',
                         'lesson_order',
-                        'content_type',
-                        'assigned_class',
-                        'institute',
-                        'status',
-                    ]);
+                    'content_type',
+                    'assigned_class',
+                    'section',
+                    'institute',
+                    'status',
+                ]);
                 },
                 'courseContents.content.aiSummary' => function ($query) {
                     $query->select([
@@ -88,7 +98,8 @@ class CourseController extends Controller
             if (($currentSection['type'] ?? null) == 'template') {
                 $courseQuery->where('is_template_source', true);
             } else {
-                $courseQuery->where('institute', $currentSection['value']);
+                $currentInstitute = $currentSection['value'];
+                $courseQuery->where('institute', $currentInstitute);
             }
 
             $courseSectionPager = [
@@ -104,6 +115,40 @@ class CourseController extends Controller
             $courseQuery->where('institute', session('user_institute'));
         }
 
+        if ($currentInstitute) {
+            ['selectedClass' => $selectedCourseClass, 'sectionPager' => $courseClassPager] =
+                $this->buildCourseClassPager($request, $currentInstitute);
+
+            ['selectedSection' => $selectedContentSection, 'sectionPager' => $contentSectionPager] =
+                $this->buildCourseContentSectionPager($request, $currentInstitute, $selectedCourseClass);
+
+            $courseQuery
+                ->when($selectedCourseClass, function ($query) use ($selectedCourseClass) {
+                    $query->where(function ($classQuery) use ($selectedCourseClass) {
+                        $classQuery->where('assigned_class', $selectedCourseClass)
+                            ->orWhereHas('courseContents.content', function ($contentQuery) use ($selectedCourseClass) {
+                                $contentQuery->where('assigned_class', $selectedCourseClass);
+                            });
+                    });
+                })
+                ->when($selectedContentSection, function ($query) use ($selectedContentSection, $selectedCourseClass) {
+                    $query->where(function ($sectionQuery) use ($selectedContentSection, $selectedCourseClass) {
+                        $sectionQuery->whereHas('courseContents.content', function ($contentQuery) use ($selectedContentSection) {
+                                $contentQuery->where('section', $selectedContentSection);
+                            })
+                            ->orWhereHas('courseContents.content', function ($contentQuery) use ($selectedCourseClass) {
+                                $contentQuery->where(function ($blankSectionQuery) {
+                                        $blankSectionQuery->whereNull('section')
+                                            ->orWhere('section', '');
+                                    })
+                                    ->when($selectedCourseClass, function ($classQuery) use ($selectedCourseClass) {
+                                        $classQuery->where('assigned_class', $selectedCourseClass);
+                                    });
+                            });
+                    });
+                });
+        }
+
         $courses = $courseQuery->get();
 
         $courseGroups = $courses->groupBy(function ($course) {
@@ -114,7 +159,182 @@ class CourseController extends Controller
             return $course->institute ?: 'Unassigned Institute';
         });
 
-        return view('courses', compact('courses', 'courseGroups', 'institutes', 'courseSectionPager'));
+        return view('courses', compact(
+            'courses',
+            'courseGroups',
+            'institutes',
+            'courseSectionPager',
+            'courseClassPager',
+            'contentSectionPager',
+            'selectedCourseClass',
+            'selectedContentSection',
+            'currentInstitute'
+        ));
+    }
+
+    private function buildCourseClassPager(Request $request, ?string $institute): array
+    {
+        if (!$institute) {
+            return [
+                'selectedClass' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $courseClasses = Course::where('institute', $institute)
+            ->whereNotNull('assigned_class')
+            ->pluck('assigned_class')
+            ->map(fn ($className) => trim((string) $className));
+
+        $contentClasses = Content::where('institute', $institute)
+            ->whereNotNull('assigned_class')
+            ->pluck('assigned_class')
+            ->map(fn ($className) => trim((string) $className));
+
+        $classOptions = SchoolClass::where('institute', $institute)
+            ->whereNotNull('class_name')
+            ->pluck('class_name')
+            ->map(fn ($className) => trim((string) $className));
+
+        $classes = $courseClasses
+            ->merge($contentClasses)
+            ->merge($classOptions)
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
+            ->sort()
+            ->values();
+
+        if ($classes->isEmpty()) {
+            return [
+                'selectedClass' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $requestedClass = $request->input('course_class');
+        $requestedIndex = $requestedClass ? $classes->search($requestedClass) : false;
+        $lastPage = $classes->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('course_class_page', 1), 1), $lastPage);
+
+        $selectedClass = $classes->get($currentPage - 1);
+        $previousClass = $currentPage > 1 ? $classes->get($currentPage - 2) : null;
+        $nextClass = $currentPage < $lastPage ? $classes->get($currentPage) : null;
+        $query = $request->except(['course_class_page', 'course_class', 'content_section_page', 'content_section']);
+
+        return [
+            'selectedClass' => $selectedClass,
+            'sectionPager' => [
+                'current_label' => 'Class ' . $selectedClass,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousClass ? 'Class ' . $previousClass : null,
+                'next_label' => $nextClass ? 'Class ' . $nextClass : null,
+                'previous_url' => $previousClass
+                    ? route('courses', array_merge($query, [
+                        'course_class_page' => $currentPage - 1,
+                        'course_class' => $previousClass,
+                    ]))
+                    : null,
+                'next_url' => $nextClass
+                    ? route('courses', array_merge($query, [
+                        'course_class_page' => $currentPage + 1,
+                        'course_class' => $nextClass,
+                    ]))
+                    : null,
+            ],
+        ];
+    }
+
+    private function buildCourseContentSectionPager(Request $request, ?string $institute, ?string $className): array
+    {
+        if (!$institute || !$className) {
+            return [
+                'selectedSection' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $classSections = SchoolClass::where('institute', $institute)
+            ->where('class_name', $className)
+            ->whereNotNull('section')
+            ->pluck('section')
+            ->map(fn ($section) => trim((string) $section));
+
+        $contentSections = Content::where('institute', $institute)
+            ->where('assigned_class', $className)
+            ->whereNotNull('section')
+            ->pluck('section')
+            ->map(fn ($section) => trim((string) $section));
+
+        $sections = $classSections
+            ->merge($contentSections)
+            ->filter()
+            ->unique(fn ($section) => mb_strtolower($section))
+            ->sort()
+            ->values();
+
+        if ($sections->isEmpty()) {
+            return [
+                'selectedSection' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $requestedSection = $request->input('content_section');
+        $requestedIndex = $requestedSection ? $sections->search($requestedSection) : false;
+        $lastPage = $sections->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('content_section_page', 1), 1), $lastPage);
+
+        $selectedSection = $sections->get($currentPage - 1);
+        $previousSection = $currentPage > 1 ? $sections->get($currentPage - 2) : null;
+        $nextSection = $currentPage < $lastPage ? $sections->get($currentPage) : null;
+        $query = $request->except(['content_section_page', 'content_section']);
+
+        return [
+            'selectedSection' => $selectedSection,
+            'sectionPager' => [
+                'current_label' => 'Section ' . $selectedSection,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousSection ? 'Section ' . $previousSection : null,
+                'next_label' => $nextSection ? 'Section ' . $nextSection : null,
+                'previous_url' => $previousSection
+                    ? route('courses', array_merge($query, [
+                        'content_section_page' => $currentPage - 1,
+                        'content_section' => $previousSection,
+                    ]))
+                    : null,
+                'next_url' => $nextSection
+                    ? route('courses', array_merge($query, [
+                        'content_section_page' => $currentPage + 1,
+                        'content_section' => $nextSection,
+                    ]))
+                    : null,
+            ],
+        ];
+    }
+
+    private function redirectBackToCourseScope(Request $request)
+    {
+        $scope = collect([
+            'page' => $request->input('page'),
+            'course_class_page' => $request->input('course_class_page'),
+            'course_class' => $request->input('course_class'),
+            'content_section_page' => $request->input('content_section_page'),
+            'content_section' => $request->input('content_section'),
+        ])
+            ->filter(fn ($value) => filled($value))
+            ->all();
+
+        if (empty($scope)) {
+            return redirect()->back();
+        }
+
+        return redirect()->route('courses', $scope);
     }
 
     public function store(Request $request)
@@ -176,7 +396,7 @@ class CourseController extends Controller
             }
         });
 
-        return redirect()->back()
+        return $this->redirectBackToCourseScope($request)
             ->with('success', 'Course created successfully');
     }
 
@@ -224,7 +444,7 @@ class CourseController extends Controller
             'status' => $request->is_active,
         ]);
 
-        return redirect()->back()
+        return $this->redirectBackToCourseScope($request)
             ->with('success', 'Course updated successfully');
     }
 
@@ -312,7 +532,7 @@ class CourseController extends Controller
             }
         });
 
-        return redirect()->back()
+        return $this->redirectBackToCourseScope($request)
             ->with('success', 'Content uploaded and added to course.');
     }
 
@@ -586,6 +806,7 @@ class CourseController extends Controller
             'lesson_order' => $sortOrder,
             'content_type' => $type !== '' ? $type : strtoupper($teacherFile->getClientOriginalExtension()),
             'assigned_class' => $contentData['assigned_class'] ?? $course->assigned_class,
+            'section' => $contentData['section'] ?? null,
             'institute' => $course->institute,
             'file_path' => $filePath,
             'preview_pdf_path' => $previewPdfPath,

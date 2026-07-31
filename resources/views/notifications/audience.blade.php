@@ -16,6 +16,38 @@
                 <p class="text-muted mb-0">Latest updates shared by the institute and LMS admin team.</p>
             </div>
 
+            <div class="card shadow border-0 mb-4">
+                <div class="card-body">
+                    <form method="GET"
+                          action="{{ $sidebar == 'teacher' ? route('teacher.notifications') : route('student.notifications') }}"
+                          class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">From Date</label>
+                            <input type="date"
+                                   name="from_date"
+                                   class="form-control"
+                                   value="{{ request('from_date') }}">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">To Date</label>
+                            <input type="date"
+                                   name="to_date"
+                                   class="form-control"
+                                   value="{{ request('to_date') }}">
+                        </div>
+
+                        <div class="col-md-4 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary flex-fill">Filter</button>
+                            <a href="{{ $sidebar == 'teacher' ? route('teacher.notifications') : route('student.notifications') }}"
+                               class="btn btn-outline-secondary flex-fill">
+                                Clear
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <div class="row g-4">
                 @forelse($notifications as $notification)
                     <div class="col-12">

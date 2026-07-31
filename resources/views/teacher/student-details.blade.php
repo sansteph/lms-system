@@ -21,7 +21,7 @@
 
                 </div>
 
-                <a href="{{ route('teacher.student.profiles.export', array_merge(request()->query(), ['class' => $selectedClass])) }}"
+                <a href="{{ route('teacher.student.profiles.export', request()->query()) }}"
                     class="btn btn-success">
 
                     <i class="fa fa-file-excel me-2"></i>
@@ -34,34 +34,23 @@
 
             <div class="card shadow-sm border-0 p-4">
                 @include('partials.section-navigator', [
-                    'sectionPager' => $sectionPager ?? null,
-                    'sectionDescription' => 'Browse one class-section at a time to keep student details fast and easy to review.',
+                    'sectionPager' => $classSectionPager ?? null,
+                    'sectionDescription' => 'Browse student details one class at a time.',
                 ])
 
-                <form method="GET" action="{{ route('teacher.student.profiles') }}" class="row g-3 align-items-end mb-4">
-                    <div class="col-md-4">
-                        <label class="form-label">Jump to Class / Section</label>
-                        <select name="class" class="form-control">
-                            @foreach($classOptions as $classOption)
-                                <option value="{{ $classOption }}" {{ $selectedClass == $classOption ? 'selected' : '' }}>
-                                    {{ $classOption }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary w-100">Apply</button>
-                    </div>
-                    <div class="col-md-2">
-                        <a href="{{ route('teacher.student.profiles') }}" class="btn btn-outline-secondary w-100">First Section</a>
-                    </div>
-                </form>
+                @include('partials.section-navigator', [
+                    'sectionPager' => $studentSectionPager ?? null,
+                    'sectionDescription' => 'Showing student details for this section only.',
+                ])
 
-                @if($selectedClass)
+                @if(!empty($selectedStudentClass))
                     <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div>
-                            <strong>{{ $selectedClass }}</strong>
-                            <span class="text-muted">student details</span>
+                            <span class="fw-semibold">Current student scope:</span>
+                            Class {{ $selectedStudentClass }}
+                            @if(!empty($selectedStudentSection))
+                                &middot; Section {{ $selectedStudentSection }}
+                            @endif
                         </div>
                         <span class="badge bg-primary">
                             {{ $students->count() }} student{{ $students->count() == 1 ? '' : 's' }}

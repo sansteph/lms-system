@@ -24,14 +24,36 @@ class AssessmentController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
-        $selectedClass = $request->input('class');
         $teacherClassNames = $this->teacherInstituteClassNames();
         $sectionPager = null;
+        $classSectionPager = null;
+        $studentSectionPager = null;
         $currentInstitute = null;
+        $selectedStudentClass = null;
+        $selectedStudentSection = null;
+        $managedInstitute = null;
 
         if (session('user_role') == 'Admin') {
             ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
                 $this->buildInstituteSectionPager($request, $request->route()?->getName() ?: 'teacher.assessments');
+
+            $managedInstitute = $currentInstitute;
+        }
+
+        if (session('user_role') == 'InstituteAdmin') {
+            $managedInstitute = session('user_institute');
+        }
+
+        if (session('user_role') == 'Teacher') {
+            $managedInstitute = User::find(session('user_id'))?->institute;
+        }
+
+        if ($managedInstitute) {
+            ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
+                $this->buildStudentClassPager($request, $managedInstitute, $request->route()?->getName() ?: 'teacher.assessments');
+
+            ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
+                $this->buildStudentSectionPager($request, $managedInstitute, $selectedStudentClass, $request->route()?->getName() ?: 'teacher.assessments');
         }
 
         $assessments = Assessment::with(['teacher', 'questionPaperReviewer'])
@@ -54,8 +76,25 @@ class AssessmentController extends Controller
                         ->orWhere('assigned_class', 'like', "%{$search}%");
                 });
             })
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->where('assigned_class', $selectedClass);
+            ->when($selectedStudentClass, function ($query) use ($selectedStudentClass, $selectedStudentSection) {
+                $normalizedClass = preg_replace('/\s+/', ' ', trim((string) $selectedStudentClass));
+                $normalizedClassSection = preg_replace('/\s+/', ' ', trim($normalizedClass . ' ' . (string) $selectedStudentSection));
+
+                if ($selectedStudentSection) {
+                    $query->whereRaw(
+                        "REPLACE(TRIM(COALESCE(assigned_class, '')), '  ', ' ') = ?",
+                        [$normalizedClassSection]
+                    );
+
+                    return;
+                }
+
+                $query->where(function ($classQuery) use ($normalizedClass) {
+                    $classQuery->whereRaw(
+                        "REPLACE(TRIM(COALESCE(assigned_class, '')), '  ', ' ') = ?",
+                        [$normalizedClass]
+                    )->orWhere('assigned_class', 'like', $normalizedClass . ' %');
+                });
             })
             ->orderBy('assigned_class')
             ->latest()
@@ -67,7 +106,166 @@ class AssessmentController extends Controller
 
         $classOptions = $teacherClassNames;
 
-        return view('assessments', compact('assessments', 'classOptions', 'teacher', 'selectedClass', 'availableContents', 'sectionPager'));
+        return view('assessments', compact(
+            'assessments',
+            'classOptions',
+            'teacher',
+            'availableContents',
+            'sectionPager',
+            'classSectionPager',
+            'studentSectionPager',
+            'currentInstitute',
+            'selectedStudentClass',
+            'selectedStudentSection'
+        ));
+    }
+
+    private function buildStudentClassPager(Request $request, ?string $institute, string $routeName): array
+    {
+        if (!$institute) {
+            return [
+                'selectedClass' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $classOptions = SchoolClass::where('institute', $institute)
+            ->whereNotNull('class_name')
+            ->orderBy('class_name')
+            ->pluck('class_name')
+            ->map(fn ($className) => trim((string) $className));
+
+        $studentClassOptions = Student::where('institute', $institute)
+            ->whereNotNull('class')
+            ->select('class')
+            ->distinct()
+            ->orderBy('class')
+            ->pluck('class')
+            ->map(fn ($className) => trim((string) $className));
+
+        $classOptions = $classOptions
+            ->merge($studentClassOptions)
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
+            ->sort()
+            ->values();
+
+        if ($classOptions->isEmpty()) {
+            return [
+                'selectedClass' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $requestedClass = $request->input('student_class');
+        $requestedIndex = $requestedClass ? $classOptions->search($requestedClass) : false;
+        $lastPage = $classOptions->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('class_page', 1), 1), $lastPage);
+
+        $selectedClass = $classOptions->get($currentPage - 1);
+        $previousClass = $currentPage > 1 ? $classOptions->get($currentPage - 2) : null;
+        $nextClass = $currentPage < $lastPage ? $classOptions->get($currentPage) : null;
+        $query = $request->except(['class_page', 'student_class', 'student_section_page', 'student_section', 'page', 'class']);
+
+        return [
+            'selectedClass' => $selectedClass,
+            'sectionPager' => [
+                'current_label' => 'Class ' . $selectedClass,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousClass ? 'Class ' . $previousClass : null,
+                'next_label' => $nextClass ? 'Class ' . $nextClass : null,
+                'previous_url' => $previousClass
+                    ? route($routeName, array_merge($query, [
+                        'class_page' => $currentPage - 1,
+                        'student_class' => $previousClass,
+                    ]))
+                    : null,
+                'next_url' => $nextClass
+                    ? route($routeName, array_merge($query, [
+                        'class_page' => $currentPage + 1,
+                        'student_class' => $nextClass,
+                    ]))
+                    : null,
+            ],
+        ];
+    }
+
+    private function buildStudentSectionPager(Request $request, ?string $institute, ?string $className, string $routeName): array
+    {
+        if (!$institute || !$className) {
+            return [
+                'selectedSection' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $sectionOptions = SchoolClass::where('institute', $institute)
+            ->where('class_name', $className)
+            ->whereNotNull('section')
+            ->orderBy('section')
+            ->pluck('section')
+            ->map(fn ($section) => trim((string) $section));
+
+        $studentSectionOptions = Student::where('institute', $institute)
+            ->where('class', $className)
+            ->whereNotNull('section')
+            ->select('section')
+            ->distinct()
+            ->orderBy('section')
+            ->pluck('section')
+            ->map(fn ($section) => trim((string) $section));
+
+        $sectionOptions = $sectionOptions
+            ->merge($studentSectionOptions)
+            ->filter()
+            ->unique(fn ($section) => mb_strtolower($section))
+            ->sort()
+            ->values();
+
+        if ($sectionOptions->isEmpty()) {
+            return [
+                'selectedSection' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $requestedSection = $request->input('student_section');
+        $requestedIndex = $requestedSection ? $sectionOptions->search($requestedSection) : false;
+        $lastPage = $sectionOptions->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('student_section_page', 1), 1), $lastPage);
+
+        $selectedSection = $sectionOptions->get($currentPage - 1);
+        $previousSection = $currentPage > 1 ? $sectionOptions->get($currentPage - 2) : null;
+        $nextSection = $currentPage < $lastPage ? $sectionOptions->get($currentPage) : null;
+        $query = $request->except(['student_section_page', 'student_section', 'page']);
+
+        return [
+            'selectedSection' => $selectedSection,
+            'sectionPager' => [
+                'current_label' => 'Section ' . $selectedSection,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousSection ? 'Section ' . $previousSection : null,
+                'next_label' => $nextSection ? 'Section ' . $nextSection : null,
+                'previous_url' => $previousSection
+                    ? route($routeName, array_merge($query, [
+                        'student_section_page' => $currentPage - 1,
+                        'student_section' => $previousSection,
+                    ]))
+                    : null,
+                'next_url' => $nextSection
+                    ? route($routeName, array_merge($query, [
+                        'student_section_page' => $currentPage + 1,
+                        'student_section' => $nextSection,
+                    ]))
+                    : null,
+            ],
+        ];
     }
 
     public function store(Request $request)
@@ -327,19 +525,117 @@ class AssessmentController extends Controller
             ->with('success', 'Assessment and all related records deleted successfully.');
     }
 
-    public function adminQuestionPapers()
+    public function adminQuestionPapers(Request $request)
     {
+        $sectionPager = null;
+        $classSectionPager = null;
+        $currentInstitute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : null;
+        $selectedQuestionPaperClass = null;
+
+        if (session('user_role') == 'Admin') {
+            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
+                $this->buildInstituteSectionPager($request, 'admin.question-papers');
+        }
+
+        if ($currentInstitute) {
+            ['selectedClass' => $selectedQuestionPaperClass, 'sectionPager' => $classSectionPager] =
+                $this->buildQuestionPaperClassPager($request, $currentInstitute);
+        }
+
         $assessments = Assessment::with(['teacher', 'questionPaperReviewer'])
             ->whereNotNull('file_path')
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
+            })
+            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
+            })
+            ->when($selectedQuestionPaperClass, function ($query) use ($selectedQuestionPaperClass) {
+                $query->where('assigned_class', $selectedQuestionPaperClass);
             })
             ->orderBy('institute')
             ->orderBy('assigned_class')
             ->latest('created_at')
             ->get();
 
-        return view('admin-question-papers', compact('assessments'));
+        return view('admin-question-papers', compact(
+            'assessments',
+            'sectionPager',
+            'classSectionPager',
+            'currentInstitute',
+            'selectedQuestionPaperClass'
+        ));
+    }
+
+    private function buildQuestionPaperClassPager(Request $request, ?string $institute): array
+    {
+        if (!$institute) {
+            return [
+                'selectedClass' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $assessmentClasses = Assessment::where('institute', $institute)
+            ->whereNotNull('file_path')
+            ->whereNotNull('assigned_class')
+            ->pluck('assigned_class')
+            ->map(fn ($className) => trim((string) $className));
+
+        $schoolClasses = SchoolClass::where('institute', $institute)
+            ->get()
+            ->map(fn ($class) => trim((string) $class->class_name . ' ' . (string) $class->section));
+
+        $classes = $assessmentClasses
+            ->merge($schoolClasses)
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
+            ->sort()
+            ->values();
+
+        if ($classes->isEmpty()) {
+            return [
+                'selectedClass' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $requestedClass = $request->input('question_class');
+        $requestedIndex = $requestedClass ? $classes->search($requestedClass) : false;
+        $lastPage = $classes->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('question_class_page', 1), 1), $lastPage);
+
+        $selectedClass = $classes->get($currentPage - 1);
+        $previousClass = $currentPage > 1 ? $classes->get($currentPage - 2) : null;
+        $nextClass = $currentPage < $lastPage ? $classes->get($currentPage) : null;
+        $query = $request->except(['question_class_page', 'question_class', 'page']);
+
+        return [
+            'selectedClass' => $selectedClass,
+            'sectionPager' => [
+                'current_label' => 'Class ' . $selectedClass,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousClass ? 'Class ' . $previousClass : null,
+                'next_label' => $nextClass ? 'Class ' . $nextClass : null,
+                'previous_url' => $previousClass
+                    ? route('admin.question-papers', array_merge($query, [
+                        'question_class_page' => $currentPage - 1,
+                        'question_class' => $previousClass,
+                    ]))
+                    : null,
+                'next_url' => $nextClass
+                    ? route('admin.question-papers', array_merge($query, [
+                        'question_class_page' => $currentPage + 1,
+                        'question_class' => $nextClass,
+                    ]))
+                    : null,
+            ],
+        ];
     }
 
     public function approveQuestionPaper($id)

@@ -16,6 +16,29 @@
                 <div class="alert alert-success">{{ session('success') }}</div>
             @endif
 
+            @include('partials.section-navigator', [
+                'sectionPager' => $sectionPager ?? null,
+                'sectionDescription' => 'Review question papers one institute at a time.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $classSectionPager ?? null,
+                'sectionDescription' => 'Review question papers one class at a time inside the selected institute.',
+            ])
+
+            @if(!empty($currentInstitute) || !empty($selectedQuestionPaperClass))
+                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="fw-semibold">Current approval scope:</span>
+                        {{ $currentInstitute ?? 'All Institutes' }}
+                        @if(!empty($selectedQuestionPaperClass))
+                            · Class {{ $selectedQuestionPaperClass }}
+                        @endif
+                    </div>
+                    <span class="text-muted small">Only question papers inside this scope are shown.</span>
+                </div>
+            @endif
+
             <div class="card shadow border-0">
                 <div class="card-body">
                     <div class="table-responsive">

@@ -25,7 +25,36 @@
 
             @endif
 
-            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+            @include('partials.section-navigator', [
+                'sectionPager' => $sectionPager ?? null,
+                'sectionDescription' => 'Browse student achievements institute by institute.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $classSectionPager ?? null,
+                'sectionDescription' => 'Browse student achievements one class at a time inside the selected institute.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $studentSectionPager ?? null,
+                'sectionDescription' => 'Showing achievements from this section only.',
+            ])
+
+            @if(!empty($selectedStudentClass))
+                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="fw-semibold">Current student scope:</span>
+                        Class {{ $selectedStudentClass }}
+                        @if(!empty($selectedStudentSection))
+                            &middot; Section {{ $selectedStudentSection }}
+                        @endif
+                    </div>
+
+                    @if(!empty($currentInstitute))
+                        <span class="text-muted small">{{ $currentInstitute }}</span>
+                    @endif
+                </div>
+            @endif
 
             <div class="card shadow border-0">
 

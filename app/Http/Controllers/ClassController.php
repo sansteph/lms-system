@@ -27,10 +27,25 @@ class ClassController extends Controller
         $search = $request->search;
         $sectionPager = null;
         $currentInstitute = null;
+        $classSectionPager = null;
+        $selectedClassName = null;
+        $sectionOnlyPager = null;
+        $selectedSectionName = null;
+        $managedInstitute = session('user_role') == 'InstituteAdmin' ? session('user_institute') : null;
 
         if (session('user_role') == 'Admin') {
             ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
                 $this->buildInstituteSectionPager($request, 'classes');
+
+            $managedInstitute = $currentInstitute;
+        }
+
+        if ($managedInstitute) {
+            ['selectedClassName' => $selectedClassName, 'sectionPager' => $classSectionPager] =
+                $this->buildClassNamePager($request, $managedInstitute);
+
+            ['selectedSectionName' => $selectedSectionName, 'sectionPager' => $sectionOnlyPager] =
+                $this->buildClassSectionOnlyPager($request, $managedInstitute, $selectedClassName);
         }
 
         $classes = SchoolClass::when(
@@ -41,6 +56,12 @@ class ClassController extends Controller
             )
             ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
                 $query->where('institute', $currentInstitute);
+            })
+            ->when($selectedClassName, function ($query) use ($selectedClassName) {
+                $query->where('class_name', $selectedClassName);
+            })
+            ->when($selectedSectionName, function ($query) use ($selectedSectionName) {
+                $query->where('section', $selectedSectionName);
             })
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -61,9 +82,139 @@ class ClassController extends Controller
             'classes',
             compact(
                 'classes',
-                'sectionPager'
+                'sectionPager',
+                'classSectionPager',
+                'sectionOnlyPager',
+                'selectedClassName',
+                'selectedSectionName',
+                'managedInstitute'
             )
         );
+    }
+
+    private function buildClassNamePager(Request $request, ?string $institute): array
+    {
+        if (!$institute) {
+            return [
+                'selectedClassName' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $classNames = SchoolClass::where('institute', $institute)
+            ->whereNotNull('class_name')
+            ->select('class_name')
+            ->distinct()
+            ->orderBy('class_name')
+            ->pluck('class_name')
+            ->map(fn ($className) => trim((string) $className))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($classNames->isEmpty()) {
+            return [
+                'selectedClassName' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $requestedClass = $request->input('class_name_filter');
+        $requestedIndex = $requestedClass ? $classNames->search($requestedClass) : false;
+        $lastPage = $classNames->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('class_page', 1), 1), $lastPage);
+
+        $selectedClassName = $classNames->get($currentPage - 1);
+        $previousClassName = $currentPage > 1 ? $classNames->get($currentPage - 2) : null;
+        $nextClassName = $currentPage < $lastPage ? $classNames->get($currentPage) : null;
+        $query = $request->except(['class_page', 'class_name_filter', 'section_page_filter', 'section_name_filter', 'page']);
+
+        return [
+            'selectedClassName' => $selectedClassName,
+            'sectionPager' => [
+                'current_label' => 'Class ' . $selectedClassName,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousClassName ? 'Class ' . $previousClassName : null,
+                'next_label' => $nextClassName ? 'Class ' . $nextClassName : null,
+                'previous_url' => $previousClassName
+                    ? route('classes', array_merge($query, [
+                        'class_page' => $currentPage - 1,
+                        'class_name_filter' => $previousClassName,
+                    ]))
+                    : null,
+                'next_url' => $nextClassName
+                    ? route('classes', array_merge($query, [
+                        'class_page' => $currentPage + 1,
+                        'class_name_filter' => $nextClassName,
+                    ]))
+                    : null,
+            ],
+        ];
+    }
+
+    private function buildClassSectionOnlyPager(Request $request, ?string $institute, ?string $className): array
+    {
+        if (!$institute || !$className) {
+            return [
+                'selectedSectionName' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $sectionNames = SchoolClass::where('institute', $institute)
+            ->where('class_name', $className)
+            ->whereNotNull('section')
+            ->orderBy('section')
+            ->pluck('section')
+            ->map(fn ($sectionName) => trim((string) $sectionName))
+            ->filter()
+            ->unique(fn ($sectionName) => mb_strtolower($sectionName))
+            ->values();
+
+        if ($sectionNames->isEmpty()) {
+            return [
+                'selectedSectionName' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $requestedSection = $request->input('section_name_filter');
+        $requestedIndex = $requestedSection ? $sectionNames->search($requestedSection) : false;
+        $lastPage = $sectionNames->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('section_page_filter', 1), 1), $lastPage);
+
+        $selectedSectionName = $sectionNames->get($currentPage - 1);
+        $previousSectionName = $currentPage > 1 ? $sectionNames->get($currentPage - 2) : null;
+        $nextSectionName = $currentPage < $lastPage ? $sectionNames->get($currentPage) : null;
+        $query = $request->except(['section_page_filter', 'section_name_filter', 'page']);
+
+        return [
+            'selectedSectionName' => $selectedSectionName,
+            'sectionPager' => [
+                'current_label' => 'Section ' . $selectedSectionName,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousSectionName ? 'Section ' . $previousSectionName : null,
+                'next_label' => $nextSectionName ? 'Section ' . $nextSectionName : null,
+                'previous_url' => $previousSectionName
+                    ? route('classes', array_merge($query, [
+                        'section_page_filter' => $currentPage - 1,
+                        'section_name_filter' => $previousSectionName,
+                    ]))
+                    : null,
+                'next_url' => $nextSectionName
+                    ? route('classes', array_merge($query, [
+                        'section_page_filter' => $currentPage + 1,
+                        'section_name_filter' => $nextSectionName,
+                    ]))
+                    : null,
+            ],
+        ];
     }
 
 

@@ -9,6 +9,37 @@
 
         <div class="col-md-10 col-lg-10 p-4">
 
+            @include('partials.section-navigator', [
+                'sectionPager' => $sectionPager ?? null,
+                'sectionDescription' => 'Browse assessment monitoring institute by institute.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $classSectionPager ?? null,
+                'sectionDescription' => 'Browse assessment monitoring one class at a time inside the selected institute.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $studentSectionPager ?? null,
+                'sectionDescription' => 'Showing assessment monitoring for this section only.',
+            ])
+
+            @if(!empty($selectedStudentClass))
+                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="fw-semibold">Current assessment scope:</span>
+                        Class {{ $selectedStudentClass }}
+                        @if(!empty($selectedStudentSection))
+                            &middot; Section {{ $selectedStudentSection }}
+                        @endif
+                    </div>
+
+                    @if(!empty($currentInstitute))
+                        <span class="text-muted small">{{ $currentInstitute }}</span>
+                    @endif
+                </div>
+            @endif
+
             <div class="card shadow border-0">
 
                 <div class="card-body">
@@ -35,7 +66,8 @@
                         <tbody>
 
                             @php
-                                $groupedSessions = $sessions
+                                $sessionRows = method_exists($sessions, 'getCollection') ? $sessions->getCollection() : collect($sessions);
+                                $groupedSessions = $sessionRows
                                     ->sortBy([
                                         fn ($session) => $session->student->institute ?? $session->teacher->institute ?? $session->assessment->institute ?? '',
                                         fn ($session) => trim(($session->student->class ?? $session->assessment->assigned_class ?? '') . ' ' . ($session->student->section ?? '')),
@@ -127,6 +159,12 @@
                     </table>
 
                 </div>
+
+                @if(method_exists($sessions, 'links'))
+                    <div class="px-3 pb-3">
+                        {{ $sessions->links('pagination::bootstrap-5') }}
+                    </div>
+                @endif
 
             </div>
         </div> 

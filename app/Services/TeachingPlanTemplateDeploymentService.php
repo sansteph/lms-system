@@ -191,6 +191,11 @@ class TeachingPlanTemplateDeploymentService
                 ];
             }
 
+            $templateStartDate = $template->weeks()
+                ->whereNotNull('week_start_date')
+                ->orderBy('week_number')
+                ->value('week_start_date');
+
             $plan = app(TeachingPlanBuilderService::class)->buildForCourse(
                 $course,
                 [
@@ -199,7 +204,7 @@ class TeachingPlanTemplateDeploymentService
                     'institute_id' => $institute->id,
                     'class' => $targetClass,
                     'section' => $targetSection ?: null,
-                    'start_date' => now()->toDateString(),
+                    'start_date' => $templateStartDate ?: now()->toDateString(),
                     'release_day' => $template->release_day,
                     'contents_per_week' => $template->contents_per_week,
                     'release_policy' => $template->release_policy,
@@ -415,6 +420,7 @@ class TeachingPlanTemplateDeploymentService
             'lesson_order' => $sortOrder,
             'content_type' => $contentType,
             'assigned_class' => $course->assigned_class,
+            'section' => $templateContent->section,
             'institute' => $course->institute,
             'file_path' => $filePath,
             'preview_pdf_path' => $previewPath,

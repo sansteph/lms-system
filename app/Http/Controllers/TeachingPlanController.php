@@ -326,11 +326,18 @@ class TeachingPlanController extends Controller
                     ->whereIn('institute', $selectedInstituteNames)
                     ->whereIn('status', ['active', 'completed']);
             })
-            ->whereNotNull('release_date')
-            ->pluck('release_date')
+            ->where(function ($query) {
+                $query->whereNotNull('release_date')
+                    ->orWhereNotNull('week_start_date');
+            })
+            ->get(['release_date', 'week_start_date'])
+            ->flatMap(fn ($week) => [
+                $week->release_date ? Carbon::parse($week->release_date)->toDateString() : null,
+                $week->week_start_date ? Carbon::parse($week->week_start_date)->toDateString() : null,
+            ])
             ->filter()
-            ->map(fn ($date) => Carbon::parse($date)->toDateString())
             ->unique()
+            ->sort()
             ->values();
 
         $request->validate([
@@ -364,12 +371,16 @@ class TeachingPlanController extends Controller
 
         DB::transaction(function () use ($matchingPlans, $selectedDate, &$updatedCount, &$skippedCount, &$skippedPlans) {
             foreach ($matchingPlans as $matchingPlan) {
-                if ($selectedDate && !$matchingPlan->weeks->contains(fn ($week) => $week->release_date && Carbon::parse($week->release_date)->toDateString() == $selectedDate)) {
+                if ($selectedDate && !$matchingPlan->weeks->contains(fn ($week) => $this->weekMatchesAiTrainingDate($week, $selectedDate))) {
                     $skippedCount++;
                     $releaseDates = $matchingPlan->weeks
-                        ->filter(fn ($week) => $week->release_date)
-                        ->map(fn ($week) => Carbon::parse($week->release_date)->format('d M Y'))
+                        ->flatMap(fn ($week) => [
+                            $week->release_date ? Carbon::parse($week->release_date)->format('d M Y') : null,
+                            $week->week_start_date ? Carbon::parse($week->week_start_date)->format('d M Y') : null,
+                        ])
+                        ->filter()
                         ->unique()
+                        ->sort()
                         ->values()
                         ->all();
 
@@ -403,6 +414,17 @@ class TeachingPlanController extends Controller
         }
 
         return $redirect;
+    }
+
+    private function weekMatchesAiTrainingDate(TeachingPlanWeek $week, string $selectedDate): bool
+    {
+        foreach ([$week->release_date, $week->week_start_date] as $date) {
+            if ($date && Carbon::parse($date)->toDateString() == $selectedDate) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function storeLaggedContent(Request $request, $id)

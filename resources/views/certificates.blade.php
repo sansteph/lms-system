@@ -24,7 +24,36 @@
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
 
-            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+            @include('partials.section-navigator', [
+                'sectionPager' => $sectionPager ?? null,
+                'sectionDescription' => 'Review certificate requests one institute at a time.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $classSectionPager ?? null,
+                'sectionDescription' => 'Review certificate requests one class at a time inside the selected institute.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $studentSectionPager ?? null,
+                'sectionDescription' => 'Review certificate requests one section at a time inside the selected class.',
+            ])
+
+            @if(!empty($currentInstitute) || !empty($selectedStudentClass) || !empty($selectedStudentSection))
+                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="fw-semibold">Current certificate scope:</span>
+                        {{ $currentInstitute ?? 'All Institutes' }}
+                        @if(!empty($selectedStudentClass))
+                            · Class {{ $selectedStudentClass }}
+                        @endif
+                        @if(!empty($selectedStudentSection))
+                            · Section {{ $selectedStudentSection }}
+                        @endif
+                    </div>
+                    <span class="text-muted small">Only certificate requests inside this scope are shown.</span>
+                </div>
+            @endif
 
             <div class="card shadow border-0">
                 <div class="card-body">
@@ -66,14 +95,21 @@
                                     </td>
                                 </tr>
 
-                                @foreach($instituteCertificates->groupBy(fn ($certificate) => trim(($certificate->student->class ?? '') . ' ' . ($certificate->student->section ?? '')) ?: 'Student Deleted / Unassigned Class') as $classLabel => $classCertificates)
+                                @foreach($instituteCertificates->groupBy(fn ($certificate) => $certificate->student->class ?? 'Student Deleted / Unassigned Class') as $classLabel => $classCertificates)
                                     <tr class="table-light">
                                         <td colspan="10" class="fw-semibold ps-4">
                                             {{ $classLabel }} · {{ $classCertificates->count() }} certificate{{ $classCertificates->count() == 1 ? '' : 's' }}
                                         </td>
                                     </tr>
 
-                                    @foreach($classCertificates as $certificate)
+                                    @foreach($classCertificates->groupBy(fn ($certificate) => $certificate->student->section ?? 'Unassigned Section') as $sectionLabel => $sectionCertificates)
+                                        <tr>
+                                            <td colspan="10" class="fw-semibold ps-5 text-muted">
+                                                Section {{ $sectionLabel }} · {{ $sectionCertificates->count() }} certificate{{ $sectionCertificates->count() == 1 ? '' : 's' }}
+                                            </td>
+                                        </tr>
+
+                                    @foreach($sectionCertificates as $certificate)
                                         <tr>
                                             <td>{{ $rowNumber++ }}</td>
                                             <td>{{ $certificate->certificate_code }}</td>
@@ -127,6 +163,7 @@
                                                 </div>
                                             </td>
                                         </tr>
+                                    @endforeach
                                     @endforeach
                                 @endforeach
                             @empty

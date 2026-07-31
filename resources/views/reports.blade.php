@@ -69,8 +69,7 @@
             @if($isFocusedReport)
                 <div class="card shadow border-0 mb-4">
                     <div class="card-body">
-                        <form method="POST" action="{{ $downloadRoute }}" class="row g-3 align-items-end">
-                            @csrf
+                        <form method="GET" action="{{ url()->current() }}" class="row g-3 align-items-end">
                             <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
                             @if($isMonthlyReport)
                                 <div class="col-md-3">
@@ -91,7 +90,7 @@
 
                             <div class="col-md-3">
                                 <button type="submit" class="btn btn-primary w-100">
-                                    Generate Report
+                                    Show Report Data
                                 </button>
                             </div>
 
@@ -105,6 +104,23 @@
                         <div class="text-muted small mt-3">
                             Current range: {{ $periodLabel ?? 'All available data' }}
                         </div>
+
+                        @if($downloadRoute)
+                            <form method="POST" action="{{ $downloadRoute }}" class="mt-3">
+                                @csrf
+                                <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
+                                @if($isMonthlyReport)
+                                    <input type="hidden" name="report_month" value="{{ request('report_month', now()->format('Y-m')) }}">
+                                @else
+                                    <input type="hidden" name="from_date" value="{{ request('from_date', $periodFrom ?? '') }}">
+                                    <input type="hidden" name="to_date" value="{{ request('to_date', $periodTo ?? '') }}">
+                                @endif
+
+                                <button type="submit" class="btn btn-outline-primary">
+                                    Generate Report PDF
+                                </button>
+                            </form>
+                        @endif
                     </div>
                 </div>
             @endif

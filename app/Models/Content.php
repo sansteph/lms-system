@@ -72,6 +72,8 @@ class Content extends Model
 
         'assigned_class',
 
+        'section',
+
         'institute',
 
         'file_path',

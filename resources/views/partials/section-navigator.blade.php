@@ -2,8 +2,8 @@
     @php
         $sectionLabel = $sectionPager['current_label'] ?? $sectionPager['label'] ?? 'Section';
         $sectionDescription = $sectionDescription ?? null;
-        $previousLabel = $sectionPager['previous_label'] ?? 'Start of list';
-        $nextLabel = $sectionPager['next_label'] ?? 'End of list';
+        $previousLabel = $sectionPager['previous_label'] ?? (($sectionPager['previous_url'] ?? null) ? 'Previous section' : 'Start of list');
+        $nextLabel = $sectionPager['next_label'] ?? (($sectionPager['next_url'] ?? null) ? 'Next section' : 'End of list');
     @endphp
 
     <div class="lms-section-navigator mb-4">

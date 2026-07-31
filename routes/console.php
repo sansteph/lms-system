@@ -53,8 +53,15 @@ Artisan::command('ai-content:generate-upcoming {--limit=} {--retry-failed}', fun
                 return false;
             }
 
-            return \Carbon\Carbon::parse($item->week->release_date)->toDateString()
-                >= \Carbon\Carbon::parse($item->plan->ai_training_start_date)->toDateString();
+            $startDate = \Carbon\Carbon::parse($item->plan->ai_training_start_date)->toDateString();
+
+            foreach ([$item->week->release_date, $item->week->week_start_date] as $date) {
+                if ($date && \Carbon\Carbon::parse($date)->toDateString() >= $startDate) {
+                    return true;
+                }
+            }
+
+            return false;
         });
 
     $mcqSeedsForSummary = function (AiContentSummary $summary): array {

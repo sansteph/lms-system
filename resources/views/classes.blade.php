@@ -37,12 +37,61 @@
                 <div class="alert alert-danger">{{ $errors->first() }}</div>
             @endif
 
-            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+            @include('partials.section-navigator', [
+                'sectionPager' => $sectionPager ?? null,
+                'sectionDescription' => 'Browse classes institute by institute to keep the management page focused.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $classSectionPager ?? null,
+                'sectionDescription' => 'Browse one class at a time inside the selected institute.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $sectionOnlyPager ?? null,
+                'sectionDescription' => 'Showing this section only.',
+            ])
+
+            @if(!empty($selectedClassName))
+                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="fw-semibold">Current class and section:</span>
+                        Class {{ $selectedClassName }}
+                        @if(!empty($selectedSectionName))
+                            · Section {{ $selectedSectionName }}
+                        @endif
+                    </div>
+
+                    @if(!empty($managedInstitute))
+                        <span class="text-muted small">{{ $managedInstitute }}</span>
+                    @endif
+                </div>
+            @endif
 
             <div class="card shadow border-0">
                 <div class="card-body">
 
                     <form method="GET" action="{{ route('classes') }}" class="row mb-3">
+                        @if(request()->has('section_page'))
+                            <input type="hidden" name="section_page" value="{{ request('section_page') }}">
+                        @endif
+
+                        @if(request()->has('class_page'))
+                            <input type="hidden" name="class_page" value="{{ request('class_page') }}">
+                        @endif
+
+                        @if(request()->has('class_name_filter'))
+                            <input type="hidden" name="class_name_filter" value="{{ request('class_name_filter') }}">
+                        @endif
+
+                        @if(request()->has('section_page_filter'))
+                            <input type="hidden" name="section_page_filter" value="{{ request('section_page_filter') }}">
+                        @endif
+
+                        @if(request()->has('section_name_filter'))
+                            <input type="hidden" name="section_name_filter" value="{{ request('section_name_filter') }}">
+                        @endif
+
                         <div class="col-md-4">
                             <input type="text"
                                    name="search"

@@ -605,7 +605,7 @@
                             <label class="form-label">AI Prep Start Release Date</label>
                             <select name="ai_training_start_date" class="form-control">
                                 <option value="">Disable AI prep for selected institutes</option>
-                                @foreach($plans->flatMap(fn ($aiPlan) => $aiPlan->weeks->pluck('release_date'))->filter()->unique(fn ($date) => $date->toDateString())->sortBy(fn ($date) => $date->toDateString()) as $releaseDate)
+                                @foreach($plans->flatMap(fn ($aiPlan) => $aiPlan->weeks->flatMap(fn ($week) => collect([$week->release_date, $week->week_start_date])->filter()))->unique(fn ($date) => $date->toDateString())->sortBy(fn ($date) => $date->toDateString()) as $releaseDate)
                                     <option value="{{ $releaseDate->toDateString() }}" {{ optional($plan->ai_training_start_date)->toDateString() == $releaseDate->toDateString() ? 'selected' : '' }}>
                                         {{ $releaseDate->format('d M Y') }}
                                     </option>

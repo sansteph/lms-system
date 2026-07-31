@@ -33,15 +33,34 @@
 
             @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
 
+            @if($isDailyReport)
+                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="fw-semibold">Showing sessions for:</span>
+                        {{ \Carbon\Carbon::parse(request('report_date', now()->toDateString()))->format('d M Y') }}
+                    </div>
+                    <span class="text-muted small">Only sessions from this date are included.</span>
+                </div>
+            @elseif(request('from_date') || request('to_date'))
+                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="fw-semibold">Showing sessions from:</span>
+                        {{ request('from_date') ? \Carbon\Carbon::parse(request('from_date'))->format('d M Y') : 'Start' }}
+                        -
+                        {{ request('to_date') ? \Carbon\Carbon::parse(request('to_date'))->format('d M Y') : 'Today' }}
+                    </div>
+                    <span class="text-muted small">Only sessions inside this range are included.</span>
+                </div>
+            @endif
+
             <div class="card shadow border-0 mb-4">
                 <div class="card-body">
-                    <form method="POST" action="{{ $downloadRoute }}" class="row g-3 align-items-end">
-                        @csrf
+                    <form method="GET" action="{{ $reportRoute }}" class="row g-3 align-items-end">
                         <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
                         @if($isDailyReport)
                             <div class="col-md-3">
                                 <label class="form-label">Report Date</label>
-                                <input type="date" name="report_date" class="form-control" value="{{ request('report_date', now()->toDateString()) }}">
+                                <input type="date" name="report_date" id="dailyReportDate" class="form-control" value="{{ request('report_date', now()->toDateString()) }}">
                             </div>
                         @else
                             <div class="col-md-3">
@@ -56,9 +75,21 @@
                         @endif
 
                         <div class="col-md-3 d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">Generate Report</button>
+                            <button type="submit" class="btn btn-primary">Show Sessions</button>
                             <a href="{{ $reportRoute }}" class="btn btn-outline-secondary">Clear</a>
                         </div>
+                    </form>
+
+                    <form method="POST" action="{{ $downloadRoute }}" class="mt-3">
+                        @csrf
+                        <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
+                        @if($isDailyReport)
+                            <input type="hidden" name="report_date" value="{{ request('report_date', now()->toDateString()) }}">
+                        @else
+                            <input type="hidden" name="from_date" value="{{ request('from_date') }}">
+                            <input type="hidden" name="to_date" value="{{ request('to_date') }}">
+                        @endif
+                        <button type="submit" class="btn btn-outline-primary">Generate Report PDF</button>
                     </form>
                 </div>
             </div>

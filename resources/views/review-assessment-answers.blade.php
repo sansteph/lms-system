@@ -123,29 +123,29 @@
                     ])
                 @endif
 
-                @if(session('user_role') == 'Teacher')
-                    <div class="card review-card mb-4">
-                        <div class="card-body">
-                            <form method="GET" action="{{ route('assessment.review') }}" class="row g-3 align-items-end">
-                                <div class="col-md-4">
-                                    <label class="form-label">Class</label>
-                                    <select name="class" class="form-control">
-                                        <option value="">All Classes</option>
-                                        @foreach($classOptions as $classOption)
-                                            <option value="{{ $classOption }}" {{ $selectedClass == $classOption ? 'selected' : '' }}>
-                                                {{ $classOption }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <button type="submit" class="btn btn-primary w-100">Apply</button>
-                                </div>
-                                <div class="col-md-2">
-                                    <a href="{{ route('assessment.review') }}" class="btn btn-outline-secondary w-100">Clear</a>
-                                </div>
-                            </form>
+                @include('partials.section-navigator', [
+                    'sectionPager' => $classSectionPager ?? null,
+                    'sectionDescription' => 'Browse pending evaluations one class at a time.',
+                ])
+
+                @include('partials.section-navigator', [
+                    'sectionPager' => $studentSectionPager ?? null,
+                    'sectionDescription' => 'Showing pending evaluations for this section only.',
+                ])
+
+                @if(!empty($selectedStudentClass))
+                    <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <span class="fw-semibold">Current evaluation scope:</span>
+                            Class {{ $selectedStudentClass }}
+                            @if(!empty($selectedStudentSection))
+                                &middot; Section {{ $selectedStudentSection }}
+                            @endif
                         </div>
+
+                        @if(!empty($currentInstitute))
+                            <span class="text-muted small">{{ $currentInstitute }}</span>
+                        @endif
                     </div>
                 @endif
 

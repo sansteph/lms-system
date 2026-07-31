@@ -79,9 +79,58 @@
                         </div>
                     @endif
 
-                    @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+                    @include('partials.section-navigator', [
+                        'sectionPager' => $sectionPager ?? null,
+                        'sectionDescription' => 'Browse students institute by institute to keep the management page focused.',
+                    ])
+
+                    @include('partials.section-navigator', [
+                        'sectionPager' => $classSectionPager ?? null,
+                        'sectionDescription' => 'Browse one class at a time inside the selected institute.',
+                    ])
+
+                    @include('partials.section-navigator', [
+                        'sectionPager' => $studentSectionPager ?? null,
+                        'sectionDescription' => 'Showing students from this section only.',
+                    ])
+
+                    @if(!empty($selectedStudentClassLabel))
+                        <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <span class="fw-semibold">Current class and section:</span>
+                                Class {{ $selectedStudentClassLabel }}
+                                @if(!empty($selectedStudentSectionLabel))
+                                    · Section {{ $selectedStudentSectionLabel }}
+                                @endif
+                            </div>
+
+                            @if($managedInstitute)
+                                <span class="text-muted small">{{ $managedInstitute }}</span>
+                            @endif
+                        </div>
+                    @endif
 
                     <form method="GET" action="{{ route($studentRouteNames['index']) }}" class="row mb-3">
+                        @if(request()->has('section_page'))
+                            <input type="hidden" name="section_page" value="{{ request('section_page') }}">
+                        @endif
+
+                        @if(request()->has('class_page'))
+                            <input type="hidden" name="class_page" value="{{ request('class_page') }}">
+                        @endif
+
+                        @if(request()->has('student_class'))
+                            <input type="hidden" name="student_class" value="{{ request('student_class') }}">
+                        @endif
+
+                        @if(request()->has('student_section_page'))
+                            <input type="hidden" name="student_section_page" value="{{ request('student_section_page') }}">
+                        @endif
+
+                        @if(request()->has('student_section'))
+                            <input type="hidden" name="student_section" value="{{ request('student_section') }}">
+                        @endif
+
                         <div class="col-md-4">
                             <input type="text"
                                    name="search"

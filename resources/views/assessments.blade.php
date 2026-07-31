@@ -40,7 +40,38 @@
                 $assessmentRows = method_exists($assessments, 'getCollection') ? $assessments->getCollection() : collect($assessments);
             @endphp
 
-            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+            @if(session('user_role') == 'Admin')
+                @include('partials.section-navigator', [
+                    'sectionPager' => $sectionPager ?? null,
+                    'sectionDescription' => 'Browse assessment management institute by institute.',
+                ])
+            @endif
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $classSectionPager ?? null,
+                'sectionDescription' => 'Browse assessments one class at a time.',
+            ])
+
+            @include('partials.section-navigator', [
+                'sectionPager' => $studentSectionPager ?? null,
+                'sectionDescription' => 'Showing assessments for this section only.',
+            ])
+
+            @if(!empty($selectedStudentClass))
+                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="fw-semibold">Current assessment scope:</span>
+                        Class {{ $selectedStudentClass }}
+                        @if(!empty($selectedStudentSection))
+                            &middot; Section {{ $selectedStudentSection }}
+                        @endif
+                    </div>
+
+                    @if(!empty($currentInstitute))
+                        <span class="text-muted small">{{ $currentInstitute }}</span>
+                    @endif
+                </div>
+            @endif
 
             <div class="row g-4 mb-4">
                 <div class="col-md-3"><div class="dashboard-card"><h6>Total Assessments</h6><h2>{{ $assessmentRows->count() }}</h2></div></div>
@@ -52,18 +83,14 @@
             <div class="card shadow border-0">
                 <div class="card-body">
                     <form method="GET" action="{{ route('teacher.assessments') }}" class="row mb-3">
+                        @foreach(['section_page', 'class_page', 'student_class', 'student_section_page', 'student_section'] as $filterKey)
+                            @if(request()->has($filterKey))
+                                <input type="hidden" name="{{ $filterKey }}" value="{{ request($filterKey) }}">
+                            @endif
+                        @endforeach
+
                         <div class="col-md-4">
                             <input type="text" name="search" class="form-control" placeholder="Search by title or class" value="{{ request('search') }}">
-                        </div>
-                        <div class="col-md-3">
-                            <select name="class" class="form-control">
-                                <option value="">All Classes</option>
-                                @foreach($classOptions as $classOption)
-                                    <option value="{{ $classOption }}" {{ ($selectedClass ?? request('class')) == $classOption ? 'selected' : '' }}>
-                                        {{ $classOption }}
-                                    </option>
-                                @endforeach
-                            </select>
                         </div>
                         <div class="col-md-2">
                             <button type="submit" class="btn btn-primary w-100">Search</button>

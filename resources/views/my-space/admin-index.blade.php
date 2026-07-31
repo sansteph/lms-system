@@ -30,7 +30,38 @@
                 </div>
             @endif
 
-            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
+            @include('partials.section-navigator', [
+                'sectionPager' => $sectionPager ?? null,
+                'sectionDescription' => 'Browse My Space submissions institute by institute.',
+            ])
+
+            @if(($submitterType ?? null) == 'Student')
+                @include('partials.section-navigator', [
+                    'sectionPager' => $classSectionPager ?? null,
+                    'sectionDescription' => 'Browse student submissions one class at a time inside the selected institute.',
+                ])
+
+                @include('partials.section-navigator', [
+                    'sectionPager' => $studentSectionPager ?? null,
+                    'sectionDescription' => 'Showing student submissions from this section only.',
+                ])
+
+                @if(!empty($selectedStudentClass))
+                    <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <span class="fw-semibold">Current student scope:</span>
+                            Class {{ $selectedStudentClass }}
+                            @if(!empty($selectedStudentSection))
+                                &middot; Section {{ $selectedStudentSection }}
+                            @endif
+                        </div>
+
+                        @if(!empty($currentInstitute))
+                            <span class="text-muted small">{{ $currentInstitute }}</span>
+                        @endif
+                    </div>
+                @endif
+            @endif
 
             <div class="card shadow border-0">
                 <div class="card-body">
@@ -157,7 +188,7 @@
                                         <td>
                                             <div class="d-flex flex-wrap gap-2">
 
-                                                <a href="{{ route('admin.my-space.show', $item->id) }}"class="btn btn-sm btn-primary">
+                                                <a href="{{ route('admin.my-space.show', $item->id) }}" class="btn btn-sm btn-primary">
                                                     View
                                                 </a>
 

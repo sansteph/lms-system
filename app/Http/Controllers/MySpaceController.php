@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\MySpace;
+use App\Models\SchoolClass;
+use App\Models\Student;
+use App\Models\User;
 use App\Support\SyncsCommunityPosts;
 use App\Support\BuildsInstituteSectionPager;
 use Illuminate\Support\Facades\Storage;
@@ -93,61 +96,243 @@ class MySpaceController extends Controller
     {
         $submitterType = $request->route('submitterType') ?? $request->query('submitter');
         $sectionPager = null;
+        $classSectionPager = null;
+        $studentSectionPager = null;
         $currentInstitute = null;
+        $selectedStudentClass = null;
+        $selectedStudentSection = null;
+        $scopedStudentIds = null;
+        $scopedTeacherIds = null;
 
         if (session('user_role') == 'Admin') {
             ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
                 $this->buildInstituteSectionPager($request, $request->route()?->getName() ?: 'admin.my-space');
         }
 
+        if (session('user_role') == 'InstituteAdmin') {
+            $currentInstitute = session('user_institute');
+        }
+
+        if ($submitterType == 'Student' && $currentInstitute) {
+            ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
+                $this->buildStudentClassPager($request, $currentInstitute, $request->route()?->getName() ?: 'admin.my-space');
+
+            ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
+                $this->buildStudentSectionPager($request, $currentInstitute, $selectedStudentClass, $request->route()?->getName() ?: 'admin.my-space');
+        }
+
+        if (in_array(session('user_role'), ['Admin', 'InstituteAdmin'], true) && $currentInstitute) {
+            $studentQuery = Student::where('institute', $currentInstitute);
+
+            if ($selectedStudentClass) {
+                $studentQuery->where('class', $selectedStudentClass);
+            }
+
+            if ($selectedStudentSection) {
+                $studentQuery->where('section', $selectedStudentSection);
+            }
+
+            $scopedStudentIds = $studentQuery->pluck('id');
+
+            $scopedTeacherIds = User::where('role', 'Teacher')
+                ->where('institute', $currentInstitute)
+                ->pluck('id');
+        }
+
         $items = MySpace::when(in_array($submitterType, ['Teacher', 'Student'], true), function ($query) use ($submitterType) {
                 $query->where('created_by_type', $submitterType);
             })
-            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
-                $studentIds = \App\Models\Student::where('institute', $currentInstitute)
-                    ->pluck('id');
+            ->when($scopedStudentIds !== null || $scopedTeacherIds !== null, function ($query) use ($submitterType, $scopedStudentIds, $scopedTeacherIds) {
+                if ($submitterType == 'Student') {
+                    $query->where('created_by_type', 'Student')
+                        ->whereIn('created_by_id', $scopedStudentIds ?? collect());
 
-                $teacherIds = \App\Models\User::where('role', 'Teacher')
-                    ->where('institute', $currentInstitute)
-                    ->pluck('id');
+                    return;
+                }
 
-                $query->where(function ($q) use ($studentIds, $teacherIds) {
-                    $q->where(function ($sub) use ($studentIds) {
+                if ($submitterType == 'Teacher') {
+                    $query->where('created_by_type', 'Teacher')
+                        ->whereIn('created_by_id', $scopedTeacherIds ?? collect());
+
+                    return;
+                }
+
+                $query->where(function ($q) use ($scopedStudentIds, $scopedTeacherIds) {
+                    $q->where(function ($sub) use ($scopedStudentIds) {
                         $sub->where('created_by_type', 'Student')
-                            ->whereIn('created_by_id', $studentIds);
+                            ->whereIn('created_by_id', $scopedStudentIds ?? collect());
                     })
-                    ->orWhere(function ($sub) use ($teacherIds) {
+                    ->orWhere(function ($sub) use ($scopedTeacherIds) {
                         $sub->where('created_by_type', 'Teacher')
-                            ->whereIn('created_by_id', $teacherIds);
+                            ->whereIn('created_by_id', $scopedTeacherIds ?? collect());
                     });
                 });
-            })
-            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
-
-                $studentIds = \App\Models\Student::where('institute', session('user_institute'))
-                    ->pluck('id');
-
-                $teacherIds = \App\Models\User::where('role', 'Teacher')
-                    ->where('institute', session('user_institute'))
-                    ->pluck('id');
-
-                $query->where(function ($q) use ($studentIds, $teacherIds) {
-                    $q->where(function ($sub) use ($studentIds) {
-                        $sub->where('created_by_type', 'Student')
-                            ->whereIn('created_by_id', $studentIds);
-                    })
-                    ->orWhere(function ($sub) use ($teacherIds) {
-                        $sub->where('created_by_type', 'Teacher')
-                            ->whereIn('created_by_id', $teacherIds);
-                    });
-                });
-
             })
             ->latest()
             ->paginate(30)
             ->withQueryString();
 
-        return view('my-space.admin-index', compact('items', 'submitterType', 'sectionPager'));
+        return view('my-space.admin-index', compact(
+            'items',
+            'submitterType',
+            'sectionPager',
+            'classSectionPager',
+            'studentSectionPager',
+            'currentInstitute',
+            'selectedStudentClass',
+            'selectedStudentSection'
+        ));
+    }
+
+    private function buildStudentClassPager(Request $request, ?string $institute, string $routeName): array
+    {
+        if (!$institute) {
+            return [
+                'selectedClass' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $classOptions = SchoolClass::where('institute', $institute)
+            ->whereNotNull('class_name')
+            ->orderBy('class_name')
+            ->pluck('class_name')
+            ->map(fn ($className) => trim((string) $className));
+
+        $studentClassOptions = Student::where('institute', $institute)
+            ->whereNotNull('class')
+            ->select('class')
+            ->distinct()
+            ->orderBy('class')
+            ->pluck('class')
+            ->map(fn ($className) => trim((string) $className));
+
+        $classOptions = $classOptions
+            ->merge($studentClassOptions)
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
+            ->sort()
+            ->values();
+
+        if ($classOptions->isEmpty()) {
+            return [
+                'selectedClass' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $requestedClass = $request->input('student_class');
+        $requestedIndex = $requestedClass
+            ? $classOptions->search($requestedClass)
+            : false;
+
+        $lastPage = $classOptions->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('class_page', 1), 1), $lastPage);
+
+        $selectedClass = $classOptions->get($currentPage - 1);
+        $previousClass = $currentPage > 1 ? $classOptions->get($currentPage - 2) : null;
+        $nextClass = $currentPage < $lastPage ? $classOptions->get($currentPage) : null;
+        $query = $request->except(['class_page', 'student_class', 'student_section_page', 'student_section', 'page']);
+
+        return [
+            'selectedClass' => $selectedClass,
+            'sectionPager' => [
+                'current_label' => 'Class ' . $selectedClass,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousClass ? 'Class ' . $previousClass : null,
+                'next_label' => $nextClass ? 'Class ' . $nextClass : null,
+                'previous_url' => $previousClass
+                    ? route($routeName, array_merge($query, [
+                        'class_page' => $currentPage - 1,
+                        'student_class' => $previousClass,
+                    ]))
+                    : null,
+                'next_url' => $nextClass
+                    ? route($routeName, array_merge($query, [
+                        'class_page' => $currentPage + 1,
+                        'student_class' => $nextClass,
+                    ]))
+                    : null,
+            ],
+        ];
+    }
+
+    private function buildStudentSectionPager(Request $request, ?string $institute, ?string $className, string $routeName): array
+    {
+        if (!$institute || !$className) {
+            return [
+                'selectedSection' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $sectionOptions = SchoolClass::where('institute', $institute)
+            ->where('class_name', $className)
+            ->whereNotNull('section')
+            ->orderBy('section')
+            ->pluck('section')
+            ->map(fn ($section) => trim((string) $section));
+
+        $studentSectionOptions = Student::where('institute', $institute)
+            ->where('class', $className)
+            ->whereNotNull('section')
+            ->select('section')
+            ->distinct()
+            ->orderBy('section')
+            ->pluck('section')
+            ->map(fn ($section) => trim((string) $section));
+
+        $sectionOptions = $sectionOptions
+            ->merge($studentSectionOptions)
+            ->filter()
+            ->unique(fn ($section) => mb_strtolower($section))
+            ->sort()
+            ->values();
+
+        if ($sectionOptions->isEmpty()) {
+            return [
+                'selectedSection' => null,
+                'sectionPager' => null,
+            ];
+        }
+
+        $requestedSection = $request->input('student_section');
+        $requestedIndex = $requestedSection ? $sectionOptions->search($requestedSection) : false;
+        $lastPage = $sectionOptions->count();
+        $currentPage = $requestedIndex !== false
+            ? $requestedIndex + 1
+            : min(max((int) $request->input('student_section_page', 1), 1), $lastPage);
+
+        $selectedSection = $sectionOptions->get($currentPage - 1);
+        $previousSection = $currentPage > 1 ? $sectionOptions->get($currentPage - 2) : null;
+        $nextSection = $currentPage < $lastPage ? $sectionOptions->get($currentPage) : null;
+        $query = $request->except(['student_section_page', 'student_section', 'page']);
+
+        return [
+            'selectedSection' => $selectedSection,
+            'sectionPager' => [
+                'current_label' => 'Section ' . $selectedSection,
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'previous_label' => $previousSection ? 'Section ' . $previousSection : null,
+                'next_label' => $nextSection ? 'Section ' . $nextSection : null,
+                'previous_url' => $previousSection
+                    ? route($routeName, array_merge($query, [
+                        'student_section_page' => $currentPage - 1,
+                        'student_section' => $previousSection,
+                    ]))
+                    : null,
+                'next_url' => $nextSection
+                    ? route($routeName, array_merge($query, [
+                        'student_section_page' => $currentPage + 1,
+                        'student_section' => $nextSection,
+                    ]))
+                    : null,
+            ],
+        ];
     }
 
     private function authorizeAdminAccess($item)
