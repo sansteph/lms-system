@@ -18,7 +18,9 @@
             'InnovatEdge is a modern STEM education platform for schools, ATL labs, robotics programs, assessments, certificates, and AI-assisted learning.'
         ));
         $seoImage = asset('images/InnovatEdgeLogo.png');
-        $seoUrl = url()->current();
+        $seoBaseUrl = rtrim(config('app.url'), '/');
+        $seoPath = trim(request()->path(), '/');
+        $seoUrl = $seoPath === '' ? $seoBaseUrl.'/' : $seoBaseUrl.'/'.$seoPath;
         $showParticles = request()->routeIs(
             'home',
             'portal',
@@ -118,7 +120,7 @@
     <meta name="twitter:image" content="{{ $seoImage }}">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="icon" type="image/png" href="{{ asset('images/InnovatEdgeLogo.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/TinkEdgeLogo.png') }}">
 
     <link rel="stylesheet" href="{{ asset('css/style.css') }}?v={{ file_exists(public_path('css/style.css')) ? filemtime(public_path('css/style.css')) : time() }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -131,8 +133,8 @@
                 "@@context": "https://schema.org",
                 "@type": "Organization",
                 "name": "InnovatEdge",
-                "url": "https://tinkedge.tech",
-                "logo": "https://tinkedge.tech/images/InnovatEdgeLogo.png",
+                "url": "{{ $seoBaseUrl }}",
+                "logo": "{{ $seoBaseUrl }}/images/InnovatEdgeLogo.png",
                 "sameAs": [
                     "https://www.linkedin.com/company/tinkedge/posts/?feedView=all",
                     "https://www.instagram.com/tinkedge_/",
