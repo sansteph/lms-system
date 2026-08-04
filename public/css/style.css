@@ -2099,6 +2099,9 @@ main{
     font-weight: 700;
     border-bottom: 1px solid #e2e8f0;
     padding: 14px;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
 }
 
 .table tbody td {
@@ -5001,6 +5004,12 @@ main{
     letter-spacing: 0;
     box-shadow: none;
     transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .16s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+    text-align: center;
 }
 
 .lms-panel-body .btn-sm {
@@ -5108,6 +5117,8 @@ main{
     font-weight: 900;
     text-transform: uppercase;
     white-space: nowrap;
+    text-align: center;
+    vertical-align: middle;
 }
 
 .lms-panel-body .table tbody tr:hover > * {
@@ -6000,6 +6011,19 @@ main{
     box-shadow: 0 16px 38px rgba(11, 47, 83, 0.1);
 }
 
+.page-header h1,
+.page-header h2,
+.page-header h3,
+.page-header .h1,
+.page-header .h2,
+.page-header .h3 {
+    margin-bottom: 0;
+    line-height: 1.08;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
 .lms-panel-body .page-header::before {
     content: "";
     position: absolute;
@@ -6019,6 +6043,7 @@ main{
     border-color: #d3dfeb !important;
     box-shadow: 0 14px 34px rgba(11, 47, 83, 0.075) !important;
     transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+    overflow: hidden;
 }
 
 .lms-panel-body .card:hover,
@@ -6096,6 +6121,7 @@ main{
 .lms-panel-body .table-responsive {
     border-color: #ccd9e6;
     box-shadow: 0 12px 28px rgba(11, 47, 83, 0.065);
+    overflow: auto;
 }
 
 .lms-panel-body .table thead th {
