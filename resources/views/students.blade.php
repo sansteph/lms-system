@@ -283,6 +283,7 @@
                                                         <div class="col-md-6">
                                                             <label class="form-label">Contact</label>
                                                             <input type="text" name="contact" class="form-control" value="{{ $student->contact }}" required>
+                                                            <div class="form-text">This number will also be used as the guardian contact.</div>
                                                         </div>
 
                                                         <div class="col-md-6">
@@ -295,11 +296,6 @@
                                                             <input type="text" name="guardian_name" class="form-control" value="{{ $student->guardian_name }}">
                                                         </div>
 
-                                                        <div class="col-md-6">
-                                                            <label class="form-label">Guardian Contact</label>
-                                                            <input type="text" name="guardian_contact" class="form-control" value="{{ $student->guardian_contact }}">
-                                                        </div>
-                                                        
                                                         <div class="col-md-6">
                                                             <label class="form-label">Password</label>
                                                             <input type="password" name="password" class="form-control" placeholder="Leave blank to keep existing password">
@@ -418,6 +414,7 @@
                         <div class="col-md-6">
                             <label class="form-label">Contact</label>
                             <input type="text" name="contact" class="form-control" value="{{ old('contact') }}" required>
+                            <div class="form-text">Use this as the student or guardian contact number.</div>
                         </div>
 
                         <div class="col-md-6">
@@ -428,11 +425,6 @@
                         <div class="col-md-6">
                             <label class="form-label">Guardian Name</label>
                             <input type="text" name="guardian_name" class="form-control" value="{{ old('guardian_name') }}">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Guardian Contact</label>
-                            <input type="text" name="guardian_contact" class="form-control" value="{{ old('guardian_contact') }}">
                         </div>
 
                         <div class="col-md-6">
@@ -498,7 +490,7 @@
                             class, section, contact, password
                         </div>
                         <div class="fw-semibold mt-3 mb-2">Optional columns</div>
-                        <div>email, guardian_name, guardian_contact, is_robotics_club_member, status</div>
+                        <div>email, guardian_name, is_robotics_club_member, status</div>
                         @if(in_array(session('user_role'), ['InstituteAdmin', 'Teacher'], true))
                             <div class="text-muted mt-3">
                                 Uploads are automatically assigned to {{ $managedInstitute }}, even if the CSV contains a different institute value.

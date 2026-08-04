@@ -70,7 +70,7 @@
                                 <th>Class</th>
                                 <th>Institute</th>
                                 <th>Guardian</th>
-                                <th>Guardian Contact</th>
+                                <th>Contact</th>
                                 <th>Robotics Club</th>
                             </tr>
 
@@ -107,7 +107,7 @@
                                     </td>
 
                                     <td>
-                                        {{ $student->guardian_contact }}
+                                        {{ $student->contact }}
                                     </td>
 
                                     <td>

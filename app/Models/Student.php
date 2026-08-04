@@ -21,7 +21,6 @@ class Student extends Model
         'status',
         'email',
         'guardian_name',
-        'guardian_contact',
         'is_robotics_club_member',
         'profile_completed',
         'linkedin_url',

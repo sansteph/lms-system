@@ -74,7 +74,7 @@ class TeacherStudentProfileController extends Controller
                 'Class',
                 'Institute',
                 'Guardian Name',
-                'Guardian Contact',
+                'Contact',
                 'Robotics Club Member',
             ]);
 
@@ -85,7 +85,7 @@ class TeacherStudentProfileController extends Controller
                     $student->class,
                     $student->institute,
                     $student->guardian_name,
-                    $student->guardian_contact,
+                    $student->contact,
                     $student->is_robotics_club_member ? 'Yes' : 'No',
                 ]);
             }
