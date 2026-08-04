@@ -3,6 +3,9 @@
 ========================================================= */
 
 :root{
+    --lms-font-family:'Inter', 'Segoe UI', Arial, sans-serif;
+    --lms-base-font-size:16px;
+    --lms-title-font-size:18px;
     --primary-dark:#030718;
     --secondary-dark:#07113a;
     --deep-blue:#091a63;
@@ -28,6 +31,62 @@
     --lms-surface:#ffffff;
     --lms-canvas:#f3f6fa;
     --lms-radius:8px;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+    font-family: var(--lms-font-family);
+}
+
+body {
+    font-size: var(--lms-base-font-size);
+    line-height: 1.6;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.h1,
+.h2,
+.h3,
+.h4,
+.h5,
+.h6 {
+    font-family: var(--lms-font-family);
+}
+
+h1,
+.h1 {
+    font-size: 30px;
+}
+
+h2,
+.h2 {
+    font-size: 26px;
+}
+
+h3,
+.h3 {
+    font-size: 22px;
+}
+
+h4,
+.h4 {
+    font-size: 20px;
+}
+
+h5,
+.h5,
+h6,
+.h6 {
+    font-size: var(--lms-title-font-size);
 }
 
 /* =========================================================
@@ -2102,6 +2161,33 @@ main{
     text-align: center;
     vertical-align: middle;
     white-space: nowrap;
+}
+
+.table-sortable-header {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 28px !important;
+}
+
+.table-sortable-header::after {
+    content: "↕";
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.table-sortable-header.sort-asc::after {
+    content: "↑";
+    color: #1769d2;
+}
+
+.table-sortable-header.sort-desc::after {
+    content: "↓";
+    color: #1769d2;
 }
 
 .table tbody td {
@@ -4292,6 +4378,49 @@ main{
     display: block;
 }
 
+.assistant-chat-bubble{
+    position: absolute;
+    left: 50%;
+    top: -30px;
+    transform: translateX(-50%) translateY(8px) scale(0.965);
+    opacity: 0;
+    visibility: hidden;
+    z-index: 5;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.4);
+    background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(243,247,255,0.92));
+    color: #0b2f62;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0;
+    white-space: nowrap;
+    max-width: 132px;
+    text-align: center;
+    box-shadow: 0 10px 22px rgba(11, 47, 83, 0.12);
+    transition: opacity .28s ease, transform .28s ease, visibility .28s ease;
+    pointer-events: none;
+}
+
+.assistant-chat-bubble::after{
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -5px;
+    width: 10px;
+    height: 10px;
+    background: inherit;
+    border-right: 1px solid rgba(255,255,255,0.42);
+    border-bottom: 1px solid rgba(255,255,255,0.42);
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.assistant-chat-bubble.is-visible{
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0) scale(1);
+}
+
 .floating-ai-assistant.assistant-scene-climb{
     z-index: 4;
 }
@@ -4335,6 +4464,13 @@ main{
 
 .assistant-scene-feature-rest .floating-ai-robot{
     animation: floatingAssistantFloat 2.8s ease-in-out infinite;
+}
+
+.assistant-scene-feature-rest .assistant-chat-bubble,
+.assistant-scene-sleep .assistant-chat-bubble{
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0) scale(1);
 }
 
 .assistant-scene-backflip{
@@ -5080,6 +5216,20 @@ main{
     color: #34445a;
     font-size: 12px;
     font-weight: 850;
+}
+
+.required-field-marker {
+    color: #d93636;
+    font-weight: 900;
+}
+
+.ordinal-suffix {
+    display: inline-block;
+    font-size: 0.68em;
+    line-height: 1;
+    vertical-align: baseline;
+    position: relative;
+    top: -0.35em;
 }
 
 .lms-panel-body .input-group > :not(:first-child) {

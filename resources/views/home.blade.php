@@ -134,6 +134,7 @@
                              aria-label="Open InnovatEdge Assistant"
                              role="button"
                              tabindex="0">
+                            <span class="assistant-chat-bubble" aria-hidden="true">Chat with me</span>
                             <img src="{{ asset('images/ai-assistant-frames/climb/climb-01.png') }}"
                                  id="heroAiFrame"
                                  alt="">
@@ -387,6 +388,7 @@
          aria-label="Open InnovatEdge Assistant"
          role="button"
          tabindex="0">
+        <span class="assistant-chat-bubble" aria-hidden="true">Chat with me</span>
         <div class="floating-ai-robot">
             <img src="{{ asset('images/ai-assistant-frames/climb/climb-01.png') }}"
                  id="floatingAiFrame"
@@ -402,6 +404,8 @@
         const frameImage = document.getElementById('floatingAiFrame');
         const heroAssistant = document.getElementById('heroAiAssistant');
         const heroFrameImage = document.getElementById('heroAiFrame');
+        const assistantBubble = assistant ? assistant.querySelector('.assistant-chat-bubble') : null;
+        const heroBubble = heroAssistant ? heroAssistant.querySelector('.assistant-chat-bubble') : null;
 
         if (!assistant || !frameImage || !heroAssistant || !heroFrameImage || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             return;
@@ -434,6 +438,16 @@
             assistant.style.setProperty('--assistant-size', (size || 126) + 'px');
         };
 
+        const syncAssistantBubble = function (visible) {
+            [assistantBubble, heroBubble].forEach(function (bubble) {
+                if (!bubble) {
+                    return;
+                }
+
+                bubble.classList.toggle('is-visible', !!visible);
+            });
+        };
+
         let frameTimer = null;
         let heroFrameTimer = null;
         let heroPeekTimer = null;
@@ -454,7 +468,7 @@
             featureHopTimers = [];
         };
 
-        const playFrames = function (targetImage, timerName, action, frameDelay, loopCount) {
+        const playFrames = function (targetImage, timerName, action, frameDelay, loopCount, onComplete) {
             const frames = assistantFrames[action] || [];
             const loops = loopCount || 1;
             let index = 0;
@@ -492,6 +506,9 @@
                             frameTimer = null;
                         }
                         targetImage.src = frames[frames.length - 1];
+                        if (typeof onComplete === 'function') {
+                            onComplete();
+                        }
                         return;
                     }
 
@@ -533,6 +550,7 @@
                 window.clearTimeout(heroResetTimer);
 
                 heroAssistant.className = 'hero-ai-assistant hero-ai-peek hero-ai-reset';
+                syncAssistantBubble(false);
                 heroAssistant.style.left = '16%';
                 heroAssistant.style.top = '0%';
                 heroAssistant.style.setProperty('--hero-assistant-size', '108px');
@@ -545,7 +563,11 @@
                     heroAssistant.classList.remove('hero-ai-reset');
                 }, 120);
 
-                playFrames(heroFrameImage, 'hero', 'climb', 360, 1);
+                playFrames(heroFrameImage, 'hero', 'climb', 360, 1, function () {
+                    if (activeSection === 'hero') {
+                        syncAssistantBubble(true);
+                    }
+                });
 
                 heroPeekTimer = window.setTimeout(function () {
                     if (activeSection === 'hero') {
@@ -560,11 +582,16 @@
                 window.clearTimeout(heroResetTimer);
 
                 heroAssistant.className = 'hero-ai-assistant hero-ai-slide hero-ai-on-top';
+                syncAssistantBubble(false);
                 heroAssistant.style.left = '16%';
                 heroAssistant.style.top = '4%';
                 heroAssistant.style.setProperty('--hero-assistant-size', '108px');
                 heroAssistant.style.setProperty('--hero-assistant-tilt', '-4deg');
-                playFrames(heroFrameImage, 'hero', 'slide', 340, 1);
+                playFrames(heroFrameImage, 'hero', 'slide', 340, 1, function () {
+                    if (activeSection === 'hero') {
+                        syncAssistantBubble(true);
+                    }
+                });
 
                 window.setTimeout(function () {
                     if (activeSection !== 'hero') {
@@ -607,7 +634,12 @@
                         const point = cardPoint(card);
 
                         setScene('assistant-scene-hop', point.x, point.y, index % 2 === 0 ? 2 : -2, 104);
-                        playFrames(frameImage, 'floating', 'hop', 115, 1);
+                        syncAssistantBubble(false);
+                        playFrames(frameImage, 'floating', 'hop', 115, 1, function () {
+                            if (activeSection === 'features') {
+                                syncAssistantBubble(true);
+                            }
+                        });
                     }, 760 + (index * 1240));
 
                     featureHopTimers.push(timer);
@@ -622,7 +654,12 @@
 
                         const point = cardPoint(card);
                         setScene('assistant-scene-backflip', point.x, point.y, reverseIndex % 2 === 0 ? 4 : -3, 104);
-                        playFrames(frameImage, 'floating', 'backflip', 92, 1);
+                        syncAssistantBubble(false);
+                        playFrames(frameImage, 'floating', 'backflip', 92, 1, function () {
+                            if (activeSection === 'features') {
+                                syncAssistantBubble(true);
+                            }
+                        });
                     }, returnStart + (reverseIndex * 1180));
 
                     featureHopTimers.push(timer);
@@ -631,7 +668,12 @@
             sleepFooter: function () {
                 const point = elementPoint('.footer-wrapper', 0.90, 0.06, window.innerWidth - 160, window.innerHeight - 118);
                 setScene('assistant-scene-sleep', point.x, point.y, -3, 104);
-                playFrames(frameImage, 'floating', 'sleep', 390, 1);
+                syncAssistantBubble(false);
+                playFrames(frameImage, 'floating', 'sleep', 390, 1, function () {
+                    if (activeSection === 'footer') {
+                        syncAssistantBubble(true);
+                    }
+                });
             },
         };
 
@@ -691,6 +733,7 @@
             if (section === 'hero') {
                 assistant.classList.add('assistant-hidden');
                 heroAssistant.classList.remove('hero-ai-hidden');
+                syncAssistantBubble(false);
                 scenes.peekHero();
                 return;
             }

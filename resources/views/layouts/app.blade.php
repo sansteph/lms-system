@@ -200,6 +200,268 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const ordinalPattern = /(\b\d+)(st|nd|rd|th)\b/gi;
+
+        const shouldSkipOrdinalFormatting = function (node) {
+            if (!node) {
+                return true;
+            }
+
+            return Boolean(
+                node.closest('script, style, textarea, input, select, option, pre, code, kbd, samp, svg, noscript, .no-ordinal-format') ||
+                node.closest('.modal')?.dataset.ordinalFormatDisabled === '1'
+            );
+        };
+
+        const formatOrdinalTextNode = function (textNode) {
+            if (!textNode || !textNode.nodeValue || !ordinalPattern.test(textNode.nodeValue)) {
+                ordinalPattern.lastIndex = 0;
+                return;
+            }
+
+            ordinalPattern.lastIndex = 0;
+
+            const fragment = document.createDocumentFragment();
+            let lastIndex = 0;
+            let match;
+            const text = textNode.nodeValue;
+
+            while ((match = ordinalPattern.exec(text)) !== null) {
+                const start = match.index;
+                const end = start + match[0].length;
+
+                if (start > lastIndex) {
+                    fragment.appendChild(document.createTextNode(text.slice(lastIndex, start)));
+                }
+
+                fragment.appendChild(document.createTextNode(match[1]));
+
+                const sup = document.createElement('sup');
+                sup.textContent = match[2];
+                sup.className = 'ordinal-suffix';
+                fragment.appendChild(sup);
+
+                lastIndex = end;
+            }
+
+            if (lastIndex < text.length) {
+                fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+            }
+
+            textNode.parentNode.replaceChild(fragment, textNode);
+        };
+
+        const formatOrdinalsInNode = function (root) {
+            if (!root || shouldSkipOrdinalFormatting(root)) {
+                return;
+            }
+
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+                acceptNode: function (node) {
+                    if (!node.parentElement || shouldSkipOrdinalFormatting(node.parentElement)) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+
+                    return ordinalPattern.test(node.nodeValue || '')
+                        ? NodeFilter.FILTER_ACCEPT
+                        : NodeFilter.FILTER_SKIP;
+                }
+            });
+
+            const textNodes = [];
+            let currentNode;
+
+            ordinalPattern.lastIndex = 0;
+            while ((currentNode = walker.nextNode())) {
+                textNodes.push(currentNode);
+            }
+
+            textNodes.forEach(formatOrdinalTextNode);
+        };
+
+        formatOrdinalsInNode(document.body);
+
+        const normalizeTableValue = function (value) {
+            return String(value || '')
+                .replace(/\s+/g, ' ')
+                .replace(/[^\S\r\n]+/g, ' ')
+                .trim();
+        };
+
+        const detectCellValue = function (cell) {
+            if (!cell) {
+                return '';
+            }
+
+            const input = cell.querySelector('input[type="hidden"]');
+            if (input && input.value) {
+                return input.value;
+            }
+
+            const text = normalizeTableValue(cell.textContent);
+            return text;
+        };
+
+        const compareValues = function (a, b, direction) {
+            const directionFactor = direction === 'desc' ? -1 : 1;
+            const numericA = parseFloat(a.replace(/[^0-9.-]/g, ''));
+            const numericB = parseFloat(b.replace(/[^0-9.-]/g, ''));
+            const aIsNumeric = a !== '' && !Number.isNaN(numericA) && /^[0-9.,\-%\s]+$/.test(a.replace(/,/g, ''));
+            const bIsNumeric = b !== '' && !Number.isNaN(numericB) && /^[0-9.,\-%\s]+$/.test(b.replace(/,/g, ''));
+
+            if (aIsNumeric && bIsNumeric) {
+                return (numericA - numericB) * directionFactor;
+            }
+
+            return a.localeCompare(b, undefined, {
+                numeric: true,
+                sensitivity: 'base',
+            }) * directionFactor;
+        };
+
+        const sortTableRows = function (table, columnIndex, direction) {
+            const tbody = table.tBodies && table.tBodies[0] ? table.tBodies[0] : null;
+
+            if (!tbody) {
+                return false;
+            }
+
+            const rows = Array.from(tbody.rows);
+            if (!rows.length) {
+                return false;
+            }
+
+            const canSort = rows.every(function (row) {
+                return row.cells.length > columnIndex && !row.querySelector('[colspan]');
+            });
+
+            if (!canSort) {
+                return false;
+            }
+
+            const sortedRows = rows.slice().sort(function (rowA, rowB) {
+                const cellA = detectCellValue(rowA.cells[columnIndex]);
+                const cellB = detectCellValue(rowB.cells[columnIndex]);
+                return compareValues(cellA, cellB, direction);
+            });
+
+            sortedRows.forEach(function (row) {
+                tbody.appendChild(row);
+            });
+
+            return true;
+        };
+
+        const decorateSortableHeaders = function (table) {
+            const headCells = Array.from(table.querySelectorAll('thead th'));
+            if (!headCells.length || table.dataset.sortableInitialized === '1') {
+                return;
+            }
+
+            table.dataset.sortableInitialized = '1';
+
+            headCells.forEach(function (th, index) {
+                if (th.closest('.no-table-sort') || th.dataset.sortable === 'false') {
+                    return;
+                }
+
+                th.classList.add('table-sortable-header');
+                th.dataset.sortDirection = 'none';
+
+                th.addEventListener('click', function () {
+                    const nextDirection = th.dataset.sortDirection === 'asc' ? 'desc' : 'asc';
+                    const sorted = sortTableRows(table, index, nextDirection);
+
+                    if (!sorted) {
+                        return;
+                    }
+
+                    table.querySelectorAll('thead th').forEach(function (cell) {
+                        cell.dataset.sortDirection = 'none';
+                        cell.classList.remove('sort-asc', 'sort-desc');
+                    });
+
+                    th.dataset.sortDirection = nextDirection;
+                    th.classList.add(nextDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+                });
+            });
+        };
+
+        document.querySelectorAll('table.table, table').forEach(function (table) {
+            if (
+                table.closest('.no-table-sort') ||
+                table.closest('.blogs-social-page') ||
+                table.closest('.community-post-card') ||
+                table.closest('.modal')
+            ) {
+                return;
+            }
+
+            const headerCells = table.querySelectorAll('thead th');
+            const bodyRows = table.tBodies && table.tBodies[0] ? Array.from(table.tBodies[0].rows) : [];
+            const isLikelySortable = headerCells.length > 1 && bodyRows.length > 1;
+
+            if (isLikelySortable) {
+                decorateSortableHeaders(table);
+            }
+        });
+
+        const markRequiredLabel = function (label) {
+            if (!label || label.querySelector('.required-field-marker')) {
+                return;
+            }
+
+            const marker = document.createElement('span');
+            marker.className = 'required-field-marker';
+            marker.textContent = ' *';
+            marker.setAttribute('aria-hidden', 'true');
+            label.appendChild(marker);
+        };
+
+        const findLabelForField = function (field) {
+            if (!field || field.type === 'hidden' || field.disabled) {
+                return null;
+            }
+
+            const labels = field.labels && field.labels.length ? Array.from(field.labels) : [];
+            if (labels.length) {
+                return labels[0];
+            }
+
+            const fieldWrap = field.closest('.col-md-3, .col-md-4, .col-md-6, .col-md-12, .mb-3, .form-group, .input-group, .modern-input, .auth-input-group');
+            if (fieldWrap) {
+                const wrapLabel = fieldWrap.querySelector(':scope > label, :scope > .form-label');
+                if (wrapLabel) {
+                    return wrapLabel;
+                }
+            }
+
+            const parent = field.parentElement;
+            if (parent) {
+                const previousLabel = parent.querySelector(':scope > label, :scope > .form-label');
+                if (previousLabel) {
+                    return previousLabel;
+                }
+            }
+
+            return null;
+        };
+
+        document.querySelectorAll('form').forEach(function (form) {
+            form.querySelectorAll('input, textarea, select').forEach(function (field) {
+                if (!field.hasAttribute('required')) {
+                    return;
+                }
+
+                if (['hidden', 'button', 'submit', 'reset', 'image', 'file'].includes(field.type) && field.type !== 'file') {
+                    return;
+                }
+
+                const label = findLabelForField(field);
+                markRequiredLabel(label);
+            });
+        });
+
         const hiddenEyeIcon = `
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M3 3l18 18"></path>

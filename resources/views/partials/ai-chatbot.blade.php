@@ -73,6 +73,8 @@
             const form = document.getElementById('aiChatbotForm');
             const input = document.getElementById('aiChatbotInput');
             const messages = document.getElementById('aiChatbotMessages');
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
             const animatedAssistants = Array.from(document.querySelectorAll('.ai-chatbot-trigger, #floatingAiAssistant, #heroAiAssistant'));
 
             if (!panel || !launcher || !closeButton || !form || !input || !messages) {
@@ -134,10 +136,11 @@
 
                 fetch('{{ route('ai-chat.ask') }}', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'X-CSRF-TOKEN': csrfToken,
                     },
                     body: JSON.stringify({ message: question }),
                 })
