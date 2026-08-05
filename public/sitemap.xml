@@ -24,16 +24,4 @@
         <changefreq>monthly</changefreq>
         <priority>0.4</priority>
     </url>
-    <url>
-        <loc>https://tinkedge.tech/independent/register</loc>
-        <lastmod>2026-07-30</lastmod>
-        <changefreq>monthly</changefreq>
-        <priority>0.5</priority>
-    </url>
-    <url>
-        <loc>https://tinkedge.tech/independent/courses</loc>
-        <lastmod>2026-07-30</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.7</priority>
-    </url>
 </urlset>
