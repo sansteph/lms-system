@@ -387,24 +387,64 @@
             });
         };
 
-        document.querySelectorAll('table.table, table').forEach(function (table) {
-            if (
-                table.closest('.no-table-sort') ||
-                table.closest('.blogs-social-page') ||
-                table.closest('.community-post-card') ||
-                table.closest('.modal')
-            ) {
-                return;
-            }
+        const initializeSortableTables = function (root) {
+            const scope = root || document;
 
-            const headerCells = table.querySelectorAll('thead th');
-            const bodyRows = table.tBodies && table.tBodies[0] ? Array.from(table.tBodies[0].rows) : [];
-            const isLikelySortable = headerCells.length > 1 && bodyRows.length > 1;
+            scope.querySelectorAll('table.table, table').forEach(function (table) {
+                if (
+                    table.closest('.no-table-sort') ||
+                    table.closest('.blogs-social-page') ||
+                    table.closest('.community-post-card') ||
+                    table.closest('.modal')
+                ) {
+                    return;
+                }
 
-            if (isLikelySortable) {
-                decorateSortableHeaders(table);
-            }
-        });
+                const headerCells = table.querySelectorAll('thead th');
+                const bodyRows = table.tBodies && table.tBodies[0] ? Array.from(table.tBodies[0].rows) : [];
+                const hasSortableStructure = headerCells.length > 1 && bodyRows.length > 0;
+
+                if (hasSortableStructure) {
+                    decorateSortableHeaders(table);
+                }
+            });
+        };
+
+        initializeSortableTables(document);
+
+        if (window.MutationObserver) {
+            const tableSortObserver = new MutationObserver(function (mutations) {
+                let shouldRefresh = false;
+
+                mutations.forEach(function (mutation) {
+                    if (shouldRefresh) {
+                        return;
+                    }
+
+                    mutation.addedNodes.forEach(function (node) {
+                        if (shouldRefresh) {
+                            return;
+                        }
+
+                        if (node && node.nodeType === 1 && (
+                            (node.matches && node.matches('table.table, table')) ||
+                            (node.querySelector && node.querySelector('table.table, table'))
+                        )) {
+                            shouldRefresh = true;
+                        }
+                    });
+                });
+
+                if (shouldRefresh) {
+                    initializeSortableTables(document);
+                }
+            });
+
+            tableSortObserver.observe(document.body, {
+                childList: true,
+                subtree: true,
+            });
+        }
 
         const markRequiredLabel = function (label) {
             if (!label || label.querySelector('.required-field-marker')) {
