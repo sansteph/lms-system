@@ -66,13 +66,19 @@
             opacity: 0.18;
         }
 
+        .protected-preview-surface.capture-focus-loss .protected-preview-content {
+            filter: blur(18px);
+            opacity: 0.14;
+        }
+
         .protected-preview-surface.capture-guard .protected-preview-content {
             filter: blur(14px);
             opacity: 0.18;
         }
 
         .protected-preview-surface.capture-guard::after,
-        .protected-preview-surface.capture-warning::after {
+        .protected-preview-surface.capture-warning::after,
+        .protected-preview-surface.capture-focus-loss::after {
             content: var(--restriction-message);
             display: flex;
             align-items: center;
@@ -125,6 +131,7 @@
             const closedPreviewScopes = new Set();
             let guardTimer = null;
             let scrollThroughTimer = null;
+            let focusLossTimer = null;
             let currentPreviewScope = null;
 
             function protectedSurfaces() {
@@ -376,7 +383,7 @@
 
                 activeProtectedSurfaces(selectedScope).forEach(function (surface) {
                     surface.style.setProperty('--restriction-message', '"' + displayMessage.replace(/"/g, '\\"') + '"');
-                    surface.classList.remove('capture-guard');
+                    surface.classList.remove('capture-guard', 'capture-focus-loss');
                     surface.classList.add('capture-warning');
                 });
 
@@ -655,9 +662,51 @@
                 );
             }
 
+            function setFocusLossGuard(isBlurred, scope) {
+                const selectedScope = scope || activePreviewScope();
+
+                activeProtectedSurfaces(selectedScope).forEach(function (surface) {
+                    if (isBlurred) {
+                        surface.style.setProperty(
+                            '--restriction-message',
+                            '"Preview blurred because the page lost focus. Return to the page to continue viewing."'
+                        );
+                        surface.classList.add('capture-focus-loss');
+                    } else if (!isPreviewClosed(selectedScope)) {
+                        surface.classList.remove('capture-focus-loss');
+                    }
+                });
+            }
+
+            function handleWindowFocusState() {
+                const selectedScope = activePreviewScope();
+
+                if (!hasProtectedPreview()) {
+                    return;
+                }
+
+                if (document.hidden || !document.hasFocus()) {
+                    window.clearTimeout(focusLossTimer);
+                    focusLossTimer = window.setTimeout(function () {
+                        if (!hasProtectedPreview()) {
+                            return;
+                        }
+
+                        setFocusLossGuard(true, selectedScope);
+                    }, 120);
+                    return;
+                }
+
+                window.clearTimeout(focusLossTimer);
+                setFocusLossGuard(false, selectedScope);
+            }
+
             clearStoredCaptureLocks();
             document.addEventListener('keydown', handleRestrictedShortcut, true);
             document.addEventListener('keyup', handleRestrictedShortcut, true);
+            window.addEventListener('blur', handleWindowFocusState);
+            window.addEventListener('focus', handleWindowFocusState);
+            document.addEventListener('visibilitychange', handleWindowFocusState);
             window.addEventListener('beforeprint', function (event) {
                 if (!hasProtectedPreview()) {
                     return;
