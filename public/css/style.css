@@ -5246,18 +5246,52 @@ main{
     border: 1px solid var(--lms-line);
     border-radius: var(--lms-radius);
     background: #ffffff;
+    display: block;
+    width: 100%;
+    max-width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable both-edges;
+    scroll-behavior: auto;
+}
+
+.lms-panel-body .table-responsive,
+.table-responsive {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable both-edges;
+    scrollbar-width: auto;
+    scrollbar-color: #0d8fab #edf3f8;
+}
+
+.table-responsive::-webkit-scrollbar {
+    height: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #edf3f8;
+    border-radius: 999px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #0b5fae, #0d8fab);
+    border-radius: 999px;
+    border: 2px solid #edf3f8;
 }
 
 .lms-panel-body .table {
     margin-bottom: 0;
     border-collapse: collapse;
     border-radius: 0;
-    width: 100%;
+    width: max-content;
     min-width: max-content;
     font-size: 13px;
+}
+
+.lms-panel-body .table-responsive > .table {
+    min-width: 100%;
 }
 
 .lms-panel-body .table > :not(caption) > * > * {

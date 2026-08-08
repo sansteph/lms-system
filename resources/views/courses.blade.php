@@ -4,21 +4,71 @@
 
 <style>
     .course-content-list {
-        max-height: 340px;
+        overflow-x: auto;
         overflow-y: auto;
+        max-height: 380px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #f8fafc;
+        padding: 8px;
+        scrollbar-gutter: stable both-edges;
+        scrollbar-width: auto;
+        scrollbar-color: #0d8fab #edf3f8;
+    }
+
+    .course-content-list table {
+        width: 100%;
+        min-width: 1180px;
+        table-layout: auto;
+        border-collapse: collapse;
+        margin: 0 auto;
+    }
+
+    .course-content-list th,
+    .course-content-list td {
+        vertical-align: top;
+        word-break: break-word;
+    }
+
+    .course-content-list th:nth-child(1),
+    .course-content-list td:nth-child(1) { width: 90px; }
+
+    .course-content-list th:nth-child(2),
+    .course-content-list td:nth-child(2) { width: 240px; }
+
+    .course-content-list th:nth-child(3),
+    .course-content-list td:nth-child(3) { width: 120px; }
+
+    .course-content-list th:nth-child(4),
+    .course-content-list td:nth-child(4) { width: 120px; }
+
+    .course-content-list th:nth-child(5),
+    .course-content-list td:nth-child(5) { width: 280px; }
+
+    .course-upload-list {
+        max-height: 320px;
+        overflow-y: auto;
+        overflow-x: hidden;
         border: 1px solid #e5e7eb;
         border-radius: 8px;
         background: #f8fafc;
         padding: 8px;
     }
 
-    .course-upload-list {
-        max-height: 320px;
-        overflow-y: auto;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        background: #f8fafc;
-        padding: 8px;
+    .course-content-list::-webkit-scrollbar {
+        height: 10px;
+        width: 10px;
+    }
+
+    .course-content-list::-webkit-scrollbar-track {
+        background: #edf3f8;
+        border-radius: 999px;
+    }
+
+    .course-content-list::-webkit-scrollbar-thumb {
+        background: linear-gradient(90deg, #0b5fae, #0d8fab);
+        border-radius: 999px;
+        border: 2px solid #edf3f8;
     }
 
     .course-edit-modal .modal-content {
