@@ -46,7 +46,8 @@
 
                     </form>
 
-                    <table class="table table-bordered table-hover align-middle">
+                    <div class="table-responsive lms-table-shell">
+                    <table class="table table-bordered table-hover align-middle lms-table-fit">
 
                         <thead>
                             <tr>
@@ -114,6 +115,7 @@
                         </tbody>
 
                     </table>
+                    </div>
 
                     @if($learners->hasPages())
                         <div class="mt-3">

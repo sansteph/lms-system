@@ -389,31 +389,38 @@ class PageController extends Controller
     {
         $teacher = User::findOrFail(session('user_id'));
         $search = $request->search;
+        $hasFilters = $request->filled('search')
+            || $request->filled('student_class')
+            || $request->filled('student_section');
         ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
             $this->buildStudentClassPager($request, $teacher->institute, 'teacher.student-management');
         ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
             $this->buildStudentSectionPager($request, $teacher->institute, $selectedStudentClass, 'teacher.student-management');
 
-        $students = Student::where('institute', $teacher->institute)
-            ->when($selectedStudentClass, function ($query) use ($selectedStudentClass) {
-                $query->where('class', $selectedStudentClass);
-            })
-            ->when($selectedStudentSection, function ($query) use ($selectedStudentSection) {
-                $query->where('section', $selectedStudentSection);
-            })
-            ->when($search, function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('student_id', 'like', "%{$search}%")
-                        ->orWhere('class', 'like', "%{$search}%")
-                        ->orWhere('section', 'like', "%{$search}%");
-                });
-            })
-            ->orderBy('class')
-            ->orderBy('section')
-            ->orderBy('name')
-            ->paginate(30)
-            ->withQueryString();
+        $students = collect();
+
+        if ($hasFilters) {
+            $students = Student::where('institute', $teacher->institute)
+                ->when($selectedStudentClass, function ($query) use ($selectedStudentClass) {
+                    $query->where('class', $selectedStudentClass);
+                })
+                ->when($selectedStudentSection, function ($query) use ($selectedStudentSection) {
+                    $query->where('section', $selectedStudentSection);
+                })
+                ->when($search, function ($query, $search) {
+                    $query->where(function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                            ->orWhere('student_id', 'like', "%{$search}%")
+                            ->orWhere('class', 'like', "%{$search}%")
+                            ->orWhere('section', 'like', "%{$search}%");
+                    });
+                })
+                ->orderBy('class')
+                ->orderBy('section')
+                ->orderBy('name')
+                ->paginate(30)
+                ->withQueryString();
+        }
 
         return view('students', [
             'students' => $students,
@@ -424,6 +431,7 @@ class PageController extends Controller
             'selectedStudentSectionLabel' => $selectedStudentSection,
             'studentManagementContext' => 'teacher',
             'managedInstitute' => $teacher->institute,
+            'showFilterPlaceholder' => !$hasFilters,
         ]);
     }
 
@@ -1264,81 +1272,92 @@ class PageController extends Controller
         $today = now()->format('Y-m-d');
         $classOptions = $this->teacherAssignedClassNames($teacher);
         $selectedClass = $request->input('class');
+        $hasFilters = filled($selectedClass);
 
-        $releasedItems = TeachingPlanItem::with([
-                'plan',
-                'week',
-                'course',
-                'content.aiSummary',
-                'content.courseContent.sourceTemplateContent.aiSummary',
-                'courseContent',
-            ])
-            ->where('status', 'released')
-            ->whereDoesntHave('sessions', function ($query) {
-                $query->where('status', 'completed');
-            })
-            ->whereNotExists(function ($query) {
-                $query->selectRaw('1')
-                    ->from('class_content_sessions')
-                    ->whereNull('class_content_sessions.teaching_plan_item_id')
-                    ->where('class_content_sessions.status', 'completed')
-                    ->whereColumn('class_content_sessions.teaching_plan_id', 'teaching_plan_items.teaching_plan_id')
-                    ->whereColumn('class_content_sessions.teaching_plan_week_id', 'teaching_plan_items.teaching_plan_week_id')
-                    ->whereColumn('class_content_sessions.content_id', 'teaching_plan_items.content_id');
-            })
-            ->whereHas('plan', function ($query) use ($teacher, $selectedClass) {
-                $query->where('institute', $teacher->institute)
-                    ->where('status', 'active')
-                    ->when($selectedClass, function ($classQuery) use ($selectedClass) {
-                        $classQuery->whereRaw(
-                            "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                            [$selectedClass]
-                        );
-                    });
-            })
-            ->orderBy('sort_order')
-            ->get();
+        $releasedItems = collect();
+        $teacherPassedPrepKeys = collect();
+        $aiTrainingRequiredItemIds = collect();
+        $sessions = collect();
+        $unfinishedSessions = collect();
+        $activeSessions = collect();
+        $sessionCompletionVideoUrl = null;
 
-        $teacherPassedPrepKeys = $this->teacherPassedPrepKeys($teacher);
+        if ($hasFilters) {
+            $releasedItems = TeachingPlanItem::with([
+                    'plan',
+                    'week',
+                    'course',
+                    'content.aiSummary',
+                    'content.courseContent.sourceTemplateContent.aiSummary',
+                    'courseContent',
+                ])
+                ->where('status', 'released')
+                ->whereDoesntHave('sessions', function ($query) {
+                    $query->where('status', 'completed');
+                })
+                ->whereNotExists(function ($query) {
+                    $query->selectRaw('1')
+                        ->from('class_content_sessions')
+                        ->whereNull('class_content_sessions.teaching_plan_item_id')
+                        ->where('class_content_sessions.status', 'completed')
+                        ->whereColumn('class_content_sessions.teaching_plan_id', 'teaching_plan_items.teaching_plan_id')
+                        ->whereColumn('class_content_sessions.teaching_plan_week_id', 'teaching_plan_items.teaching_plan_week_id')
+                        ->whereColumn('class_content_sessions.content_id', 'teaching_plan_items.content_id');
+                })
+                ->whereHas('plan', function ($query) use ($teacher, $selectedClass) {
+                    $query->where('institute', $teacher->institute)
+                        ->where('status', 'active')
+                        ->when($selectedClass, function ($classQuery) use ($selectedClass) {
+                            $classQuery->whereRaw(
+                                "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                                [$selectedClass]
+                            );
+                        });
+                })
+                ->orderBy('sort_order')
+                ->get();
 
-        $aiTrainingRequiredItemIds = $releasedItems
-            ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
-            ->pluck('id')
-            ->unique()
-            ->values();
+            $teacherPassedPrepKeys = $this->teacherPassedPrepKeys($teacher);
 
-        $sessions = ClassContentSession::with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
-            ->where('stem_engineer_id', $teacher->id)
-            ->where('institute', $teacher->institute)
-            ->whereDate('session_date', $today)
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$selectedClass]
-                );
-            })
-            ->latest()
-            ->get();
+            $aiTrainingRequiredItemIds = $releasedItems
+                ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
+                ->pluck('id')
+                ->unique()
+                ->values();
 
-        $unfinishedSessions = ClassContentSession::with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
-            ->where('stem_engineer_id', $teacher->id)
-            ->where('institute', $teacher->institute)
-            ->whereIn('status', ['in_progress', 'partially_completed'])
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$selectedClass]
-                );
-            })
-            ->orderBy('status')
-            ->latest('session_date')
-            ->latest()
-            ->get();
+            $sessions = ClassContentSession::with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
+                ->where('stem_engineer_id', $teacher->id)
+                ->where('institute', $teacher->institute)
+                ->whereDate('session_date', $today)
+                ->when($selectedClass, function ($query) use ($selectedClass) {
+                    $query->whereRaw(
+                        "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                        [$selectedClass]
+                    );
+                })
+                ->latest()
+                ->get();
 
-        $activeSessions = $unfinishedSessions->where('status', 'in_progress');
-        $sessionCompletionVideoUrl = session('sessionCompletionCelebration')
-            ? $this->randomSessionCompletionVideoUrl()
-            : null;
+            $unfinishedSessions = ClassContentSession::with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
+                ->where('stem_engineer_id', $teacher->id)
+                ->where('institute', $teacher->institute)
+                ->whereIn('status', ['in_progress', 'partially_completed'])
+                ->when($selectedClass, function ($query) use ($selectedClass) {
+                    $query->whereRaw(
+                        "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                        [$selectedClass]
+                    );
+                })
+                ->orderBy('status')
+                ->latest('session_date')
+                ->latest()
+                ->get();
+
+            $activeSessions = $unfinishedSessions->where('status', 'in_progress');
+            $sessionCompletionVideoUrl = session('sessionCompletionCelebration')
+                ? $this->randomSessionCompletionVideoUrl()
+                : null;
+        }
 
         return view(
             'teacher.my-classes',
@@ -1352,7 +1371,7 @@ class PageController extends Controller
                 'teacherPassedPrepKeys',
                 'aiTrainingRequiredItemIds',
                 'sessionCompletionVideoUrl'
-            )
+            ) + ['showFilterPlaceholder' => !$hasFilters]
         );
     }
 
@@ -1363,88 +1382,96 @@ class PageController extends Controller
 
         $classOptions = $this->teacherAssignedClassNames($teacher);
         $selectedClass = $request->input('class');
+        $hasFilters = filled($selectedClass);
 
-        $pendingSessions = ClassContentSession::with([
-                'course',
-                'content.aiSummary',
-                'content.courseContent.sourceTemplateContent.aiSummary',
-                'teachingPlan',
-                'teachingPlanWeek',
-                'teachingPlanItem',
-            ])
-            ->where('stem_engineer_id', $teacher->id)
-            ->where('institute', $teacher->institute)
-            ->whereIn('status', ['in_progress', 'partially_completed', 'cancelled'])
-            ->when($selectedClass, function ($query) use ($selectedClass) {
-                $query->whereRaw(
-                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                    [$selectedClass]
-                );
-            })
-            ->orderByRaw("FIELD(status, 'in_progress', 'partially_completed', 'cancelled')")
-            ->latest('session_date')
-            ->latest()
-            ->get()
-            ->reject(function ($session) use ($teacher) {
-                if ($session->teachingPlanItem && $session->teachingPlanItem->status === 'completed') {
-                    return true;
-                }
+        $pendingSessions = collect();
+        $laggedItems = collect();
+        $teacherPassedPrepKeys = collect();
+        $aiTrainingRequiredItemIds = collect();
 
-                if (!$session->teaching_plan_item_id) {
-                    return false;
-                }
+        if ($hasFilters) {
+            $pendingSessions = ClassContentSession::with([
+                    'course',
+                    'content.aiSummary',
+                    'content.courseContent.sourceTemplateContent.aiSummary',
+                    'teachingPlan',
+                    'teachingPlanWeek',
+                    'teachingPlanItem',
+                ])
+                ->where('stem_engineer_id', $teacher->id)
+                ->where('institute', $teacher->institute)
+                ->whereIn('status', ['in_progress', 'partially_completed', 'cancelled'])
+                ->when($selectedClass, function ($query) use ($selectedClass) {
+                    $query->whereRaw(
+                        "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                        [$selectedClass]
+                    );
+                })
+                ->orderByRaw("FIELD(status, 'in_progress', 'partially_completed', 'cancelled')")
+                ->latest('session_date')
+                ->latest()
+                ->get()
+                ->reject(function ($session) use ($teacher) {
+                    if ($session->teachingPlanItem && $session->teachingPlanItem->status === 'completed') {
+                        return true;
+                    }
 
-                return ClassContentSession::where('stem_engineer_id', $teacher->id)
-                    ->where('institute', $teacher->institute)
-                    ->where('teaching_plan_item_id', $session->teaching_plan_item_id)
-                    ->where('status', 'completed')
-                    ->exists();
-            })
-            ->values();
+                    if (!$session->teaching_plan_item_id) {
+                        return false;
+                    }
 
-        $pendingItemIds = $pendingSessions
-            ->pluck('teaching_plan_item_id')
-            ->filter()
-            ->unique()
-            ->values();
+                    return ClassContentSession::where('stem_engineer_id', $teacher->id)
+                        ->where('institute', $teacher->institute)
+                        ->where('teaching_plan_item_id', $session->teaching_plan_item_id)
+                        ->where('status', 'completed')
+                        ->exists();
+                })
+                ->values();
 
-        $laggedItems = TeachingPlanItem::with([
-                'plan',
-                'week',
-                'course',
-                'content.aiSummary',
-                'content.courseContent.sourceTemplateContent.aiSummary',
-                'courseContent',
-            ])
-            ->where('status', 'released')
-            ->when($pendingItemIds->isNotEmpty(), function ($query) use ($pendingItemIds) {
-                $query->whereNotIn('id', $pendingItemIds);
-            })
-            ->whereHas('plan', function ($query) use ($teacher, $selectedClass) {
-                $query->where('institute', $teacher->institute)
-                    ->where('status', 'active')
-                    ->when($selectedClass, function ($classQuery) use ($selectedClass) {
-                        $classQuery->whereRaw(
-                            "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                            [$selectedClass]
-                        );
-                    });
-            })
-            ->whereHas('week', function ($query) {
-                $query->where('status', 'released')
-                    ->where('release_reason', 'lagged_content');
-            })
-            ->orderBy('teaching_plan_week_id')
-            ->orderBy('sort_order')
-            ->get();
+            $pendingItemIds = $pendingSessions
+                ->pluck('teaching_plan_item_id')
+                ->filter()
+                ->unique()
+                ->values();
 
-        $teacherPassedPrepKeys = $this->teacherPassedPrepKeys($teacher);
+            $laggedItems = TeachingPlanItem::with([
+                    'plan',
+                    'week',
+                    'course',
+                    'content.aiSummary',
+                    'content.courseContent.sourceTemplateContent.aiSummary',
+                    'courseContent',
+                ])
+                ->where('status', 'released')
+                ->when($pendingItemIds->isNotEmpty(), function ($query) use ($pendingItemIds) {
+                    $query->whereNotIn('id', $pendingItemIds);
+                })
+                ->whereHas('plan', function ($query) use ($teacher, $selectedClass) {
+                    $query->where('institute', $teacher->institute)
+                        ->where('status', 'active')
+                        ->when($selectedClass, function ($classQuery) use ($selectedClass) {
+                            $classQuery->whereRaw(
+                                "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                                [$selectedClass]
+                            );
+                        });
+                })
+                ->whereHas('week', function ($query) {
+                    $query->where('status', 'released')
+                        ->where('release_reason', 'lagged_content');
+                })
+                ->orderBy('teaching_plan_week_id')
+                ->orderBy('sort_order')
+                ->get();
 
-        $aiTrainingRequiredItemIds = $laggedItems
-            ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
-            ->pluck('id')
-            ->unique()
-            ->values();
+            $teacherPassedPrepKeys = $this->teacherPassedPrepKeys($teacher);
+
+            $aiTrainingRequiredItemIds = $laggedItems
+                ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
+                ->pluck('id')
+                ->unique()
+                ->values();
+        }
 
         return view('teacher.pending-sessions', compact(
             'pendingSessions',
@@ -1453,7 +1480,7 @@ class PageController extends Controller
             'selectedClass',
             'teacherPassedPrepKeys',
             'aiTrainingRequiredItemIds'
-        ));
+        ) + ['showFilterPlaceholder' => !$hasFilters]);
     }
 
     public function streamSessionCompletionVideo($fileName)
@@ -1533,96 +1560,148 @@ class PageController extends Controller
     public function teacherContent(Request $request)
     {
         $teacher = User::find(session('user_id'));
-        ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
-            $this->buildStudentClassPager($request, $teacher->institute, 'teacher.content');
-        ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
-            $this->buildStudentSectionPager($request, $teacher->institute, $selectedStudentClass, 'teacher.content');
+        $selectedStudentClass = trim((string) $request->input('student_class', ''));
+        $selectedStudentSection = trim((string) $request->input('student_section', ''));
+        $hasFilters = filled($selectedStudentClass) || filled($selectedStudentSection);
 
-        $teachingItems = TeachingPlanItem::with(['plan', 'week'])
-            ->whereIn('status', ['released', 'completed'])
-            ->whereHas('plan', function ($query) use ($teacher, $selectedStudentClass, $selectedStudentSection) {
-                $query->where('institute', $teacher->institute)
-                    ->whereIn('status', ['active', 'completed'])
-                    ->when($selectedStudentClass, function ($classQuery) use ($selectedStudentClass) {
-                        $classQuery->where('class', $selectedStudentClass);
-                    })
-                    ->when($selectedStudentSection, function ($sectionQuery) use ($selectedStudentSection) {
-                        $sectionQuery->where('section', $selectedStudentSection);
-                    });
-            })
-            ->whereNotNull('content_id')
-            ->get();
-
-        $approvedContentIds = $teachingItems
-            ->pluck('content_id')
-            ->unique()
+        $classOptions = SchoolClass::where('institute', $teacher->institute)
+            ->whereNotNull('class_name')
+            ->orderBy('class_name')
+            ->pluck('class_name')
+            ->map(fn ($className) => trim((string) $className))
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
             ->values();
 
-        $teachingStatusByContentId = $teachingItems
-            ->groupBy('content_id')
-            ->map(function ($items) {
-                if ($items->contains('status', 'released')) {
-                    return 'released';
-                }
+        $sectionOptions = collect();
 
-                if ($items->contains('status', 'completed')) {
-                    return 'completed';
-                }
+        $schoolClassSections = SchoolClass::where('institute', $teacher->institute)
+            ->whereNotNull('section')
+            ->orderBy('section')
+            ->pluck('section')
+            ->map(fn ($section) => trim((string) $section));
 
-                return $items->first()->status;
-            });
+        $studentSections = Student::where('institute', $teacher->institute)
+            ->whereNotNull('section')
+            ->orderBy('section')
+            ->pluck('section')
+            ->map(fn ($section) => trim((string) $section));
 
-        $contentClassByContentId = $teachingItems
-            ->groupBy('content_id')
-            ->map(function ($items) {
-                $plan = $items->first()->plan;
-
-                return $plan
-                    ? preg_replace('/\s+/', ' ', trim($plan->class . ' ' . $plan->section))
-                    : 'Unassigned Class';
-            });
-
-        $contentGradeByContentId = $teachingItems
-            ->groupBy('content_id')
-            ->map(function ($items) {
-                return $this->gradeLevelFromClass($items->first()->plan?->class);
-            });
-
-        $aiTrainingRequiredContentIds = $teachingItems
-            ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
-            ->pluck('content_id')
-            ->unique()
+        $sectionOptions = $schoolClassSections
+            ->merge($studentSections)
+            ->filter()
+            ->unique(fn ($section) => mb_strtolower($section))
             ->values();
 
-        $teacherPassedPrepKeys = $this->teacherPassedPrepKeys($teacher);
+        $teachingItems = collect();
+        $approvedContentIds = collect();
+        $teachingStatusByContentId = collect();
+        $contentClassByContentId = collect();
+        $contentSectionByContentId = collect();
+        $contentGradeByContentId = collect();
+        $aiTrainingRequiredContentIds = collect();
+        $teacherPassedPrepKeys = collect();
+        $contents = collect();
+        $inProgressContentIds = collect();
 
-        $contents = Content::with(['aiSummary', 'courseContent.sourceTemplateContent.aiSummary'])
-            ->whereIn('id', $approvedContentIds)
-            ->orderBy('lesson_order')
-            ->orderBy('content_title')
-            ->get();
+        if ($hasFilters) {
+            $teachingItems = TeachingPlanItem::with(['plan', 'week'])
+                ->whereIn('status', ['released', 'completed'])
+                ->whereHas('plan', function ($query) use ($teacher, $selectedStudentClass, $selectedStudentSection) {
+                    $query->where('institute', $teacher->institute)
+                        ->whereIn('status', ['active', 'completed'])
+                        ->when($selectedStudentClass, function ($classQuery) use ($selectedStudentClass) {
+                            $classQuery->where('class', $selectedStudentClass);
+                        })
+                        ->when($selectedStudentSection, function ($sectionQuery) use ($selectedStudentSection) {
+                            $sectionQuery->where('section', $selectedStudentSection);
+                        });
+                })
+                ->whereNotNull('content_id')
+                ->get();
 
-        $inProgressContentIds = ClassContentSession::where('institute', $teacher->institute)
-            ->where('stem_engineer_id', $teacher->id)
-            ->where('status', 'in_progress')
-            ->whereNotNull('content_id')
-            ->pluck('content_id')
-            ->unique()
-            ->values();
+            $approvedContentIds = $teachingItems
+                ->pluck('content_id')
+                ->unique()
+                ->values();
+
+            $teachingStatusByContentId = $teachingItems
+                ->groupBy('content_id')
+                ->map(function ($items) {
+                    if ($items->contains('status', 'released')) {
+                        return 'released';
+                    }
+
+                    if ($items->contains('status', 'completed')) {
+                        return 'completed';
+                    }
+
+                    return $items->first()->status;
+                });
+
+            $contentClassByContentId = $teachingItems
+                ->groupBy('content_id')
+                ->map(function ($items) {
+                    $plan = $items->first()->plan;
+
+                    return $plan
+                        ? trim((string) $plan->class)
+                        : 'Unassigned Class';
+                });
+
+            $contentSectionByContentId = $teachingItems
+                ->groupBy('content_id')
+                ->map(function ($items) {
+                    $plan = $items->first()->plan;
+
+                    return $plan
+                        ? trim((string) $plan->section)
+                        : '';
+                });
+
+            $contentGradeByContentId = $teachingItems
+                ->groupBy('content_id')
+                ->map(function ($items) {
+                    return $this->gradeLevelFromClass($items->first()->plan?->class);
+                });
+
+            $aiTrainingRequiredContentIds = $teachingItems
+                ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
+                ->pluck('content_id')
+                ->unique()
+                ->values();
+
+            $teacherPassedPrepKeys = $this->teacherPassedPrepKeys($teacher);
+
+            $contents = Content::with(['aiSummary', 'courseContent.sourceTemplateContent.aiSummary'])
+                ->whereIn('id', $approvedContentIds)
+                ->orderBy('lesson_order')
+                ->orderBy('content_title')
+                ->get();
+
+            $inProgressContentIds = ClassContentSession::where('institute', $teacher->institute)
+                ->where('stem_engineer_id', $teacher->id)
+                ->where('status', 'in_progress')
+                ->whereNotNull('content_id')
+                ->pluck('content_id')
+                ->unique()
+                ->values();
+        }
 
         return view('teacher.teacher-content', compact(
             'contents',
             'teachingStatusByContentId',
             'inProgressContentIds',
             'contentClassByContentId',
+            'contentSectionByContentId',
             'contentGradeByContentId',
             'aiTrainingRequiredContentIds',
             'teacherPassedPrepKeys',
-            'classSectionPager',
-            'studentSectionPager',
+            'classOptions',
+            'sectionOptions',
             'selectedStudentClass',
             'selectedStudentSection'
-        ));
+        ) + ['showFilterPlaceholder' => !$hasFilters]);
     }
 
     public function teacherAiPrep($id)
@@ -1832,14 +1911,60 @@ class PageController extends Controller
     {
         $teacher = User::find(session('user_id'));
         $assignedClasses = $this->teacherAssignedClassNames($teacher);
+        $sectionOptions = Student::where('institute', $teacher->institute)
+            ->whereNotNull('section')
+            ->orderBy('section')
+            ->pluck('section')
+            ->map(fn ($section) => trim((string) $section))
+            ->filter()
+            ->unique(fn ($section) => mb_strtolower($section))
+            ->values();
+        $hasFilters = request()->filled('class')
+            || request()->filled('section')
+            || request()->filled('status')
+            || request()->filled('category')
+            || request()->filled('search')
+            || request()->filled('assessment_date');
 
-        $assessments = Assessment::where('institute', $teacher->institute)
-            ->where('teacher_id', $teacher->id)
-            ->whereIn('assigned_class', $assignedClasses)
-            ->latest()
-            ->get();
+        $classFilter = request()->input('class');
+        $sectionFilter = request()->input('section');
+        $statusFilter = request()->input('status');
+        $categoryFilter = request()->input('category');
+        $searchFilter = request()->input('search');
+        $dateFilter = request()->input('assessment_date');
 
-        return view('teacher.teacher-assessments', compact('assessments'));
+        $assessments = collect();
+
+        if ($hasFilters) {
+            $assessments = Assessment::where('institute', $teacher->institute)
+                ->where('teacher_id', $teacher->id)
+                ->whereIn('assigned_class', $assignedClasses)
+                ->when($classFilter, fn ($query) => $query->where('assigned_class', 'like', '%' . $classFilter . '%'))
+                ->when($sectionFilter, fn ($query) => $query->where('assigned_class', 'like', '%' . $sectionFilter . '%'))
+                ->when($statusFilter, fn ($query) => $query->where('status', $statusFilter))
+                ->when($categoryFilter, fn ($query) => $query->where('assessment_category', $categoryFilter))
+                ->when($dateFilter, fn ($query) => $query->whereDate('assessment_date', $dateFilter))
+                ->when($searchFilter, function ($query) use ($searchFilter) {
+                    $query->where(function ($innerQuery) use ($searchFilter) {
+                        $innerQuery->where('assessment_title', 'like', '%' . $searchFilter . '%')
+                            ->orWhere('assigned_class', 'like', '%' . $searchFilter . '%');
+                    });
+                })
+                ->latest()
+                ->get();
+        }
+
+        return view('teacher.teacher-assessments', compact(
+            'assessments',
+            'assignedClasses',
+            'classFilter',
+            'sectionFilter',
+            'statusFilter',
+            'categoryFilter',
+            'searchFilter',
+            'dateFilter',
+            'sectionOptions'
+        ) + ['showFilterPlaceholder' => !$hasFilters]);
     }
 
     public function teacherResults(Request $request)
@@ -1848,6 +1973,14 @@ class PageController extends Controller
         $badge = $request->badge;
         $status = $request->status;
         $sort = $request->sort;
+        $hasFilters = $request->filled('search')
+            || $request->filled('badge')
+            || $request->filled('status')
+            || $request->filled('sort')
+            || $request->filled('student_class')
+            || $request->filled('student_section')
+            || $request->filled('class_page')
+            || $request->filled('student_section_page');
 
         $teacher = User::find(session('user_id'));
         $studentIds = $this->teacherAssignedStudentIds($teacher);
@@ -1856,64 +1989,68 @@ class PageController extends Controller
         ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
             $this->buildStudentSectionPager($request, $teacher->institute, $selectedStudentClass, 'teacher.results');
 
-        $results = AssessmentResult::with(['assessment', 'student'])
-            ->whereIn('student_id', $studentIds)
-            ->when($selectedStudentClass, function ($query) use ($selectedStudentClass, $selectedStudentSection) {
-                $query->whereHas('student', function ($studentQuery) use ($selectedStudentClass, $selectedStudentSection) {
-                    $studentQuery->where('class', $selectedStudentClass);
+        $results = collect();
 
-                    if ($selectedStudentSection) {
-                        $studentQuery->where('section', $selectedStudentSection);
-                    }
-                });
-            })
-            ->whereHas('assessment', function ($query) use ($teacher) {
-                $query->where('teacher_id', $teacher->id);
-            })
-            ->when($search, function ($query, $search) {
+        if ($hasFilters) {
+            $results = AssessmentResult::with(['assessment', 'student'])
+                ->whereIn('student_id', $studentIds)
+                ->when($selectedStudentClass, function ($query) use ($selectedStudentClass, $selectedStudentSection) {
+                    $query->whereHas('student', function ($studentQuery) use ($selectedStudentClass, $selectedStudentSection) {
+                        $studentQuery->where('class', $selectedStudentClass);
 
-                $query->where(function ($searchQuery) use ($search) {
-                    $searchQuery->whereHas('student', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%")
-                            ->orWhere('student_id', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('assessment', function ($q) use ($search) {
-                        $q->where('assessment_title', 'like', "%{$search}%");
-                    })
-                    ->orWhere('badge', 'like', "%{$search}%");
-                });
+                        if ($selectedStudentSection) {
+                            $studentQuery->where('section', $selectedStudentSection);
+                        }
+                    });
+                })
+                ->whereHas('assessment', function ($query) use ($teacher) {
+                    $query->where('teacher_id', $teacher->id);
+                })
+                ->when($search, function ($query, $search) {
 
-            })
+                    $query->where(function ($searchQuery) use ($search) {
+                        $searchQuery->whereHas('student', function ($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%")
+                                ->orWhere('student_id', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('assessment', function ($q) use ($search) {
+                            $q->where('assessment_title', 'like', "%{$search}%");
+                        })
+                        ->orWhere('badge', 'like', "%{$search}%");
+                    });
 
-            ->when($badge, function ($query, $badge) {
+                })
 
-                $query->where('badge', $badge);
+                ->when($badge, function ($query, $badge) {
 
-            })
+                    $query->where('badge', $badge);
 
-            ->when($status, function ($query, $status) {
+                })
 
-                $query->where('status', $status);
+                ->when($status, function ($query, $status) {
 
-            })
+                    $query->where('status', $status);
 
-            ->when($sort == 'highest', function ($query) {
-                $query->orderByDesc('percentage');
-            })
+                })
 
-            ->when($sort == 'lowest', function ($query) {
-                $query->orderBy('percentage');
-            })
+                ->when($sort == 'highest', function ($query) {
+                    $query->orderByDesc('percentage');
+                })
 
-            ->when($sort == 'latest', function ($query) {
-                $query->latest();
-            })
+                ->when($sort == 'lowest', function ($query) {
+                    $query->orderBy('percentage');
+                })
 
-            ->when($sort == 'oldest', function ($query) {
-                $query->oldest();
-            })
+                ->when($sort == 'latest', function ($query) {
+                    $query->latest();
+                })
 
-            ->get();
+                ->when($sort == 'oldest', function ($query) {
+                    $query->oldest();
+                })
+
+                ->get();
+        }
 
         $topPerformer = $results->sortByDesc('percentage')->first();
         $lowestPerformer = $results->sortBy('percentage')->first();
@@ -1934,7 +2071,7 @@ class PageController extends Controller
             'studentSectionPager',
             'selectedStudentClass',
             'selectedStudentSection'
-        ));
+        ) + ['showFilterPlaceholder' => !$hasFilters]);
     }
 
     public function generateTeacherResultsAiInsights(Request $request, GeminiAiService $ai)
@@ -2061,24 +2198,32 @@ class PageController extends Controller
     public function teacherCertificates(Request $request)
     {
         $teacher = User::find(session('user_id'));
+        $hasFilters = $request->filled('student_class')
+            || $request->filled('student_section')
+            || $request->filled('class_page')
+            || $request->filled('student_section_page');
         ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
             $this->buildStudentClassPager($request, $teacher->institute, 'teacher.certificates');
         ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
             $this->buildStudentSectionPager($request, $teacher->institute, $selectedStudentClass, 'teacher.certificates');
 
-        $certificates = Certificate::with(['student', 'course'])
-            ->whereIn('student_id', $this->teacherAssignedStudentIds($teacher))
-            ->when($selectedStudentClass, function ($query) use ($selectedStudentClass, $selectedStudentSection) {
-                $query->whereHas('student', function ($studentQuery) use ($selectedStudentClass, $selectedStudentSection) {
-                    $studentQuery->where('class', $selectedStudentClass);
+        $certificates = collect();
 
-                    if ($selectedStudentSection) {
-                        $studentQuery->where('section', $selectedStudentSection);
-                    }
-                });
-            })
-            ->latest()
-            ->get();
+        if ($hasFilters) {
+            $certificates = Certificate::with(['student', 'course'])
+                ->whereIn('student_id', $this->teacherAssignedStudentIds($teacher))
+                ->when($selectedStudentClass, function ($query) use ($selectedStudentClass, $selectedStudentSection) {
+                    $query->whereHas('student', function ($studentQuery) use ($selectedStudentClass, $selectedStudentSection) {
+                        $studentQuery->where('class', $selectedStudentClass);
+
+                        if ($selectedStudentSection) {
+                            $studentQuery->where('section', $selectedStudentSection);
+                        }
+                    });
+                })
+                ->latest()
+                ->get();
+        }
 
         $totalCertificates = $certificates->count();
 
@@ -2099,7 +2244,7 @@ class PageController extends Controller
             'studentSectionPager',
             'selectedStudentClass',
             'selectedStudentSection'
-        ));
+        ) + ['showFilterPlaceholder' => !$hasFilters]);
     }
    public function teacherProfile()
     {
@@ -4729,62 +4874,89 @@ class PageController extends Controller
 
     public function assessmentReviewMonitoring(Request $request)
     {
-        $sectionPager = null;
-        $classSectionPager = null;
-        $studentSectionPager = null;
-        $currentInstitute = null;
-        $selectedStudentClass = null;
-        $selectedStudentSection = null;
+        $instituteOptions = Institute::where('status', 1)
+            ->orderBy('institute_name')
+            ->pluck('institute_name')
+            ->values();
 
-        if (session('user_role') == 'Admin') {
-            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
-                $this->buildInstituteSectionPager($request, 'admin.assessment.review.monitoring');
+        $selectedInstitute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : $request->input('institute');
+
+        $selectedStudentClass = $request->input('student_class');
+        $selectedStudentSection = $request->input('student_section');
+        $statusFilter = $request->input('status');
+        $searchFilter = $request->input('search');
+
+        $reviewClassOptions = collect();
+        $reviewSectionOptions = collect();
+
+        if ($selectedInstitute) {
+            $reviewClassOptions = SchoolClass::where('institute', $selectedInstitute)
+                ->orderBy('class_name')
+                ->pluck('class_name')
+                ->map(fn ($className) => trim((string) $className))
+                ->filter()
+                ->unique(fn ($className) => mb_strtolower($className))
+                ->values();
         }
 
-        if (session('user_role') == 'InstituteAdmin') {
-            $currentInstitute = session('user_institute');
+        if ($selectedInstitute && $selectedStudentClass) {
+            $reviewSectionOptions = Student::where('institute', $selectedInstitute)
+                ->where('class', $selectedStudentClass)
+                ->whereNotNull('section')
+                ->orderBy('section')
+                ->pluck('section')
+                ->map(fn ($section) => trim((string) $section))
+                ->filter()
+                ->unique(fn ($section) => mb_strtolower($section))
+                ->values();
         }
 
-        if ($currentInstitute) {
-            ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
-                $this->buildStudentClassPager($request, $currentInstitute, 'admin.assessment.review.monitoring');
+        $hasFilters = $request->filled('institute')
+            || $request->filled('student_class')
+            || $request->filled('student_section')
+            || $request->filled('status')
+            || $request->filled('search')
+            || session('user_role') == 'InstituteAdmin';
 
-            ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
-                $this->buildStudentSectionPager($request, $currentInstitute, $selectedStudentClass, 'admin.assessment.review.monitoring');
+        $results = collect();
+
+        if ($hasFilters && $selectedInstitute) {
+            $results = AssessmentResult::with([
+                'student',
+                'assessment',
+            ])
+                ->whereHas('student', function ($query) use ($selectedInstitute, $selectedStudentClass, $selectedStudentSection, $searchFilter) {
+                    $query->where('institute', $selectedInstitute)
+                        ->when($selectedStudentClass, fn ($innerQuery) => $innerQuery->where('class', $selectedStudentClass))
+                        ->when($selectedStudentSection, fn ($innerQuery) => $innerQuery->where('section', $selectedStudentSection))
+                        ->when($searchFilter, function ($innerQuery) use ($searchFilter) {
+                            $innerQuery->where(function ($searchQuery) use ($searchFilter) {
+                                $searchQuery->where('name', 'like', '%' . $searchFilter . '%')
+                                    ->orWhere('student_id', 'like', '%' . $searchFilter . '%');
+                            });
+                        });
+                })
+                ->when($statusFilter, fn ($query) => $query->where('status', $statusFilter))
+                ->latest()
+                ->paginate(30)
+                ->withQueryString();
         }
-
-        $results = AssessmentResult::with([
-            'student',
-            'assessment'
-        ])
-        ->when($currentInstitute, function ($query) use ($currentInstitute, $selectedStudentClass, $selectedStudentSection) {
-            $query->whereHas('student', function ($q) use ($currentInstitute, $selectedStudentClass, $selectedStudentSection) {
-                $q->where('institute', $currentInstitute);
-
-                if ($selectedStudentClass) {
-                    $q->where('class', $selectedStudentClass);
-                }
-
-                if ($selectedStudentSection) {
-                    $q->where('section', $selectedStudentSection);
-                }
-            });
-        })
-        ->latest()
-        ->paginate(30)
-        ->withQueryString();
 
         return view(
             'assessment-review-monitoring',
             compact(
                 'results',
-                'sectionPager',
-                'classSectionPager',
-                'studentSectionPager',
-                'currentInstitute',
+                'instituteOptions',
+                'selectedInstitute',
                 'selectedStudentClass',
-                'selectedStudentSection'
-            )
+                'selectedStudentSection',
+                'statusFilter',
+                'searchFilter',
+                'reviewClassOptions',
+                'reviewSectionOptions'
+            ) + ['showFilterPlaceholder' => ! $hasFilters || ! $selectedInstitute]
         );
     }
 

@@ -24,7 +24,9 @@ class AssessmentController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
+        $teacher = User::find(session('user_id'));
         $teacherClassNames = $this->teacherInstituteClassNames();
+        $assignedClasses = $teacherClassNames;
         $sectionPager = null;
         $classSectionPager = null;
         $studentSectionPager = null;
@@ -56,10 +58,20 @@ class AssessmentController extends Controller
                 $this->buildStudentSectionPager($request, $managedInstitute, $selectedStudentClass, $request->route()?->getName() ?: 'teacher.assessments');
         }
 
-        $assessments = Assessment::with(['teacher', 'questionPaperReviewer'])
-            ->when(session('user_role') == 'Teacher', function ($query) {
-                $teacher = User::find(session('user_id'));
+        $sectionOptions = collect();
+        if ($managedInstitute) {
+            $sectionOptions = Student::where('institute', $managedInstitute)
+                ->whereNotNull('section')
+                ->orderBy('section')
+                ->pluck('section')
+                ->map(fn ($section) => trim((string) $section))
+                ->filter()
+                ->unique(fn ($section) => mb_strtolower($section))
+                ->values();
+        }
 
+        $assessments = Assessment::with(['teacher', 'questionPaperReviewer'])
+            ->when(session('user_role') == 'Teacher', function ($query) use ($teacher) {
                 $query->where('teacher_id', session('user_id'))
                     ->where('institute', $teacher?->institute);
             })
@@ -76,7 +88,7 @@ class AssessmentController extends Controller
                         ->orWhere('assigned_class', 'like', "%{$search}%");
                 });
             })
-            ->when($selectedStudentClass, function ($query) use ($selectedStudentClass, $selectedStudentSection) {
+                ->when($selectedStudentClass, function ($query) use ($selectedStudentClass, $selectedStudentSection) {
                 $normalizedClass = preg_replace('/\s+/', ' ', trim((string) $selectedStudentClass));
                 $normalizedClassSection = preg_replace('/\s+/', ' ', trim($normalizedClass . ' ' . (string) $selectedStudentSection));
 
@@ -101,7 +113,19 @@ class AssessmentController extends Controller
             ->paginate(30)
             ->withQueryString();
 
-        $teacher = User::find(session('user_id'));
+        $classFilter = $request->input('class');
+        $sectionFilter = $request->input('section');
+        $statusFilter = $request->input('status');
+        $categoryFilter = $request->input('category');
+        $searchFilter = $request->input('search');
+        $dateFilter = $request->input('assessment_date');
+        $hasFilters = $request->filled('class')
+            || $request->filled('section')
+            || $request->filled('status')
+            || $request->filled('category')
+            || $request->filled('search')
+            || $request->filled('assessment_date');
+
         $availableContents = $this->teacherAssessmentContents($teacher);
 
         $classOptions = $teacherClassNames;
@@ -109,6 +133,8 @@ class AssessmentController extends Controller
         return view('assessments', compact(
             'assessments',
             'classOptions',
+            'teacherClassNames',
+            'assignedClasses',
             'teacher',
             'availableContents',
             'sectionPager',
@@ -116,8 +142,15 @@ class AssessmentController extends Controller
             'studentSectionPager',
             'currentInstitute',
             'selectedStudentClass',
-            'selectedStudentSection'
-        ));
+            'selectedStudentSection',
+            'classFilter',
+            'sectionFilter',
+            'statusFilter',
+            'categoryFilter',
+            'searchFilter',
+            'dateFilter',
+            'sectionOptions'
+        ) + ['showFilterPlaceholder' => ! $hasFilters]);
     }
 
     private function buildStudentClassPager(Request $request, ?string $institute, string $routeName): array

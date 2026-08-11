@@ -97,7 +97,8 @@
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    <table class="table table-bordered table-hover align-middle">
+                    <div class="table-responsive lms-table-shell">
+                    <table class="table table-bordered table-hover align-middle lms-table-fit">
 
                         <thead class="table-light">
                             <tr>
@@ -204,6 +205,7 @@
                         </tbody>
 
                     </table>
+                    </div>
 
                 </div>
 

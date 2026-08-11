@@ -22,6 +22,33 @@
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
 
+            <div class="card shadow border-0 mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ route('teacher.classes') }}" class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">Class</label>
+                            <select name="class" class="form-control">
+                                <option value="">All Classes</option>
+                                @foreach($classOptions as $classOption)
+                                    <option value="{{ $classOption }}" {{ $selectedClass == $classOption ? 'selected' : '' }}>
+                                        {{ $classOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">Apply</button>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{{ route('teacher.classes') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            @if($showFilterPlaceholder)
+                @include('partials.filter-placeholder')
+            @else
             <div class="row g-4 mb-4">
                 <div class="col-md-4">
                     <div class="dashboard-card">
@@ -155,8 +182,8 @@
                     <h5 class="mb-0">Released Teaching Plan Content</h5>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover align-middle">
+                    <div class="table-responsive lms-table-shell">
+                        <table class="table table-bordered table-hover align-middle lms-table-fit">
                             <thead class="table-light">
                                 <tr>
                                     <th>Class</th>
@@ -231,8 +258,8 @@
                     <h5 class="mb-0">Today's Session Execution</h5>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover align-middle">
+                    <div class="table-responsive lms-table-shell">
+                        <table class="table table-bordered table-hover align-middle lms-table-fit">
                             <thead class="table-light">
                                 <tr>
                                     <th>Class</th>
@@ -385,6 +412,8 @@
             </div>
         </div>
     </div>
+
+            @endif
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {

@@ -58,9 +58,9 @@
                     </div>
                 @endif
 
-                <div class="table-responsive">
+                <div class="table-responsive lms-table-shell">
 
-                    <table class="table align-middle">
+                    <table class="table align-middle lms-table-fit">
 
                         <thead>
 

@@ -359,8 +359,8 @@
                             </a>
                         </div>
 
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle teacher-class-table">
+                        <div class="table-responsive lms-table-shell">
+                            <table class="table table-hover align-middle teacher-class-table lms-table-fit">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Class</th>

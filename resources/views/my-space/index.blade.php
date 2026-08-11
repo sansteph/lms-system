@@ -56,7 +56,8 @@
 
                 <div class="card-body">
 
-                    <table class="table table-hover align-middle">
+                    <div class="table-responsive lms-table-shell">
+                    <table class="table table-hover align-middle lms-table-fit">
 
                         <thead>
                             <tr>
@@ -173,6 +174,7 @@
                         </tbody>
 
                     </table>
+                    </div>
 
                 </div>
 

@@ -40,37 +40,67 @@
                 $assessmentRows = method_exists($assessments, 'getCollection') ? $assessments->getCollection() : collect($assessments);
             @endphp
 
-            @if(session('user_role') == 'Admin')
-                @include('partials.section-navigator', [
-                    'sectionPager' => $sectionPager ?? null,
-                    'sectionDescription' => 'Browse assessment management institute by institute.',
-                ])
-            @endif
-
-            @include('partials.section-navigator', [
-                'sectionPager' => $classSectionPager ?? null,
-                'sectionDescription' => 'Browse assessments one class at a time.',
-            ])
-
-            @include('partials.section-navigator', [
-                'sectionPager' => $studentSectionPager ?? null,
-                'sectionDescription' => 'Showing assessments for this section only.',
-            ])
-
-            @if(!empty($selectedStudentClass))
-                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <span class="fw-semibold">Current assessment scope:</span>
-                        Class {{ $selectedStudentClass }}
-                        @if(!empty($selectedStudentSection))
-                            &middot; Section {{ $selectedStudentSection }}
-                        @endif
-                    </div>
-
-                    @if(!empty($currentInstitute))
-                        <span class="text-muted small">{{ $currentInstitute }}</span>
-                    @endif
+            <div class="card shadow border-0 mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ route('teacher.assessments') }}" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Class</label>
+                            <select name="class" class="form-select">
+                                <option value="">All Classes</option>
+                                @foreach($assignedClasses as $assignedClass)
+                                    <option value="{{ $assignedClass }}" {{ $classFilter == $assignedClass ? 'selected' : '' }}>
+                                        {{ $assignedClass }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Section</label>
+                            <select name="section" class="form-select">
+                                <option value="">All Sections</option>
+                                @foreach($sectionOptions as $sectionOption)
+                                    <option value="{{ $sectionOption }}" {{ $sectionFilter == $sectionOption ? 'selected' : '' }}>
+                                        {{ $sectionOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">All Status</option>
+                                <option value="1" {{ $statusFilter === '1' ? 'selected' : '' }}>Active</option>
+                                <option value="0" {{ $statusFilter === '0' ? 'selected' : '' }}>Inactive</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Category</label>
+                            <select name="category" class="form-select">
+                                <option value="">All Categories</option>
+                                <option value="Monthly" {{ $categoryFilter === 'Monthly' ? 'selected' : '' }}>Monthly</option>
+                                <option value="Annual" {{ $categoryFilter === 'Annual' ? 'selected' : '' }}>Annual</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Search</label>
+                            <input type="text" name="search" class="form-control" placeholder="Search by title or class" value="{{ $searchFilter }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Assessment Date</label>
+                            <input type="date" name="assessment_date" class="form-control" value="{{ $dateFilter }}">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">Apply</button>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{{ route('teacher.assessments') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                        </div>
+                    </form>
                 </div>
+            </div>
+
+            @if($showFilterPlaceholder)
+                @include('partials.filter-placeholder')
             @endif
 
             <div class="row g-4 mb-4">
@@ -80,26 +110,9 @@
                 <div class="col-md-3"><div class="dashboard-card"><h6>Rejected Papers</h6><h2>{{ $assessmentRows->where('question_paper_status', 'Rejected')->count() }}</h2></div></div>
             </div>
 
+            @if(!$showFilterPlaceholder)
             <div class="card shadow border-0">
                 <div class="card-body">
-                    <form method="GET" action="{{ route('teacher.assessments') }}" class="row mb-3">
-                        @foreach(['section_page', 'class_page', 'student_class', 'student_section_page', 'student_section'] as $filterKey)
-                            @if(request()->has($filterKey))
-                                <input type="hidden" name="{{ $filterKey }}" value="{{ request($filterKey) }}">
-                            @endif
-                        @endforeach
-
-                        <div class="col-md-4">
-                            <input type="text" name="search" class="form-control" placeholder="Search by title or class" value="{{ request('search') }}">
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100">Search</button>
-                        </div>
-                        <div class="col-md-2">
-                            <a href="{{ route('teacher.assessments') }}" class="btn btn-outline-secondary w-100">Clear</a>
-                        </div>
-                    </form>
-
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover align-middle">
                             <thead class="table-light">
@@ -189,6 +202,7 @@
                     @endif
                 </div>
             </div>
+            @endif
         </div>
     </div>
 </div>

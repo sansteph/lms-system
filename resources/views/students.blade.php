@@ -50,6 +50,9 @@
                 </div>
             </div>
 
+            @if($showFilterPlaceholder)
+                @include('partials.filter-placeholder')
+            @else
             <div class="card shadow border-0">
                 <div class="card-body">
 
@@ -146,7 +149,11 @@
                         </div>
                     </form>
 
-                    <table class="table table-bordered table-hover align-middle">
+                    @if($showFilterPlaceholder)
+                        @include('partials.filter-placeholder')
+                    @else
+                    <div class="table-responsive lms-table-shell">
+                    <table class="table table-bordered table-hover align-middle lms-table-fit">
                         <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
@@ -315,10 +322,11 @@
                                                                 <option value="1" {{ $student->status == 1 ? 'selected' : '' }}>Active</option>
                                                                 <option value="0" {{ $student->status == 0 ? 'selected' : '' }}>Inactive</option>
                                                             </select>
-                                                        </div>
+                    </div>
+                    @endif
 
-                                                    </div>
-                                                </div>
+                </div>
+            </div>
 
                                                 <div class="modal-footer">
                                                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -340,6 +348,7 @@
                             @endforelse
                         </tbody>
                     </table>
+                    </div>
 
                 </div>
 
@@ -349,6 +358,7 @@
                     </div>
                 @endif
             </div>
+            @endif
 
         </div>
     </div>

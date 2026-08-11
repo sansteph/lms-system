@@ -19,6 +19,21 @@
 
             </div>
 
+            @if($showFilterPlaceholder)
+                @include('partials.section-navigator', [
+                    'sectionPager' => $classSectionPager ?? null,
+                    'sectionDescription' => 'Browse certificates one class at a time.',
+                ])
+
+                @include('partials.section-navigator', [
+                    'sectionPager' => $studentSectionPager ?? null,
+                    'sectionDescription' => 'Showing certificates for this section only.',
+                ])
+            @endif
+
+            @if($showFilterPlaceholder)
+                @include('partials.filter-placeholder')
+            @else
             <div class="row g-4 mb-4">
                 <div class="col-md-4">
                     <div class="dashboard-card">
@@ -65,7 +80,8 @@
                         </div>
                     @endif
 
-                    <table class="table table-bordered table-hover align-middle">
+                    <div class="table-responsive lms-table-shell">
+                    <table class="table table-bordered table-hover align-middle lms-table-fit">
                         <thead class="table-dark">
                             <tr>
                                 <th>Sl. No</th>
@@ -140,6 +156,7 @@
                         </tbody>
 
                     </table>
+                    </div>
 
                     <div class="alert alert-info mt-3 mb-0">
                         Certificate requests are prepared after Annual Assessment evaluation and issued only after approval.
@@ -147,6 +164,7 @@
 
                 </div>
             </div>
+            @endif
         </div>
     </div>
 </div>

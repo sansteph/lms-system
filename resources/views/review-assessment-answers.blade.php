@@ -116,204 +116,204 @@
                     <div class="alert alert-danger">Please check the marks, status, and feedback fields.</div>
                 @endif
 
-                @if(session('user_role') == 'Admin')
-                    @include('partials.section-navigator', [
-                        'sectionPager' => $sectionPager ?? null,
-                        'sectionDescription' => 'Pending assessment evaluations are shown one institute at a time to keep review pages fast.',
-                    ])
-                @endif
-
-                @include('partials.section-navigator', [
-                    'sectionPager' => $classSectionPager ?? null,
-                    'sectionDescription' => 'Browse pending evaluations one class at a time.',
-                ])
-
-                @include('partials.section-navigator', [
-                    'sectionPager' => $studentSectionPager ?? null,
-                    'sectionDescription' => 'Showing pending evaluations for this section only.',
-                ])
-
-                @if(!empty($selectedStudentClass))
-                    <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <div>
-                            <span class="fw-semibold">Current evaluation scope:</span>
-                            Class {{ $selectedStudentClass }}
-                            @if(!empty($selectedStudentSection))
-                                &middot; Section {{ $selectedStudentSection }}
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <form method="GET" action="{{ route($reviewRouteName) }}" class="row g-3 align-items-end">
+                            @if(session('user_role') == 'Admin')
+                                <div class="col-md-3">
+                                    <label class="form-label">Institute</label>
+                                    <select name="institute" class="form-select">
+                                        <option value="">All Institutes</option>
+                                        @foreach($instituteOptions as $institute)
+                                            <option value="{{ $institute }}" @selected(($selectedInstitute ?? '') === $institute)>{{ $institute }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             @endif
-                        </div>
 
-                        @if(!empty($currentInstitute))
-                            <span class="text-muted small">{{ $currentInstitute }}</span>
-                        @endif
-                    </div>
-                @endif
-
-                @forelse($pendingResults->getCollection()->groupBy(fn ($result) => $result->student ? trim($result->student->class . ' ' . $result->student->section) : 'Unassigned Class') as $classLabel => $classResults)
-                    <div class="fw-bold text-primary mb-3">{{ $classLabel }}</div>
-                    @foreach($classResults as $result)
-                    @php
-                        $assessment = $result->assessment;
-                        $paperUrl = null;
-                        $paperExtension = $assessment ? strtolower(pathinfo($assessment->file_path ?? '', PATHINFO_EXTENSION)) : null;
-                        $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
-                        $paperVariant = $assessment && in_array($paperExtension, $previewExtensions) && $assessment->question_paper_preview_path
-                            ? 'preview'
-                            : 'file';
-
-                        if ($assessment && $assessment->file_path) {
-                            $paperUrl = route('assessment.paper', [$assessment->id, $paperVariant]) . '#toolbar=0&navpanes=0&scrollbar=1';
-                        }
-
-                    @endphp
-
-                    <div class="card review-card mb-4">
-                        <div class="card-body p-4">
-                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
-                                <div>
-                                    <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
-                                        <h4 class="mb-0">{{ $assessment->assessment_title ?? 'Assessment Deleted' }}</h4>
-                                        <span class="status-chip">Pending Review</span>
-                                    </div>
-
-                                    <div class="text-muted mb-3">
-                                        {{ $result->student->name ?? 'Student Deleted' }}
-                                        @if($result->student)
-                                            ({{ $result->student->student_id }})
-                                        @endif
-                                    </div>
-
-                                    <div class="review-meta">
-                                        <span>{{ $assessment->assigned_class ?? 'Class Not Set' }}</span>
-                                        <span>{{ $assessment->assessment_category ?? 'Monthly' }}</span>
-                                        <span>{{ $result->total_marks }} max marks</span>
-                                        <span>{{ $assessment && $assessment->assessment_date ? \Carbon\Carbon::parse($assessment->assessment_date)->format('d M Y') : 'Date Not Set' }}</span>
-                                        <span>Submitted {{ $result->created_at ? $result->created_at->format('d M Y, h:i A') : 'N/A' }}</span>
-                                    </div>
-                                </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Class</label>
+                                <select name="student_class" class="form-select">
+                                    <option value="">All Classes</option>
+                                    @foreach($reviewClassOptions as $className)
+                                        <option value="{{ $className }}" @selected(($selectedStudentClass ?? '') === $className)>{{ $className }}</option>
+                                    @endforeach
+                                </select>
                             </div>
 
-                            <div class="row g-4 align-items-start">
-                                <div class="col-xl-7">
-                                    <div class="row g-4">
-                                        <div class="col-12">
-                                            <div class="border rounded bg-white">
-                                                <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
-                                                    <div>
-                                                        <strong>Question Paper</strong>
-                                                        <div class="small text-muted">Approved paper used by the student.</div>
+                            <div class="col-md-3">
+                                <label class="form-label">Section</label>
+                                <select name="student_section" class="form-select">
+                                    <option value="">All Sections</option>
+                                    @foreach($reviewSectionOptions as $sectionName)
+                                        <option value="{{ $sectionName }}" @selected(($selectedStudentSection ?? '') === $sectionName)>{{ $sectionName }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label">Status</label>
+                                <select name="status" class="form-select">
+                                    <option value="">All Statuses</option>
+                                    <option value="Pending Review" @selected(($statusFilter ?? '') === 'Pending Review')>Pending Review</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label">Search</label>
+                                <input type="text" name="search" class="form-control" value="{{ $searchFilter ?? '' }}" placeholder="Student / ID">
+                            </div>
+
+                            <div class="col-12 d-flex gap-2 flex-wrap">
+                                <button type="submit" class="btn btn-primary">Apply Filters</button>
+                                <a href="{{ route($reviewRouteName) }}" class="btn btn-outline-secondary">Clear</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                @if($showFilterPlaceholder ?? false)
+                    @include('partials.filter-placeholder')
+                @else
+                    @forelse($pendingResults->getCollection()->groupBy(fn ($result) => $result->student ? trim(($result->student->class ?? '') . ' ' . ($result->student->section ?? '')) : 'Unassigned Class') as $classLabel => $classResults)
+                        <div class="fw-bold text-primary mb-3">{{ $classLabel }}</div>
+                        @foreach($classResults as $result)
+                            @php
+                                $assessment = $result->assessment;
+                                $paperUrl = null;
+                                $paperExtension = $assessment ? strtolower(pathinfo($assessment->file_path ?? '', PATHINFO_EXTENSION)) : null;
+                                $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
+                                $paperVariant = $assessment && in_array($paperExtension, $previewExtensions) && $assessment->question_paper_preview_path
+                                    ? 'preview'
+                                    : 'file';
+
+                                if ($assessment && $assessment->file_path) {
+                                    $paperUrl = route('assessment.paper', [$assessment->id, $paperVariant]) . '#toolbar=0&navpanes=0&scrollbar=1';
+                                }
+                            @endphp
+
+                            <div class="card review-card mb-4">
+                                <div class="card-body p-4">
+                                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+                                        <div>
+                                            <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                                                <h4 class="mb-0">{{ $assessment->assessment_title ?? 'Assessment Deleted' }}</h4>
+                                                <span class="status-chip">Pending Review</span>
+                                            </div>
+
+                                            <div class="text-muted mb-3">
+                                                {{ $result->student->name ?? 'Student Deleted' }}
+                                                @if($result->student)
+                                                    ({{ $result->student->student_id }})
+                                                @endif
+                                            </div>
+
+                                            <div class="review-meta">
+                                                <span>{{ $assessment->assigned_class ?? 'Class Not Set' }}</span>
+                                                <span>{{ $assessment->assessment_category ?? 'Monthly' }}</span>
+                                                <span>{{ $result->total_marks }} max marks</span>
+                                                <span>{{ $assessment && $assessment->assessment_date ? \Carbon\Carbon::parse($assessment->assessment_date)->format('d M Y') : 'Date Not Set' }}</span>
+                                                <span>Submitted {{ $result->created_at ? $result->created_at->format('d M Y, h:i A') : 'N/A' }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-4 align-items-start">
+                                        <div class="col-xl-7">
+                                            <div class="row g-4">
+                                                <div class="col-12">
+                                                    <div class="border rounded bg-white">
+                                                        <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                                                            <div>
+                                                                <strong>Question Paper</strong>
+                                                                <div class="small text-muted">Approved paper used by the student.</div>
+                                                            </div>
+                                                            <span class="badge bg-light text-dark border">Reference</span>
+                                                        </div>
+
+                                                        <div class="p-3">
+                                                            @if($paperUrl && ($paperExtension == 'pdf' || $paperVariant == 'preview'))
+                                                                <iframe src="{{ $paperUrl }}" class="paper-frame" title="Question Paper"></iframe>
+                                                            @elseif($paperUrl && in_array($paperExtension, ['jpg', 'jpeg', 'png', 'webp']))
+                                                                <img src="{{ route('assessment.paper', [$assessment->id, $paperVariant]) }}" alt="Question Paper" class="img-fluid rounded border">
+                                                            @else
+                                                                <div class="text-muted">Question paper preview is unavailable.</div>
+                                                            @endif
+                                                        </div>
                                                     </div>
-                                                    <span class="badge bg-light text-dark border">Reference</span>
                                                 </div>
 
-                                                <div class="p-3">
-                                                    @if($paperUrl && ($paperExtension == 'pdf' || $paperVariant == 'preview'))
-                                                        <iframe src="{{ $paperUrl }}"
-                                                                class="paper-frame"
-                                                                title="Question Paper">
-                                                        </iframe>
-                                                    @elseif($paperUrl && in_array($paperExtension, ['jpg', 'jpeg', 'png', 'webp']))
-                                                        <img src="{{ route('assessment.paper', [$assessment->id, $paperVariant]) }}"
-                                                             class="img-fluid rounded border"
-                                                             alt="Question Paper">
-                                                    @else
-                                                        <div class="alert alert-warning mb-0">Question paper preview is not available.</div>
-                                                    @endif
+                                                <div class="col-12">
+                                                    <div class="border rounded bg-white answer-sheet">
+                                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                                            <div>
+                                                                <strong>Student Submission</strong>
+                                                                <div class="small text-muted">Typed answer submitted by the student.</div>
+                                                            </div>
+                                                            <span class="badge bg-light text-dark border">Submission</span>
+                                                        </div>
+
+                                                        <div class="answer-text border rounded">
+                                                            @if(!empty($result->answer_text))
+                                                                {{ $result->answer_text }}
+                                                            @else
+                                                                <span class="answer-empty">No typed answer submitted.</span>
+                                                            @endif
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div class="col-12">
-                                            <div class="border rounded bg-white">
-                                                <div class="p-3 border-bottom">
-                                                    <strong>Student Submission</strong>
-                                                    <div class="small text-muted">Typed answer submitted by the student.</div>
-                                                </div>
+                                        <div class="col-xl-5">
+                                            <div class="evaluation-panel">
+                                                <div class="card border-0 shadow-sm">
+                                                    <div class="card-body">
+                                                        <div class="mb-3">
+                                                            <div class="fw-semibold mb-1">Evaluation Status</div>
+                                                            <div class="text-muted small">Enter marks, feedback, and final decision.</div>
+                                                        </div>
 
-                                                <div class="answer-sheet">
-                                                    <div class="fw-semibold mb-2">Typed Answer</div>
-                                                    <div class="border rounded answer-text">@if(trim((string) $result->answer_text) !== ''){{ $result->answer_text }}@else<span class="answer-empty">No typed answer submitted.</span>@endif</div>
+                                                        <form method="POST" action="{{ route(session('user_role') == 'Teacher' ? 'assessment.review.submit' : 'admin.assessment.review.submit', $result->id) }}">
+                                                            @csrf
+
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Marks Awarded</label>
+                                                                <input type="number" name="marks_awarded" class="form-control" min="0" max="{{ $result->total_marks }}" value="{{ old('marks_awarded', $result->score ?? '') }}" required>
+                                                            </div>
+
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Feedback</label>
+                                                                <textarea name="feedback" rows="4" class="form-control">{{ old('feedback', $result->feedback ?? '') }}</textarea>
+                                                            </div>
+
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Passed</label>
+                                                                <select name="passed" class="form-select" required>
+                                                                    <option value="1" @selected(old('passed', $result->passed ?? '') == 1)>Pass</option>
+                                                                    <option value="0" @selected(old('passed', $result->passed ?? '') == 0)>Fail</option>
+                                                                </select>
+                                                            </div>
+
+                                                            <button type="submit" class="btn btn-primary w-100">Submit Evaluation</button>
+                                                        </form>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div class="col-xl-5">
-                                    <div class="card border-0 bg-white evaluation-panel">
-                                        <div class="card-header bg-white">
-                                            <strong>Manual Evaluation</strong>
-                                            <div class="small text-muted">Enter final marks, feedback, and pass/fail status.</div>
-                                        </div>
-
-                                        <div class="card-body">
-                                            <form method="POST" action="{{ route(session('user_role') == 'Teacher' ? 'assessment.review.submit' : 'admin.assessment.review.submit', $result->id) }}" class="row g-3">
-                                                @csrf
-
-                                                <div class="col-md-6">
-                                                    <label class="form-label fw-semibold">Final Marks</label>
-                                                    <div class="input-group">
-                                                        <input type="number"
-                                                               name="marks_awarded"
-                                                               class="form-control"
-                                                               min="0"
-                                                               max="{{ $result->total_marks }}"
-                                                               value="{{ old('marks_awarded') }}"
-                                                               required>
-                                                        <span class="input-group-text">/ {{ $result->total_marks }}</span>
-                                                    </div>
-                                                </div>
-
-                                                <div class="col-md-6">
-                                                    <label class="form-label fw-semibold">Evaluation Status</label>
-                                                    <select name="passed" class="form-select" required>
-                                                        <option value="">Select status</option>
-                                                        <option value="1" {{ old('passed') === '1' ? 'selected' : '' }}>Pass</option>
-                                                        <option value="0" {{ old('passed') === '0' ? 'selected' : '' }}>Fail</option>
-                                                    </select>
-                                                </div>
-
-                                                <div class="col-12">
-                                                    <label class="form-label fw-semibold">Feedback</label>
-                                                    <textarea name="feedback"
-                                                              class="form-control"
-                                                              rows="7"
-                                                              maxlength="2000"
-                                                              placeholder="Add concise feedback for the student.">{{ old('feedback') }}</textarea>
-                                                    <div class="small text-muted mt-1">This feedback will be stored with the evaluated result.</div>
-                                                </div>
-
-                                                <div class="col-12">
-                                                    <div class="alert alert-light border small mb-0">
-                                                        Results, reports, certificates, and achievements will use these manually entered final marks.
-                                                    </div>
-                                                </div>
-
-                                                <div class="col-12">
-                                                    <button type="submit" class="btn btn-primary btn-lg w-100">
-                                                        Submit Evaluation
-                                                    </button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
-                        </div>
-                    </div>
-                    @endforeach
-                @empty
-                    <div class="card review-card">
-                        <div class="card-body text-center text-muted py-5">
-                            No pending submissions for review.
-                        </div>
-                    </div>
-                @endforelse
+                        @endforeach
+                    @empty
+                        <div class="alert alert-light border text-muted mb-0">No pending evaluations found.</div>
+                    @endforelse
 
-                @if($pendingResults->hasPages())
-                    <div class="mt-3">
-                        {{ $pendingResults->links('pagination::bootstrap-5') }}
-                    </div>
+                    @if(method_exists($pendingResults, 'links'))
+                        <div class="mt-3">
+                            {{ $pendingResults->links('pagination::bootstrap-5') }}
+                        </div>
+                    @endif
                 @endif
             </div>
         </div>
@@ -321,4 +321,3 @@
 </div>
 
 @endsection
-

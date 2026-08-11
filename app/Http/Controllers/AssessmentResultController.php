@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\AssessmentResult;
 use App\Models\AssessmentSession;
 use App\Models\Certificate;
+use App\Models\Institute;
 use Illuminate\Support\Str;
 use App\Models\Assessment;
 use App\Models\Student;
@@ -92,36 +93,57 @@ class AssessmentResultController extends Controller
 
     public function reviewResults(Request $request)
     {
-        $classOptions = collect();
-        $sectionPager = null;
-        $currentInstitute = null;
-        $classSectionPager = null;
-        $studentSectionPager = null;
+        $instituteOptions = Institute::where('status', 1)
+            ->orderBy('institute_name')
+            ->pluck('institute_name')
+            ->values();
+
+        $selectedInstitute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : ($request->input('institute') ?: (session('user_role') == 'Teacher' ? User::find(session('user_id'))?->institute : null));
+
         $selectedStudentClass = null;
         $selectedStudentSection = null;
+        $reviewClassOptions = collect();
+        $reviewSectionOptions = collect();
         $routeName = $request->route()?->getName() ?: 'assessment.review';
         $reviewRouteName = session('user_role') == 'Teacher' ? 'assessment.review' : 'admin.assessment.review';
 
-        if (session('user_role') == 'Admin') {
-            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
-                $this->buildInstituteSectionPager($request, $routeName);
+        if ($selectedInstitute) {
+            $reviewClassOptions = SchoolClass::where('institute', $selectedInstitute)
+                ->orderBy('class_name')
+                ->pluck('class_name')
+                ->map(fn ($className) => trim((string) $className))
+                ->filter()
+                ->unique(fn ($className) => mb_strtolower($className))
+                ->values();
+
+            $selectedStudentClass = $request->input('student_class');
+
+            if ($selectedStudentClass) {
+                $reviewSectionOptions = Student::where('institute', $selectedInstitute)
+                    ->where('class', $selectedStudentClass)
+                    ->whereNotNull('section')
+                    ->orderBy('section')
+                    ->pluck('section')
+                    ->map(fn ($section) => trim((string) $section))
+                    ->filter()
+                    ->unique(fn ($section) => mb_strtolower($section))
+                    ->values();
+            }
+
+            $selectedStudentSection = $request->input('student_section');
         }
 
-        if (session('user_role') == 'InstituteAdmin') {
-            $currentInstitute = session('user_institute');
-        }
-
-        if (session('user_role') == 'Teacher') {
-            $currentInstitute = User::find(session('user_id'))?->institute;
-        }
-
-        if ($currentInstitute) {
-            ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
-                $this->buildStudentClassPager($request, $currentInstitute, $routeName);
-
-            ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
-                $this->buildStudentSectionPager($request, $currentInstitute, $selectedStudentClass, $routeName);
-        }
+        $statusFilter = $request->input('status');
+        $searchFilter = $request->input('search');
+        $hasFilters = $request->filled('institute')
+            || $request->filled('student_class')
+            || $request->filled('student_section')
+            || $request->filled('status')
+            || $request->filled('search')
+            || session('user_role') == 'InstituteAdmin'
+            || session('user_role') == 'Teacher';
 
         $pendingResults = AssessmentResult::with([
                 'student',
@@ -140,34 +162,36 @@ class AssessmentResultController extends Controller
                         $q->where('teacher_id', $teacher->id);
                     });
             })
-            ->when($currentInstitute, function ($query) use ($currentInstitute, $selectedStudentClass, $selectedStudentSection) {
-                $query->whereHas('student', function ($q) use ($currentInstitute, $selectedStudentClass, $selectedStudentSection) {
-                    $q->where('institute', $currentInstitute);
-
-                    if ($selectedStudentClass) {
-                        $q->where('class', $selectedStudentClass);
-                    }
-
-                    if ($selectedStudentSection) {
-                        $q->where('section', $selectedStudentSection);
-                    }
+            ->when($selectedInstitute, function ($query) use ($selectedInstitute, $selectedStudentClass, $selectedStudentSection, $searchFilter) {
+                $query->whereHas('student', function ($q) use ($selectedInstitute, $selectedStudentClass, $selectedStudentSection, $searchFilter) {
+                    $q->where('institute', $selectedInstitute)
+                        ->when($selectedStudentClass, fn ($innerQuery) => $innerQuery->where('class', $selectedStudentClass))
+                        ->when($selectedStudentSection, fn ($innerQuery) => $innerQuery->where('section', $selectedStudentSection))
+                        ->when($searchFilter, function ($innerQuery) use ($searchFilter) {
+                            $innerQuery->where(function ($searchQuery) use ($searchFilter) {
+                                $searchQuery->where('name', 'like', '%' . $searchFilter . '%')
+                                    ->orWhere('student_id', 'like', '%' . $searchFilter . '%');
+                            });
+                        });
                 });
             })
+            ->when($statusFilter, fn ($query) => $query->where('status', $statusFilter))
             ->latest()
             ->paginate(20)
             ->withQueryString();
 
         return view('review-assessment-answers', compact(
             'pendingResults',
-            'classOptions',
-            'sectionPager',
-            'classSectionPager',
-            'studentSectionPager',
-            'currentInstitute',
+            'instituteOptions',
+            'selectedInstitute',
             'selectedStudentClass',
             'selectedStudentSection',
-            'reviewRouteName'
-        ));
+            'reviewRouteName',
+            'reviewClassOptions',
+            'reviewSectionOptions',
+            'statusFilter',
+            'searchFilter'
+        ) + ['showFilterPlaceholder' => ! $hasFilters || ! $selectedInstitute]);
     }
 
     private function buildStudentClassPager(Request $request, ?string $institute, string $routeName): array

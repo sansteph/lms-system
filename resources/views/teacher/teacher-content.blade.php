@@ -16,6 +16,44 @@
                 </p>
             </div>
 
+            <div class="card shadow border-0 mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ route('teacher.content') }}" class="row g-3 align-items-end" target="_self">
+                        <div class="col-md-4">
+                            <label class="form-label">Class</label>
+                            <select name="student_class" class="form-control">
+                                <option value="">All Classes</option>
+                                @foreach($classOptions as $classOption)
+                                    <option value="{{ $classOption }}" {{ ($selectedStudentClass ?? '') == $classOption ? 'selected' : '' }}>
+                                        {{ $classOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Section</label>
+                            <select name="student_section" class="form-control">
+                                <option value="">All Sections</option>
+                                @foreach($sectionOptions as $sectionOption)
+                                    <option value="{{ $sectionOption }}" {{ ($selectedStudentSection ?? '') == $sectionOption ? 'selected' : '' }}>
+                                        {{ $sectionOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">Apply</button>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{{ route('teacher.content') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            @if($showFilterPlaceholder)
+                @include('partials.filter-placeholder')
+            @else
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
                     <div class="dashboard-card">
@@ -46,16 +84,6 @@
                 </div>
             </div>
 
-            @include('partials.section-navigator', [
-                'sectionPager' => $classSectionPager ?? null,
-                'sectionDescription' => 'Browse released learning content one class at a time.',
-            ])
-
-            @include('partials.section-navigator', [
-                'sectionPager' => $studentSectionPager ?? null,
-                'sectionDescription' => 'Showing released learning content for this section only.',
-            ])
-
             @if(!empty($selectedStudentClass))
                 <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div>
@@ -71,13 +99,14 @@
             <div class="card shadow border-0">
                 <div class="card-body">
 
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover align-middle">
+                    <div class="table-responsive lms-table-shell">
+                        <table class="table table-bordered table-hover align-middle lms-table-fit">
                             <thead class="table-light">
                                 <tr>
                                     <th>Sl. No</th>
                                     <th>Title</th>
                                     <th>Class</th>
+                                    <th>Section</th>
                                     <th>Type</th>
                                     <th>Lesson Order</th>
                                     <th>Access Rule</th>
@@ -89,94 +118,90 @@
 
                             <tbody>
                                 @php $rowNumber = 1; @endphp
-                                @forelse($contents->groupBy(fn ($content) => $contentClassByContentId[$content->id] ?? $content->assigned_class ?? 'Unassigned Class') as $classLabel => $classContents)
-                                    <tr class="table-primary">
-                                        <td colspan="9" class="fw-semibold">{{ $classLabel }}</td>
+                                @forelse($contents as $content)
+                                    @php
+                                        $teachingStatus = $teachingStatusByContentId[$content->id] ?? null;
+                                        $effectiveAiSummary = $content->effective_ai_summary;
+                                        $aiTrainingApplies = $aiTrainingRequiredContentIds->contains($content->id);
+                                        $gradeLevel = preg_replace('/\s+/', ' ', trim($contentGradeByContentId->get($content->id) ?? ''));
+                                        $contentPassKey = $content->id . '|' . ($gradeLevel ?: 'all');
+                                        $sourcePassKey = $content->ai_quiz_content_id ? $content->ai_quiz_content_id . '|' . ($gradeLevel ?: 'all') : null;
+                                        $contentAnyGradePassKey = $content->id . '|all';
+                                        $sourceAnyGradePassKey = $content->ai_quiz_content_id ? $content->ai_quiz_content_id . '|all' : null;
+                                        $prepCleared = $teacherPassedPrepKeys->contains($contentPassKey)
+                                            || $teacherPassedPrepKeys->contains($sourcePassKey)
+                                            || $teacherPassedPrepKeys->contains($contentAnyGradePassKey)
+                                            || $teacherPassedPrepKeys->contains($sourceAnyGradePassKey);
+                                    @endphp
+                                    <tr>
+                                        <td>{{ $rowNumber++ }}</td>
+                                        <td>{{ $content->content_title }}</td>
+                                        <td>{{ $contentClassByContentId[$content->id] ?? 'Unassigned' }}</td>
+                                        <td>{{ $contentSectionByContentId[$content->id] ?? '-' }}</td>
+                                        <td>
+                                            @if($content->file_path)
+                                                <span class="badge bg-primary">PPT</span>
+                                            @else
+                                                <span class="badge bg-secondary">Missing</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $content->lesson_order }}</td>
+                                        <td>{{ $content->access_rule }}</td>
+                                        <td>
+                                            @if($content->status == 1)
+                                                <span class="badge bg-success">Available</span>
+                                            @else
+                                                <span class="badge bg-secondary">Unavailable</span>
+                                            @endif
+
+                                            <div class="mt-2">
+                                                @if($inProgressContentIds->contains($content->id))
+                                                    <span class="badge bg-info text-dark">In Progress</span>
+                                                @elseif($teachingStatus === 'completed')
+                                                    <span class="badge bg-primary">Completed</span>
+                                                @elseif($teachingStatus === 'released')
+                                                    <span class="badge bg-warning text-dark">Released</span>
+                                                @endif
+                                            </div>
+
+                                            <div class="small text-muted mt-1">
+                                                {{ $content->is_released ? 'Student access enabled' : 'Not released to students' }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            @if(!$aiTrainingApplies)
+                                                <span class="badge bg-light text-dark border">Not Required</span>
+                                            @elseif($effectiveAiSummary && $effectiveAiSummary->status == 'generated')
+                                                <span class="badge bg-success mb-2">Training Ready</span>
+                                                <br>
+                                                <a href="{{ route('teacher.ai-prep', ['id' => $content->id, 'grade' => $contentGradeByContentId->get($content->id)]) }}"
+                                                   class="btn btn-sm btn-outline-success">
+                                                    {{ $prepCleared ? 'AI Summary' : 'Prep Assessment' }}
+                                                </a>
+                                            @elseif($effectiveAiSummary && $effectiveAiSummary->status == 'failed')
+                                                <span class="badge bg-danger">Training Failed</span>
+                                            @else
+                                                <span class="badge bg-secondary">Not Generated</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($content->file_path && $content->status == 1)
+                                                <a href="{{ route('content.preview', [$content->id, 'teacher']) }}"
+                                                   class="btn btn-sm btn-outline-primary"
+                                                   target="_blank"
+                                                   rel="noopener">
+                                                    View
+                                                </a>
+                                            @else
+                                                <button class="btn btn-sm btn-outline-secondary" disabled>
+                                                    Locked
+                                                </button>
+                                            @endif
+                                        </td>
                                     </tr>
-                                    @foreach($classContents as $content)
-                                        @php
-                                            $teachingStatus = $teachingStatusByContentId[$content->id] ?? null;
-                                            $effectiveAiSummary = $content->effective_ai_summary;
-                                            $aiTrainingApplies = $aiTrainingRequiredContentIds->contains($content->id);
-                                            $gradeLevel = preg_replace('/\s+/', ' ', trim($contentGradeByContentId->get($content->id) ?? ''));
-                                            $contentPassKey = $content->id . '|' . ($gradeLevel ?: 'all');
-                                            $sourcePassKey = $content->ai_quiz_content_id ? $content->ai_quiz_content_id . '|' . ($gradeLevel ?: 'all') : null;
-                                            $contentAnyGradePassKey = $content->id . '|all';
-                                            $sourceAnyGradePassKey = $content->ai_quiz_content_id ? $content->ai_quiz_content_id . '|all' : null;
-                                            $prepCleared = $teacherPassedPrepKeys->contains($contentPassKey)
-                                                || $teacherPassedPrepKeys->contains($sourcePassKey)
-                                                || $teacherPassedPrepKeys->contains($contentAnyGradePassKey)
-                                                || $teacherPassedPrepKeys->contains($sourceAnyGradePassKey);
-                                        @endphp
-                                        <tr>
-                                            <td>{{ $rowNumber++ }}</td>
-                                            <td>{{ $content->content_title }}</td>
-                                            <td>{{ $classLabel }}</td>
-                                            <td>
-                                                @if($content->file_path)
-                                                    <span class="badge bg-primary">PPT</span>
-                                                @else
-                                                    <span class="badge bg-secondary">Missing</span>
-                                                @endif
-                                            </td>
-                                            <td>{{ $content->lesson_order }}</td>
-                                            <td>{{ $content->access_rule }}</td>
-                                            <td>
-                                                @if($content->status == 1)
-                                                    <span class="badge bg-success">Available</span>
-                                                @else
-                                                    <span class="badge bg-secondary">Unavailable</span>
-                                                @endif
-
-                                                <div class="mt-2">
-                                                    @if($inProgressContentIds->contains($content->id))
-                                                        <span class="badge bg-info text-dark">In Progress</span>
-                                                    @elseif($teachingStatus === 'completed')
-                                                        <span class="badge bg-primary">Completed</span>
-                                                    @elseif($teachingStatus === 'released')
-                                                        <span class="badge bg-warning text-dark">Released</span>
-                                                    @endif
-                                                </div>
-
-                                                <div class="small text-muted mt-1">
-                                                    {{ $content->is_released ? 'Student access enabled' : 'Not released to students' }}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                @if(!$aiTrainingApplies)
-                                                    <span class="badge bg-light text-dark border">Not Required</span>
-                                                @elseif($effectiveAiSummary && $effectiveAiSummary->status == 'generated')
-                                                    <span class="badge bg-success mb-2">Training Ready</span>
-                                                    <br>
-                                                    <a href="{{ route('teacher.ai-prep', ['id' => $content->id, 'grade' => $contentGradeByContentId->get($content->id)]) }}"
-                                                       class="btn btn-sm btn-outline-success">
-                                                        {{ $prepCleared ? 'AI Summary' : 'Prep Assessment' }}
-                                                    </a>
-                                                @elseif($effectiveAiSummary && $effectiveAiSummary->status == 'failed')
-                                                    <span class="badge bg-danger">Training Failed</span>
-                                                @else
-                                                    <span class="badge bg-secondary">Not Generated</span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                @if($content->file_path && $content->status == 1)
-                                                    <a href="{{ route('content.preview', [$content->id, 'teacher']) }}"
-                                                       class="btn btn-sm btn-outline-primary"
-                                                       target="_blank"
-                                                       rel="noopener">
-                                                        View
-                                                    </a>
-                                                @else
-                                                    <button class="btn btn-sm btn-outline-secondary" disabled>
-                                                        Locked
-                                                    </button>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    @endforeach
                                 @empty
                                     <tr>
-                                        <td colspan="9" class="text-center text-muted">
+                                        <td colspan="10" class="text-center text-muted">
                                             No content assigned yet
                                         </td>
                                     </tr>
@@ -191,6 +216,7 @@
 
                 </div>
             </div>
+            @endif
 
         </div>
 

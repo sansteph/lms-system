@@ -22,6 +22,33 @@
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
 
+            <div class="card shadow border-0 mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ route('teacher.pending-sessions') }}" class="row g-3 align-items-end" target="_self">
+                        <div class="col-md-4">
+                            <label class="form-label">Class</label>
+                            <select name="class" class="form-control">
+                                <option value="">All Classes</option>
+                                @foreach($classOptions as $classOption)
+                                    <option value="{{ $classOption }}" {{ $selectedClass == $classOption ? 'selected' : '' }}>
+                                        {{ $classOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">Apply</button>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{{ route('teacher.pending-sessions') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            @if($showFilterPlaceholder)
+                @include('partials.filter-placeholder')
+            @else
             <div class="row g-4 mb-4">
                 <div class="col-md-4">
                     <div class="dashboard-card">
@@ -44,30 +71,6 @@
             </div>
 
             <div class="card shadow border-0 mb-4">
-                <div class="card-body">
-                    <form method="GET" action="{{ route('teacher.pending-sessions') }}" class="row g-3 align-items-end">
-                        <div class="col-md-4">
-                            <label class="form-label">Class</label>
-                            <select name="class" class="form-control">
-                                <option value="">All Classes</option>
-                                @foreach($classOptions as $classOption)
-                                    <option value="{{ $classOption }}" {{ $selectedClass == $classOption ? 'selected' : '' }}>
-                                        {{ $classOption }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100">Apply</button>
-                        </div>
-                        <div class="col-md-2">
-                            <a href="{{ route('teacher.pending-sessions') }}" class="btn btn-outline-secondary w-100">Clear</a>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <div class="card shadow border-0 mb-4">
                 <div class="card-header bg-warning text-dark">
                     <h5 class="mb-0">Unfinished Sessions</h5>
                 </div>
@@ -75,8 +78,8 @@
                     <div class="alert alert-info py-2 mb-3">
                         Partially completed and cancelled attempts stay here until the related Teaching Plan content is completed in a new session.
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover align-middle">
+                    <div class="table-responsive lms-table-shell">
+                        <table class="table table-bordered table-hover align-middle lms-table-tight">
                             <thead class="table-light">
                                 <tr>
                                     <th>Class</th>
@@ -146,35 +149,35 @@
                                                           data-auto-end-at="{{ $session->started_at ? \Carbon\Carbon::parse($session->started_at)->addMinutes(50)->timestamp : '' }}">
                                                         @csrf
                                                         <input type="hidden" name="auto_ended" value="0" class="auto-ended-input">
-                                                        <div class="row g-2">
+                                                        <div class="session-action-stack">
                                                             @if($session->started_at)
-                                                                <div class="col-12">
+                                                                <div>
                                                                     <div class="small text-muted">
                                                                         Auto ends in <span class="session-auto-timer fw-semibold">calculating...</span>
                                                                     </div>
                                                                 </div>
                                                             @endif
-                                                            <div class="col-md-6">
+                                                            <div>
                                                                 <select name="status" class="form-control form-control-sm" required>
                                                                     <option value="completed">Completed</option>
                                                                     <option value="partially_completed">Partially Completed</option>
                                                                     <option value="cancelled">Cancelled</option>
                                                                 </select>
                                                             </div>
-                                                            <div class="col-md-6">
+                                                            <div>
                                                                 <input type="text"
                                                                        name="delivered_topic"
                                                                        class="form-control form-control-sm"
                                                                        placeholder="Delivered topic"
                                                                        value="{{ $session->planned_topic }}">
                                                             </div>
-                                                            <div class="col-12">
+                                                            <div>
                                                                 <textarea name="remarks"
                                                                           class="form-control form-control-sm"
                                                                           rows="2"
                                                                           placeholder="Remarks"></textarea>
                                                             </div>
-                                                            <div class="col-12">
+                                                            <div>
                                                                 <button type="submit" class="btn btn-sm btn-outline-danger w-100">
                                                                     End Session
                                                                 </button>
@@ -229,8 +232,8 @@
                     <div class="alert alert-warning py-2 mb-3">
                         These catch-up or repeat contents were added by Admin for your institute.
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover align-middle">
+                    <div class="table-responsive lms-table-shell">
+                        <table class="table table-bordered table-hover align-middle lms-table-fit">
                             <thead class="table-light">
                                 <tr>
                                     <th>Class</th>
@@ -290,13 +293,6 @@
         </div>
     </div>
 </div>
-
-@if(session('previewContentUrl'))
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            window.open(@json(session('previewContentUrl')), '_blank', 'noopener');
-        });
-    </script>
 @endif
 
 <script>

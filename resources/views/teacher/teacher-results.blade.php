@@ -107,6 +107,9 @@
                 </div>
             @endif
 
+            @if($showFilterPlaceholder)
+                @include('partials.filter-placeholder')
+            @else
             <div class="row g-4 mb-4">
 
                 <div class="col-md-3">
@@ -376,7 +379,8 @@
 
                 <div class="card-body">
 
-                    <table class="table table-bordered table-hover align-middle">
+                    <div class="table-responsive lms-table-shell">
+                    <table class="table table-bordered table-hover align-middle lms-table-fit">
 
                         <thead class="table-light">
 
@@ -538,10 +542,12 @@
                         </tbody>
 
                     </table>
+                    </div>
 
                 </div>
 
             </div>
+            @endif
 
         </div>
 
