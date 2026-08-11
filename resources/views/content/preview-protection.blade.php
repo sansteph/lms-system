@@ -192,8 +192,12 @@
                 }
             }
 
-            function isAndroidDevice() {
-                return /Android/i.test(navigator.userAgent || '');
+            function isTouchPreviewDevice() {
+                const userAgent = navigator.userAgent || '';
+                const hasTouchPoints = typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 0;
+                const hasCoarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
+                return /Android/i.test(userAgent) || hasTouchPoints || hasCoarsePointer;
             }
 
             function lockStorage() {
@@ -683,7 +687,7 @@
             }
 
             function handleWindowFocusState() {
-                if (isAndroidDevice()) {
+                if (isTouchPreviewDevice()) {
                     return;
                 }
 
@@ -713,7 +717,7 @@
             document.addEventListener('keydown', handleRestrictedShortcut, true);
             document.addEventListener('keyup', handleRestrictedShortcut, true);
 
-            if (!isAndroidDevice()) {
+            if (!isTouchPreviewDevice()) {
                 window.addEventListener('blur', handleWindowFocusState);
                 window.addEventListener('focus', handleWindowFocusState);
                 document.addEventListener('visibilitychange', handleWindowFocusState);
