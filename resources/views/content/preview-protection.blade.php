@@ -192,6 +192,10 @@
                 }
             }
 
+            function isAndroidDevice() {
+                return /Android/i.test(navigator.userAgent || '');
+            }
+
             function lockStorage() {
                 try {
                     return window.localStorage;
@@ -679,6 +683,10 @@
             }
 
             function handleWindowFocusState() {
+                if (isAndroidDevice()) {
+                    return;
+                }
+
                 const selectedScope = activePreviewScope();
 
                 if (!hasProtectedPreview()) {
@@ -704,9 +712,12 @@
             clearStoredCaptureLocks();
             document.addEventListener('keydown', handleRestrictedShortcut, true);
             document.addEventListener('keyup', handleRestrictedShortcut, true);
-            window.addEventListener('blur', handleWindowFocusState);
-            window.addEventListener('focus', handleWindowFocusState);
-            document.addEventListener('visibilitychange', handleWindowFocusState);
+
+            if (!isAndroidDevice()) {
+                window.addEventListener('blur', handleWindowFocusState);
+                window.addEventListener('focus', handleWindowFocusState);
+                document.addEventListener('visibilitychange', handleWindowFocusState);
+            }
             window.addEventListener('beforeprint', function (event) {
                 if (!hasProtectedPreview()) {
                     return;
