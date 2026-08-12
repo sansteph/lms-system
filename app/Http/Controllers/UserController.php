@@ -26,19 +26,21 @@ class UserController extends Controller
     {
         $search = $request->search;
         $sectionPager = null;
-        $currentInstitute = null;
+        $selectedInstitute = session('user_role') == 'Admin'
+            ? trim((string) $request->input('institute'))
+            : session('user_institute');
+        $hasFilters = $request->filled('institute') || $request->filled('search');
+        $instituteOptions = Institute::where('status', 1)
+            ->orderBy('institute_name')
+            ->pluck('institute_name');
 
-        if (session('user_role') == 'Admin') {
-            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
-                $this->buildInstituteSectionPager($request, 'users');
-        }
-
-        $users = User::where('role', 'Teacher')
+        $users = $hasFilters
+            ? User::where('role', 'Teacher')
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where('institute', session('user_institute'));
             })
-            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
-                $query->where('institute', $currentInstitute);
+            ->when(session('user_role') == 'Admin' && $selectedInstitute, function ($query) use ($selectedInstitute) {
+                $query->where('institute', $selectedInstitute);
             })
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -51,9 +53,10 @@ class UserController extends Controller
             ->orderBy('institute')
             ->orderBy('name')
             ->paginate(30)
-            ->withQueryString();
+            ->withQueryString()
+            : collect();
 
-        return view('users', compact('users', 'sectionPager'));
+        return view('users', compact('users', 'sectionPager', 'selectedInstitute', 'instituteOptions', 'hasFilters'));
     }
 
     public function store(Request $request)

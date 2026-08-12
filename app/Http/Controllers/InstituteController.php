@@ -32,8 +32,25 @@ class InstituteController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
+        $selectedLocation = trim((string) $request->input('location'));
+        $selectedStatus = $request->input('status');
+        $hasFilters = $request->filled('location')
+            || ($selectedStatus !== null && $selectedStatus !== '')
+            || $request->filled('search');
 
-        $instituteQuery = Institute::when($search, function ($query, $search) {
+        $locationOptions = Institute::whereNotNull('location')
+            ->where('location', '!=', '')
+            ->orderBy('location')
+            ->distinct()
+            ->pluck('location');
+
+        $instituteQuery = Institute::when($selectedLocation, function ($query) use ($selectedLocation) {
+                $query->where('location', $selectedLocation);
+            })
+            ->when($selectedStatus !== null && $selectedStatus !== '', function ($query) use ($selectedStatus) {
+                $query->where('status', (int) $selectedStatus);
+            })
+            ->when($search, function ($query, $search) {
             return $query->where('institute_id', 'like', "%{$search}%")
                         ->orWhere('institute_name', 'like', "%{$search}%")
                         ->orWhere('location', 'like', "%{$search}%")
@@ -44,14 +61,16 @@ class InstituteController extends Controller
         $totalInstitutes = Institute::count();
         $activeInstitutes = Institute::where('status', 1)->count();
 
-        $institutes = $instituteQuery
+        $institutes = $hasFilters
+            ? $instituteQuery
             ->orderBy('institute_name')
             ->paginate(30)
-            ->withQueryString();
+            ->withQueryString()
+            : collect();
 
         $studentCount = Student::count();
 
-        return view('institutes', compact('institutes', 'studentCount', 'totalInstitutes', 'activeInstitutes'));
+        return view('institutes', compact('institutes', 'studentCount', 'totalInstitutes', 'activeInstitutes', 'locationOptions', 'hasFilters'));
     }
 
     public function store(Request $request)

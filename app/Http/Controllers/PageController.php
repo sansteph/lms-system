@@ -322,34 +322,44 @@ class PageController extends Controller
     public function students(Request $request)
     {
         $search = $request->search;
-        $sectionPager = null;
-        $currentInstitute = null;
-        $classSectionPager = null;
-        $studentSectionPager = null;
-        $selectedStudentClass = null;
-        $selectedStudentSection = null;
         $managedInstitute = session('user_role') == 'InstituteAdmin' ? session('user_institute') : null;
+        $selectedInstitute = session('user_role') === 'Admin'
+            ? trim((string) $request->input('institute'))
+            : $managedInstitute;
+        $selectedStudentClass = trim((string) $request->input('student_class')) ?: null;
+        $selectedStudentSection = trim((string) $request->input('student_section')) ?: null;
+        $hasFilters = $request->filled('institute')
+            || $request->filled('student_class')
+            || $request->filled('student_section')
+            || $request->filled('search');
 
-        if (session('user_role') == 'Admin') {
-            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
-                $this->buildInstituteSectionPager($request, 'students');
-
-            $managedInstitute = $currentInstitute;
-        }
-
-        if ($managedInstitute) {
-            ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
-                $this->buildStudentClassPager($request, $managedInstitute, 'students');
-
-            ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
-                $this->buildStudentSectionPager($request, $managedInstitute, $selectedStudentClass, 'students');
-        }
-
-        $students = Student::when(session('user_role') == 'InstituteAdmin', function ($query) {
-                $query->where('institute', session('user_institute'));
+        $instituteOptions = Institute::where('status', 1)->orderBy('institute_name')->pluck('institute_name');
+        $classOptions = Student::when($selectedInstitute, function ($query) use ($selectedInstitute) {
+                $query->where('institute', $selectedInstitute);
             })
-            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
-                $query->where('institute', $currentInstitute);
+            ->whereNotNull('class')
+            ->where('class', '!=', '')
+            ->orderBy('class')
+            ->distinct()
+            ->pluck('class');
+        $sectionOptions = Student::when($selectedInstitute, function ($query) use ($selectedInstitute) {
+                $query->where('institute', $selectedInstitute);
+            })
+            ->when($selectedStudentClass, function ($query) use ($selectedStudentClass) {
+                $query->where('class', $selectedStudentClass);
+            })
+            ->whereNotNull('section')
+            ->where('section', '!=', '')
+            ->orderBy('section')
+            ->distinct()
+            ->pluck('section');
+
+        $students = $hasFilters
+            ? Student::when(session('user_role') == 'InstituteAdmin', function ($query) {
+                    $query->where('institute', session('user_institute'));
+                })
+            ->when(session('user_role') == 'Admin' && $selectedInstitute, function ($query) use ($selectedInstitute) {
+                $query->where('institute', $selectedInstitute);
             })
             ->when($selectedStudentClass, function ($query) use ($selectedStudentClass) {
                 $query->where('class', $selectedStudentClass);
@@ -371,17 +381,19 @@ class PageController extends Controller
             ->orderBy('section')
             ->orderBy('name')
             ->paginate(30)
-            ->withQueryString();
+            ->withQueryString()
+            : collect();
 
         return view('students', [
             'students' => $students,
-            'sectionPager' => $sectionPager,
-            'classSectionPager' => $classSectionPager,
-            'studentSectionPager' => $studentSectionPager,
             'selectedStudentClassLabel' => $selectedStudentClass,
             'selectedStudentSectionLabel' => $selectedStudentSection,
             'studentManagementContext' => 'admin',
             'managedInstitute' => $managedInstitute,
+            'showFilterPlaceholder' => !$hasFilters,
+            'instituteOptions' => $instituteOptions,
+            'classOptions' => $classOptions,
+            'sectionOptions' => $sectionOptions,
         ]);
     }
 
@@ -392,10 +404,32 @@ class PageController extends Controller
         $hasFilters = $request->filled('search')
             || $request->filled('student_class')
             || $request->filled('student_section');
-        ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
-            $this->buildStudentClassPager($request, $teacher->institute, 'teacher.student-management');
-        ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
-            $this->buildStudentSectionPager($request, $teacher->institute, $selectedStudentClass, 'teacher.student-management');
+        $selectedStudentClass = trim((string) $request->input('student_class')) ?: null;
+        $selectedStudentSection = trim((string) $request->input('student_section')) ?: null;
+        $classSectionPager = null;
+        $studentSectionPager = null;
+
+        $classOptions = SchoolClass::where('institute', $teacher->institute)
+            ->whereNotNull('class_name')
+            ->orderBy('class_name')
+            ->pluck('class_name')
+            ->map(fn ($className) => trim((string) $className))
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
+            ->values();
+
+        $sectionOptions = collect();
+        if ($selectedStudentClass) {
+            $sectionOptions = Student::where('institute', $teacher->institute)
+                ->where('class', $selectedStudentClass)
+                ->whereNotNull('section')
+                ->orderBy('section')
+                ->pluck('section')
+                ->map(fn ($section) => trim((string) $section))
+                ->filter()
+                ->unique(fn ($section) => mb_strtolower($section))
+                ->values();
+        }
 
         $students = collect();
 
@@ -432,6 +466,8 @@ class PageController extends Controller
             'studentManagementContext' => 'teacher',
             'managedInstitute' => $teacher->institute,
             'showFilterPlaceholder' => !$hasFilters,
+            'classOptions' => $classOptions,
+            'sectionOptions' => $sectionOptions,
         ]);
     }
 
@@ -955,29 +991,53 @@ class PageController extends Controller
 
     public function adminCertificates(Request $request)
     {
-        $sectionPager = null;
-        $classSectionPager = null;
-        $studentSectionPager = null;
-        $currentInstitute = null;
-        $selectedStudentClass = null;
-        $selectedStudentSection = null;
-
-        if (session('user_role') == 'Admin') {
-            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
-                $this->buildInstituteSectionPager($request, 'admin.certificates');
-        }
-
-        if (session('user_role') == 'InstituteAdmin') {
-            $currentInstitute = session('user_institute');
-        }
-
-        if ($currentInstitute) {
-            ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
-                $this->buildStudentClassPager($request, $currentInstitute, 'admin.certificates');
-
-            ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
-                $this->buildStudentSectionPager($request, $currentInstitute, $selectedStudentClass, 'admin.certificates');
-        }
+        $currentInstitute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : ($request->filled('institute') ? trim((string) $request->input('institute')) : null);
+        $selectedStudentClass = $request->filled('student_class')
+            ? trim((string) $request->input('student_class'))
+            : null;
+        $selectedStudentSection = $request->filled('student_section')
+            ? trim((string) $request->input('student_section'))
+            : null;
+        $selectedCertificateStatus = $request->filled('certificate_status')
+            ? trim((string) $request->input('certificate_status'))
+            : null;
+        $hasFilters = session('user_role') == 'InstituteAdmin'
+            || $request->filled('institute')
+            || $request->filled('student_class')
+            || $request->filled('student_section')
+            || $request->filled('certificate_status');
+        $certificateInstituteOptions = session('user_role') == 'Admin'
+            ? Institute::where('status', 1)->orderBy('institute_name')->pluck('institute_name')
+            : collect([session('user_institute')]);
+        $certificateClassOptions = Student::when($currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
+            })
+            ->whereNotNull('class')
+            ->select('class')
+            ->distinct()
+            ->orderBy('class')
+            ->pluck('class')
+            ->map(fn ($className) => trim((string) $className))
+            ->filter()
+            ->unique()
+            ->values();
+        $certificateSectionOptions = Student::when($currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
+            })
+            ->when($selectedStudentClass, function ($query) use ($selectedStudentClass) {
+                $query->where('class', $selectedStudentClass);
+            })
+            ->whereNotNull('section')
+            ->select('section')
+            ->distinct()
+            ->orderBy('section')
+            ->pluck('section')
+            ->map(fn ($section) => trim((string) $section))
+            ->filter()
+            ->unique()
+            ->values();
 
         $certificates = Certificate::with(['student', 'course'])
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
@@ -1000,18 +1060,23 @@ class PageController extends Controller
                     $q->where('section', $selectedStudentSection);
                 });
             })
+            ->when($selectedCertificateStatus, function ($query) use ($selectedCertificateStatus) {
+                $query->where('status', $selectedCertificateStatus);
+            })
             ->latest()
             ->paginate(30)
             ->withQueryString();
 
         return view('certificates', compact(
             'certificates',
-            'sectionPager',
-            'classSectionPager',
-            'studentSectionPager',
             'currentInstitute',
             'selectedStudentClass',
-            'selectedStudentSection'
+            'selectedStudentSection',
+            'selectedCertificateStatus',
+            'certificateInstituteOptions',
+            'certificateClassOptions',
+            'certificateSectionOptions',
+            'hasFilters'
         ));
     }
 
@@ -1984,10 +2049,31 @@ class PageController extends Controller
 
         $teacher = User::find(session('user_id'));
         $studentIds = $this->teacherAssignedStudentIds($teacher);
+        $classOptions = SchoolClass::where('institute', $teacher->institute)
+            ->whereNotNull('class_name')
+            ->orderBy('class_name')
+            ->pluck('class_name')
+            ->map(fn ($className) => trim((string) $className))
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
+            ->values();
+        $sectionOptions = collect();
         ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
             $this->buildStudentClassPager($request, $teacher->institute, 'teacher.results');
         ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
             $this->buildStudentSectionPager($request, $teacher->institute, $selectedStudentClass, 'teacher.results');
+
+        if ($selectedStudentClass) {
+            $sectionOptions = Student::where('institute', $teacher->institute)
+                ->where('class', $selectedStudentClass)
+                ->whereNotNull('section')
+                ->orderBy('section')
+                ->pluck('section')
+                ->map(fn ($section) => trim((string) $section))
+                ->filter()
+                ->unique(fn ($section) => mb_strtolower($section))
+                ->values();
+        }
 
         $results = collect();
 
@@ -2070,7 +2156,13 @@ class PageController extends Controller
             'classSectionPager',
             'studentSectionPager',
             'selectedStudentClass',
-            'selectedStudentSection'
+            'selectedStudentSection',
+            'classOptions',
+            'sectionOptions',
+            'search',
+            'badge',
+            'status',
+            'sort'
         ) + ['showFilterPlaceholder' => !$hasFilters]);
     }
 
@@ -2202,10 +2294,31 @@ class PageController extends Controller
             || $request->filled('student_section')
             || $request->filled('class_page')
             || $request->filled('student_section_page');
+        $classOptions = SchoolClass::where('institute', $teacher->institute)
+            ->whereNotNull('class_name')
+            ->orderBy('class_name')
+            ->pluck('class_name')
+            ->map(fn ($className) => trim((string) $className))
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
+            ->values();
         ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
             $this->buildStudentClassPager($request, $teacher->institute, 'teacher.certificates');
         ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
             $this->buildStudentSectionPager($request, $teacher->institute, $selectedStudentClass, 'teacher.certificates');
+
+        $sectionOptions = collect();
+        if ($selectedStudentClass) {
+            $sectionOptions = Student::where('institute', $teacher->institute)
+                ->where('class', $selectedStudentClass)
+                ->whereNotNull('section')
+                ->orderBy('section')
+                ->pluck('section')
+                ->map(fn ($section) => trim((string) $section))
+                ->filter()
+                ->unique(fn ($section) => mb_strtolower($section))
+                ->values();
+        }
 
         $certificates = collect();
 
@@ -2243,7 +2356,9 @@ class PageController extends Controller
             'classSectionPager',
             'studentSectionPager',
             'selectedStudentClass',
-            'selectedStudentSection'
+            'selectedStudentSection',
+            'classOptions',
+            'sectionOptions'
         ) + ['showFilterPlaceholder' => !$hasFilters]);
     }
    public function teacherProfile()
@@ -2362,13 +2477,18 @@ class PageController extends Controller
 
     public function adminTeacherAchievements(Request $request)
     {
-        $sectionPager = null;
-        $currentInstitute = null;
-
-        if (session('user_role') == 'Admin') {
-            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
-                $this->buildInstituteSectionPager($request, 'admin.teacher-achievements');
-        }
+        $currentInstitute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : ($request->filled('institute') ? trim((string) $request->input('institute')) : null);
+        $selectedAchievementStatus = $request->filled('achievement_status')
+            ? trim((string) $request->input('achievement_status'))
+            : null;
+        $hasFilters = session('user_role') == 'InstituteAdmin'
+            || $request->filled('institute')
+            || $request->filled('achievement_status');
+        $achievementInstituteOptions = session('user_role') == 'Admin'
+            ? Institute::where('status', 1)->orderBy('institute_name')->pluck('institute_name')
+            : collect([session('user_institute')]);
 
         $achievements = TeacherAchievement::with('teacher')
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
@@ -2381,11 +2501,20 @@ class PageController extends Controller
                     $teacherQuery->where('institute', $currentInstitute);
                 });
             })
+            ->when($selectedAchievementStatus, function ($query) use ($selectedAchievementStatus) {
+                $query->where('verification_status', $selectedAchievementStatus);
+            })
             ->latest()
             ->paginate(30)
             ->withQueryString();
 
-        return view('admin-teacher-achievements', compact('achievements', 'sectionPager'));
+        return view('admin-teacher-achievements', compact(
+            'achievements',
+            'currentInstitute',
+            'selectedAchievementStatus',
+            'achievementInstituteOptions',
+            'hasFilters'
+        ));
     }
 
     public function approveTeacherAchievement($id)
@@ -4696,8 +4825,22 @@ class PageController extends Controller
         $reportType = $this->resolveClassSessionReportType($request);
         $sectionPager = null;
         $currentInstitute = null;
+        $selectedReportInstitute = null;
+        $reportInstituteOptions = collect();
+        $hasFilters = $request->filled('report_date')
+            || $request->filled('institute')
+            || $request->filled('from_date')
+            || $request->filled('to_date');
 
         if (session('user_role') == 'Admin') {
+            $selectedReportInstitute = $request->filled('institute')
+                ? trim((string) $request->input('institute'))
+                : null;
+
+            $reportInstituteOptions = Institute::where('status', 1)
+                ->orderBy('institute_name')
+                ->pluck('institute_name');
+
             ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
                 $this->buildInstituteSectionPager(
                     $request,
@@ -4712,7 +4855,14 @@ class PageController extends Controller
             ->paginate(30)
             ->withQueryString();
 
-        return view('class-session-report', compact('sessions', 'reportType', 'sectionPager'));
+        return view('class-session-report', compact(
+            'sessions',
+            'reportType',
+            'sectionPager',
+            'hasFilters',
+            'selectedReportInstitute',
+            'reportInstituteOptions'
+        ));
     }
 
     public function downloadClassSessionReportPdf(Request $request, GeminiAiService $ai)
@@ -4841,6 +4991,9 @@ class PageController extends Controller
                 'teachingPlan',
                 'stemEngineer',
             ])
+            ->when(session('user_role') == 'Admin' && $request->filled('institute'), function ($query) use ($request) {
+                $query->where('institute', $request->input('institute'));
+            })
             ->when($reportType == 'daily', function ($query) use ($dailyReportDate) {
                 $query->whereDate('session_date', $dailyReportDate);
             })

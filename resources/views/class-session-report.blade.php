@@ -31,69 +31,86 @@
                 </p>
             </div>
 
-            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
-
-            @if($isDailyReport)
-                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <span class="fw-semibold">Showing sessions for:</span>
-                        {{ \Carbon\Carbon::parse(request('report_date', now()->toDateString()))->format('d M Y') }}
-                    </div>
-                    <span class="text-muted small">Only sessions from this date are included.</span>
-                </div>
-            @elseif(request('from_date') || request('to_date'))
-                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <span class="fw-semibold">Showing sessions from:</span>
-                        {{ request('from_date') ? \Carbon\Carbon::parse(request('from_date'))->format('d M Y') : 'Start' }}
-                        -
-                        {{ request('to_date') ? \Carbon\Carbon::parse(request('to_date'))->format('d M Y') : 'Today' }}
-                    </div>
-                    <span class="text-muted small">Only sessions inside this range are included.</span>
-                </div>
-            @endif
-
             <div class="card shadow border-0 mb-4">
-                <div class="card-body">
-                    <form method="GET" action="{{ $reportRoute }}" class="row g-3 align-items-end">
-                        <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
+                <div class="card-body lms-report-filter-card">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                        <div>
+                            <h5 class="mb-1">Apply filters for easy navigation</h5>
+                            <p class="text-muted mb-0">Choose the date or range to load the session report.</p>
+                        </div>
+                        <span class="badge bg-light text-dark border">Report Filters</span>
+                    </div>
+
+                    <form method="GET" action="{{ $reportRoute }}">
+                        <div class="lms-report-filter-grid">
+                        @if(session('user_role') == 'Admin')
+                            <div class="lms-report-action-group">
+                                <label class="form-label">Institute</label>
+                                <select name="institute" class="form-select">
+                                    <option value="">Select institute</option>
+                                    @foreach($reportInstituteOptions as $instituteOption)
+                                        <option value="{{ $instituteOption }}" @selected($selectedReportInstitute == $instituteOption)>{{ $instituteOption }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+
                         @if($isDailyReport)
-                            <div class="col-md-3">
+                            <div class="lms-report-action-group">
                                 <label class="form-label">Report Date</label>
-                                <input type="date" name="report_date" id="dailyReportDate" class="form-control" value="{{ request('report_date', now()->toDateString()) }}">
+                                <input type="date" name="report_date" id="dailyReportDate" class="form-control" value="{{ request('report_date') }}">
                             </div>
                         @else
-                            <div class="col-md-3">
+                            <div class="lms-report-action-group">
                                 <label class="form-label">From Date</label>
                                 <input type="date" name="from_date" class="form-control" value="{{ request('from_date') }}">
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="lms-report-action-group">
                                 <label class="form-label">To Date</label>
                                 <input type="date" name="to_date" class="form-control" value="{{ request('to_date') }}">
                             </div>
                         @endif
+                        </div>
 
-                        <div class="col-md-3 d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">Show Sessions</button>
-                            <a href="{{ $reportRoute }}" class="btn btn-outline-secondary">Clear</a>
+                        <div class="lms-report-button-band">
+                            <button type="submit" class="btn btn-primary lms-report-action-button">Show Sessions</button>
+                            <a href="{{ $reportRoute }}" class="btn btn-outline-secondary lms-report-action-clear">Clear</a>
                         </div>
                     </form>
 
-                    <form method="POST" action="{{ $downloadRoute }}" class="mt-3">
-                        @csrf
-                        <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
-                        @if($isDailyReport)
-                            <input type="hidden" name="report_date" value="{{ request('report_date', now()->toDateString()) }}">
-                        @else
-                            <input type="hidden" name="from_date" value="{{ request('from_date') }}">
-                            <input type="hidden" name="to_date" value="{{ request('to_date') }}">
-                        @endif
-                        <button type="submit" class="btn btn-outline-primary">Generate Report PDF</button>
-                    </form>
+                    <div class="lms-report-status-row mt-3 text-muted small">
+                        <span class="lms-report-status-text">
+                            @if($isDailyReport)
+                                Showing sessions for:
+                                {{ request('report_date') ? \Carbon\Carbon::parse(request('report_date'))->format('d M Y') : 'Select a date' }}
+                            @else
+                                Showing sessions from:
+                                {{ request('from_date') ? \Carbon\Carbon::parse(request('from_date'))->format('d M Y') : 'Start' }}
+                                -
+                                {{ request('to_date') ? \Carbon\Carbon::parse(request('to_date'))->format('d M Y') : 'Today' }}
+                            @endif
+                        </span>
+                        <form method="POST" action="{{ $downloadRoute }}" class="lms-report-status-action">
+                            @csrf
+                            @if(session('user_role') == 'Admin')
+                                <input type="hidden" name="institute" value="{{ $selectedReportInstitute }}">
+                            @endif
+                            @if($isDailyReport)
+                                <input type="hidden" name="report_date" value="{{ request('report_date') }}">
+                            @else
+                                <input type="hidden" name="from_date" value="{{ request('from_date') }}">
+                                <input type="hidden" name="to_date" value="{{ request('to_date') }}">
+                            @endif
+                            <button type="submit" class="btn btn-outline-primary btn-sm lms-report-action-generate">Generate Report PDF</button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
+            @if(!$hasFilters)
+                @include('partials.filter-placeholder')
+            @else
             <div class="card shadow border-0">
                 <div class="card-body">
 
@@ -118,79 +135,63 @@
 
                             @php
                                 $sessionRows = method_exists($sessions, 'getCollection') ? $sessions->getCollection() : collect($sessions);
-                                $groupedSessions = $sessionRows
+                                $sortedSessions = $sessionRows
                                     ->sortBy([
                                         fn ($session) => $session->institute ?? $session->schoolClass->institute ?? '',
                                         fn ($session) => trim(($session->class ?? $session->schoolClass->class_name ?? '') . ' ' . ($session->section ?? $session->schoolClass->section ?? '')),
                                         fn ($session) => $session->session_date ?? '',
                                     ])
-                                    ->groupBy(fn ($session) => $session->institute ?? $session->schoolClass->institute ?? 'Unassigned Institute');
+                                    ->values();
                             @endphp
 
-                            @forelse($groupedSessions as $instituteName => $instituteSessions)
-                                <tr class="table-primary">
-                                    <td colspan="9" class="fw-semibold">
-                                        {{ $instituteName }} | {{ $instituteSessions->count() }} session{{ $instituteSessions->count() == 1 ? '' : 's' }}
+                            @forelse($sortedSessions as $session)
+                                <tr>
+                                    <td>
+                                        {{ $session->class ?? $session->schoolClass->class_name ?? 'N/A' }}
+                                        {{ $session->section ?? $session->schoolClass->section ?? '' }}
+                                    </td>
+
+                                    <td>
+                                        {{ $session->institute ?? $session->schoolClass->institute ?? 'N/A' }}
+                                    </td>
+
+                                    <td>
+                                        {{ $session->course->course_title ?? 'N/A' }}
+                                    </td>
+
+                                    <td>
+                                        {{ $session->planned_topic ?? $session->content->content_title ?? 'No Content' }}
+                                    </td>
+
+                                    <td>
+                                        {{ $session->delivered_topic ?? 'Not recorded' }}
+                                    </td>
+
+                                    <td>
+                                        {{ $session->stemEngineer->name ?? 'Deleted Engineer' }}
+                                    </td>
+
+                                    <td>
+                                        {{ $session->session_date ? \Carbon\Carbon::parse($session->session_date)->format('d M Y') : '-' }}
+                                        <br>
+                                        <small class="text-muted">
+                                            {{ $session->start_time ? \Carbon\Carbon::parse($session->start_time)->format('h:i A') : '-' }}
+                                            @if($session->end_time)
+                                                - {{ \Carbon\Carbon::parse($session->end_time)->format('h:i A') }}
+                                            @endif
+                                        </small>
+                                    </td>
+
+                                    <td>
+                                        {{ gmdate('H:i:s', $session->duration_seconds ?? 0) }}
+                                    </td>
+
+                                    <td>
+                                        <span class="badge bg-{{ $session->status == 'in_progress' ? 'warning text-dark' : ($session->status == 'cancelled' ? 'danger' : 'success') }}">
+                                            {{ ucwords(str_replace('_', ' ', $session->status)) }}
+                                        </span>
                                     </td>
                                 </tr>
-
-                                @foreach($instituteSessions->groupBy(fn ($session) => trim(($session->class ?? $session->schoolClass->class_name ?? '') . ' ' . ($session->section ?? $session->schoolClass->section ?? '')) ?: 'Unassigned Class') as $classLabel => $classSessions)
-                                    <tr class="table-light">
-                                        <td colspan="9" class="fw-semibold ps-4">
-                                            {{ $classLabel }} | {{ $classSessions->count() }} session{{ $classSessions->count() == 1 ? '' : 's' }}
-                                        </td>
-                                    </tr>
-
-                                    @foreach($classSessions as $session)
-                                        <tr>
-                                            <td>
-                                                {{ $session->class ?? $session->schoolClass->class_name ?? 'N/A' }}
-                                                {{ $session->section ?? $session->schoolClass->section ?? '' }}
-                                            </td>
-
-                                            <td>
-                                                {{ $session->institute ?? $session->schoolClass->institute ?? 'N/A' }}
-                                            </td>
-
-                                            <td>
-                                                {{ $session->course->course_title ?? 'N/A' }}
-                                            </td>
-
-                                            <td>
-                                                {{ $session->planned_topic ?? $session->content->content_title ?? 'No Content' }}
-                                            </td>
-
-                                            <td>
-                                                {{ $session->delivered_topic ?? 'Not recorded' }}
-                                            </td>
-
-                                            <td>
-                                                {{ $session->stemEngineer->name ?? 'Deleted Engineer' }}
-                                            </td>
-
-                                            <td>
-                                                {{ $session->session_date ? \Carbon\Carbon::parse($session->session_date)->format('d M Y') : '-' }}
-                                                <br>
-                                                <small class="text-muted">
-                                                    {{ $session->start_time ? \Carbon\Carbon::parse($session->start_time)->format('h:i A') : '-' }}
-                                                    @if($session->end_time)
-                                                        - {{ \Carbon\Carbon::parse($session->end_time)->format('h:i A') }}
-                                                    @endif
-                                                </small>
-                                            </td>
-
-                                            <td>
-                                                {{ gmdate('H:i:s', $session->duration_seconds ?? 0) }}
-                                            </td>
-
-                                            <td>
-                                                <span class="badge bg-{{ $session->status == 'in_progress' ? 'warning text-dark' : ($session->status == 'cancelled' ? 'danger' : 'success') }}">
-                                                    {{ ucwords(str_replace('_', ' ', $session->status)) }}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                @endforeach
 
                             @empty
 
@@ -215,6 +216,7 @@
                     </div>
                 @endif
             </div>
+            @endif
 
         </div>
 

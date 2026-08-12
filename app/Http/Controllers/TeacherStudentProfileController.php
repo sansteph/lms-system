@@ -12,12 +12,44 @@ class TeacherStudentProfileController extends Controller
     public function index(Request $request)
     {
         $teacher = User::findOrFail(session('user_id'));
+        $hasFilters = $request->filled('student_class')
+            || $request->filled('student_section')
+            || $request->filled('search');
         ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
             $this->buildStudentClassPager($request, $teacher->institute, 'teacher.student.profiles');
         ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
             $this->buildStudentSectionPager($request, $teacher->institute, $selectedStudentClass, 'teacher.student.profiles');
 
+        $classOptions = SchoolClass::where('institute', $teacher->institute)
+            ->whereNotNull('class_name')
+            ->orderBy('class_name')
+            ->pluck('class_name')
+            ->map(fn ($className) => trim((string) $className))
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
+            ->values();
+
+        $sectionOptions = collect();
+        if ($selectedStudentClass) {
+            $sectionOptions = Student::where('institute', $teacher->institute)
+                ->where('class', $selectedStudentClass)
+                ->whereNotNull('section')
+                ->orderBy('section')
+                ->pluck('section')
+                ->map(fn ($section) => trim((string) $section))
+                ->filter()
+                ->unique(fn ($section) => mb_strtolower($section))
+                ->values();
+        }
+
         $students = $this->teacherAssignedStudentsQuery($teacher)
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = $request->input('search');
+                $query->where(function ($innerQuery) use ($search) {
+                    $innerQuery->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('student_id', 'like', '%' . $search . '%');
+                });
+            })
             ->when($selectedStudentClass, function ($query) use ($selectedStudentClass) {
                 $query->where('class', $selectedStudentClass);
             })
@@ -34,8 +66,10 @@ class TeacherStudentProfileController extends Controller
             'classSectionPager',
             'studentSectionPager',
             'selectedStudentClass',
-            'selectedStudentSection'
-        ));
+            'selectedStudentSection',
+            'classOptions',
+            'sectionOptions'
+        ) + ['showFilterPlaceholder' => ! $hasFilters]);
     }
 
     public function export(Request $request)

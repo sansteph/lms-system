@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Assessment;
+use App\Models\Institute;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\User;
@@ -27,6 +28,7 @@ class AssessmentController extends Controller
         $teacher = User::find(session('user_id'));
         $teacherClassNames = $this->teacherInstituteClassNames();
         $assignedClasses = $teacherClassNames;
+        $sectionOptions = collect();
         $sectionPager = null;
         $classSectionPager = null;
         $studentSectionPager = null;
@@ -56,6 +58,15 @@ class AssessmentController extends Controller
 
             ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
                 $this->buildStudentSectionPager($request, $managedInstitute, $selectedStudentClass, $request->route()?->getName() ?: 'teacher.assessments');
+
+            $sectionOptions = Student::where('institute', $managedInstitute)
+                ->whereNotNull('section')
+                ->orderBy('section')
+                ->pluck('section')
+                ->map(fn ($section) => trim((string) $section))
+                ->filter()
+                ->unique(fn ($section) => mb_strtolower($section))
+                ->values();
         }
 
         $sectionOptions = collect();
@@ -560,22 +571,37 @@ class AssessmentController extends Controller
 
     public function adminQuestionPapers(Request $request)
     {
-        $sectionPager = null;
-        $classSectionPager = null;
         $currentInstitute = session('user_role') == 'InstituteAdmin'
             ? session('user_institute')
+            : ($request->filled('institute') ? trim((string) $request->input('institute')) : null);
+        $selectedQuestionPaperClass = $request->filled('question_class')
+            ? trim((string) $request->input('question_class'))
             : null;
-        $selectedQuestionPaperClass = null;
+        $selectedQuestionPaperStatus = $request->filled('question_status')
+            ? trim((string) $request->input('question_status'))
+            : null;
+        $hasFilters = (session('user_role') == 'Admin' && $request->filled('institute'))
+            || $request->filled('question_class')
+            || $request->filled('question_status')
+            || session('user_role') == 'InstituteAdmin';
+        $questionInstituteOptions = session('user_role') == 'Admin'
+            ? Institute::where('status', 1)->orderBy('institute_name')->pluck('institute_name')
+            : collect([session('user_institute')]);
+        $questionClassOptions = SchoolClass::query()
+            ->when($currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
+            })
+            ->get()
+            ->map(function ($class) {
+                $className = trim((string) $class->class_name);
+                $section = trim((string) $class->section);
 
-        if (session('user_role') == 'Admin') {
-            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
-                $this->buildInstituteSectionPager($request, 'admin.question-papers');
-        }
-
-        if ($currentInstitute) {
-            ['selectedClass' => $selectedQuestionPaperClass, 'sectionPager' => $classSectionPager] =
-                $this->buildQuestionPaperClassPager($request, $currentInstitute);
-        }
+                return trim($className . ($section !== '' ? ' ' . $section : ''));
+            })
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
 
         $assessments = Assessment::with(['teacher', 'questionPaperReviewer'])
             ->whereNotNull('file_path')
@@ -588,6 +614,9 @@ class AssessmentController extends Controller
             ->when($selectedQuestionPaperClass, function ($query) use ($selectedQuestionPaperClass) {
                 $query->where('assigned_class', $selectedQuestionPaperClass);
             })
+            ->when($selectedQuestionPaperStatus, function ($query) use ($selectedQuestionPaperStatus) {
+                $query->where('question_paper_status', $selectedQuestionPaperStatus);
+            })
             ->orderBy('institute')
             ->orderBy('assigned_class')
             ->latest('created_at')
@@ -595,10 +624,12 @@ class AssessmentController extends Controller
 
         return view('admin-question-papers', compact(
             'assessments',
-            'sectionPager',
-            'classSectionPager',
             'currentInstitute',
-            'selectedQuestionPaperClass'
+            'selectedQuestionPaperClass',
+            'selectedQuestionPaperStatus',
+            'questionInstituteOptions',
+            'questionClassOptions',
+            'hasFilters'
         ));
     }
 

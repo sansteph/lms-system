@@ -27,18 +27,32 @@
                 <div class="alert alert-danger">{{ $errors->first() }}</div>
             @endif
 
-            <div class="row g-4 mb-4">
-                <div class="col-md-3"><div class="dashboard-card"><h6>Total Institutes</h6><h2>{{ $totalInstitutes }}</h2></div></div>
-                <div class="col-md-3"><div class="dashboard-card"><h6>Active Institutes</h6><h2>{{ $activeInstitutes }}</h2></div></div>
-                <div class="col-md-3"><div class="dashboard-card"><h6>Total Branches</h6><h2>{{ $totalInstitutes }}</h2></div></div>
-                <div class="col-md-3"><div class="dashboard-card"><h6>Total Students</h6><h2>{{ $studentCount }}</h2></div></div>
-            </div>
-
-            <div class="card shadow border-0">
+            <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-
-                    <form method="GET" action="{{ route('institutes') }}" class="row mb-3">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <span class="badge bg-primary-subtle text-primary">Filter Institutes</span>
+                        <span class="text-muted small">Narrow the list by location or status, then use search for a specific institute.</span>
+                    </div>
+                    <form method="GET" action="{{ route('institutes') }}" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Location</label>
+                            <select name="location" class="form-select">
+                                <option value="">All Locations</option>
+                                @foreach($locationOptions as $locationOption)
+                                    <option value="{{ $locationOption }}" {{ request('location') === $locationOption ? 'selected' : '' }}>{{ $locationOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">All Statuses</option>
+                                <option value="1" {{ request('status') === '1' ? 'selected' : '' }}>Active</option>
+                                <option value="0" {{ request('status') === '0' ? 'selected' : '' }}>Inactive</option>
+                            </select>
+                        </div>
                         <div class="col-md-4">
+                            <label class="form-label">Search</label>
                             <input type="text"
                                 name="search"
                                 class="form-control"
@@ -47,13 +61,26 @@
                         </div>
 
                         <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100">
-                                Search
-                            </button>
+                            <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
                         </div>
                     </form>
+                </div>
+            </div>
 
-                    <table class="table table-bordered table-hover align-middle">
+            <div class="row g-4 mb-4">
+                <div class="col-md-3"><div class="dashboard-card"><h6>Total Institutes</h6><h2>{{ $totalInstitutes }}</h2></div></div>
+                <div class="col-md-3"><div class="dashboard-card"><h6>Active Institutes</h6><h2>{{ $activeInstitutes }}</h2></div></div>
+                <div class="col-md-3"><div class="dashboard-card"><h6>Total Branches</h6><h2>{{ $totalInstitutes }}</h2></div></div>
+                <div class="col-md-3"><div class="dashboard-card"><h6>Total Students</h6><h2>{{ $studentCount }}</h2></div></div>
+            </div>
+
+            @if(!$hasFilters)
+                @include('partials.filter-placeholder')
+            @else
+            <div class="card shadow border-0">
+                <div class="card-body">
+                    <div class="table-responsive lms-table-shell">
+                    <table class="table table-bordered table-hover align-middle lms-table-fit">
                         <thead class="table-light">
                             <tr>
                                 <th>Sl. No</th>
@@ -111,7 +138,8 @@
                     @endif
 
                 </div>
-            </div>
+                </div>
+            @endif
 
         </div>
     </div>

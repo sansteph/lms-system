@@ -11,6 +11,8 @@ class LmsNotificationController extends Controller
 {
     public function index(Request $request)
     {
+        $hasFilters = $request->filled('from_date') || $request->filled('to_date');
+
         $notifications = LmsNotification::query()
             ->when(session('user_role') == 'InstituteAdmin', function ($query) {
                 $query->where(function ($scope) {
@@ -31,7 +33,7 @@ class LmsNotificationController extends Controller
             ? Institute::where('status', 1)->orderBy('institute_name')->get()
             : collect();
 
-        return view('notifications.index', compact('notifications', 'institutes'));
+        return view('notifications.index', compact('notifications', 'institutes', 'hasFilters'));
     }
 
     public function store(Request $request)
@@ -76,11 +78,13 @@ class LmsNotificationController extends Controller
     public function teacherIndex(Request $request)
     {
         $notifications = $this->audienceNotifications('teachers', session('user_institute'), $request);
+        $showFilterPlaceholder = !($request->filled('from_date') || $request->filled('to_date'));
 
         return view('notifications.audience', [
             'title' => 'Notifications',
             'notifications' => $notifications,
             'sidebar' => 'teacher',
+            'showFilterPlaceholder' => $showFilterPlaceholder,
         ]);
     }
 
@@ -88,11 +92,13 @@ class LmsNotificationController extends Controller
     {
         $student = Student::findOrFail(session('student_id'));
         $notifications = $this->audienceNotifications('students', $student->institute, $request);
+        $showFilterPlaceholder = !($request->filled('from_date') || $request->filled('to_date'));
 
         return view('notifications.audience', [
             'title' => 'Notifications',
             'notifications' => $notifications,
             'sidebar' => 'student',
+            'showFilterPlaceholder' => $showFilterPlaceholder,
         ]);
     }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Institute;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\StudentAchievement;
@@ -16,29 +17,49 @@ class StudentAchievementController extends Controller
 
     public function adminIndex(Request $request)
     {
-        $sectionPager = null;
-        $classSectionPager = null;
-        $studentSectionPager = null;
-        $currentInstitute = null;
-        $selectedStudentClass = null;
-        $selectedStudentSection = null;
-
-        if (session('user_role') == 'Admin') {
-            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
-                $this->buildInstituteSectionPager($request, 'admin.achievements');
-        }
-
-        if (session('user_role') == 'InstituteAdmin') {
-            $currentInstitute = session('user_institute');
-        }
-
-        if ($currentInstitute) {
-            ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
-                $this->buildStudentClassPager($request, $currentInstitute, 'admin.achievements');
-
-            ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
-                $this->buildStudentSectionPager($request, $currentInstitute, $selectedStudentClass, 'admin.achievements');
-        }
+        $currentInstitute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : ($request->filled('institute') ? trim((string) $request->input('institute')) : null);
+        $selectedStudentClass = $request->filled('student_class')
+            ? trim((string) $request->input('student_class'))
+            : null;
+        $selectedStudentSection = $request->filled('student_section')
+            ? trim((string) $request->input('student_section'))
+            : null;
+        $hasFilters = session('user_role') == 'InstituteAdmin'
+            || $request->filled('institute')
+            || $request->filled('student_class')
+            || $request->filled('student_section');
+        $instituteOptions = session('user_role') == 'Admin'
+            ? Institute::where('status', 1)->orderBy('institute_name')->pluck('institute_name')
+            : collect([session('user_institute')]);
+        $classOptions = Student::when($currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
+            })
+            ->whereNotNull('class')
+            ->select('class')
+            ->distinct()
+            ->orderBy('class')
+            ->pluck('class')
+            ->map(fn ($className) => trim((string) $className))
+            ->filter()
+            ->unique()
+            ->values();
+        $sectionOptions = Student::when($currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
+            })
+            ->when($selectedStudentClass, function ($query) use ($selectedStudentClass) {
+                $query->where('class', $selectedStudentClass);
+            })
+            ->whereNotNull('section')
+            ->select('section')
+            ->distinct()
+            ->orderBy('section')
+            ->pluck('section')
+            ->map(fn ($section) => trim((string) $section))
+            ->filter()
+            ->unique()
+            ->values();
 
         $achievements = StudentAchievement::with('student')
             ->when($currentInstitute, function ($query) use ($currentInstitute, $selectedStudentClass, $selectedStudentSection) {
@@ -60,12 +81,13 @@ class StudentAchievementController extends Controller
 
         return view('admin-achievements', compact(
             'achievements',
-            'sectionPager',
-            'classSectionPager',
-            'studentSectionPager',
             'currentInstitute',
             'selectedStudentClass',
-            'selectedStudentSection'
+            'selectedStudentSection',
+            'instituteOptions',
+            'classOptions',
+            'sectionOptions',
+            'hasFilters'
         ));
     }
 

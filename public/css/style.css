@@ -5299,6 +5299,97 @@ main{
     vertical-align: middle;
 }
 
+.lms-report-filter-card .form-label {
+    margin-bottom: 0.35rem;
+    font-weight: 600;
+}
+
+.lms-report-filter-card .form-control,
+.lms-report-filter-card .form-select {
+    min-height: 46px;
+}
+
+.lms-report-filter-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.75rem;
+}
+
+.lms-report-filter-grid > .lms-report-action-group {
+    flex: 1 1 0;
+    min-width: 220px;
+    max-width: 100%;
+}
+
+.lms-report-date-range-group {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.lms-report-date-range-group .lms-report-date-item {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.lms-report-date-range-line {
+    flex: 0 0 100%;
+    width: 100%;
+}
+
+.lms-report-button-band {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.lms-report-button-band .lms-report-action-button,
+.lms-report-button-band .lms-report-action-clear,
+.lms-report-status-row .lms-report-action-generate {
+    flex: 0 0 180px;
+    min-width: 180px;
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 180px;
+    border-radius: 0.85rem;
+}
+
+.lms-report-status-row .lms-report-action-generate {
+    width: 180px;
+    min-width: 180px;
+}
+
+.lms-report-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+}
+
+.lms-report-status-row .lms-report-status-text {
+    flex: 1 1 auto;
+    min-width: 220px;
+}
+
+.lms-report-status-row .lms-report-status-action {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.lms-report-status-row .lms-report-status-action .lms-report-action-generate {
+    min-height: 42px;
+    width: 180px;
+}
+
 .lms-table-tight {
     width: 100%;
     min-width: 100%;

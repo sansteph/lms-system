@@ -29,6 +29,9 @@ class TeachingPlanController extends Controller
         $teachingPlanStudentSectionPager = null;
         $selectedTeachingPlanClass = null;
         $selectedTeachingPlanSection = null;
+        $hasFilters = $request->filled('page')
+            || $request->filled('plan_class')
+            || $request->filled('plan_section');
         $currentInstituteName = session('user_role') == 'InstituteAdmin'
             ? session('user_institute')
             : null;
@@ -68,11 +71,8 @@ class TeachingPlanController extends Controller
         $plans = collect();
 
         if (session('user_role') == 'InstituteAdmin' || $currentInstituteName) {
-            ['selectedClass' => $selectedTeachingPlanClass, 'sectionPager' => $teachingPlanClassPager] =
-                $this->buildTeachingPlanClassPager($request, $currentInstituteName);
-
-            ['selectedSection' => $selectedTeachingPlanSection, 'sectionPager' => $teachingPlanStudentSectionPager] =
-                $this->buildTeachingPlanSectionPager($request, $currentInstituteName, $selectedTeachingPlanClass);
+            $selectedTeachingPlanClass = trim((string) $request->input('plan_class')) ?: null;
+            $selectedTeachingPlanSection = trim((string) $request->input('plan_section')) ?: null;
 
             $plans = TeachingPlan::with([
                     'course.courseContents.content',
@@ -164,6 +164,35 @@ class TeachingPlanController extends Controller
                     ->values();
             });
 
+        $teachingPlanClassOptions = $currentInstituteName
+            ? TeachingPlan::where('is_template', false)
+                ->where('institute', $currentInstituteName)
+                ->whereNotNull('class')
+                ->where('class', '!=', '')
+                ->orderBy('class')
+                ->distinct()
+                ->pluck('class')
+                ->map(fn ($className) => preg_replace('/\s+/', ' ', trim((string) $className)))
+                ->unique()
+                ->values()
+            : collect();
+
+        $teachingPlanSectionOptions = $currentInstituteName
+            ? TeachingPlan::where('is_template', false)
+                ->where('institute', $currentInstituteName)
+                ->when($selectedTeachingPlanClass, function ($query) use ($selectedTeachingPlanClass) {
+                    $query->whereRaw("REPLACE(TRIM(class), '  ', ' ') = ?", [$selectedTeachingPlanClass]);
+                })
+                ->whereNotNull('section')
+                ->where('section', '!=', '')
+                ->orderBy('section')
+                ->distinct()
+                ->pluck('section')
+                ->map(fn ($section) => preg_replace('/\s+/', ' ', trim((string) $section)))
+                ->unique()
+                ->values()
+            : collect();
+
         return view('teaching-plans', compact(
             'plans',
             'templates',
@@ -176,7 +205,10 @@ class TeachingPlanController extends Controller
             'teachingPlanStudentSectionPager',
             'selectedTeachingPlanClass',
             'selectedTeachingPlanSection',
-            'currentInstituteName'
+            'currentInstituteName',
+            'teachingPlanClassOptions',
+            'teachingPlanSectionOptions',
+            'hasFilters'
         ));
     }
 

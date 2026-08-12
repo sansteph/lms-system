@@ -19,17 +19,36 @@
 
             </div>
 
-            @if($showFilterPlaceholder)
-                @include('partials.section-navigator', [
-                    'sectionPager' => $classSectionPager ?? null,
-                    'sectionDescription' => 'Browse certificates one class at a time.',
-                ])
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ route('teacher.certificates') }}" class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">Class</label>
+                            <select name="student_class" class="form-select">
+                                <option value="">All Classes</option>
+                                @foreach($classOptions as $classOption)
+                                    <option value="{{ $classOption }}" @selected(($selectedStudentClass ?? '') === $classOption)>{{ $classOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
 
-                @include('partials.section-navigator', [
-                    'sectionPager' => $studentSectionPager ?? null,
-                    'sectionDescription' => 'Showing certificates for this section only.',
-                ])
-            @endif
+                        <div class="col-md-4">
+                            <label class="form-label">Section</label>
+                            <select name="student_section" class="form-select">
+                                <option value="">All Sections</option>
+                                @foreach($sectionOptions as $sectionOption)
+                                    <option value="{{ $sectionOption }}" @selected(($selectedStudentSection ?? '') === $sectionOption)>{{ $sectionOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-md-4 d-flex gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-primary">Apply Filters</button>
+                            <a href="{{ route('teacher.certificates') }}" class="btn btn-outline-secondary">Clear</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
             @if($showFilterPlaceholder)
                 @include('partials.filter-placeholder')
@@ -58,16 +77,6 @@
             </div>
             <div class="card shadow border-0">
                 <div class="card-body">
-                    @include('partials.section-navigator', [
-                        'sectionPager' => $classSectionPager ?? null,
-                        'sectionDescription' => 'Browse certificates one class at a time.',
-                    ])
-
-                    @include('partials.section-navigator', [
-                        'sectionPager' => $studentSectionPager ?? null,
-                        'sectionDescription' => 'Showing certificates for this section only.',
-                    ])
-
                     @if(!empty($selectedStudentClass))
                         <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <div>

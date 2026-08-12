@@ -37,62 +37,60 @@
                 <div class="alert alert-danger">{{ $errors->first() }}</div>
             @endif
 
-            @include('partials.section-navigator', [
-                'sectionPager' => $sectionPager ?? null,
-                'sectionDescription' => 'Browse classes institute by institute to keep the management page focused.',
-            ])
-
-            @include('partials.section-navigator', [
-                'sectionPager' => $classSectionPager ?? null,
-                'sectionDescription' => 'Browse one class at a time inside the selected institute.',
-            ])
-
-            @include('partials.section-navigator', [
-                'sectionPager' => $sectionOnlyPager ?? null,
-                'sectionDescription' => 'Showing this section only.',
-            ])
-
-            @if(!empty($selectedClassName))
-                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <span class="fw-semibold">Current class and section:</span>
-                        Class {{ $selectedClassName }}
-                        @if(!empty($selectedSectionName))
-                            · Section {{ $selectedSectionName }}
-                        @endif
-                    </div>
-
-                    @if(!empty($managedInstitute))
-                        <span class="text-muted small">{{ $managedInstitute }}</span>
-                    @endif
-                </div>
-            @endif
-
-            <div class="card shadow border-0">
+            <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-
-                    <form method="GET" action="{{ route('classes') }}" class="row mb-3">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <span class="badge bg-primary-subtle text-primary">Filter Classes</span>
+                        <span class="text-muted small">Use search to find a class, section, or academic year without switching sections.</span>
+                    </div>
+                    <form method="GET" action="{{ route('classes') }}" class="row g-3 align-items-end">
+                        @if(session('user_role') == 'Admin')
+                            <div class="col-md-3">
+                                <label class="form-label">Institute</label>
+                                <select name="institute" class="form-select">
+                                    <option value="">All Institutes</option>
+                                    @foreach($instituteOptions as $instituteOption)
+                                        <option value="{{ $instituteOption }}" {{ request('institute') === $instituteOption ? 'selected' : '' }}>{{ $instituteOption }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+                        <div class="col-md-2">
+                            <label class="form-label">Class</label>
+                            <select name="class_name" class="form-select">
+                                <option value="">All Classes</option>
+                                @foreach($classFilterOptions as $classOption)
+                                    <option value="{{ $classOption }}" {{ request('class_name') === $classOption ? 'selected' : '' }}>{{ $classOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Section</label>
+                            <select name="section_name" class="form-select">
+                                <option value="">All Sections</option>
+                                @foreach($sectionFilterOptions as $sectionOption)
+                                    <option value="{{ $sectionOption }}" {{ request('section_name') === $sectionOption ? 'selected' : '' }}>{{ $sectionOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                         @if(request()->has('section_page'))
                             <input type="hidden" name="section_page" value="{{ request('section_page') }}">
                         @endif
-
                         @if(request()->has('class_page'))
                             <input type="hidden" name="class_page" value="{{ request('class_page') }}">
                         @endif
-
                         @if(request()->has('class_name_filter'))
                             <input type="hidden" name="class_name_filter" value="{{ request('class_name_filter') }}">
                         @endif
-
                         @if(request()->has('section_page_filter'))
                             <input type="hidden" name="section_page_filter" value="{{ request('section_page_filter') }}">
                         @endif
-
                         @if(request()->has('section_name_filter'))
                             <input type="hidden" name="section_name_filter" value="{{ request('section_name_filter') }}">
                         @endif
 
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <label class="form-label">Search</label>
                             <input type="text"
                                    name="search"
                                    class="form-control"
@@ -101,12 +99,17 @@
                         </div>
 
                         <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100">
-                                Search
-                            </button>
+                            <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
                         </div>
                     </form>
+                </div>
+            </div>
 
+            @if(!$hasFilters)
+                @include('partials.filter-placeholder')
+            @else
+            <div class="card shadow border-0">
+                <div class="card-body">
                     <div class="table-responsive lms-table-shell">
                     <table class="table table-bordered table-hover align-middle lms-table-fit">
                         <thead class="table-light">
@@ -316,6 +319,7 @@
                     </div>
                 @endif
             </div>
+            @endif
 
         </div>
     </div>

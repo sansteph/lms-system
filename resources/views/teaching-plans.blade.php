@@ -2,48 +2,6 @@
 
 @section('content')
 
-<style>
-    .teaching-plan-section-navigator {
-        border: 1px solid #dbe7f4;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);
-        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.07);
-        padding: 18px;
-    }
-
-    .teaching-plan-section-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border-radius: 999px;
-        background: #0f3b7a;
-        color: #ffffff;
-        padding: 8px 14px;
-        font-weight: 700;
-        font-size: 13px;
-    }
-
-    .teaching-plan-nav-button {
-        min-width: 190px;
-        border-radius: 12px;
-        padding: 10px 16px;
-        font-weight: 700;
-    }
-
-    .teaching-plan-nav-button small {
-        display: block;
-        font-size: 11px;
-        font-weight: 500;
-        opacity: .72;
-    }
-
-    @media(max-width: 576px) {
-        .teaching-plan-nav-button {
-            width: 100%;
-        }
-    }
-</style>
-
 <div class="container-fluid">
     <div class="row">
         @include('layouts.sidebar')
@@ -81,7 +39,7 @@
                             Deploy AI Prep Training
                         </button>
                     @endif
-                    @if(session('user_role') != 'Admin' || !$teachingPlanSectionPager || $teachingPlanSectionPager['current_type'] == 'institute')
+                    @if(session('user_role') != 'Admin' || $currentInstituteName)
                         <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createTeachingPlanModal">
                             Generate Institute Plan
                         </button>
@@ -109,44 +67,61 @@
                 <div class="alert alert-danger">{{ $errors->first() }}</div>
             @endif
 
-            @if(session('user_role') == 'Admin' && $teachingPlanSectionPager)
-                @include('partials.section-navigator', [
-                    'sectionPager' => $teachingPlanSectionPager,
-                    'sectionDescription' => ($teachingPlanSectionPager['current_type'] ?? null) == 'templates'
-                        ? 'Browse reusable templates first, then use Next to open an institute section before deploying AI prep training.'
-                        : 'Browse reusable templates first, then institute teaching plans one institute at a time.',
-                ])
-            @endif
-
-            @if(session('user_role') != 'Admin' || !$teachingPlanSectionPager || $teachingPlanSectionPager['current_type'] == 'institute')
-                @include('partials.section-navigator', [
-                    'sectionPager' => $teachingPlanClassPager,
-                    'sectionDescription' => 'Browse one class at a time within ' . ($currentInstituteName ?: 'this institute') . '.',
-                ])
-
-                @include('partials.section-navigator', [
-                    'sectionPager' => $teachingPlanStudentSectionPager,
-                    'sectionDescription' => 'Showing Teaching Plans for ' . ($selectedTeachingPlanClass ? 'Class ' . $selectedTeachingPlanClass : 'the selected class') . ', one section at a time.',
-                ])
-
-                @if($selectedTeachingPlanClass)
-                    <div class="alert alert-info mb-4">
-                        Current Teaching Plan scope:
-                        <strong>{{ $currentInstituteName ?: 'Institute' }}</strong>
-                        / <strong>Class {{ $selectedTeachingPlanClass }}</strong>
-                        @if($selectedTeachingPlanSection)
-                            / <strong>{{ $selectedTeachingPlanSection === '__unassigned' ? 'No Section' : 'Section ' . $selectedTeachingPlanSection }}</strong>
-                        @endif
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <span class="badge bg-primary-subtle text-primary">Filter Teaching Plans</span>
+                        <span class="text-muted small">Select an institute and optionally narrow the live plan list by class or section.</span>
                     </div>
-                @endif
-            @endif
+                    <form method="GET" action="{{ route('teaching-plans') }}" class="row g-3 align-items-end">
+                        @if(session('user_role') == 'Admin')
+                            <div class="col-md-4">
+                                <label class="form-label">Plan Area</label>
+                                <select name="page" class="form-select">
+                                    <option value="1" {{ (int) request('page', 1) === 1 ? 'selected' : '' }}>Teaching Plan Templates</option>
+                                    @foreach($institutes as $index => $institute)
+                                        <option value="{{ $index + 2 }}" {{ (int) request('page') === $index + 2 ? 'selected' : '' }}>
+                                            {{ $institute->institute_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+                        <div class="col-md-3">
+                            <label class="form-label">Class</label>
+                            <select name="plan_class" class="form-select">
+                                <option value="">All Classes</option>
+                                @foreach($teachingPlanClassOptions as $classOption)
+                                    <option value="{{ $classOption }}" {{ request('plan_class') === $classOption ? 'selected' : '' }}>{{ $classOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Section</label>
+                            <select name="plan_section" class="form-select">
+                                <option value="">All Sections</option>
+                                @foreach($teachingPlanSectionOptions as $sectionOption)
+                                    <option value="{{ $sectionOption }}" {{ request('plan_section') === $sectionOption ? 'selected' : '' }}>{{ $sectionOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
-            @if(session('user_role') == 'Admin' && (!$teachingPlanSectionPager || $teachingPlanSectionPager['current_type'] == 'templates'))
+            @if(!$hasFilters)
+                @include('partials.filter-placeholder')
+            @else
+
+            @if(session('user_role') == 'Admin' && !$currentInstituteName)
                 <div class="card shadow border-0 mb-4">
                     <div class="card-body">
                         <h5 class="mb-3">Teaching Plan Templates</h5>
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle mb-0">
+                        <div class="table-responsive lms-table-shell">
+                            <table class="table table-bordered table-hover align-middle lms-table-fit mb-0">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Template</th>
@@ -192,7 +167,9 @@
                 </div>
             @endif
 
-            @if(session('user_role') != 'Admin' || !$teachingPlanSectionPager || $teachingPlanSectionPager['current_type'] == 'institute')
+            @endif
+
+            @if(session('user_role') != 'Admin' || $currentInstituteName)
                 @php
                     $deployedPlans = $plans->whereNotNull('parent_template_id');
                     $standalonePlans = $plans->whereNull('parent_template_id');
@@ -256,8 +233,8 @@
                                                             </div>
                                                         </div>
 
-                                                        <div class="table-responsive">
-                                                            <table class="table table-bordered table-hover align-middle">
+                                                        <div class="table-responsive lms-table-shell">
+                                                            <table class="table table-bordered table-hover align-middle lms-table-fit">
                                                                 <thead class="table-light">
                                                                     <tr>
                                                                         <th style="width: 90px;">Week</th>

@@ -26,6 +26,9 @@ class CourseController extends Controller
     use DeletesAssessments;
     public function index(Request $request)
     {
+        $hasFilters = $request->has('page')
+            || $request->filled('course_class')
+            || $request->filled('content_section');
         $institutes = session('user_role') == 'Admin'
             ? Institute::where('status', 1)->orderBy('institute_name')->get()
             : collect();
@@ -116,11 +119,8 @@ class CourseController extends Controller
         }
 
         if ($currentInstitute) {
-            ['selectedClass' => $selectedCourseClass, 'sectionPager' => $courseClassPager] =
-                $this->buildCourseClassPager($request, $currentInstitute);
-
-            ['selectedSection' => $selectedContentSection, 'sectionPager' => $contentSectionPager] =
-                $this->buildCourseContentSectionPager($request, $currentInstitute, $selectedCourseClass);
+            $selectedCourseClass = trim((string) $request->input('course_class')) ?: null;
+            $selectedContentSection = trim((string) $request->input('content_section')) ?: null;
 
             $courseQuery
                 ->when($selectedCourseClass, function ($query) use ($selectedCourseClass) {
@@ -149,7 +149,35 @@ class CourseController extends Controller
                 });
         }
 
-        $courses = $courseQuery->get();
+        $courseClassOptions = $currentInstitute
+            ? SchoolClass::where('institute', $currentInstitute)
+                ->whereNotNull('class_name')
+                ->where('class_name', '!=', '')
+                ->orderBy('class_name')
+                ->distinct()
+                ->pluck('class_name')
+            : collect();
+
+        $courseTitleOptions = $courseQuery->clone()
+            ->orderBy('course_title')
+            ->pluck('course_title')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $courseSectionOptions = $currentInstitute
+            ? SchoolClass::where('institute', $currentInstitute)
+                ->when($selectedCourseClass, function ($query) use ($selectedCourseClass) {
+                    $query->where('class_name', $selectedCourseClass);
+                })
+                ->whereNotNull('section')
+                ->where('section', '!=', '')
+                ->orderBy('section')
+                ->distinct()
+                ->pluck('section')
+            : collect();
+
+        $courses = $hasFilters ? $courseQuery->get() : collect();
 
         $courseGroups = $courses->groupBy(function ($course) {
             if ($course->is_template_source) {
@@ -168,7 +196,11 @@ class CourseController extends Controller
             'contentSectionPager',
             'selectedCourseClass',
             'selectedContentSection',
-            'currentInstitute'
+            'currentInstitute',
+            'courseClassOptions',
+            'courseSectionOptions',
+            'courseTitleOptions',
+            'hasFilters'
         ));
     }
 

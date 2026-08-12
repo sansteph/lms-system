@@ -29,41 +29,60 @@ class ReportController extends Controller
         $reportMode = request()->route('reportMode') ?? 'overview';
         $today = now()->format('Y-m-d');
         [$periodFrom, $periodTo, $periodLabel] = $this->reportDateWindow($request, $reportMode);
-        $sectionPager = null;
         $selectedReportInstitute = null;
-        $studentReportClassPager = null;
-        $studentReportSectionPager = null;
         $selectedStudentReportClass = null;
         $selectedStudentReportSection = null;
+        $reportInstituteOptions = session('user_role') == 'Admin'
+            ? Institute::where('status', 1)->orderBy('institute_name')->pluck('institute_name')
+            : collect([session('user_institute')]);
+        $selectedReportInstitute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : ($request->filled('institute') ? trim((string) $request->input('institute')) : null);
         $isStudentScopedReport = in_array($reportMode, [
             'student-ai-review',
             'weekly-student-performance',
             'monthly-student-performance',
         ], true);
-
-        if (session('user_role') == 'Admin') {
-            ['currentInstitute' => $selectedReportInstitute, 'sectionPager' => $sectionPager] =
-                $this->buildInstituteSectionPager($request, $request->route()?->getName() ?: 'reports.student-ai-review');
-        }
-
+        $selectedStudentReportClass = $request->filled('student_class')
+            ? trim((string) $request->input('student_class'))
+            : null;
+        $selectedStudentReportSection = $request->filled('student_section')
+            ? trim((string) $request->input('student_section'))
+            : null;
+        $reportClassOptions = $selectedReportInstitute
+            ? Student::where('institute', $selectedReportInstitute)
+                ->whereNotNull('class')
+                ->where('class', '!=', '')
+                ->orderBy('class')
+                ->distinct()
+                ->pluck('class')
+                ->map(fn ($className) => preg_replace('/\s+/', ' ', trim((string) $className)))
+                ->unique()
+                ->values()
+            : collect();
+        $reportSectionOptions = ($selectedReportInstitute && $selectedStudentReportClass)
+            ? Student::where('institute', $selectedReportInstitute)
+                ->where('class', $selectedStudentReportClass)
+                ->whereNotNull('section')
+                ->where('section', '!=', '')
+                ->orderBy('section')
+                ->distinct()
+                ->pluck('section')
+                ->map(fn ($section) => preg_replace('/\s+/', ' ', trim((string) $section)))
+                ->unique()
+                ->values()
+            : collect();
+        $hasFilters = $request->filled('institute')
+            || $request->filled('student_class')
+            || $request->filled('student_section')
+            || $request->filled('report_month')
+            || $request->filled('from_date')
+            || $request->filled('to_date');
         $isInstituteScoped = session('user_role') == 'InstituteAdmin'
             || (session('user_role') == 'Admin' && $selectedReportInstitute);
         $institute = session('user_role') == 'InstituteAdmin'
             ? session('user_institute')
             : $selectedReportInstitute;
-
-        if ($isStudentScopedReport && $institute) {
-            ['selectedClass' => $selectedStudentReportClass, 'sectionPager' => $studentReportClassPager] =
-                $this->buildStudentReportClassPager($request, (string) $institute, $request->route()?->getName() ?: 'reports.student-ai-review');
-
-            ['selectedSection' => $selectedStudentReportSection, 'sectionPager' => $studentReportSectionPager] =
-                $this->buildStudentReportSectionPager(
-                    $request,
-                    (string) $institute,
-                    $selectedStudentReportClass,
-                    $request->route()?->getName() ?: 'reports.student-ai-review'
-                );
-        }
 
         if ($isInstituteScoped) {
 
@@ -415,11 +434,13 @@ class ReportController extends Controller
             'teacherAiPrepPassedCount',
             'teacherAiPrepAverage',
             'reportMode',
-            'sectionPager',
-            'studentReportClassPager',
-            'studentReportSectionPager',
+            'selectedReportInstitute',
             'selectedStudentReportClass',
             'selectedStudentReportSection',
+            'reportInstituteOptions',
+            'reportClassOptions',
+            'reportSectionOptions',
+            'hasFilters',
             'periodFrom',
             'periodTo',
             'periodLabel'
@@ -461,22 +482,8 @@ class ReportController extends Controller
         $institute = $this->selectedReportInstitute($request, $downloadRouteName);
         $isStudentReport = in_array($reportMode, ['student-ai-review', 'weekly-student-performance', 'monthly-student-performance'], true);
         $isTeacherReport = in_array($reportMode, ['stem-engineer-prep', 'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance'], true);
-        $selectedClass = null;
-        $selectedSection = null;
-
-        if ($isStudentReport && $institute) {
-            ['selectedClass' => $selectedClass] = $this->buildStudentReportClassPager(
-                $request,
-                $institute,
-                $downloadRouteName
-            );
-            ['selectedSection' => $selectedSection] = $this->buildStudentReportSectionPager(
-                $request,
-                $institute,
-                $selectedClass,
-                $downloadRouteName
-            );
-        }
+        $selectedClass = $isStudentReport ? ($request->filled('student_class') ? trim((string) $request->input('student_class')) : null) : null;
+        $selectedSection = $isStudentReport ? ($request->filled('student_section') ? trim((string) $request->input('student_section')) : null) : null;
 
         $scopeParts = array_filter([
             $institute ?: 'All Institutes',
@@ -599,6 +606,10 @@ class ReportController extends Controller
 
     private function selectedReportInstitute(Request $request, string $routeName): ?string
     {
+        if ($request->filled('institute')) {
+            return trim((string) $request->input('institute'));
+        }
+
         if (session('user_role') == 'InstituteAdmin') {
             return session('user_institute');
         }
@@ -607,9 +618,7 @@ class ReportController extends Controller
             return null;
         }
 
-        ['currentInstitute' => $currentInstitute] = $this->buildInstituteSectionPager($request, $routeName);
-
-        return $currentInstitute;
+        return null;
     }
 
     private function buildStudentReportClassPager(Request $request, string $institute, string $routeName): array

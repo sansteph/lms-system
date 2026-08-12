@@ -85,27 +85,71 @@
                 ])
             @endif
 
-            @include('partials.section-navigator', [
-                'sectionPager' => $classSectionPager ?? null,
-                'sectionDescription' => 'Browse student results one class at a time.',
-            ])
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ route('teacher.results') }}" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Class</label>
+                            <select name="student_class" class="form-select">
+                                <option value="">All Classes</option>
+                                @foreach($classOptions as $classOption)
+                                    <option value="{{ $classOption }}" @selected(($selectedStudentClass ?? '') === $classOption)>{{ $classOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
 
-            @include('partials.section-navigator', [
-                'sectionPager' => $studentSectionPager ?? null,
-                'sectionDescription' => 'Showing student results for this section only.',
-            ])
+                        <div class="col-md-3">
+                            <label class="form-label">Section</label>
+                            <select name="student_section" class="form-select">
+                                <option value="">All Sections</option>
+                                @foreach($sectionOptions as $sectionOption)
+                                    <option value="{{ $sectionOption }}" @selected(($selectedStudentSection ?? '') === $sectionOption)>{{ $sectionOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
 
-            @if(!empty($selectedStudentClass))
-                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <span class="fw-semibold">Current result scope:</span>
-                        Class {{ $selectedStudentClass }}
-                        @if(!empty($selectedStudentSection))
-                            &middot; Section {{ $selectedStudentSection }}
-                        @endif
-                    </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Badge</label>
+                            <select name="badge" class="form-select">
+                                <option value="">All Badges</option>
+                                <option value="Gold" @selected(($badge ?? '') === 'Gold')>Gold</option>
+                                <option value="Silver" @selected(($badge ?? '') === 'Silver')>Silver</option>
+                                <option value="Bronze" @selected(($badge ?? '') === 'Bronze')>Bronze</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">All Statuses</option>
+                                <option value="Completed" @selected(($status ?? '') === 'Completed')>Completed</option>
+                                <option value="Pending Review" @selected(($status ?? '') === 'Pending Review')>Pending Review</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">Sort</label>
+                            <select name="sort" class="form-select">
+                                <option value="">Default</option>
+                                <option value="highest" @selected(($sort ?? '') === 'highest')>Highest</option>
+                                <option value="lowest" @selected(($sort ?? '') === 'lowest')>Lowest</option>
+                                <option value="latest" @selected(($sort ?? '') === 'latest')>Latest</option>
+                                <option value="oldest" @selected(($sort ?? '') === 'oldest')>Oldest</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Search</label>
+                            <input type="text" name="search" class="form-control" value="{{ $search ?? '' }}" placeholder="Student, ID, assessment, badge">
+                        </div>
+
+                        <div class="col-12 d-flex gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-primary">Apply Filters</button>
+                            <a href="{{ route('teacher.results') }}" class="btn btn-outline-secondary">Clear</a>
+                        </div>
+                    </form>
                 </div>
-            @endif
+            </div>
 
             @if($showFilterPlaceholder)
                 @include('partials.filter-placeholder')

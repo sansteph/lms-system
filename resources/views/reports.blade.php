@@ -40,14 +40,7 @@
         'monthly-stem-engineer-performance' => route('reports.stem-engineer-performance.monthly.download'),
         default => null,
     };
-    $reportScopeQuery = array_filter([
-        'section_page' => request('section_page'),
-        'student_class_page' => request('student_class_page'),
-        'student_class' => request('student_class'),
-        'student_section_page' => request('student_section_page'),
-        'student_section' => request('student_section'),
-    ], fn ($value) => filled($value));
-    $clearReportUrl = url()->current() . ($reportScopeQuery ? '?' . http_build_query($reportScopeQuery) : '');
+    $clearReportUrl = url()->current();
 @endphp
 
 <div class="container-fluid">
@@ -73,101 +66,113 @@
                 </div>
             @endif
 
-            @include('partials.section-navigator', ['sectionPager' => $sectionPager ?? null])
-
-            @if($isStudentScopedReport)
-                @include('partials.section-navigator', [
-                    'sectionPager' => $studentReportClassPager ?? null,
-                    'sectionDescription' => 'Browse student report data one class at a time within the selected institute.',
-                ])
-
-                @include('partials.section-navigator', [
-                    'sectionPager' => $studentReportSectionPager ?? null,
-                    'sectionDescription' => 'Review the selected class one section at a time.',
-                ])
-
-                @if($selectedStudentReportClass ?? null)
-                    <div class="alert alert-info mb-4">
-                        Current report scope:
-                        <strong>{{ ($sectionPager['current_label'] ?? session('user_institute')) ?: 'Institute' }}</strong>
-                        / <strong>Class {{ $selectedStudentReportClass }}</strong>
-                        @if($selectedStudentReportSection ?? null)
-                            / <strong>{{ $selectedStudentReportSection === '__unassigned' ? 'No Section' : 'Section ' . $selectedStudentReportSection }}</strong>
-                        @endif
-                    </div>
-                @endif
-            @endif
-
             @if($isFocusedReport)
                 <div class="card shadow border-0 mb-4">
-                    <div class="card-body">
-                        <form method="GET" action="{{ url()->current() }}" class="row g-3 align-items-end">
-                            <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
-                            @if($isStudentScopedReport)
-                                <input type="hidden" name="student_class_page" value="{{ request('student_class_page', 1) }}">
-                                <input type="hidden" name="student_class" value="{{ $selectedStudentReportClass ?? request('student_class') }}">
-                                <input type="hidden" name="student_section_page" value="{{ request('student_section_page', 1) }}">
-                                <input type="hidden" name="student_section" value="{{ $selectedStudentReportSection ?? request('student_section') }}">
+                    <div class="card-body lms-report-filter-card">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                            <div>
+                                <h5 class="mb-1">Apply filters for easy navigation</h5>
+                                <p class="text-muted mb-0">Choose the report scope below to load the relevant report data.</p>
+                            </div>
+                            <span class="badge bg-light text-dark border">Report Filters</span>
+                        </div>
+
+                        <form method="GET" action="{{ url()->current() }}">
+                            <div class="lms-report-filter-grid">
+                            @if(session('user_role') == 'Admin')
+                                <div class="lms-report-action-group">
+                                    <label class="form-label">Institute</label>
+                                    <select name="institute" class="form-select">
+                                        <option value="">Select institute</option>
+                                        @foreach($reportInstituteOptions as $instituteOption)
+                                            <option value="{{ $instituteOption }}" @selected($selectedReportInstitute == $instituteOption)>{{ $instituteOption }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             @endif
+
+                            @if($isStudentScopedReport)
+                                <div class="lms-report-action-group">
+                                    <label class="form-label">Class</label>
+                                    <select name="student_class" class="form-select">
+                                        <option value="">Select class</option>
+                                        @foreach($reportClassOptions as $classOption)
+                                            <option value="{{ $classOption }}" @selected($selectedStudentReportClass == $classOption)>{{ $classOption }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div class="lms-report-action-group">
+                                    <label class="form-label">Section</label>
+                                    <select name="student_section" class="form-select">
+                                        <option value="">Select section</option>
+                                        @foreach($reportSectionOptions as $sectionOption)
+                                            <option value="{{ $sectionOption }}" @selected($selectedStudentReportSection == $sectionOption)>{{ $sectionOption }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @endif
+
                             @if($isMonthlyReport)
-                                <div class="col-md-3">
+                                <div class="lms-report-action-group">
                                     <label class="form-label">Report Month</label>
-                                    <input type="month" name="report_month" class="form-control" value="{{ request('report_month', now()->format('Y-m')) }}">
+                                    <input type="month" name="report_month" class="form-control" value="{{ request('report_month') }}">
                                 </div>
                             @else
-                                <div class="col-md-3">
-                                    <label class="form-label">From Date</label>
-                                    <input type="date" name="from_date" class="form-control" value="{{ request('from_date', ($isWeeklyReport || $isWeeklyPrepReport) ? ($periodFrom ?? '') : '') }}">
-                                </div>
+                                <div class="lms-report-date-range-line">
+                                    <div class="lms-report-date-range-group">
+                                        <div class="lms-report-date-item">
+                                            <label class="form-label">From Date</label>
+                                            <input type="date" name="from_date" class="form-control" value="{{ request('from_date') }}">
+                                        </div>
 
-                                <div class="col-md-3">
-                                    <label class="form-label">To Date</label>
-                                    <input type="date" name="to_date" class="form-control" value="{{ request('to_date', ($isWeeklyReport || $isWeeklyPrepReport) ? ($periodTo ?? '') : '') }}">
+                                        <div class="lms-report-date-item">
+                                            <label class="form-label">To Date</label>
+                                            <input type="date" name="to_date" class="form-control" value="{{ request('to_date') }}">
+                                        </div>
+                                    </div>
                                 </div>
                             @endif
 
-                            <div class="col-md-3">
-                                <button type="submit" class="btn btn-primary w-100">
-                                    Show Report Data
-                                </button>
                             </div>
 
-                            <div class="col-md-3">
-                                <a href="{{ $clearReportUrl }}" class="btn btn-outline-secondary w-100">
-                                    Clear
-                                </a>
+                            <div class="lms-report-button-band">
+                                <button type="submit" class="btn btn-primary lms-report-action-button">Show Report Data</button>
+                                <a href="{{ $clearReportUrl }}" class="btn btn-outline-secondary lms-report-action-clear">Clear</a>
                             </div>
                         </form>
 
-                        <div class="text-muted small mt-3">
-                            Current range: {{ $periodLabel ?? 'All available data' }}
+                        <div class="lms-report-status-row mt-3 text-muted small">
+                            <span class="lms-report-status-text">Current range: {{ $periodLabel ?? 'All available data' }}</span>
+                            @if($downloadRoute)
+                                <form method="POST" action="{{ $downloadRoute }}" class="lms-report-status-action">
+                                    @csrf
+                                    @if(session('user_role') == 'Admin')
+                                        <input type="hidden" name="institute" value="{{ $selectedReportInstitute }}">
+                                    @endif
+                                    @if($isStudentScopedReport)
+                                        <input type="hidden" name="student_class" value="{{ $selectedStudentReportClass }}">
+                                        <input type="hidden" name="student_section" value="{{ $selectedStudentReportSection }}">
+                                    @endif
+                                    @if($isMonthlyReport)
+                                        <input type="hidden" name="report_month" value="{{ request('report_month') }}">
+                                    @else
+                                        <input type="hidden" name="from_date" value="{{ request('from_date') }}">
+                                        <input type="hidden" name="to_date" value="{{ request('to_date') }}">
+                                    @endif
+                                    <button type="submit" class="btn btn-outline-primary btn-sm lms-report-action-generate">Generate Report PDF</button>
+                                </form>
+                            @endif
                         </div>
-
-                        @if($downloadRoute)
-                            <form method="POST" action="{{ $downloadRoute }}" class="mt-3">
-                                @csrf
-                                <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
-                                @if($isStudentScopedReport)
-                                    <input type="hidden" name="student_class_page" value="{{ request('student_class_page', 1) }}">
-                                    <input type="hidden" name="student_class" value="{{ $selectedStudentReportClass ?? request('student_class') }}">
-                                    <input type="hidden" name="student_section_page" value="{{ request('student_section_page', 1) }}">
-                                    <input type="hidden" name="student_section" value="{{ $selectedStudentReportSection ?? request('student_section') }}">
-                                @endif
-                                @if($isMonthlyReport)
-                                    <input type="hidden" name="report_month" value="{{ request('report_month', now()->format('Y-m')) }}">
-                                @else
-                                    <input type="hidden" name="from_date" value="{{ request('from_date', $periodFrom ?? '') }}">
-                                    <input type="hidden" name="to_date" value="{{ request('to_date', $periodTo ?? '') }}">
-                                @endif
-
-                                <button type="submit" class="btn btn-outline-primary">
-                                    Generate Report PDF
-                                </button>
-                            </form>
-                        @endif
                     </div>
                 </div>
             @endif
+
+            @if($isFocusedReport && !$hasFilters)
+                @include('partials.filter-placeholder')
+            @endif
+
+            @if(!$isFocusedReport || $hasFilters)
 
             @php
                 $aiInsights = session('aiInsights');
@@ -458,28 +463,23 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($classBreakdowns->groupBy('institute') as $instituteName => $classes)
-                                    <tr class="table-primary">
-                                        <td colspan="7" class="fw-semibold">{{ $instituteName }} · {{ $classes->count() }} class section{{ $classes->count() == 1 ? '' : 's' }}</td>
+                                @forelse($classBreakdowns as $class)
+                                    <tr>
+                                        <td>{{ $class['institute'] }}</td>
+                                        <td>{{ $class['class_label'] }}</td>
+                                        <td>{{ $class['students'] }}</td>
+                                        <td>{{ $class['sessions'] }}</td>
+                                        <td>{{ $class['active_plans'] }}</td>
+                                        <td>
+                                            {{ $class['assessment_results'] }} results |
+                                            {{ number_format($class['assessment_average'], 2) }}% avg
+                                        </td>
+                                        <td>
+                                            {{ $class['ai_reviews'] }} total |
+                                            {{ $class['ai_reviews_passed'] }} passed |
+                                            {{ number_format($class['ai_review_average'], 2) }}%
+                                        </td>
                                     </tr>
-                                    @foreach($classes as $class)
-                                        <tr>
-                                            <td>{{ $class['institute'] }}</td>
-                                            <td>{{ $class['class_label'] }}</td>
-                                            <td>{{ $class['students'] }}</td>
-                                            <td>{{ $class['sessions'] }}</td>
-                                            <td>{{ $class['active_plans'] }}</td>
-                                            <td>
-                                                {{ $class['assessment_results'] }} results |
-                                                {{ number_format($class['assessment_average'], 2) }}% avg
-                                            </td>
-                                            <td>
-                                                {{ $class['ai_reviews'] }} total |
-                                                {{ $class['ai_reviews_passed'] }} passed |
-                                                {{ number_format($class['ai_review_average'], 2) }}%
-                                            </td>
-                                        </tr>
-                                    @endforeach
                                 @empty
                                     <tr><td colspan="7" class="text-center text-muted">No class tracking data available.</td></tr>
                                 @endforelse
@@ -720,6 +720,8 @@
 
                 </div>
             </div>
+            @endif
+
             @endif
 
         </div>

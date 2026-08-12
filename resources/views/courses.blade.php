@@ -14,11 +14,12 @@
         scrollbar-gutter: stable both-edges;
         scrollbar-width: auto;
         scrollbar-color: #0d8fab #edf3f8;
+        width: 100%;
     }
 
     .course-content-list table {
         width: 100%;
-        min-width: 1180px;
+        min-width: 1120px;
         table-layout: auto;
         border-collapse: collapse;
         margin: 0 auto;
@@ -109,45 +110,25 @@
         padding: 18px;
     }
 
-    .course-section-navigator {
+    .course-filter-card {
         border: 1px solid #dbe7f4;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);
-        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.07);
-        padding: 18px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
     }
 
-    .course-section-pill {
+    .course-filter-chip {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         border-radius: 999px;
-        background: #0f3b7a;
-        color: #ffffff;
         padding: 8px 14px;
+        background: #eff6ff;
+        color: #0f3b7a;
         font-weight: 700;
         font-size: 13px;
     }
 
-    .course-nav-button {
-        min-width: 190px;
-        border-radius: 12px;
-        padding: 10px 16px;
-        font-weight: 700;
-    }
-
-    .course-nav-button small {
-        display: block;
-        font-size: 11px;
-        font-weight: 500;
-        opacity: .72;
-    }
-
-    @media(max-width: 576px) {
-        .course-nav-button {
-            width: 100%;
-        }
-    }
 </style>
 
 <div class="container-fluid">
@@ -164,38 +145,52 @@
                 </div>
             </div>
 
-            @if(session('user_role') == 'Admin' && $courseSectionPager)
-                @include('partials.section-navigator', [
-                    'sectionPager' => $courseSectionPager,
-                    'sectionDescription' => 'Browse template sources first, then institute courses one institute at a time.',
-                ])
-            @endif
-
-            @include('partials.section-navigator', [
-                'sectionPager' => $courseClassPager ?? null,
-                'sectionDescription' => 'Browse courses one class at a time inside the selected institute.',
-            ])
-
-            @include('partials.section-navigator', [
-                'sectionPager' => $contentSectionPager ?? null,
-                'sectionDescription' => 'Showing courses that contain content for this section.',
-            ])
-
-            @if(!empty($selectedCourseClass))
-                <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="course-filter-card p-3 mb-4">
+                <form method="GET" action="{{ route('courses') }}" class="d-flex justify-content-between align-items-end flex-wrap gap-3">
                     <div>
-                        <span class="fw-semibold">Current course scope:</span>
-                        Class {{ $selectedCourseClass }}
-                        @if(!empty($selectedContentSection))
-                            · Section {{ $selectedContentSection }}
-                        @endif
+                        <div class="course-filter-chip mb-2">
+                            <i class="fa fa-sliders"></i>
+                            Filter courses
+                        </div>
+                        <p class="text-muted mb-0">
+                            Select an institute, class, or section to focus the course list without section navigation.
+                        </p>
                     </div>
 
-                    @if(!empty($currentInstitute))
-                        <span class="text-muted small">{{ $currentInstitute }}</span>
-                    @endif
-                </div>
-            @endif
+                    <div class="d-flex gap-2 flex-wrap">
+                        @if(session('user_role') == 'Admin')
+                            <select name="page" class="form-select" style="min-width: 220px;">
+                                <option value="1" {{ (int) request('page', 1) === 1 ? 'selected' : '' }}>Template Source Courses</option>
+                                @foreach($institutes as $index => $institute)
+                                    <option value="{{ $index + 2 }}" {{ (int) request('page') === $index + 2 ? 'selected' : '' }}>
+                                        {{ $institute->institute_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endif
+                        <select name="course_class" class="form-select" style="min-width: 150px;">
+                            <option value="">All Classes</option>
+                            @foreach($courseClassOptions as $classOption)
+                                <option value="{{ $classOption }}" {{ request('course_class') === $classOption ? 'selected' : '' }}>{{ $classOption }}</option>
+                            @endforeach
+                        </select>
+                        <select name="content_section" class="form-select" style="min-width: 150px;">
+                            <option value="">All Sections</option>
+                            @foreach($courseSectionOptions as $sectionOption)
+                                <option value="{{ $sectionOption }}" {{ request('content_section') === $sectionOption ? 'selected' : '' }}>{{ $sectionOption }}</option>
+                            @endforeach
+                        </select>
+                        <select id="courseSearchInput" class="form-select" style="min-width: 220px;">
+                            <option value="">All Courses</option>
+                            @foreach($courseTitleOptions as $courseTitleOption)
+                                <option value="{{ strtolower($courseTitleOption) }}">{{ $courseTitleOption }}</option>
+                            @endforeach
+                        </select>
+                        <button type="submit" class="btn btn-primary">Apply Filters</button>
+                        <button type="button" class="btn btn-outline-secondary" id="courseSearchReset">Reset</button>
+                    </div>
+                </form>
+            </div>
 
             @if(session('success'))
                 <div class="alert alert-success">{{ session('success') }}</div>
@@ -360,8 +355,11 @@
                 </div>
             </div>
 
+            @if(!$hasFilters)
+                @include('partials.filter-placeholder')
+            @else
             @forelse($courseGroups as $instituteName => $instituteCourses)
-                <div class="course-institute-section mb-4">
+                <div class="course-institute-section mb-4 course-card-item">
                     <div class="course-institute-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div>
                             <h5 class="mb-1">{{ $instituteName }}</h5>
@@ -401,8 +399,8 @@
                                                 </div>
                                             </div>
 
-                                            <div class="course-content-list">
-                                                <table class="table table-sm table-bordered align-middle mb-0 bg-white">
+                                            <div class="table-responsive lms-table-shell course-content-list">
+                                                <table class="table table-sm table-bordered align-middle mb-0 bg-white lms-table-fit">
                                                     <thead class="table-light">
                                                         <tr>
                                                             <th style="width: 90px;">Order</th>
@@ -414,7 +412,13 @@
                                                     </thead>
                                                     <tbody>
                                                         @forelse($course->courseContents->sortBy('sort_order') as $courseContent)
-                                                            <tr>
+                                                            <tr class="course-row-item"
+                                                                data-course="{{ strtolower($course->course_title ?? '') }}"
+                                                                data-institute="{{ strtolower($course->institute ?? '') }}"
+                                                                data-class="{{ strtolower($course->assigned_class ?? '') }}"
+                                                                data-section="{{ strtolower($courseContent->content->section ?? '') }}"
+                                                                data-type="{{ strtolower($courseContent->content->content_type ?? '') }}"
+                                                                data-status="{{ strtolower($courseContent->status ?? '') }}">
                                                                 <td>{{ $courseContent->sort_order }}</td>
                                                                 <td>
                                                                     <strong>{{ $courseContent->content->content_title ?? 'Content' }}</strong>
@@ -500,6 +504,7 @@
                     </div>
                 </div>
             @endforelse
+            @endif
 
         </div>
     </div>
@@ -816,6 +821,37 @@
                 syncTemplateSourceField(toggle, instituteField);
             });
         });
+
+        const courseSearchInput = document.getElementById('courseSearchInput');
+        const courseSearchReset = document.getElementById('courseSearchReset');
+        const courseCards = Array.from(document.querySelectorAll('.course-card-item'));
+
+        function applyCourseFilter() {
+            if (!courseSearchInput) {
+                return;
+            }
+
+            const term = courseSearchInput.value.trim().toLowerCase();
+
+            courseCards.forEach(function (card) {
+                const matches = !term || card.textContent.toLowerCase().includes(term);
+                card.style.display = matches ? '' : 'none';
+            });
+        }
+
+        if (courseSearchInput) {
+            courseSearchInput.addEventListener('input', applyCourseFilter);
+            courseSearchInput.addEventListener('change', applyCourseFilter);
+        }
+
+        if (courseSearchReset) {
+            courseSearchReset.addEventListener('click', function () {
+                if (courseSearchInput) {
+                    courseSearchInput.value = '';
+                }
+                applyCourseFilter();
+            });
+        }
 
         const editContentModal = document.getElementById('editCourseContentModal');
         const editContentForm = document.getElementById('editCourseContentForm');

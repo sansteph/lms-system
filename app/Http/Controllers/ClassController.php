@@ -26,36 +26,55 @@ class ClassController extends Controller
     {
         $search = $request->search;
         $sectionPager = null;
-        $currentInstitute = null;
         $classSectionPager = null;
-        $selectedClassName = null;
         $sectionOnlyPager = null;
-        $selectedSectionName = null;
         $managedInstitute = session('user_role') == 'InstituteAdmin' ? session('user_institute') : null;
+        $selectedInstitute = session('user_role') == 'Admin'
+            ? trim((string) $request->input('institute'))
+            : $managedInstitute;
+        $selectedClassName = trim((string) $request->input('class_name')) ?: null;
+        $selectedSectionName = trim((string) $request->input('section_name')) ?: null;
+        $hasFilters = $request->filled('institute')
+            || $request->filled('class_name')
+            || $request->filled('section_name')
+            || $request->filled('search');
 
-        if (session('user_role') == 'Admin') {
-            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
-                $this->buildInstituteSectionPager($request, 'classes');
+        $instituteOptions = SchoolClass::whereNotNull('institute')
+            ->where('institute', '!=', '')
+            ->orderBy('institute')
+            ->distinct()
+            ->pluck('institute');
 
-            $managedInstitute = $currentInstitute;
-        }
+        $classFilterOptions = SchoolClass::when($selectedInstitute, function ($query) use ($selectedInstitute) {
+                $query->where('institute', $selectedInstitute);
+            })
+            ->whereNotNull('class_name')
+            ->where('class_name', '!=', '')
+            ->orderBy('class_name')
+            ->distinct()
+            ->pluck('class_name');
 
-        if ($managedInstitute) {
-            ['selectedClassName' => $selectedClassName, 'sectionPager' => $classSectionPager] =
-                $this->buildClassNamePager($request, $managedInstitute);
+        $sectionFilterOptions = SchoolClass::when($selectedInstitute, function ($query) use ($selectedInstitute) {
+                $query->where('institute', $selectedInstitute);
+            })
+            ->when($selectedClassName, function ($query) use ($selectedClassName) {
+                $query->where('class_name', $selectedClassName);
+            })
+            ->whereNotNull('section')
+            ->where('section', '!=', '')
+            ->orderBy('section')
+            ->distinct()
+            ->pluck('section');
 
-            ['selectedSectionName' => $selectedSectionName, 'sectionPager' => $sectionOnlyPager] =
-                $this->buildClassSectionOnlyPager($request, $managedInstitute, $selectedClassName);
-        }
-
-        $classes = SchoolClass::when(
+        $classes = $hasFilters
+            ? SchoolClass::when(
                 session('user_role') == 'InstituteAdmin',
                 function ($query) {
                     $query->where('institute', session('user_institute'));
                 }
             )
-            ->when(session('user_role') == 'Admin' && $currentInstitute, function ($query) use ($currentInstitute) {
-                $query->where('institute', $currentInstitute);
+            ->when(session('user_role') == 'Admin' && $selectedInstitute, function ($query) use ($selectedInstitute) {
+                $query->where('institute', $selectedInstitute);
             })
             ->when($selectedClassName, function ($query) use ($selectedClassName) {
                 $query->where('class_name', $selectedClassName);
@@ -76,7 +95,8 @@ class ClassController extends Controller
             ->orderBy('class_name')
             ->orderBy('section')
             ->paginate(30)
-            ->withQueryString();
+            ->withQueryString()
+            : collect();
 
         return view(
             'classes',
@@ -87,7 +107,12 @@ class ClassController extends Controller
                 'sectionOnlyPager',
                 'selectedClassName',
                 'selectedSectionName',
-                'managedInstitute'
+                'managedInstitute',
+                'selectedInstitute',
+                'instituteOptions',
+                'classFilterOptions',
+                'sectionFilterOptions',
+                'hasFilters'
             )
         );
     }

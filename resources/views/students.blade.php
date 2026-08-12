@@ -5,6 +5,7 @@
     $studentManagementContext = $studentManagementContext ?? 'admin';
     $isTeacherStudentManagement = $studentManagementContext === 'teacher';
     $managedInstitute = $managedInstitute ?? session('user_institute');
+    $showFilterPlaceholder = $showFilterPlaceholder ?? false;
     $studentRouteNames = [
         'index' => $isTeacherStudentManagement ? 'teacher.student-management' : 'students',
         'store' => $isTeacherStudentManagement ? 'teacher.students.store' : 'students.store',
@@ -17,124 +18,121 @@
 
 <div class="container-fluid">
     <div class="row">
-
         @include($isTeacherStudentManagement ? 'layouts.teacher-sidebar' : 'layouts.sidebar')
 
         <div class="col-md-10 col-lg-10 p-4">
-
             <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                 <div>
                     <h2 class="mb-1">Student Management</h2>
-                    <p class="text-muted mb-0">
-                        Manage student records, sections, and status.
-                    </p>
+                    <p class="text-muted mb-0">Manage student records, sections, and status.</p>
                 </div>
 
                 <div class="d-flex gap-2 flex-wrap">
-                    <a href="{{ route($studentRouteNames['bulkTemplate']) }}"
-                       class="btn btn-outline-primary btn-sm">
+                    <a href="{{ route($studentRouteNames['bulkTemplate']) }}" class="btn btn-outline-primary btn-sm">
                         Download CSV Template
                     </a>
 
-                    <button class="btn btn-outline-primary btn-sm"
-                            data-bs-toggle="modal"
-                            data-bs-target="#bulkUploadStudentsModal">
+                    <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#bulkUploadStudentsModal">
                         Bulk Upload
                     </button>
 
-                    <button class="btn btn-primary btn-sm"
-                            data-bs-toggle="modal"
-                            data-bs-target="#addStudentModal">
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addStudentModal">
                         Add Student
                     </button>
                 </div>
             </div>
 
-            @if($showFilterPlaceholder)
-                @include('partials.filter-placeholder')
-            @else
-            <div class="card shadow border-0">
+            @if(session('success'))
+                <div class="alert alert-success">
+                    {{ session('success') }}
+                </div>
+            @endif
+
+            @if($errors->any())
+                <div class="alert alert-danger">
+                    {{ $errors->first() }}
+                </div>
+            @endif
+
+            @if(session('bulk_upload_errors'))
+                <div class="alert alert-warning">
+                    <div class="fw-semibold mb-2">Skipped rows</div>
+                    <ul class="mb-0">
+                        @foreach(session('bulk_upload_errors') as $bulkUploadError)
+                            <li>{{ $bulkUploadError }}</li>
+                        @endforeach
+                    </ul>
+                    @if(count(session('bulk_upload_errors')) >= 30)
+                        <div class="small text-muted mt-2">Only the first 30 skipped-row messages are shown.</div>
+                    @endif
+                </div>
+            @endif
+
+            <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-
-                    @if(session('success'))
-                        <div class="alert alert-success">
-                            {{ session('success') }}
-                        </div>
-                    @endif
-
-                    @if($errors->any())
-                        <div class="alert alert-danger">
-                            {{ $errors->first() }}
-                        </div>
-                    @endif
-
-                    @if(session('bulk_upload_errors'))
-                        <div class="alert alert-warning">
-                            <div class="fw-semibold mb-2">Skipped rows</div>
-                            <ul class="mb-0">
-                                @foreach(session('bulk_upload_errors') as $bulkUploadError)
-                                    <li>{{ $bulkUploadError }}</li>
-                                @endforeach
-                            </ul>
-                            @if(count(session('bulk_upload_errors')) >= 30)
-                                <div class="small text-muted mt-2">Only the first 30 skipped-row messages are shown.</div>
-                            @endif
-                        </div>
-                    @endif
-
-                    @include('partials.section-navigator', [
-                        'sectionPager' => $sectionPager ?? null,
-                        'sectionDescription' => 'Browse students institute by institute to keep the management page focused.',
-                    ])
-
-                    @include('partials.section-navigator', [
-                        'sectionPager' => $classSectionPager ?? null,
-                        'sectionDescription' => 'Browse one class at a time inside the selected institute.',
-                    ])
-
-                    @include('partials.section-navigator', [
-                        'sectionPager' => $studentSectionPager ?? null,
-                        'sectionDescription' => 'Showing students from this section only.',
-                    ])
-
-                    @if(!empty($selectedStudentClassLabel))
-                        <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div>
-                                <span class="fw-semibold">Current class and section:</span>
-                                Class {{ $selectedStudentClassLabel }}
-                                @if(!empty($selectedStudentSectionLabel))
-                                    · Section {{ $selectedStudentSectionLabel }}
-                                @endif
-                            </div>
-
-                            @if($managedInstitute)
-                                <span class="text-muted small">{{ $managedInstitute }}</span>
-                            @endif
-                        </div>
-                    @endif
-
-                    <form method="GET" action="{{ route($studentRouteNames['index']) }}" class="row mb-3">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <span class="badge bg-primary-subtle text-primary">Filter Students</span>
+                        <span class="text-muted small">Select the relevant class and section, then search for a specific learner when needed.</span>
+                    </div>
+                    <form method="GET" action="{{ route($studentRouteNames['index']) }}" class="row g-3 align-items-end">
                         @if(request()->has('section_page'))
                             <input type="hidden" name="section_page" value="{{ request('section_page') }}">
                         @endif
-
                         @if(request()->has('class_page'))
                             <input type="hidden" name="class_page" value="{{ request('class_page') }}">
                         @endif
-
                         @if(request()->has('student_class'))
                             <input type="hidden" name="student_class" value="{{ request('student_class') }}">
                         @endif
-
                         @if(request()->has('student_section_page'))
                             <input type="hidden" name="student_section_page" value="{{ request('student_section_page') }}">
                         @endif
-
                         @if(request()->has('student_section'))
                             <input type="hidden" name="student_section" value="{{ request('student_section') }}">
                         @endif
 
+                        @if(session('user_role') === 'Admin' && !$isTeacherStudentManagement)
+                            <div class="col-md-3">
+                                <label class="form-label">Institute</label>
+                                <select name="institute" class="form-select">
+                                    <option value="">All Institutes</option>
+                                    @foreach(($instituteOptions ?? collect()) as $instituteOption)
+                                        <option value="{{ $instituteOption }}" {{ request('institute') === $instituteOption ? 'selected' : '' }}>
+                                            {{ $instituteOption }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+
+                        @if($isTeacherStudentManagement || in_array(session('user_role'), ['Admin', 'InstituteAdmin'], true))
+                            <div class="col-md-3">
+                                <label class="form-label">Class</label>
+                                <select name="student_class" class="form-select">
+                                    <option value="">All Classes</option>
+                                    @foreach(($classOptions ?? collect()) as $classOption)
+                                        <option value="{{ $classOption }}" {{ request('student_class') === $classOption ? 'selected' : '' }}>
+                                            {{ $classOption }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">Section</label>
+                                <select name="student_section" class="form-select">
+                                    <option value="">All Sections</option>
+                                    @foreach(($sectionOptions ?? collect()) as $sectionOption)
+                                        <option value="{{ $sectionOption }}" {{ request('student_section') === $sectionOption ? 'selected' : '' }}>
+                                            {{ $sectionOption }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+
                         <div class="col-md-4">
+                            <label class="form-label">Search</label>
                             <input type="text"
                                    name="search"
                                    class="form-control"
@@ -143,233 +141,210 @@
                         </div>
 
                         <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100">
-                                Search
-                            </button>
+                            <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
                         </div>
                     </form>
+                </div>
+            </div>
 
-                    @if($showFilterPlaceholder)
-                        @include('partials.filter-placeholder')
-                    @else
-                    <div class="table-responsive lms-table-shell">
-                    <table class="table table-bordered table-hover align-middle lms-table-fit">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Sl. No</th>
-                                <th>Student ID</th>
-                                <th>Name</th>
-                                <th>Institute</th>
-                                <th>Class</th>
-                                <th>Section</th>
-                                <th>Contact</th>
-                                <th>Status</th>
-                                <th width="180">Actions</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            @php
-                                $studentRows = method_exists($students, 'getCollection') ? $students->getCollection() : collect($students);
-                                $groupedStudents = $studentRows
-                                    ->sortBy([
-                                        ['institute', 'asc'],
-                                        ['class', 'asc'],
-                                        ['section', 'asc'],
-                                        ['name', 'asc'],
-                                    ])
-                                    ->groupBy(fn ($student) => $student->institute ?: 'Unassigned Institute');
-                                $rowNumber = 1;
-                            @endphp
-
-                            @forelse($groupedStudents as $instituteName => $instituteStudents)
-                                <tr class="table-primary">
-                                    <td colspan="9" class="fw-semibold">
-                                        {{ $instituteName }} · {{ $instituteStudents->count() }} student{{ $instituteStudents->count() == 1 ? '' : 's' }}
-                                    </td>
-                                </tr>
-
-                                @foreach($instituteStudents->groupBy(fn ($student) => trim($student->class . ' ' . $student->section)) as $classLabel => $classStudents)
-                                    <tr class="table-light">
-                                        <td colspan="9" class="fw-semibold ps-4">
-                                            {{ $classLabel ?: 'Unassigned Class' }} · {{ $classStudents->count() }} student{{ $classStudents->count() == 1 ? '' : 's' }}
-                                        </td>
+            @if($showFilterPlaceholder)
+                @include('partials.filter-placeholder')
+            @else
+                <div class="card shadow border-0">
+                    <div class="card-body">
+                        <div class="table-responsive lms-table-shell">
+                            <table class="table table-bordered table-hover align-middle lms-table-fit">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Sl. No</th>
+                                        <th>Student ID</th>
+                                        <th>Name</th>
+                                        <th>Institute</th>
+                                        <th>Class</th>
+                                        <th>Section</th>
+                                        <th>Contact</th>
+                                        <th>Status</th>
+                                        <th width="180">Actions</th>
                                     </tr>
+                                </thead>
+                                <tbody>
+                                    @php
+                                        $studentRows = method_exists($students, 'getCollection') ? $students->getCollection() : collect($students);
+                                        $groupedStudents = $studentRows
+                                            ->sortBy([
+                                                ['institute', 'asc'],
+                                                ['class', 'asc'],
+                                                ['section', 'asc'],
+                                                ['name', 'asc'],
+                                            ])
+                                            ->groupBy(fn ($student) => $student->institute ?: 'Unassigned Institute');
+                                        $rowNumber = 1;
+                                    @endphp
 
-                                    @foreach($classStudents as $student)
-                                        <tr>
-                                            <td>{{ $rowNumber++ }}</td>
-                                            <td>{{ $student->student_id }}</td>
-                                            <td>{{ $student->name }}</td>
-                                            <td>{{ $student->institute }}</td>
-                                            <td>{{ $student->class }}</td>
-                                            <td>{{ $student->section }}</td>
-                                            <td>{{ $student->contact }}</td>
-                                            <td>
-                                                @if($student->status)
-                                                    <span class="badge bg-success">Active</span>
-                                                @else
-                                                    <span class="badge bg-danger">Inactive</span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-primary"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#editStudentModal{{ $student->id }}">
-                                                    Edit
-                                                </button>
-
-                                                <a href="{{ route($studentRouteNames['delete'], $student->id) }}"
-                                                   class="btn btn-sm btn-outline-danger"
-                                                   onclick="return confirm('Are you sure you want to delete this student? This will also remove their assessment history, badges, and certificate eligibility.')">
-                                                    Delete
-                                                </a>
+                                    @forelse($groupedStudents as $instituteName => $instituteStudents)
+                                        <tr class="table-primary">
+                                            <td colspan="9" class="fw-semibold">
+                                                {{ $instituteName }} - {{ $instituteStudents->count() }} student{{ $instituteStudents->count() == 1 ? '' : 's' }}
                                             </td>
                                         </tr>
-                                    @endforeach
-                                @endforeach
 
-                                @foreach($instituteStudents as $student)
-                                    <div class="modal fade" id="editStudentModal{{ $student->id }}" tabindex="-1">
-                                    <div class="modal-dialog modal-xl modal-dialog-centered">
-                                        <div class="modal-content">
+                                        @foreach($instituteStudents->groupBy(fn ($student) => trim($student->class . ' ' . $student->section)) as $classLabel => $classStudents)
+                                            <tr class="table-light">
+                                                <td colspan="9" class="fw-semibold ps-4">
+                                                    {{ $classLabel ?: 'Unassigned Class' }} - {{ $classStudents->count() }} student{{ $classStudents->count() == 1 ? '' : 's' }}
+                                                </td>
+                                            </tr>
 
-                                            <form method="POST"
-                                                  action="{{ route($studentRouteNames['update'], $student->id) }}">
-                                                @csrf
+                                            @foreach($classStudents as $student)
+                                                <tr>
+                                                    <td>{{ $rowNumber++ }}</td>
+                                                    <td>{{ $student->student_id }}</td>
+                                                    <td>{{ $student->name }}</td>
+                                                    <td>{{ $student->institute }}</td>
+                                                    <td>{{ $student->class }}</td>
+                                                    <td>{{ $student->section }}</td>
+                                                    <td>{{ $student->contact }}</td>
+                                                    <td>
+                                                        @if($student->status)
+                                                            <span class="badge bg-success">Active</span>
+                                                        @else
+                                                            <span class="badge bg-danger">Inactive</span>
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        <button class="btn btn-sm btn-outline-primary"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#editStudentModal{{ $student->id }}">
+                                                            Edit
+                                                        </button>
 
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Edit Student</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        <a href="{{ route($studentRouteNames['delete'], $student->id) }}"
+                                                           class="btn btn-sm btn-outline-danger"
+                                                           onclick="return confirm('Are you sure you want to delete this student? This will also remove their assessment history, badges, and certificate eligibility.')">
+                                                            Delete
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        @endforeach
+
+                                        @foreach($instituteStudents as $student)
+                                            <div class="modal fade" id="editStudentModal{{ $student->id }}" tabindex="-1" aria-hidden="true">
+                                                <div class="modal-dialog modal-xl modal-dialog-centered">
+                                                    <div class="modal-content">
+                                                        <form method="POST" action="{{ route($studentRouteNames['update'], $student->id) }}">
+                                                            @csrf
+
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title">Edit Student</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                            </div>
+
+                                                            <div class="modal-body">
+                                                                <div class="row g-3">
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">Student ID</label>
+                                                                        <input type="text" name="student_id" class="form-control" value="{{ $student->student_id }}" required>
+                                                                    </div>
+
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">Student Name</label>
+                                                                        <input type="text" name="name" class="form-control" value="{{ $student->name }}" required>
+                                                                    </div>
+
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">Institute</label>
+                                                                        @if(in_array(session('user_role'), ['InstituteAdmin', 'Teacher'], true))
+                                                                            <input type="hidden" name="institute" value="{{ $managedInstitute }}">
+                                                                            <input type="text" class="form-control" value="{{ $managedInstitute }}" readonly>
+                                                                        @else
+                                                                            <input type="text" name="institute" class="form-control" value="{{ $student->institute }}" required>
+                                                                        @endif
+                                                                    </div>
+
+                                                                    <div class="col-md-3">
+                                                                        <label class="form-label">Class</label>
+                                                                        <input type="text" name="class" class="form-control" value="{{ $student->class }}" required>
+                                                                    </div>
+
+                                                                    <div class="col-md-3">
+                                                                        <label class="form-label">Section</label>
+                                                                        <input type="text" name="section" class="form-control" value="{{ $student->section }}" required>
+                                                                    </div>
+
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">Contact</label>
+                                                                        <input type="text" name="contact" class="form-control" value="{{ $student->contact }}" required>
+                                                                        <div class="form-text">This number will also be used as the guardian contact.</div>
+                                                                    </div>
+
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">Email Address</label>
+                                                                        <input type="email" name="email" class="form-control" value="{{ $student->email }}">
+                                                                    </div>
+
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">Guardian Name</label>
+                                                                        <input type="text" name="guardian_name" class="form-control" value="{{ $student->guardian_name }}">
+                                                                    </div>
+
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">Password</label>
+                                                                        <input type="password" name="password" class="form-control" placeholder="Leave blank to keep existing password">
+                                                                    </div>
+
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">Robotics Club Member</label>
+                                                                        <select name="is_robotics_club_member" class="form-control" required>
+                                                                            <option value="0" {{ !$student->is_robotics_club_member ? 'selected' : '' }}>No</option>
+                                                                            <option value="1" {{ $student->is_robotics_club_member ? 'selected' : '' }}>Yes</option>
+                                                                        </select>
+                                                                    </div>
+
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">Status</label>
+                                                                        <select name="status" class="form-control" required>
+                                                                            <option value="1" {{ $student->status == 1 ? 'selected' : '' }}>Active</option>
+                                                                            <option value="0" {{ $student->status == 0 ? 'selected' : '' }}>Inactive</option>
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button type="submit" class="btn btn-primary">Update Student</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
                                                 </div>
-
-                                                <div class="modal-body">
-                                                    <div class="row g-3">
-
-                                                        <div class="col-md-6">
-                                                            <label class="form-label">Student ID</label>
-                                                            <input type="text" name="student_id" class="form-control" value="{{ $student->student_id }}" required>
-                                                        </div>
-
-                                                        <div class="col-md-6">
-                                                            <label class="form-label">Student Name</label>
-                                                            <input type="text" name="name" class="form-control" value="{{ $student->name }}" required>
-                                                        </div>
-
-                                                        <div class="col-md-6">
-                                                            <label class="form-label">Institute</label>
-
-                                                            @if(in_array(session('user_role'), ['InstituteAdmin', 'Teacher'], true))
-                                                                <input type="hidden"
-                                                                       name="institute"
-                                                                       value="{{ $managedInstitute }}">
-
-                                                                <input type="text"
-                                                                       class="form-control"
-                                                                       value="{{ $managedInstitute }}"
-                                                                       readonly>
-                                                            @else
-                                                                <input type="text"
-                                                                       name="institute"
-                                                                       class="form-control"
-                                                                       value="{{ $student->institute }}"
-                                                                       required>
-                                                            @endif
-                                                        </div>
-
-                                                        <div class="col-md-3">
-                                                            <label class="form-label">Class</label>
-                                                            <input type="text" name="class" class="form-control" value="{{ $student->class }}" required>
-                                                        </div>
-
-                                                        <div class="col-md-3">
-                                                            <label class="form-label">Section</label>
-                                                            <input type="text" name="section" class="form-control" value="{{ $student->section }}" required>
-                                                        </div>
-
-                                                        <div class="col-md-6">
-                                                            <label class="form-label">Contact</label>
-                                                            <input type="text" name="contact" class="form-control" value="{{ $student->contact }}" required>
-                                                            <div class="form-text">This number will also be used as the guardian contact.</div>
-                                                        </div>
-
-                                                        <div class="col-md-6">
-                                                            <label class="form-label">Email Address</label>
-                                                            <input type="email" name="email" class="form-control" value="{{ $student->email }}">
-                                                        </div>
-
-                                                        <div class="col-md-6">
-                                                            <label class="form-label">Guardian Name</label>
-                                                            <input type="text" name="guardian_name" class="form-control" value="{{ $student->guardian_name }}">
-                                                        </div>
-
-                                                        <div class="col-md-6">
-                                                            <label class="form-label">Password</label>
-                                                            <input type="password" name="password" class="form-control" placeholder="Leave blank to keep existing password">
-                                                        </div>
-
-                                                        <div class="col-md-6">
-                                                            <label class="form-label">Robotics Club Member</label>
-                                                            <select name="is_robotics_club_member" class="form-control" required>
-                                                                <option value="0" {{ !$student->is_robotics_club_member ? 'selected' : '' }}>No</option>
-                                                                <option value="1" {{ $student->is_robotics_club_member ? 'selected' : '' }}>Yes</option>
-                                                            </select>
-                                                        </div>
-
-                                                        <div class="col-md-6">
-                                                            <label class="form-label">Status</label>
-                                                            <select name="status" class="form-control" required>
-                                                                <option value="1" {{ $student->status == 1 ? 'selected' : '' }}>Active</option>
-                                                                <option value="0" {{ $student->status == 0 ? 'selected' : '' }}>Inactive</option>
-                                                            </select>
+                                            </div>
+                                        @endforeach
+                                    @empty
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted">No students found</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
+
+                    @if(method_exists($students, 'links'))
+                        <div class="px-3 pb-3">
+                            {{ $students->links('pagination::bootstrap-5') }}
+                        </div>
                     @endif
-
                 </div>
-            </div>
-
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                    <button type="submit" class="btn btn-primary">Update Student</button>
-                                                </div>
-                                            </form>
-
-                                        </div>
-                                    </div>
-                                </div>
-                                @endforeach
-
-                            @empty
-                                <tr>
-                                    <td colspan="9" class="text-center text-muted">
-                                        No students found
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                    </div>
-
-                </div>
-
-                @if(method_exists($students, 'links'))
-                    <div class="px-3 pb-3">
-                        {{ $students->links('pagination::bootstrap-5') }}
-                    </div>
-                @endif
-            </div>
             @endif
-
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="addStudentModal" tabindex="-1">
+<div class="modal fade" id="addStudentModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content">
-
-            <form method="POST"
-                  action="{{ route($studentRouteNames['store']) }}">
+            <form method="POST" action="{{ route($studentRouteNames['store']) }}">
                 @csrf
 
                 <div class="modal-header">
@@ -379,7 +354,6 @@
 
                 <div class="modal-body">
                     <div class="row g-3">
-
                         <div class="col-md-6">
                             <label class="form-label">Student ID</label>
                             <input type="text" name="student_id" class="form-control" value="{{ old('student_id') }}" required>
@@ -392,22 +366,11 @@
 
                         <div class="col-md-6">
                             <label class="form-label">Institute</label>
-
                             @if(in_array(session('user_role'), ['InstituteAdmin', 'Teacher'], true))
-                                <input type="hidden"
-                                       name="institute"
-                                       value="{{ $managedInstitute }}">
-
-                                <input type="text"
-                                       class="form-control"
-                                       value="{{ $managedInstitute }}"
-                                       readonly>
+                                <input type="hidden" name="institute" value="{{ $managedInstitute }}">
+                                <input type="text" class="form-control" value="{{ $managedInstitute }}" readonly>
                             @else
-                                <input type="text"
-                                       name="institute"
-                                       class="form-control"
-                                       value="{{ old('institute') }}"
-                                       required>
+                                <input type="text" name="institute" class="form-control" value="{{ old('institute') }}" required>
                             @endif
                         </div>
 
@@ -449,7 +412,6 @@
                                 <option value="1" {{ old('is_robotics_club_member') == '1' ? 'selected' : '' }}>Yes</option>
                             </select>
                         </div>
-
                     </div>
                 </div>
 
@@ -458,17 +420,14 @@
                     <button type="submit" class="btn btn-primary">Save Student</button>
                 </div>
             </form>
-
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="bulkUploadStudentsModal" tabindex="-1">
+<div class="modal fade" id="bulkUploadStudentsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-            <form method="POST"
-                  action="{{ route($studentRouteNames['bulkUpload']) }}"
-                  enctype="multipart/form-data">
+            <form method="POST" action="{{ route($studentRouteNames['bulkUpload']) }}" enctype="multipart/form-data">
                 @csrf
 
                 <div class="modal-header">
@@ -483,11 +442,7 @@
 
                     <div class="mb-3">
                         <label class="form-label">Student CSV File</label>
-                        <input type="file"
-                               name="students_csv"
-                               class="form-control"
-                               accept=".csv,text/csv,text/plain"
-                               required>
+                        <input type="file" name="students_csv" class="form-control" accept=".csv,text/csv,text/plain" required>
                     </div>
 
                     <div class="border rounded p-3 bg-light small">
