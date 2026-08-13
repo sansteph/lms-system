@@ -231,6 +231,8 @@ class UserController extends Controller
 
             session([
                 'tracking_session_id' => $userSession->id,
+                'teacher_login_notification_deliveries' => app(\App\Services\LmsNotificationService::class)
+                    ->reserveTeacherLoginNotifications($user),
             ]);
 
             return redirect()->route('teacher.dashboard');
@@ -413,12 +415,17 @@ class UserController extends Controller
         ]);
     }
 
-    public function markTopicComplete($contentId)
+    public function markTopicComplete(Request $request, $contentId)
     {
-        $teacher = User::findOrFail(session('user_id'));
+        $actor = User::findOrFail(session('user_id'));
+        $isAdmin = session('user_role') === 'Admin';
         $content = Content::with('course')->findOrFail($contentId);
 
-        if ($content->institute != $teacher->institute || !$content->file_path) {
+        if (!$content->file_path) {
+            abort(403, 'This topic cannot be released to students.');
+        }
+
+        if (!$isAdmin && $content->institute != $actor->institute) {
             abort(403, 'This topic cannot be released to students.');
         }
 
@@ -427,33 +434,66 @@ class UserController extends Controller
                 'teachingPlanWeek',
                 'teachingPlanItem',
             ])
-            ->where('institute', $teacher->institute)
-            ->where('stem_engineer_id', $teacher->id)
+            ->when(!$isAdmin, function ($query) use ($actor) {
+                $query->where('institute', $actor->institute)
+                    ->where('stem_engineer_id', $actor->id);
+            })
             ->where('content_id', $content->id)
             ->where('status', 'completed')
             ->latest()
             ->first();
 
-        $plan = $completedSession?->teachingPlan;
-        $week = $completedSession?->teachingPlanWeek;
-        $item = $completedSession?->teachingPlanItem;
+        $directPlanItem = null;
 
-        $isCompletedInstitutePlanContent = $plan &&
-            $week &&
-            $item &&
-            $completedSession->institute === $teacher->institute &&
-            $plan->institute === $teacher->institute &&
-            in_array($plan->status, ['active', 'completed'], true) &&
-            in_array($week->status, ['released', 'completed'], true) &&
-            $item->status === 'completed' &&
-            (int) $item->teaching_plan_id === (int) $plan->id &&
-            (int) $item->teaching_plan_week_id === (int) $week->id &&
-            (int) $item->content_id === (int) $content->id &&
-            (int) $completedSession->teaching_plan_id === (int) $plan->id &&
-            (int) $completedSession->teaching_plan_week_id === (int) $week->id &&
-            (int) $completedSession->teaching_plan_item_id === (int) $item->id &&
-            (int) $completedSession->course_id === (int) $item->course_id &&
-            (int) $completedSession->content_id === (int) $item->content_id;
+        if (!$completedSession && $isAdmin) {
+            $directPlanItem = \App\Models\TeachingPlanItem::with(['plan', 'week'])
+                ->where('content_id', $content->id)
+                ->when($request->filled('plan_item_id'), function ($query) use ($request) {
+                    $query->whereKey($request->integer('plan_item_id'));
+                })
+                ->whereIn('status', ['released', 'locked'])
+                ->whereHas('plan', function ($query) use ($content) {
+                    $query->where('institute', $content->institute)
+                        ->whereIn('status', ['active', 'completed'])
+                        ->where('is_template', false);
+                })
+                ->latest()
+                ->first();
+        }
+
+        $plan = $completedSession?->teachingPlan ?? $directPlanItem?->plan;
+        $week = $completedSession?->teachingPlanWeek ?? $directPlanItem?->week;
+        $item = $completedSession?->teachingPlanItem ?? $directPlanItem;
+
+        $isCompletedInstitutePlanContent = $plan && $week && $item;
+
+        if ($isCompletedInstitutePlanContent && $isAdmin && $directPlanItem) {
+            $isCompletedInstitutePlanContent =
+                $plan->institute === $content->institute &&
+                in_array($plan->status, ['active', 'completed'], true) &&
+                in_array($week->status, ['released', 'completed'], true) &&
+                in_array($item->status, ['released', 'completed'], true) &&
+                (int) $item->teaching_plan_id === (int) $plan->id &&
+                (int) $item->teaching_plan_week_id === (int) $week->id &&
+                (int) $item->content_id === (int) $content->id;
+        } elseif ($isCompletedInstitutePlanContent && $completedSession) {
+            $isCompletedInstitutePlanContent =
+                $completedSession->institute === $actor->institute &&
+                $plan->institute === $actor->institute &&
+                in_array($plan->status, ['active', 'completed'], true) &&
+                in_array($week->status, ['released', 'completed'], true) &&
+                $item->status === 'completed' &&
+                (int) $item->teaching_plan_id === (int) $plan->id &&
+                (int) $item->teaching_plan_week_id === (int) $week->id &&
+                (int) $item->content_id === (int) $content->id &&
+                (int) $completedSession->teaching_plan_id === (int) $plan->id &&
+                (int) $completedSession->teaching_plan_week_id === (int) $week->id &&
+                (int) $completedSession->teaching_plan_item_id === (int) $item->id &&
+                (int) $completedSession->course_id === (int) $item->course_id &&
+                (int) $completedSession->content_id === (int) $item->content_id;
+        } else {
+            $isCompletedInstitutePlanContent = false;
+        }
 
         if (!$isCompletedInstitutePlanContent) {
             abort(403, 'You can only release completed Teaching Plan content from your institute.');
@@ -461,15 +501,45 @@ class UserController extends Controller
 
         $wasReleased = (bool) $content->is_released;
 
-        $content->update([
+        \DB::transaction(function () use ($content, $isAdmin, $actor, $completedSession, $directPlanItem) {
+            $content->update([
+                'is_released' => true
+            ]);
 
-            'is_released' => true
+            $planItem = $completedSession?->teachingPlanItem ?? $directPlanItem;
 
-        ]);
+            if ($planItem) {
+                $planItem->update([
+                    'status' => 'completed',
+                    'completed_at' => $planItem->completed_at ?: now(),
+                    'completed_by' => $actor->id,
+                    'completed_by_role' => $isAdmin ? 'Admin' : 'STEM Engineer',
+                ]);
+
+                if ($isAdmin) {
+                    ClassContentSession::where('teaching_plan_item_id', $planItem->id)
+                        ->whereIn('status', ['in_progress', 'partially_completed', 'cancelled'])
+                        ->update([
+                            'status' => 'cancelled',
+                            'ended_at' => now(),
+                            'end_time' => now()->format('H:i:s'),
+                            'remarks' => 'Closed because Admin marked this topic as completed.',
+                        ]);
+
+                    app(\App\Services\TeachingPlanReleaseService::class)
+                        ->syncWeekCompletion($planItem->week);
+                }
+            }
+        });
 
         if (!$wasReleased) {
             app(\App\Services\LmsNotificationService::class)
                 ->notifyStudentsOfReleasedContent($content->fresh());
+        }
+
+        if ($isAdmin && $directPlanItem) {
+            app(\App\Services\LmsNotificationService::class)
+                ->notifyTeachersOfAdminCompletedTopic($content->fresh(), $directPlanItem->fresh(['plan.course']));
         }
 
         return redirect()->back()

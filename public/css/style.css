@@ -4963,15 +4963,30 @@ main{
 .lms-panel-body .admin-sidebar {
     position: sticky;
     top: 68px;
-    align-self: flex-start;
-    height: calc(100vh - 68px);
-    min-height: calc(100vh - 68px) !important;
+    z-index: 2;
+    align-self: stretch;
+    height: auto;
+    min-height: 100vh !important;
     overflow-y: auto;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 1px solid rgba(92, 216, 232, 0.18);
     background: #081a3a;
-    box-shadow: 10px 0 28px rgba(8, 26, 58, 0.11);
+    box-shadow:
+        10px 0 28px rgba(8, 26, 58, 0.11),
+        inset -1px 0 0 rgba(255, 255, 255, 0.05);
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+.lms-panel-body .admin-sidebar::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 5px;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(95, 228, 238, 0.15), rgba(37, 99, 235, 0.06));
+    opacity: 0.85;
 }
 
 .lms-panel-body .sidebar-title {
@@ -8643,26 +8658,21 @@ main{
 
 /* Global panel layout consistency override */
 .lms-panel-body > .container-fluid > .row {
-    min-height: calc(100vh - 72px);
+    min-height: 100vh;
     align-items: stretch;
-}
-
-.lms-panel-body .admin-sidebar {
-    height: auto !important;
-    min-height: calc(100vh - 72px) !important;
-    position: sticky;
-    top: 72px;
-    align-self: stretch;
-    background-clip: padding-box;
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-.lms-panel-body .admin-sidebar,
-.lms-panel-body .admin-sidebar * {
-    box-sizing: border-box;
 }
 
 .lms-panel-body .container-fluid {
     overflow-x: hidden;
+}
+
+.lms-panel-body .admin-sidebar {
+    top: 0 !important;
+    min-height: 100vh !important;
+    height: auto !important;
+    align-self: stretch !important;
+}
+
+.lms-panel-body .admin-sidebar::after {
+    right: 0 !important;
 }

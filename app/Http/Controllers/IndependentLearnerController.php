@@ -14,6 +14,7 @@ class IndependentLearnerController extends Controller
     public function adminIndex(Request $request)
     {
         $search = $request->search;
+        $hasFilters = filled($search);
 
         $learners = IndependentLearner::withCount([
             'enrollments',
@@ -31,7 +32,7 @@ class IndependentLearnerController extends Controller
 
         return view(
             'independent-learners',
-            compact('learners')
+            compact('learners', 'hasFilters')
         );
     }
 

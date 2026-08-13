@@ -11,9 +11,11 @@ class LmsNotification extends Model
         'message',
         'target',
         'institute',
+        'notification_type',
         'starts_at',
         'expires_at',
         'status',
+        'login_display_limit',
         'created_by',
     ];
 
@@ -21,4 +23,9 @@ class LmsNotification extends Model
         'starts_at' => 'date',
         'expires_at' => 'date',
     ];
+
+    public function loginViews()
+    {
+        return $this->hasMany(LmsNotificationLoginView::class, 'notification_id');
+    }
 }

@@ -69,10 +69,12 @@ class TeachingPlanController extends Controller
         }
 
         $plans = collect();
+        $currentInstituteClassLabels = collect();
 
         if (session('user_role') == 'InstituteAdmin' || $currentInstituteName) {
             $selectedTeachingPlanClass = trim((string) $request->input('plan_class')) ?: null;
             $selectedTeachingPlanSection = trim((string) $request->input('plan_section')) ?: null;
+            $currentInstituteClassLabels = $this->currentInstituteClassLabels($currentInstituteName);
 
             $plans = TeachingPlan::with([
                     'course.courseContents.content',
@@ -103,7 +105,15 @@ class TeachingPlanController extends Controller
                     );
                 })
                 ->latest()
-                ->get();
+                ->get()
+                ->filter(function ($plan) use ($currentInstituteClassLabels) {
+                    if ($currentInstituteClassLabels->isEmpty()) {
+                        return true;
+                    }
+
+                    return $currentInstituteClassLabels->contains($this->normalizeClassLabel($plan->class, $plan->section));
+                })
+                ->values();
         }
 
         $templates = TeachingPlan::with([
@@ -165,28 +175,24 @@ class TeachingPlanController extends Controller
             });
 
         $teachingPlanClassOptions = $currentInstituteName
-            ? TeachingPlan::where('is_template', false)
+            ? SchoolClass::where('status', 1)
                 ->where('institute', $currentInstituteName)
-                ->whereNotNull('class')
-                ->where('class', '!=', '')
-                ->orderBy('class')
-                ->distinct()
-                ->pluck('class')
+                ->orderBy('class_name')
+                ->pluck('class_name')
                 ->map(fn ($className) => preg_replace('/\s+/', ' ', trim((string) $className)))
                 ->unique()
                 ->values()
             : collect();
 
         $teachingPlanSectionOptions = $currentInstituteName
-            ? TeachingPlan::where('is_template', false)
+            ? SchoolClass::where('status', 1)
                 ->where('institute', $currentInstituteName)
                 ->when($selectedTeachingPlanClass, function ($query) use ($selectedTeachingPlanClass) {
-                    $query->whereRaw("REPLACE(TRIM(class), '  ', ' ') = ?", [$selectedTeachingPlanClass]);
+                    $query->whereRaw("REPLACE(TRIM(class_name), '  ', ' ') = ?", [$selectedTeachingPlanClass]);
                 })
                 ->whereNotNull('section')
                 ->where('section', '!=', '')
                 ->orderBy('section')
-                ->distinct()
                 ->pluck('section')
                 ->map(fn ($section) => preg_replace('/\s+/', ' ', trim((string) $section)))
                 ->unique()
@@ -212,16 +218,38 @@ class TeachingPlanController extends Controller
         ));
     }
 
+    private function currentInstituteClassLabels(?string $institute): \Illuminate\Support\Collection
+    {
+        if (!$institute) {
+            return collect();
+        }
+
+        return SchoolClass::where('status', 1)
+            ->where('institute', $institute)
+            ->orderBy('class_name')
+            ->orderBy('section')
+            ->get()
+            ->map(fn ($class) => $this->normalizeClassLabel($class->class_name, $class->section))
+            ->filter()
+            ->unique(fn ($label) => mb_strtolower($label))
+            ->values();
+    }
+
+    private function normalizeClassLabel(?string $class, ?string $section = null): string
+    {
+        return preg_replace('/\s+/', ' ', trim((string) $class . ' ' . (string) $section));
+    }
+
     private function buildTeachingPlanClassPager(Request $request, ?string $institute): array
     {
         if (!$institute) {
             return ['selectedClass' => null, 'sectionPager' => null];
         }
 
-        $planClasses = TeachingPlan::where('is_template', false)
+        $planClasses = SchoolClass::where('status', 1)
             ->where('institute', $institute)
-            ->whereNotNull('class')
-            ->pluck('class');
+            ->whereNotNull('class_name')
+            ->pluck('class_name');
 
         $classes = $planClasses
             ->map(fn ($className) => preg_replace('/\s+/', ' ', trim((string) $className)))
@@ -281,9 +309,9 @@ class TeachingPlanController extends Controller
             return ['selectedSection' => null, 'sectionPager' => null];
         }
 
-        $planSections = TeachingPlan::where('is_template', false)
+        $planSections = SchoolClass::where('status', 1)
             ->where('institute', $institute)
-            ->whereRaw("REPLACE(TRIM(class), '  ', ' ') = ?", [$className])
+            ->whereRaw("REPLACE(TRIM(class_name), '  ', ' ') = ?", [$className])
             ->pluck('section')
             ->map(fn ($section) => filled($section) ? preg_replace('/\s+/', ' ', trim((string) $section)) : '__unassigned');
 

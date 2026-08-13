@@ -16,6 +16,8 @@ class TeachingPlanItem extends Model
         'status',
         'released_at',
         'completed_at',
+        'completed_by',
+        'completed_by_role',
     ];
 
     protected $casts = [

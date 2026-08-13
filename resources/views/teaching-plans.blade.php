@@ -241,7 +241,7 @@
                                                                         <th>Release</th>
                                                                         <th>Status</th>
                                                                         <th>Contents</th>
-                                                                        <th style="width: 210px;">Week Control</th>
+                                                                        <th style="width: 240px;">Week Actions</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
@@ -258,25 +258,56 @@
                                                                             </td>
                                                                             <td>{{ ucfirst($week->status) }}</td>
                                                                             <td>
-                                                                                @foreach($week->items->sortBy('sort_order') as $item)
-                                                                                    <div class="border rounded p-2 mb-2">
-                                                                                        <div>
-                                                                                            <strong>{{ $item->content->content_title ?? 'Content' }}</strong>
-                                                                                            <div class="text-muted small">Order {{ $item->sort_order }} | {{ ucfirst($item->status) }}</div>
-                                                                                        </div>
+                                                                        @foreach($week->items->sortBy('sort_order') as $item)
+                                                                            <div class="border rounded p-2 mb-2">
+                                                                                <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                                                                                    <div>
+                                                                                    <strong>{{ $item->content->content_title ?? 'Content' }}</strong>
+                                                                                    <div class="text-muted small">
+                                                                                        Order {{ $item->sort_order }} | {{ ucfirst($item->status) }}
+                                                                                        @if($item->status === 'completed' && $item->completed_by_role)
+                                                                                            | Completed by {{ $item->completed_by_role }}
+                                                                                        @endif
                                                                                     </div>
-                                                                                @endforeach
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        @endforeach
                                                                             </td>
                                                                             <td>
-                                                                                <form method="POST" action="{{ route('teaching-plans.weeks.update', [$plan->id, $week->id]) }}" class="d-flex gap-2">
+                                                                                <form method="POST" action="{{ route('teaching-plans.weeks.update', [$plan->id, $week->id]) }}" class="mb-2">
                                                                                     @csrf
+                                                                                    <div class="d-flex gap-2 align-items-center">
                                                                                     <select name="status" class="form-select form-select-sm">
-                                                                                        @foreach(['locked', 'released', 'completed', 'skipped'] as $status)
+                                                                                        @foreach(['locked', 'released', 'skipped'] as $status)
                                                                                             <option value="{{ $status }}" {{ $week->status == $status ? 'selected' : '' }}>{{ ucfirst($status) }}</option>
                                                                                         @endforeach
                                                                                     </select>
-                                                                                    <button class="btn btn-sm btn-outline-primary">Save</button>
+                                                                                    <button class="btn btn-sm btn-outline-primary text-nowrap">Save</button>
+                                                                                    </div>
                                                                                 </form>
+                                                                                @if($week->status === 'completed')
+                                                                                    <div class="small text-success fw-semibold mb-2">
+                                                                                        <i class="fa-solid fa-circle-check me-1"></i>Week completed
+                                                                                    </div>
+                                                                                @endif
+                                                                                @if(session('user_role') == 'Admin')
+                                                                                    @php($pendingAdminItems = $week->items->filter(fn ($item) => $item->content && $item->status !== 'completed'))
+                                                                                    @if($pendingAdminItems->isNotEmpty())
+                                                                                        <div class="border-top pt-2 mt-2">
+                                                                                            <div class="small text-muted mb-1">Admin completion</div>
+                                                                                            @foreach($pendingAdminItems as $item)
+                                                                                                <form method="POST" action="{{ route('admin.complete-topic', $item->content_id) }}" class="mb-1">
+                                                                                                    @csrf
+                                                                                                    <input type="hidden" name="plan_item_id" value="{{ $item->id }}">
+                                                                                                    <button class="btn btn-sm btn-outline-success w-100 text-truncate" title="Mark {{ $item->content->content_title }} complete">
+                                                                                                        <i class="fa-solid fa-check me-1"></i>Complete: {{ $item->content->content_title }}
+                                                                                                    </button>
+                                                                                                </form>
+                                                                                            @endforeach
+                                                                                        </div>
+                                                                                    @endif
+                                                                                @endif
                                                                             </td>
                                                                         </tr>
                                                                     @endforeach
@@ -386,58 +417,18 @@
     <div class="modal fade" id="deployTeachingPlanTemplatesModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                <form method="POST" action="{{ route('teaching-plan-templates.deploy') }}">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title">Deploy Teaching Plan Templates</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header">
+                    <h5 class="modal-title">Deploy Teaching Plan Templates</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info mb-0">
+                        Template deployment is being refreshed. The page remains available while we stabilize the deploy workflow.
                     </div>
-                    <div class="modal-body">
-                        <p class="text-muted small mb-3">
-                            Select institutes and the classes they conduct. Matching active Teaching Plan Templates will be deployed as live Institute Teaching Plans.
-                        </p>
-                        <div class="border rounded p-3" style="max-height: 420px; overflow-y: auto;">
-                            @foreach($institutes as $institute)
-                                @php
-                                    $availableClasses = $classesByInstitute->get($institute->institute_name, collect());
-                                @endphp
-                                <div class="border rounded p-3 mb-3 bg-light">
-                                    <label class="fw-semibold d-block mb-2">
-                                        <input type="checkbox" name="selected_institute_ids[]" value="{{ $institute->id }}" class="me-2">
-                                        {{ $institute->institute_name }}
-                                    </label>
-
-                                    @if($availableClasses->isNotEmpty())
-                                        <div class="row g-2">
-                                            @foreach($availableClasses as $className)
-                                                <div class="col-md-6">
-                                                    <label class="small d-block">
-                                                        <input type="checkbox"
-                                                               name="classes_by_institute[{{ $institute->id }}][]"
-                                                               value="{{ $className }}"
-                                                               class="me-1">
-                                                        {{ $className }}
-                                                    </label>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    @else
-                                        <div class="text-muted small mb-2">No active classes found for this institute.</div>
-                                    @endif
-
-                                    <input type="text"
-                                           name="custom_classes_by_institute[{{ $institute->id }}]"
-                                           class="form-control form-control-sm mt-2"
-                                           placeholder="Optional extra classes, comma separated">
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                    <div class="modal-footer flex-wrap gap-2 position-sticky bottom-0 bg-white">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Deploy Templates</button>
-                    </div>
-                </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>

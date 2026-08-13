@@ -225,6 +225,7 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::post('/admin/question-papers/{id}/reject', [AssessmentController::class, 'rejectQuestionPaper'])->name('admin.question-papers.reject');
     Route::get('/admin/assessment-review', [AssessmentResultController::class, 'reviewResults'])->name('admin.assessment.review');
     Route::post('/admin/assessment-review/{id}', [AssessmentResultController::class, 'reviewAnswer'])->name('admin.assessment.review.submit');
+    Route::post('/admin/topic-complete/{contentId}', [UserController::class, 'markTopicComplete'])->name('admin.complete-topic');
 });
 
 //Super Admin Only Routes

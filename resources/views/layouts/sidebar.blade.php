@@ -1,4 +1,4 @@
-<div class="admin-sidebar col-md-2 col-lg-2 min-vh-100 p-3">
+<div class="admin-sidebar col-md-2 col-lg-2 min-vh-100 p-0">
     <div class="sidebar-title mb-4">
         <span class="sidebar-title-icon"><i class="fa-solid fa-shield-halved"></i></span>
         <span><small>Workspace</small><h4>Admin Panel</h4></span>

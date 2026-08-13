@@ -1,4 +1,4 @@
-<div class="admin-sidebar col-md-2 col-lg-2 min-vh-100 p-3">
+<div class="admin-sidebar col-md-2 col-lg-2 min-vh-100 p-0">
     <div class="sidebar-title mb-4">
         <span class="sidebar-title-icon"><i class="fa-solid fa-chalkboard-user"></i></span>
         <span><small>Workspace</small><h4>STEM Engineer</h4></span>

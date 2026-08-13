@@ -52,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $today = now()->toDateString();
+            $loginDeliveries = session('teacher_login_notification_deliveries', []);
 
             $popupNotifications = LmsNotification::query()
                 ->where('status', 'active')
@@ -68,16 +69,27 @@ class AppServiceProvider extends ServiceProvider
                     $query->whereNull('expires_at')
                         ->orWhereDate('expires_at', '>=', $today);
                 })
+                ->when($audience === 'teachers', function ($query) use ($loginDeliveries) {
+                    $query->where(function ($scope) use ($loginDeliveries) {
+                        $scope->whereNull('notification_type')
+                            ->orWhere('notification_type', '!=', 'admin_topic_complete')
+                            ->orWhereIn('id', array_keys($loginDeliveries));
+                    });
+                })
                 ->latest()
                 ->get()
-                ->map(function (LmsNotification $notification) {
+                ->map(function (LmsNotification $notification) use ($loginDeliveries) {
+                    $deliveryNumber = $loginDeliveries[$notification->id] ?? null;
+
                     return [
                         'id' => $notification->id,
                         'title' => $notification->title,
                         'message' => $notification->message,
                         'institute' => $notification->institute ?: 'All Institutes',
                         'created_at' => $notification->created_at?->format('d M Y'),
-                        'signature' => $notification->id . '-' . optional($notification->updated_at)->timestamp,
+                        'signature' => $notification->notification_type === 'admin_topic_complete' && $deliveryNumber
+                            ? 'admin-topic-complete-' . $notification->id . '-' . $deliveryNumber
+                            : $notification->id . '-' . optional($notification->updated_at)->timestamp,
                     ];
                 })
                 ->values();

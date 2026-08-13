@@ -3,17 +3,16 @@
 @section('content')
 
 <div class="container-fluid">
-    <div class="row">
+    <div class="row align-items-stretch">
 
         @include('layouts.sidebar')
 
-        <div class="col-md-10 col-lg-10 p-4">
-
-            <div class="page-header mb-4">
-                <h2>Hybrid Learners</h2>
-                <p class="text-muted mb-0">
-                    View and manage self-registered learners.
-                </p>
+        <div class="col-md-10 col-lg-10 p-4 d-flex flex-column">
+            <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                <div>
+                    <h2 class="mb-1">Hybrid Learners</h2>
+                    <p class="text-muted mb-0">View and manage self-registered learners.</p>
+                </div>
             </div>
 
             @if(session('success'))
@@ -22,99 +21,102 @@
                 </div>
             @endif
 
-            <div class="card shadow border-0">
+            <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
-
-                    <form method="GET"
-                          action="{{ route('admin.independent.learners') }}"
-                          class="row mb-3">
-
-                        <div class="col-md-4">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <span class="badge bg-primary-subtle text-primary">Filter Hybrid Learners</span>
+                        <span class="text-muted small">Search by learner name or email to narrow down the list.</span>
+                    </div>
+                    <form method="GET" action="{{ route('admin.independent.learners') }}" class="row g-3 align-items-end">
+                        <div class="col-md-6 col-lg-5">
+                            <label class="form-label">Search</label>
                             <input type="text"
                                    name="search"
                                    class="form-control"
                                    placeholder="Search name or email"
                                    value="{{ request('search') }}">
                         </div>
-
-                        <div class="col-md-2">
-                            <button type="submit"
-                                    class="btn btn-primary w-100">
-                                Search
-                            </button>
+                        <div class="col-md-3 col-lg-2">
+                            <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
                         </div>
-
+                        <div class="col-md-3 col-lg-2">
+                            <a href="{{ route('admin.independent.learners') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                        </div>
                     </form>
+                </div>
+            </div>
 
+            <div class="card shadow border-0 flex-grow-1">
+                <div class="card-body p-4">
                     <div class="table-responsive lms-table-shell">
-                    <table class="table table-bordered table-hover align-middle lms-table-fit">
+                        <table class="table table-bordered table-hover align-middle lms-table-fit">
 
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Phone</th>
-                                <th>Registered On</th>
-                                <th>Enrollments</th>
-                                <th>Certificates</th>
-                                <th>Status</th>
-                                <th width="160">Action</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-
-                            @forelse($learners as $learner)
-
+                            <thead>
                                 <tr>
-                                    <td>{{ $learner->name }}</td>
-                                    <td>{{ $learner->email }}</td>
-                                    <td>{{ $learner->phone ?? 'N/A' }}</td>
-                                    <td>{{ $learner->created_at->format('d M Y') }}</td>
-                                    <td>
-                                        {{ $learner->enrollments_count }}
-                                    </td>
-
-                                    <td>
-                                        {{ $learner->certificates_count }}
-                                    </td>
-
-                                    <td>
-                                        @if($learner->status)
-                                            <span class="badge bg-success">Active</span>
-                                        @else
-                                            <span class="badge bg-danger">Inactive</span>
-                                        @endif
-                                    </td>
-
-                                    <td>
-                                        <form method="POST"
-                                              action="{{ route('admin.independent.learners.toggle-status', $learner->id) }}">
-                                            @csrf
-                                            <a href="{{ route('admin.independent.learners.show', $learner->id) }}" class="btn btn-sm btn-outline-primary mb-2">
-                                                View
-                                            </a>
-                                            <button type="submit"
-                                                    class="btn btn-sm {{ $learner->status ? 'btn-outline-danger' : 'btn-success' }}">
-                                                {{ $learner->status ? 'Deactivate' : 'Activate' }}
-                                            </button>
-                                        </form>
-                                    </td>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Registered On</th>
+                                    <th>Enrollments</th>
+                                    <th>Certificates</th>
+                                    <th>Status</th>
+                                    <th width="160">Action</th>
                                 </tr>
+                            </thead>
 
-                            @empty
+                            <tbody>
 
-                                <tr>
-                                    <td colspan="8" class="text-center text-muted">
-                                        No hybrid learners found.
-                                    </td>
-                                </tr>
+                                @forelse($learners as $learner)
 
-                            @endforelse
+                                    <tr>
+                                        <td>{{ $learner->name }}</td>
+                                        <td>{{ $learner->email }}</td>
+                                        <td>{{ $learner->phone ?? 'N/A' }}</td>
+                                        <td>{{ $learner->created_at->format('d M Y') }}</td>
+                                        <td>
+                                            {{ $learner->enrollments_count }}
+                                        </td>
 
-                        </tbody>
+                                        <td>
+                                            {{ $learner->certificates_count }}
+                                        </td>
 
-                    </table>
+                                        <td>
+                                            @if($learner->status)
+                                                <span class="badge bg-success">Active</span>
+                                            @else
+                                                <span class="badge bg-danger">Inactive</span>
+                                            @endif
+                                        </td>
+
+                                        <td>
+                                            <form method="POST"
+                                                  action="{{ route('admin.independent.learners.toggle-status', $learner->id) }}">
+                                                @csrf
+                                                <a href="{{ route('admin.independent.learners.show', $learner->id) }}" class="btn btn-sm btn-outline-primary mb-2">
+                                                    View
+                                                </a>
+                                                <button type="submit"
+                                                        class="btn btn-sm {{ $learner->status ? 'btn-outline-danger' : 'btn-success' }}">
+                                                    {{ $learner->status ? 'Deactivate' : 'Activate' }}
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+
+                                @empty
+
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted">
+                                            No hybrid learners found.
+                                        </td>
+                                    </tr>
+
+                                @endforelse
+
+                            </tbody>
+
+                        </table>
                     </div>
 
                     @if($learners->hasPages())
