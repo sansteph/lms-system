@@ -100,6 +100,12 @@
 
             </div>
 
+            <div class="d-flex justify-content-end mb-4">
+                <a href="{{ route('admin.forgot.password') }}" class="small text-decoration-none fw-semibold">
+                    Forgot password?
+                </a>
+            </div>
+
             <button type="submit"
                     class="btn auth-btn w-100">
 

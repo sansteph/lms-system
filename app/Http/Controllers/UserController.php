@@ -196,6 +196,52 @@ class UserController extends Controller
             ->with('error', 'Invalid admin login details');
     }
 
+    public function forgotPassword(Request $request)
+    {
+        $role = $request->route('role');
+
+        if (!in_array($role, ['admin', 'teacher'], true)) {
+            abort(404);
+        }
+
+        return view('forgot-password', [
+            'role' => $role,
+            'loginRoute' => $role === 'teacher' ? route('teacher.login') : route('admin.login'),
+            'submitRoute' => $role === 'teacher'
+                ? route('teacher.forgot.password.submit')
+                : route('admin.forgot.password.submit'),
+        ]);
+    }
+
+    public function forgotPasswordSubmit(Request $request)
+    {
+        $role = $request->route('role');
+
+        if (!in_array($role, ['admin', 'teacher'], true)) {
+            abort(404);
+        }
+
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $allowedRoles = $role === 'teacher'
+            ? ['Teacher']
+            : ['Admin', 'InstituteAdmin'];
+
+        $user = User::where('email', $request->email)
+            ->whereIn('role', $allowedRoles)
+            ->where('status', 1)
+            ->first();
+
+        if (!$user) {
+            return redirect()->back()
+                ->with('success', 'If an active account exists for that email, we have sent a confirmation link to complete the password change.');
+        }
+
+        return $this->sendPasswordResetLink($user);
+    }
+
     public function teacherLogin(Request $request)
     {
         $request->validate([
@@ -317,7 +363,7 @@ class UserController extends Controller
         return $this->sendPasswordChangeConfirmation($user, $request->new_password);
     }
 
-    private function sendPasswordChangeConfirmation(User $user, string $newPassword)
+    private function sendPasswordChangeConfirmation(User $user, string $newPassword, bool $requiresCurrentPassword = true)
     {
         if (!$user->email) {
             return redirect()->back()
@@ -361,8 +407,62 @@ class UserController extends Controller
                 ->with('error', 'Password confirmation email could not be sent. Please check mail configuration and try again.');
         }
 
-        return redirect()->back()
+        if ($requiresCurrentPassword) {
+            return redirect()->back()
+                ->with('success', 'A confirmation email has been sent to your login email. Click "Yes, it is me" to complete the password change.');
+        }
+
+        return redirect()->route($user->role === 'Teacher' ? 'teacher.login' : 'admin.login')
             ->with('success', 'A confirmation email has been sent to your login email. Click "Yes, it is me" to complete the password change.');
+    }
+
+    private function sendPasswordResetLink(User $user)
+    {
+        if (!$user->email) {
+            return redirect()->back()
+                ->with('error', 'Your account does not have a login email address.');
+        }
+
+        $token = Str::random(64);
+        $expiresAt = now()->addMinutes(30);
+
+        DB::transaction(function () use ($user, $token, $expiresAt) {
+            PendingPasswordChange::where('user_id', $user->id)
+                ->whereNull('confirmed_at')
+                ->delete();
+
+            PendingPasswordChange::create([
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'token_hash' => hash('sha256', $token),
+                'purpose' => 'reset',
+                'new_password' => null,
+                'expires_at' => $expiresAt,
+            ]);
+        });
+
+        try {
+            Mail::send('emails.password-reset-request', [
+                'user' => $user,
+                'resetUrl' => route('password-change.confirm', $token),
+                'expiresAt' => $expiresAt->format('d M Y, h:i A'),
+            ], function ($message) use ($user) {
+                $message->to($user->email)
+                    ->subject('Reset your InnovatEdge LMS password');
+            });
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            PendingPasswordChange::where('user_id', $user->id)
+                ->where('token_hash', hash('sha256', $token))
+                ->delete();
+
+            return redirect()->back()
+                ->with('error', 'Password reset email could not be sent. Please check mail configuration and try again.');
+        }
+
+        return redirect()->route($user->role === 'Teacher' ? 'teacher.login' : 'admin.login')
+            ->with('success', 'If an active account exists for that email, we have sent a password reset link.');
     }
 
     public function confirmPasswordChange($token)
@@ -381,6 +481,15 @@ class UserController extends Controller
         }
 
         $user = $pendingChange->user;
+
+        if ($pendingChange->purpose === 'reset') {
+            return view('password-reset', [
+                'dashboardRoute' => $user->role === 'Teacher' ? route('teacher.login') : route('admin.login'),
+                'submitRoute' => route('password-change.reset.submit', $token),
+                'user' => $user,
+                'expiresAt' => optional($pendingChange->expires_at)->format('d M Y, h:i A'),
+            ]);
+        }
 
         DB::transaction(function () use ($user, $pendingChange) {
             $user->update([
@@ -410,6 +519,45 @@ class UserController extends Controller
 
         return view('password-change-confirmed', [
             'dashboardRoute' => $dashboardRoute,
+            'status' => 'success',
+            'message' => 'Password changed successfully.',
+        ]);
+    }
+
+    public function submitPasswordReset(Request $request, $token)
+    {
+        $request->validate([
+            'new_password' => 'required|min:6|confirmed',
+        ]);
+
+        $pendingChange = PendingPasswordChange::with('user')
+            ->where('token_hash', hash('sha256', $token))
+            ->where('purpose', 'reset')
+            ->whereNull('confirmed_at')
+            ->first();
+
+        if (!$pendingChange || !$pendingChange->user || $pendingChange->expires_at->isPast()) {
+            return view('password-change-confirmed', [
+                'dashboardRoute' => route('admin.login'),
+                'status' => 'error',
+                'message' => 'This password reset link is invalid or expired.',
+            ]);
+        }
+
+        $user = $pendingChange->user;
+
+        DB::transaction(function () use ($user, $pendingChange, $request) {
+            $user->update([
+                'password' => Hash::make($request->new_password),
+                'password_changed_at' => now(),
+            ]);
+
+            PendingPasswordChange::where('user_id', $user->id)
+                ->delete();
+        });
+
+        return view('password-change-confirmed', [
+            'dashboardRoute' => $user->role === 'Teacher' ? route('teacher.login') : route('admin.login'),
             'status' => 'success',
             'message' => 'Password changed successfully.',
         ]);

@@ -11,6 +11,7 @@ class PendingPasswordChange extends Model
         'email',
         'token_hash',
         'new_password',
+        'purpose',
         'expires_at',
         'confirmed_at',
     ];

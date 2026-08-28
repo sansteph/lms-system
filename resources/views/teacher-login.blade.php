@@ -75,6 +75,12 @@
 
             </div>
 
+            <div class="d-flex justify-content-end mb-4">
+                <a href="{{ route('teacher.forgot.password') }}" class="small text-decoration-none fw-semibold">
+                    Forgot password?
+                </a>
+            </div>
+
             <button type="submit"
                     class="btn login-btn teacher-btn w-100">
 

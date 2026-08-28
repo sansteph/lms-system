@@ -29,6 +29,7 @@ Route::get('/', [PageController::class, 'home'])->name('home');
 Route::get('/portal', [PageController::class, 'portal'])->name('portal');
 Route::get('/logout', [UserController::class, 'logout'])->name('logout');
 Route::get('/password-change/confirm/{token}', [UserController::class, 'confirmPasswordChange'])->name('password-change.confirm');
+Route::post('/password-change/reset/{token}', [UserController::class, 'submitPasswordReset'])->name('password-change.reset.submit');
 Route::get('/verify-certificate', [PageController::class, 'verifyCertificate'])->name('certificate.verify');
 Route::post('/verify-certificate', [PageController::class, 'verifyCertificateSubmit'])->name('certificate.verify.submit');
 Route::get('/content-preview/{content}/for/{audience}', [ContentController::class, 'showPreview'])->middleware('track.activity')->name('content.preview');
@@ -76,6 +77,8 @@ Route::middleware(['independent.auth'])->group(function () {
 //Admin + InstituteAdmin Shared Public Routes
 Route::get('/admin-login', [PageController::class, 'adminLogin'])->name('admin.login');
 Route::post('/admin-login', [UserController::class, 'adminLogin'])->name('admin.login.submit');
+Route::get('/admin/forgot-password', [UserController::class, 'forgotPassword'])->defaults('role', 'admin')->name('admin.forgot.password');
+Route::post('/admin/forgot-password', [UserController::class, 'forgotPasswordSubmit'])->defaults('role', 'admin')->name('admin.forgot.password.submit');
 
 //Admin + InstituteAdmin Shared Routes
 Route::middleware(['admin.auth', 'track.activity'])->group(function () {
@@ -248,6 +251,8 @@ Route::middleware(['admin.auth', 'super.admin'])->group(function () {
 // Teacher public routes
 Route::get('/teacher-login', [PageController::class, 'teacherLogin'])->name('teacher.login');
 Route::post('/teacher-login', [UserController::class, 'teacherLogin'])->name('teacher.login.submit');
+Route::get('/teacher/forgot-password', [UserController::class, 'forgotPassword'])->defaults('role', 'teacher')->name('teacher.forgot.password');
+Route::post('/teacher/forgot-password', [UserController::class, 'forgotPasswordSubmit'])->defaults('role', 'teacher')->name('teacher.forgot.password.submit');
 
 // Teacher protected routes
 Route::middleware(['teacher.auth','track.activity'])->group(function () {
