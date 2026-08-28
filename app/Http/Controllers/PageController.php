@@ -4847,7 +4847,6 @@ class PageController extends Controller
                     $request->route()?->getName() ?: 'admin.class-session.report.weekly'
                 );
 
-            $request->attributes->set('section_institute', $currentInstitute);
         }
 
         $sessions = $this->classSessionReportQuery($request)
@@ -4880,7 +4879,6 @@ class PageController extends Controller
                         : 'admin.class-session.report.weekly.download'
                 );
 
-            $request->attributes->set('section_institute', $currentInstitute);
         }
 
         $sessions = $this->classSessionReportQuery($request)
@@ -4892,7 +4890,11 @@ class PageController extends Controller
 
         $scope = session('user_role') == 'InstituteAdmin'
             ? session('user_institute')
-            : ($currentInstitute ?: 'All Institutes');
+            : (
+                $request->filled('institute')
+                    ? trim((string) $request->input('institute'))
+                    : ($currentInstitute ?: 'All Institutes')
+            );
 
         $periodLabel = $reportType == 'daily'
             ? \Carbon\Carbon::parse($request->input('report_date', now()->toDateString()))->format('d M Y')
@@ -5002,9 +5004,6 @@ class PageController extends Controller
             })
             ->when($reportType != 'daily' && $request->filled('to_date'), function ($query) use ($request) {
                 $query->whereDate('session_date', '<=', $request->to_date);
-            })
-            ->when(session('user_role') == 'Admin' && $request->attributes->get('section_institute'), function ($query) use ($request) {
-                $query->where('institute', $request->attributes->get('section_institute'));
             })
             ->when(session('user_role') == 'Admin' && $request->filled('institute'), function ($query) use ($request) {
                 $query->where('institute', $request->institute);

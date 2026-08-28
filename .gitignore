@@ -63,3 +63,4 @@ auth.json
 # Homestead
 Homestead.json
 Homestead.yaml
+.aider*
