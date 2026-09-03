@@ -75,7 +75,7 @@ class LmsNotificationService
         $classLabel = trim(($plan->class ?? '') . ' ' . ($plan->section ?? ''));
         $courseTitle = $plan->course->course_title ?? 'Teaching Plan';
 
-        LmsNotification::firstOrCreate(
+        $notification = LmsNotification::firstOrCreate(
             [
                 'title' => 'Topic completed by Admin',
                 'message' => ($classLabel ?: 'Your class') . ': ' . $content->content_title . ' was marked completed by Admin in ' . $courseTitle . '.',
@@ -91,6 +91,8 @@ class LmsNotificationService
                 'created_by' => null,
             ]
         );
+
+        $this->pushIfNew($notification);
     }
 
     /**
@@ -180,7 +182,7 @@ class LmsNotificationService
 
     private function createOnce(array $data): void
     {
-        LmsNotification::firstOrCreate(
+        $notification = LmsNotification::firstOrCreate(
             [
                 'title' => $data['title'],
                 'message' => $data['message'],
@@ -194,5 +196,14 @@ class LmsNotificationService
                 'created_by' => null,
             ]
         );
+
+        $this->pushIfNew($notification);
+    }
+
+    private function pushIfNew(LmsNotification $notification): void
+    {
+        if ($notification->wasRecentlyCreated) {
+            app(FirebasePushService::class)->sendLmsNotification($notification);
+        }
     }
 }
