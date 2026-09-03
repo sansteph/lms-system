@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Institute;
 use App\Models\LmsNotification;
 use App\Models\Student;
+use App\Services\FirebasePushService;
 use Illuminate\Http\Request;
 
 class LmsNotificationController extends Controller
@@ -54,7 +55,8 @@ class LmsNotificationController extends Controller
 
         $validated['created_by'] = session('user_id');
 
-        LmsNotification::create($validated);
+        $notification = LmsNotification::create($validated);
+        app(FirebasePushService::class)->sendLmsNotification($notification);
 
         return redirect()->back()->with('success', 'Notification created successfully.');
     }

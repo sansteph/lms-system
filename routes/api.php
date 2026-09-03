@@ -46,6 +46,8 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\MobileRoleAccess::class]
     Route::get('/profile', [MobileApiController::class, 'profile']);
     Route::post('/logout', [MobileApiController::class, 'logout']);
     Route::post('/feedback', [MobileApiController::class, 'submitFeedback']);
+    Route::post('/push-token', [MobileApiController::class, 'storePushToken']);
+    Route::delete('/push-token', [MobileApiController::class, 'deletePushToken']);
     Route::post('/ai-chat/ask', [MobileApiController::class, 'aiChatAsk'])->middleware('throttle:20,1');
     Route::post('/ai/report-insights', [MobileApiController::class, 'aiReportInsights']);
     Route::post('/ai/assessment-question-paper', [MobileApiController::class, 'aiAssessmentQuestionPaper']);

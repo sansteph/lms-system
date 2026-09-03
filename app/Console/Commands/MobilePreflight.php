@@ -57,6 +57,7 @@ class MobilePreflight extends Command
                 'assessment_sessions' => ['started_at', 'submitted_at', 'violation_count'],
                 'pending_password_changes' => ['purpose'],
                 'lms_notification_login_views' => ['display_count'],
+                'mobile_push_tokens' => ['fcm_token', 'pushable_type', 'pushable_id', 'last_seen_at'],
             ] as $table => $columns) {
                 $check(Schema::hasTable($table) && Schema::hasColumns($table, $columns), 'Required schema: '.$table);
             }

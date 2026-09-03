@@ -21,6 +21,7 @@ use App\Models\Institute;
 use App\Models\IndependentLearner;
 use App\Models\LmsNotification;
 use App\Models\LessonProgress;
+use App\Models\MobilePushToken;
 use App\Models\MySpace;
 use App\Models\PendingPasswordChange;
 use App\Models\SchoolClass;
@@ -33,6 +34,7 @@ use App\Models\User;
 use App\Models\UserActivityLog;
 use App\Models\UserSession;
 use App\Models\TeacherAchievement;
+use App\Services\FirebasePushService;
 use App\Services\TeachingPlanReleaseService;
 use App\Services\TeachingPlanBuilderService;
 use App\Services\Ai\GeminiAiService;
@@ -754,11 +756,64 @@ class MobileApiController extends Controller
 
     public function logout(Request $request)
     {
+        MobilePushToken::query()
+            ->where('pushable_type', get_class($request->user()))
+            ->where('pushable_id', $request->user()->getKey())
+            ->delete();
+
         $request->user()->currentAccessToken()?->delete();
 
         return response()->json([
             'success' => true,
             'message' => 'Logged out successfully',
+        ]);
+    }
+
+    public function storePushToken(Request $request)
+    {
+        $account = $request->user();
+        $validated = $request->validate([
+            'fcm_token' => ['required', 'string', 'max:512'],
+            'platform' => ['nullable', 'string', 'max:32'],
+            'role' => ['nullable', 'string', 'max:64'],
+            'device_name' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $token = MobilePushToken::updateOrCreate(
+            ['fcm_token' => $validated['fcm_token']],
+            [
+                'pushable_type' => get_class($account),
+                'pushable_id' => $account->getKey(),
+                'role' => $this->displayRoleFor($account),
+                'platform' => $validated['platform'] ?? null,
+                'device_name' => $validated['device_name'] ?? null,
+                'last_seen_at' => now(),
+            ],
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Push token registered.',
+            'id' => $token->id,
+        ]);
+    }
+
+    public function deletePushToken(Request $request)
+    {
+        $account = $request->user();
+        $validated = $request->validate([
+            'fcm_token' => ['nullable', 'string', 'max:512'],
+        ]);
+
+        MobilePushToken::query()
+            ->where('pushable_type', get_class($account))
+            ->where('pushable_id', $account->getKey())
+            ->when($validated['fcm_token'] ?? null, fn ($query, $token) => $query->where('fcm_token', $token))
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Push token removed.',
         ]);
     }
 
@@ -1254,6 +1309,7 @@ class MobileApiController extends Controller
         $validated['created_by'] = $account->id;
 
         $notification = LmsNotification::create($validated);
+        app(FirebasePushService::class)->sendLmsNotification($notification);
 
         return response()->json([
             'success' => true,
