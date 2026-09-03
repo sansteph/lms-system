@@ -27,7 +27,7 @@ class FeedbackController extends Controller
 
     public function teacherStore(Request $request)
     {
-        $teacher = User::where('role', 'Teacher')->findOrFail(session('user_id'));
+        $teacher = User::whereIn('role', ['Teacher', 'STEM Engineer'])->findOrFail(session('user_id'));
 
         return $this->sendFeedback($request, 'STEM Engineer', [
             'Name' => $teacher->name,

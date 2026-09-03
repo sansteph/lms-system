@@ -140,6 +140,7 @@ class CommunityFeedController extends Controller
 
         $posts = CommunityPost::withExistingAuthor()
             ->with(['likes', 'comments'])
+            ->when($request->filled('search'), fn ($query) => $query->where(fn ($q) => $q->where('title', 'like', '%'.$request->search.'%')->orWhere('body', 'like', '%'.$request->search.'%')))
             ->when($type, fn ($query) => $query->where('post_type', $type))
             ->when($tab === 'feed', function ($query) use ($actor) {
                 $query->where('status', 'Approved')

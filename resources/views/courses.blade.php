@@ -267,7 +267,12 @@
 
                             <div class="col-md-3">
                                 <label class="form-label">Assigned Class</label>
-                                <input type="text" name="assigned_class" class="form-control">
+                                <select name="assigned_class" class="form-select">
+                                    <option value="">Select Class</option>
+                                    @foreach($courseClassOptions as $classOption)
+                                        <option value="{{ $classOption }}">{{ $classOption }}</option>
+                                    @endforeach
+                                </select>
                             </div>
 
                             <div class="col-md-3">
@@ -329,11 +334,21 @@
                                                 </div>
                                                 <div class="col-md-3">
                                                     <label class="form-label">Class</label>
-                                                    <input type="text" name="contents[0][assigned_class]" class="form-control">
+                                                    <select name="contents[0][assigned_class]" class="form-select">
+                                                        <option value="">Select Class</option>
+                                                        @foreach($courseClassOptions as $classOption)
+                                                            <option value="{{ $classOption }}">{{ $classOption }}</option>
+                                                        @endforeach
+                                                    </select>
                                                 </div>
                                                 <div class="col-md-3">
                                                     <label class="form-label">Section</label>
-                                                    <input type="text" name="contents[0][section]" class="form-control">
+                                                    <select name="contents[0][section]" class="form-select">
+                                                        <option value="">No Section</option>
+                                                        @foreach($courseSectionOptions as $sectionOption)
+                                                            <option value="{{ $sectionOption }}">{{ $sectionOption }}</option>
+                                                        @endforeach
+                                                    </select>
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label class="form-label">STEM Engineer File</label>
@@ -582,7 +597,12 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Assigned Class</label>
-                                <input type="text" name="assigned_class" class="form-control" value="{{ $course->assigned_class }}">
+                                <select name="assigned_class" class="form-select">
+                                    <option value="">Select Class</option>
+                                    @foreach($courseClassOptions as $classOption)
+                                        <option value="{{ $classOption }}" {{ $course->assigned_class === $classOption ? 'selected' : '' }}>{{ $classOption }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Course Price</label>
@@ -660,11 +680,21 @@
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-label">Class</label>
-                                            <input type="text" name="contents[0][assigned_class]" class="form-control" value="{{ $course->assigned_class }}">
+                                            <select name="contents[0][assigned_class]" class="form-select">
+                                                <option value="">Select Class</option>
+                                                @foreach($courseClassOptions as $classOption)
+                                                    <option value="{{ $classOption }}" {{ $course->assigned_class === $classOption ? 'selected' : '' }}>{{ $classOption }}</option>
+                                                @endforeach
+                                            </select>
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label">Section</label>
-                                            <input type="text" name="contents[0][section]" class="form-control">
+                                            <select name="contents[0][section]" class="form-select">
+                                                <option value="">No Section</option>
+                                                @foreach($courseSectionOptions as $sectionOption)
+                                                    <option value="{{ $sectionOption }}">{{ $sectionOption }}</option>
+                                                @endforeach
+                                            </select>
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label">Status</label>
@@ -740,12 +770,22 @@
 
                         <div class="col-md-6">
                             <label class="form-label">Assigned Class</label>
-                            <input type="text" name="assigned_class" id="editContentAssignedClass" class="form-control" required>
+                            <select name="assigned_class" id="editContentAssignedClass" class="form-select" required>
+                                <option value="">Select Class</option>
+                                @foreach($courseClassOptions as $classOption)
+                                    <option value="{{ $classOption }}">{{ $classOption }}</option>
+                                @endforeach
+                            </select>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label">Section</label>
-                            <input type="text" name="section" id="editContentSection" class="form-control">
+                            <select name="section" id="editContentSection" class="form-select">
+                                <option value="">No Section</option>
+                                @foreach($courseSectionOptions as $sectionOption)
+                                    <option value="{{ $sectionOption }}">{{ $sectionOption }}</option>
+                                @endforeach
+                            </select>
                         </div>
 
                         <div class="col-md-6">
@@ -853,6 +893,45 @@
             });
         }
 
+        const courseClassOptions = @json($courseClassOptions->values()->all());
+        const courseSectionOptions = @json($courseSectionOptions->values()->all());
+
+        function renderSelectOptions(options, placeholderLabel, selectedValue) {
+            let markup = `<option value="">${placeholderLabel}</option>`;
+
+            options.forEach(function (option) {
+                const safeOption = String(option ?? '');
+                const selected = safeOption === String(selectedValue ?? '') ? ' selected' : '';
+                markup += `<option value="${safeOption}"${selected}>${safeOption}</option>`;
+            });
+
+            return markup;
+        }
+
+        function setSelectValue(selectElement, value, placeholderLabel, options) {
+            if (!selectElement) {
+                return;
+            }
+
+            const safeValue = String(value ?? '');
+            const hasOption = Array.from(selectElement.options).some(function (option) {
+                return option.value === safeValue;
+            });
+
+            if (safeValue && !hasOption) {
+                const option = document.createElement('option');
+                option.value = safeValue;
+                option.textContent = safeValue;
+                selectElement.appendChild(option);
+            }
+
+            selectElement.value = safeValue;
+
+            if (!safeValue && placeholderLabel && options.length === 0) {
+                selectElement.innerHTML = `<option value="">${placeholderLabel}</option>`;
+            }
+        }
+
         const editContentModal = document.getElementById('editCourseContentModal');
         const editContentForm = document.getElementById('editCourseContentForm');
 
@@ -871,8 +950,8 @@
                 document.getElementById('editContentType').value = button.dataset.type || '';
                 document.getElementById('editContentOrder').value = button.dataset.order || '1';
                 document.getElementById('editContentDescription').value = button.dataset.description || '';
-                document.getElementById('editContentAssignedClass').value = button.dataset.assignedClass || '';
-                document.getElementById('editContentSection').value = button.dataset.section || '';
+                setSelectValue(document.getElementById('editContentAssignedClass'), button.dataset.assignedClass || '', 'Select Class', courseClassOptions);
+                setSelectValue(document.getElementById('editContentSection'), button.dataset.section || '', 'No Section', courseSectionOptions);
                 document.getElementById('editContentStatus').value = button.dataset.status || '1';
                 document.getElementById('editContentFile').value = '';
                 document.getElementById('editContentStudentFile').value = '';
@@ -891,8 +970,8 @@
                         <div class="col-md-2"><label class="form-label">Type</label><input type="text" name="contents[${index}][content_type]" class="form-control" placeholder="Auto"></div>
                         <div class="col-md-2"><label class="form-label">Order</label><input type="number" name="contents[${index}][sort_order]" class="form-control" min="1"></div>
                         <div class="col-md-2"><label class="form-label">Status</label><select name="contents[${index}][status]" class="form-select"><option value="active">Active</option><option value="draft">Draft</option><option value="archived">Archived</option></select></div>
-                        <div class="col-md-3"><label class="form-label">Class</label><input type="text" name="contents[${index}][assigned_class]" class="form-control"></div>
-                        <div class="col-md-3"><label class="form-label">Section</label><input type="text" name="contents[${index}][section]" class="form-control"></div>
+                        <div class="col-md-3"><label class="form-label">Class</label><select name="contents[${index}][assigned_class]" class="form-select">${renderSelectOptions(courseClassOptions, 'Select Class')}</select></div>
+                        <div class="col-md-3"><label class="form-label">Section</label><select name="contents[${index}][section]" class="form-select">${renderSelectOptions(courseSectionOptions, 'No Section')}</select></div>
                         <div class="col-md-6"><label class="form-label">STEM Engineer File</label><input type="file" name="contents[${index}][file]" class="form-control" accept=".pdf"></div>
                         <div class="col-md-6"><label class="form-label">Student File</label><input type="file" name="contents[${index}][student_file]" class="form-control" accept=".pdf"></div>
                         <div class="col-md-12 text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-course-upload-row">Remove</button></div>
@@ -917,8 +996,8 @@
                         <div class="col-md-3"><label class="form-label">Description</label><input type="text" name="contents[${index}][description]" class="form-control"></div>
                         <div class="col-md-2"><label class="form-label">Type</label><input type="text" name="contents[${index}][content_type]" class="form-control" placeholder="Auto"></div>
                         <div class="col-md-2"><label class="form-label">Order</label><input type="number" name="contents[${index}][sort_order]" class="form-control" min="1"></div>
-                        <div class="col-md-3"><label class="form-label">Class</label><input type="text" name="contents[${index}][assigned_class]" class="form-control"></div>
-                        <div class="col-md-2"><label class="form-label">Section</label><input type="text" name="contents[${index}][section]" class="form-control"></div>
+                        <div class="col-md-3"><label class="form-label">Class</label><select name="contents[${index}][assigned_class]" class="form-select">${renderSelectOptions(courseClassOptions, 'Select Class')}</select></div>
+                        <div class="col-md-2"><label class="form-label">Section</label><select name="contents[${index}][section]" class="form-select">${renderSelectOptions(courseSectionOptions, 'No Section')}</select></div>
                         <div class="col-md-2"><label class="form-label">Status</label><select name="contents[${index}][status]" class="form-select"><option value="active">Active</option><option value="draft">Draft</option><option value="archived">Archived</option></select></div>
                         <div class="col-md-3"><label class="form-label">STEM Engineer File</label><input type="file" name="contents[${index}][file]" class="form-control" accept=".pdf" required></div>
                         <div class="col-md-2"><label class="form-label">Student File</label><input type="file" name="contents[${index}][student_file]" class="form-control" accept=".pdf"></div>

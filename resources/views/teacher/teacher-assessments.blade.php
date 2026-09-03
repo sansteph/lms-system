@@ -38,7 +38,14 @@
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Section</label>
-                            <input type="text" name="section" class="form-control" value="{{ $sectionFilter ?? '' }}" placeholder="A">
+                            <select name="section" class="form-control">
+                                <option value="">All Sections</option>
+                                @foreach($sectionOptions as $sectionOption)
+                                    <option value="{{ $sectionOption }}" {{ ($sectionFilter ?? '') == $sectionOption ? 'selected' : '' }}>
+                                        {{ $sectionOption }}
+                                    </option>
+                                @endforeach
+                            </select>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Category</label>

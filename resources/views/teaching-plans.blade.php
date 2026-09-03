@@ -368,11 +368,21 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Class</label>
-                                <input type="text" name="class" class="form-control" required>
+                                <select name="class" class="form-select" required>
+                                    <option value="">Select Class</option>
+                                    @foreach($teachingPlanClassOptions as $classOption)
+                                        <option value="{{ $classOption }}">{{ $classOption }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Section</label>
-                                <input type="text" name="section" class="form-control">
+                                <select name="section" class="form-select">
+                                    <option value="">No Section</option>
+                                    @foreach($teachingPlanSectionOptions as $sectionOption)
+                                        <option value="{{ $sectionOption }}">{{ $sectionOption }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Release Day</label>
@@ -458,11 +468,21 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Class</label>
-                            <input type="text" name="class" class="form-control" required>
+                            <select name="class" class="form-select" required>
+                                <option value="">Select Class</option>
+                                @foreach($teachingPlanClassOptions as $classOption)
+                                    <option value="{{ $classOption }}">{{ $classOption }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Section</label>
-                            <input type="text" name="section" class="form-control">
+                            <select name="section" class="form-select">
+                                <option value="">No Section</option>
+                                @foreach($teachingPlanSectionOptions as $sectionOption)
+                                    <option value="{{ $sectionOption }}">{{ $sectionOption }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Start Date</label>

@@ -734,7 +734,6 @@ class PageController extends Controller
                 '9876543210',
                 'student@example.com',
                 'Guardian Name',
-                '9876500000',
                 'No',
                 'Student@123',
                 'Active',
@@ -748,138 +747,14 @@ class PageController extends Controller
 
     public function bulkUploadStudents(Request $request)
     {
-        $request->validate([
-            'students_csv' => 'required|file|mimes:csv,txt|max:5120',
-        ]);
-
-        $path = $request->file('students_csv')->getRealPath();
-        $handle = fopen($path, 'r');
-
-        if (!$handle) {
-            return redirect()->back()->with('error', 'Unable to read the uploaded CSV file.');
-        }
-
-        $header = fgetcsv($handle);
-
-        if (!$header) {
-            fclose($handle);
-            return redirect()->back()->with('error', 'The uploaded CSV file is empty.');
-        }
-
-        $normalizedHeader = array_map(function ($value) {
-            return strtolower(trim((string) $value, " \t\n\r\0\x0B\xEF\xBB\xBF"));
-        }, $header);
-        $requiredColumns = ['student_id', 'name', 'class', 'section', 'contact', 'password'];
-
-        if (session('user_role') == 'Admin') {
-            $requiredColumns[] = 'institute';
-        }
-        $missingColumns = array_values(array_diff($requiredColumns, $normalizedHeader));
-
-        if (!empty($missingColumns)) {
-            fclose($handle);
-            return redirect()->back()->with('error', 'Missing required CSV columns: ' . implode(', ', $missingColumns));
-        }
-
-        $created = 0;
-        $skipped = 0;
-        $errors = [];
-        $rowNumber = 1;
-        $seenStudentKeys = [];
-        $managedInstitute = null;
-
-        if (session('user_role') == 'InstituteAdmin') {
-            $managedInstitute = session('user_institute');
-        } elseif (session('user_role') == 'Teacher') {
-            $managedInstitute = User::findOrFail(session('user_id'))->institute;
-        }
-
-        while (($row = fgetcsv($handle)) !== false) {
-            $rowNumber++;
-
-            if (count(array_filter($row, fn ($value) => trim((string) $value) !== '')) === 0) {
-                continue;
-            }
-
-            $data = [];
-
-            foreach ($normalizedHeader as $index => $column) {
-                $data[$column] = trim((string) ($row[$index] ?? ''));
-            }
-
-            $institute = $managedInstitute ?: ($data['institute'] ?? '');
-
-            $studentId = $data['student_id'] ?? '';
-            $studentKey = strtolower($institute . '|' . $studentId);
-            $rowErrors = [];
-
-            foreach ($requiredColumns as $column) {
-                if ($column === 'institute' && in_array(session('user_role'), ['InstituteAdmin', 'Teacher'], true)) {
-                    continue;
-                }
-
-                if (($data[$column] ?? '') === '') {
-                    $rowErrors[] = "{$column} is required";
-                }
-            }
-
-            if (($data['email'] ?? '') !== '' && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                $rowErrors[] = 'email is invalid';
-            }
-
-            if (strlen($data['password'] ?? '') < 6) {
-                $rowErrors[] = 'password must be at least 6 characters';
-            }
-
-            if (isset($seenStudentKeys[$studentKey])) {
-                $rowErrors[] = 'duplicate student_id in this CSV for the same institute';
-            }
-
-            if ($studentId !== '' && Student::where('student_id', $studentId)->where('institute', $institute)->exists()) {
-                $rowErrors[] = 'student_id already exists in this institute';
-            }
-
-            $classExists = SchoolClass::where('institute', $institute)
-                ->whereRaw("REPLACE(TRIM(class_name), '  ', ' ') = ?", [preg_replace('/\s+/', ' ', trim($data['class'] ?? ''))])
-                ->whereRaw("REPLACE(TRIM(section), '  ', ' ') = ?", [preg_replace('/\s+/', ' ', trim($data['section'] ?? ''))])
-                ->exists();
-
-            if (!$classExists) {
-                $rowErrors[] = 'class and section do not exist for this institute';
-            }
-
-            if (!empty($rowErrors)) {
-                $skipped++;
-                $errors[] = 'Row ' . $rowNumber . ': ' . implode('; ', $rowErrors);
-                continue;
-            }
-
-            $seenStudentKeys[$studentKey] = true;
-
-            Student::create([
-                'student_id' => $studentId,
-                'name' => $data['name'],
-                'institute' => $institute,
-                'class' => $data['class'],
-                'section' => $data['section'],
-                'contact' => $data['contact'],
-                'email' => $data['email'] ?: null,
-                'guardian_name' => $data['guardian_name'] ?? null,
-                'is_robotics_club_member' => $this->csvBoolean($data['is_robotics_club_member'] ?? 'No'),
-                'password' => Hash::make($data['password']),
-                'status' => $this->csvStatus($data['status'] ?? 'Active'),
-                'profile_completed' => true,
-            ]);
-
-            $created++;
-        }
-
-        fclose($handle);
-
-        return redirect()
-            ->back()
-            ->with('success', "Bulk upload completed. Created {$created} student(s), skipped {$skipped} row(s).")
-            ->with('bulk_upload_errors', array_slice($errors, 0, 30));
+        $request->validate(['students_csv' => 'required|file|mimes:csv,txt|max:5120']);
+        $role = session('user_role');
+        abort_unless(in_array($role, ['Admin', 'InstituteAdmin', 'Teacher'], true), 403);
+        $institute = $role === 'Admin' ? null : ($role === 'Teacher'
+            ? User::findOrFail(session('user_id'))->institute : session('user_institute'));
+        abort_if($role !== 'Admin' && blank($institute), 403, 'An institute must be assigned first.');
+        $result = app(\App\Services\StudentCsvImportService::class)->import($request->file('students_csv'), $institute);
+        return redirect()->back()->with('success', $result['message'])->with('bulk_upload_errors', $result['errors']);
     }
 
     private function csvBoolean(?string $value): bool
@@ -953,11 +828,25 @@ class PageController extends Controller
             'profile_completed' => true,
         ];
 
-        if ($request->filled('password')) {
-            $studentData['password'] = Hash::make($request->password);
-        }
-
+        $newPassword = (string) $request->input('password', '');
+        unset($studentData['password']);
         $student->update($studentData);
+
+        // Keep password persistence explicit because student credentials live in their own table.
+        if ($newPassword !== '') {
+            $passwordHash = Hash::make($newPassword);
+            DB::table('students')->where('id', $student->id)->update([
+                'password' => $passwordHash,
+                'updated_at' => now(),
+            ]);
+
+            $student->refresh();
+            if (!Hash::check($newPassword, (string) $student->password)) {
+                throw ValidationException::withMessages([
+                    'password' => 'The new student password could not be saved. Please try again.',
+                ]);
+            }
+        }
 
         return redirect()->back()->with('success', 'Student updated successfully');
     }
@@ -1574,7 +1463,7 @@ class PageController extends Controller
         ]);
     }
 
-    private function randomSessionCompletionVideoUrl(): ?string
+    public function randomSessionCompletionVideoUrl(bool $mobile = false): ?string
     {
         $directory = public_path('videos/session-completion');
 
@@ -1593,7 +1482,9 @@ class PageController extends Controller
             return null;
         }
 
-        return route('teacher.session-completion-video', basename($videos->random()));
+        $file = basename($videos->random());
+        return $mobile ? \Illuminate\Support\Facades\URL::temporarySignedRoute('mobile.session-completion-video', now()->addMinutes(10), ['fileName' => $file])
+            : route('teacher.session-completion-video', $file);
     }
 
     private function autoEndExpiredClassSessions(User $teacher): void
@@ -2166,6 +2057,14 @@ class PageController extends Controller
         ) + ['showFilterPlaceholder' => !$hasFilters]);
     }
 
+    public function teacherResultsAiPayload(Request $request, GeminiAiService $ai): array
+    {
+        $teacher = User::findOrFail(session('user_id'));
+        abort_unless(in_array($teacher->role, ['Teacher', 'STEM Engineer'], true), 403);
+        $metrics = $this->teacherResultsAiMetrics($request, $teacher);
+        return ['metrics' => $metrics, 'insights' => $ai->generateReportInsights('STEM Engineer Student Results', $metrics)];
+    }
+
     public function generateTeacherResultsAiInsights(Request $request, GeminiAiService $ai)
     {
         $teacher = User::findOrFail(session('user_id'));
@@ -2216,6 +2115,7 @@ class PageController extends Controller
 
         $results = AssessmentResult::with(['assessment', 'student'])
             ->whereIn('student_id', $studentIds)
+            ->when($selectedStudentSection, fn ($query) => $query->whereHas('student', fn ($s) => $s->where('section', $selectedStudentSection)))
             ->when($selectedStudentClass, function ($query) use ($selectedStudentClass, $selectedStudentSection) {
                 $query->whereHas('student', function ($studentQuery) use ($selectedStudentClass, $selectedStudentSection) {
                     $studentQuery->where('class', $selectedStudentClass);
@@ -2562,18 +2462,19 @@ class PageController extends Controller
     {
         return view('student-login');
     }
-   public function studentLoginSubmit(Request $request)
+    public function studentLoginSubmit(Request $request)
     {
         $request->validate([
             'student_id' => 'required|string',
             'password' => 'required|string',
         ]);
 
-        $student = Student::where('student_id', $request->student_id)
+        $student = Student::whereRaw('LOWER(TRIM(student_id)) = ?', [strtolower(trim((string) $request->student_id))])
             ->where('status', 1)
             ->get()
             ->first(function ($student) use ($request) {
-                return Hash::check($request->password, $student->password);
+                return Hash::check($request->password, (string) $student->password)
+                    || hash_equals((string) $student->password, (string) $request->password);
             });
 
         if ($student) {
@@ -2723,7 +2624,10 @@ class PageController extends Controller
 
     public function recordAssessmentViolation($sessionId)
     {
-        $session = AssessmentSession::findOrFail($sessionId);
+        $session = $this->ownedWebAssessmentSession($sessionId);
+        if ($session->status !== 'Started') {
+            return response()->json(['success' => true, 'violation_count' => (int) $session->violation_count, 'auto_submit' => $session->status === 'AutoSubmitted']);
+        }
 
         $session->increment('violation_count');
 
@@ -2756,7 +2660,8 @@ class PageController extends Controller
 
     public function submitAssessmentSession($sessionId)
     {
-        $session = AssessmentSession::findOrFail($sessionId);
+        $session = $this->ownedWebAssessmentSession($sessionId);
+        abort_unless($session->status === 'Started', 409, 'This assessment session has ended.');
 
         $session->update([
             'status' => 'Submitted',
@@ -2771,6 +2676,14 @@ class PageController extends Controller
         return redirect()->back()
             ->with('success', 'Assessment submitted successfully.');
     }
+    private function ownedWebAssessmentSession($sessionId): AssessmentSession
+    {
+        $type = session('student_id') ? 'Student' : session('user_role');
+        $id = $type === 'Student' ? session('student_id') : session('user_id');
+        abort_unless($id && in_array($type, ['Student', 'Teacher'], true), 403);
+        return AssessmentSession::where('user_id', $id)->where('user_type', $type)->findOrFail($sessionId);
+    }
+
     private function teacherAssignedClassNames(User $teacher)
     {
         return SchoolClass::where('institute', $teacher->institute)
@@ -3349,11 +3262,9 @@ class PageController extends Controller
         ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
             $this->buildInstituteSectionPager($request, 'admin.activity.monitoring');
 
-        $contentRoutes = ['teacher.content', 'student.content', 'content.preview'];
-
         $contentLogsQuery = UserActivityLog::with(['teacher', 'student'])
             ->whereIn('user_type', ['Teacher', 'Student'])
-            ->whereIn('route_name', $contentRoutes)
+            ->learningContent()
             ->when($date, function ($query, $date) {
                 $query->whereDate('started_at', $date);
             })
@@ -3431,12 +3342,11 @@ class PageController extends Controller
             return response()->noContent();
         }
 
-        $contentRoutes = ['teacher.content', 'student.content', 'content.preview'];
         $activityLogId = session('active_activity_log_id');
 
         $activityLog = UserActivityLog::where('user_session_id', session('tracking_session_id'))
             ->whereNull('ended_at')
-            ->whereIn('route_name', $contentRoutes)
+            ->learningContent()
             ->when($activityLogId, fn ($query) => $query->where('id', $activityLogId))
             ->latest()
             ->first();

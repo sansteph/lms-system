@@ -156,6 +156,28 @@ class LmsNotificationService
         });
     }
 
+    public function mobileLoginNotifications($account): array
+    {
+        if (!Schema::hasTable('lms_notifications')) return [];
+        $teacher = $account instanceof User && in_array($account->role, ['Teacher', 'STEM Engineer'], true);
+        if (!$teacher && !($account instanceof \App\Models\Student)) return [];
+        $deliveries = $teacher ? $this->reserveTeacherLoginNotifications($account) : [];
+        $audience = $teacher ? 'teachers' : 'students';
+        $today = now()->toDateString();
+        return LmsNotification::where('status', 'active')->whereIn('target', ['all', $audience])
+            ->where(fn ($q) => $q->whereNull('institute')->when($account->institute, fn ($q) => $q->orWhere('institute', $account->institute)))
+            ->where(fn ($q) => $q->whereNull('starts_at')->orWhereDate('starts_at', '<=', $today))
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhereDate('expires_at', '>=', $today))
+            ->when($teacher, fn ($q) => $q->where(fn ($q) => $q->whereNull('notification_type')
+                ->orWhere('notification_type', '!=', 'admin_topic_complete')->orWhereIn('id', array_keys($deliveries))))
+            ->latest()->get()->map(fn ($n) => [
+                'id' => $n->id, 'title' => $n->title, 'message' => $n->message,
+                'signature' => $n->notification_type === 'admin_topic_complete' && isset($deliveries[$n->id])
+                    ? 'admin-topic-complete-'.$n->id.'-'.$deliveries[$n->id]
+                    : $n->id.'-'.$n->updated_at?->timestamp,
+            ])->all();
+    }
+
     private function createOnce(array $data): void
     {
         LmsNotification::firstOrCreate(

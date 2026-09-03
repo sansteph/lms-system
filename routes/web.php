@@ -130,36 +130,54 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::get('/reports/student-ai-review', [ReportController::class, 'index'])
         ->defaults('reportMode', 'student-ai-review')
         ->name('reports.student-ai-review');
+    Route::get('/reports/student-ai-review/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'student-ai-review')
+        ->name('reports.student-ai-review.download.get');
     Route::post('/reports/student-ai-review/download', [ReportController::class, 'downloadPdf'])
         ->defaults('reportMode', 'student-ai-review')
         ->name('reports.student-ai-review.download');
     Route::get('/reports/stem-engineer-prep', [ReportController::class, 'index'])
         ->defaults('reportMode', 'stem-engineer-prep')
         ->name('reports.stem-engineer-prep');
+    Route::get('/reports/stem-engineer-prep/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'stem-engineer-prep')
+        ->name('reports.stem-engineer-prep.download.get');
     Route::post('/reports/stem-engineer-prep/download', [ReportController::class, 'downloadPdf'])
         ->defaults('reportMode', 'stem-engineer-prep')
         ->name('reports.stem-engineer-prep.download');
     Route::get('/reports/student-performance/weekly', [ReportController::class, 'index'])
         ->defaults('reportMode', 'weekly-student-performance')
         ->name('reports.student-performance.weekly');
+    Route::get('/reports/student-performance/weekly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'weekly-student-performance')
+        ->name('reports.student-performance.weekly.download.get');
     Route::post('/reports/student-performance/weekly/download', [ReportController::class, 'downloadPdf'])
         ->defaults('reportMode', 'weekly-student-performance')
         ->name('reports.student-performance.weekly.download');
     Route::get('/reports/student-performance/monthly', [ReportController::class, 'index'])
         ->defaults('reportMode', 'monthly-student-performance')
         ->name('reports.student-performance.monthly');
+    Route::get('/reports/student-performance/monthly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'monthly-student-performance')
+        ->name('reports.student-performance.monthly.download.get');
     Route::post('/reports/student-performance/monthly/download', [ReportController::class, 'downloadPdf'])
         ->defaults('reportMode', 'monthly-student-performance')
         ->name('reports.student-performance.monthly.download');
     Route::get('/reports/stem-engineer-performance/weekly', [ReportController::class, 'index'])
         ->defaults('reportMode', 'weekly-stem-engineer-performance')
         ->name('reports.stem-engineer-performance.weekly');
+    Route::get('/reports/stem-engineer-performance/weekly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'weekly-stem-engineer-performance')
+        ->name('reports.stem-engineer-performance.weekly.download.get');
     Route::post('/reports/stem-engineer-performance/weekly/download', [ReportController::class, 'downloadPdf'])
         ->defaults('reportMode', 'weekly-stem-engineer-performance')
         ->name('reports.stem-engineer-performance.weekly.download');
     Route::get('/reports/stem-engineer-performance/monthly', [ReportController::class, 'index'])
         ->defaults('reportMode', 'monthly-stem-engineer-performance')
         ->name('reports.stem-engineer-performance.monthly');
+    Route::get('/reports/stem-engineer-performance/monthly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'monthly-stem-engineer-performance')
+        ->name('reports.stem-engineer-performance.monthly.download.get');
     Route::post('/reports/stem-engineer-performance/monthly/download', [ReportController::class, 'downloadPdf'])
         ->defaults('reportMode', 'monthly-stem-engineer-performance')
         ->name('reports.stem-engineer-performance.monthly.download');
@@ -195,12 +213,18 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::get('/admin/class-session-report/daily', [PageController::class, 'classSessionReport'])
         ->defaults('reportType', 'daily')
         ->name('admin.class-session.report.daily');
+    Route::get('/admin/class-session-report/daily/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'daily')
+        ->name('admin.class-session.report.daily.download.get');
     Route::post('/admin/class-session-report/daily/download', [PageController::class, 'downloadClassSessionReportPdf'])
         ->defaults('reportType', 'daily')
         ->name('admin.class-session.report.daily.download');
     Route::get('/admin/class-session-report/weekly', [PageController::class, 'classSessionReport'])
         ->defaults('reportType', 'weekly')
         ->name('admin.class-session.report.weekly');
+    Route::get('/admin/class-session-report/weekly/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'weekly')
+        ->name('admin.class-session.report.weekly.download.get');
     Route::post('/admin/class-session-report/weekly/download', [PageController::class, 'downloadClassSessionReportPdf'])
         ->defaults('reportType', 'weekly')
         ->name('admin.class-session.report.weekly.download');

@@ -647,7 +647,7 @@ class ContentController extends Controller
         if ($audience == 'student') {
             return [
                 'file' => $content->student_file_path ?: $content->file_path,
-                'preview' => $content->student_preview_pdf_path ?: $content->preview_pdf_path,
+                'preview' => app(\App\Services\MobileContentAccess::class)->pdfPath($content, 'student'),
             ];
         }
 

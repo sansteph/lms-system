@@ -31,7 +31,7 @@ class TeachingPlanReleaseService
     {
         $date = $date ?: now();
 
-        if ($plan->is_template) {
+        if ($plan->is_template || $plan->status !== 'active') {
             return 0;
         }
 
@@ -40,6 +40,7 @@ class TeachingPlanReleaseService
         }
 
         return DB::transaction(function () use ($plan, $date) {
+            $plan = TeachingPlan::lockForUpdate()->findOrFail($plan->id);
             $plan->weeks()
                 ->where('status', 'released')
                 ->where(function ($query) {
@@ -60,8 +61,12 @@ class TeachingPlanReleaseService
                 ->orderBy('week_number')
                 ->get();
 
+            $released = 0;
             foreach ($dueWeeks as $week) {
-                $this->releaseWeek($week, $week->week_number == 1 ? 'initial_release' : 'scheduled_friday_release');
+                if (! $this->previousWeeksCompleted($plan, $week)) {
+                    break;
+                }
+                $released += (int) $this->releaseWeek($week, $week->week_number == 1 ? 'initial_release' : 'scheduled_friday_release');
             }
 
             if (
@@ -71,23 +76,24 @@ class TeachingPlanReleaseService
                 $plan->update(['status' => 'completed']);
             }
 
-            return $dueWeeks->count();
+            return $released;
         });
     }
 
     public function releaseNextWeek(TeachingPlan $plan, string $reason = 'manual_release'): ?TeachingPlanWeek
     {
-        if ($plan->is_template) {
+        if ($plan->is_template || $plan->status !== 'active' || ($plan->start_date && Carbon::parse($plan->start_date)->startOfDay()->gt(today()))) {
             return null;
         }
 
         return DB::transaction(function () use ($plan, $reason) {
+            $plan = TeachingPlan::lockForUpdate()->findOrFail($plan->id);
             $week = $plan->weeks()
                 ->whereIn('status', ['locked', 'skipped'])
                 ->orderBy('week_number')
                 ->first();
 
-            if (!$week) {
+            if (!$week || ! $this->previousWeeksCompleted($plan, $week)) {
                 return null;
             }
 
@@ -97,9 +103,17 @@ class TeachingPlanReleaseService
 
     public function releaseWeek(TeachingPlanWeek $week, string $reason = 'manual_release'): bool
     {
-        $week->refresh();
+        return DB::transaction(function () use ($week, $reason) {
+        $plan = TeachingPlan::lockForUpdate()->find($week->teaching_plan_id);
+        $week = TeachingPlanWeek::lockForUpdate()->findOrFail($week->id);
 
         if (!in_array($week->status, ['locked', 'skipped'], true)) {
+            return false;
+        }
+
+        if (! $plan || $plan->is_template || $plan->status !== 'active'
+            || ($plan->start_date && Carbon::parse($plan->start_date)->startOfDay()->gt(today()))
+            || ! $this->previousWeeksCompleted($plan, $week)) {
             return false;
         }
 
@@ -119,6 +133,7 @@ class TeachingPlanReleaseService
         app(LmsNotificationService::class)->notifyTeachersOfReleasedWeek($week->fresh(['plan.course', 'items.content']));
 
         return true;
+        });
     }
 
     public function markItemCompleted(TeachingPlanItem $item): bool
@@ -134,6 +149,9 @@ class TeachingPlanReleaseService
             ]);
 
             $this->syncWeekCompletion($item->week);
+            if ($item->plan?->release_policy === 'release_next_only_if_previous_completed') {
+                $this->releaseDueWeek($item->plan);
+            }
         });
 
         return true;
@@ -155,5 +173,14 @@ class TeachingPlanReleaseService
                 'completed_at' => $week->completed_at ?: now(),
             ]);
         }
+    }
+
+    private function previousWeeksCompleted(TeachingPlan $plan, TeachingPlanWeek $week): bool
+    {
+        if ($plan->release_policy !== 'release_next_only_if_previous_completed') {
+            return true;
+        }
+        return ! $plan->weeks()->where('week_number', '<', $week->week_number)
+            ->where('status', '!=', 'completed')->exists();
     }
 }

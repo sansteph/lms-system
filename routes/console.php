@@ -296,7 +296,8 @@ Artisan::command('ai-content:generate-upcoming {--limit=} {--retry-failed}', fun
 })->purpose('Generate AI summaries and prep quizzes for upcoming Teaching Plan content');
 
 Schedule::command('teaching-plans:release-weekly')
-    ->weeklyOn(5, '08:00');
+    ->dailyAt('08:00')
+    ->withoutOverlapping();
 
 Schedule::command('ai-content:generate-upcoming')
     ->everyFiveMinutes()

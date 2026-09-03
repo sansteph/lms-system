@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Storage;
 
 class AssessmentResult extends Model
 {
+    protected $casts = [
+        'evaluated_at' => 'datetime',
+    ];
+
     protected $fillable = [
         'student_id',
         'assessment_id',

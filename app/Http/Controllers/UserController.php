@@ -587,6 +587,7 @@ class UserController extends Controller
                     ->where('stem_engineer_id', $actor->id);
             })
             ->where('content_id', $content->id)
+            ->when($request->filled('plan_item_id'), fn ($q) => $q->where('teaching_plan_item_id', $request->integer('plan_item_id')))
             ->where('status', 'completed')
             ->latest()
             ->first();
@@ -626,8 +627,8 @@ class UserController extends Controller
                 (int) $item->content_id === (int) $content->id;
         } elseif ($isCompletedInstitutePlanContent && $completedSession) {
             $isCompletedInstitutePlanContent =
-                $completedSession->institute === $actor->institute &&
-                $plan->institute === $actor->institute &&
+                $completedSession->institute === ($isAdmin ? $content->institute : $actor->institute) &&
+                $plan->institute === ($isAdmin ? $content->institute : $actor->institute) &&
                 in_array($plan->status, ['active', 'completed'], true) &&
                 in_array($week->status, ['released', 'completed'], true) &&
                 $item->status === 'completed' &&

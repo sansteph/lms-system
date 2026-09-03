@@ -483,6 +483,7 @@ class CourseController extends Controller
     public function delete($id)
     {
         $course = Course::findOrFail($id);
+        if (request()->is('api/*')) $this->authorizeCourse($course);
 
         if (
             session('user_role') == 'InstituteAdmin' &&
@@ -530,8 +531,8 @@ class CourseController extends Controller
             $course->delete();
         });
 
-        return redirect()->back()
-            ->with('success', 'Course and all related content deleted successfully.');
+        if (request()->expectsJson()) return response()->json(['message' => 'Course and all related content deleted successfully.']);
+        return redirect()->back()->with('success', 'Course and all related content deleted successfully.');
     }
 
     public function uploadCourseContent(Request $request, $id)
@@ -640,8 +641,8 @@ class CourseController extends Controller
             $courseContent->delete();
         });
 
-        return redirect()->back()
-            ->with('success', 'Content removed from course.');
+        if (request()->expectsJson()) return response()->json(['message' => 'Content removed from course.']);
+        return redirect()->back()->with('success', 'Content removed from course.');
     }
 
     private function deleteContentStoragePath($path, ?int $exceptContentId = null)
@@ -672,6 +673,12 @@ class CourseController extends Controller
 
     private function authorizeCourse(Course $course): void
     {
+        if (request()->is('api/*')) {
+            $user = request()->user();
+            abort_unless($user instanceof \App\Models\User && ($user->role === 'Admin' ||
+                ($user->role === 'InstituteAdmin' && filled($user->institute) && $course->institute === $user->institute)), 403);
+            return;
+        }
         if (session('user_role') == 'Admin') {
             return;
         }

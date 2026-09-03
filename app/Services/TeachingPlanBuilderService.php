@@ -49,7 +49,7 @@ class TeachingPlanBuilderService
         }
 
         $firstWeek = $plan->weeks()->orderBy('week_number')->first();
-        if ($firstWeek) {
+        if ($firstWeek && $plan->status === 'active' && $startDate->lte(today())) {
             app(TeachingPlanReleaseService::class)->releaseWeek($firstWeek, 'initial_release');
         }
 

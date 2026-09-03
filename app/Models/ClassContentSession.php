@@ -6,6 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class ClassContentSession extends Model
 {
+    protected $casts = [
+        'started_at' => 'datetime',
+        'ended_at' => 'datetime',
+        'duration_seconds' => 'integer',
+    ];
+
     protected $fillable = [
         'institute',
         'class_id',

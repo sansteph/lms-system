@@ -6,6 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class AssessmentSession extends Model
 {
+    protected $casts = [
+        'started_at' => 'datetime',
+        'submitted_at' => 'datetime',
+        'last_violation_at' => 'datetime',
+        'violation_count' => 'integer',
+    ];
+
     protected $fillable = [
         'assessment_id',
         'user_id',

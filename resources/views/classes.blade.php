@@ -225,18 +225,24 @@
                                                                        value="{{ session('user_institute') }}"
                                                                        readonly>
                                                             @else
-                                                                <input type="text"
-                                                                       name="institute"
-                                                                       class="form-control"
-                                                                       value="{{ $class->institute }}"
-                                                                       required>
+                                                                <select name="institute" class="form-select" required>
+                                                                    <option value="">Select institute</option>
+                                                                    @foreach($instituteOptions as $instituteOption)
+                                                                        <option value="{{ $instituteOption }}" {{ $class->institute === $instituteOption ? 'selected' : '' }}>
+                                                                            {{ $instituteOption }}
+                                                                        </option>
+                                                                    @endforeach
+                                                                    @if($class->institute && !collect($instituteOptions ?? [])->contains($class->institute))
+                                                                        <option value="{{ $class->institute }}" selected>{{ $class->institute }}</option>
+                                                                    @endif
+                                                                </select>
                                                             @endif
                                                         </div>
 
                                                         <div class="col-md-6">
                                                             <label class="form-label">Section</label>
                                                             <select name="section" class="form-control" required>
-                                                                @if(!in_array($class->section, $classSectionOptions))
+                                                                @if(!collect($classSectionOptions ?? [])->contains($class->section))
                                                                     <option value="{{ $class->section }}" selected>
                                                                         {{ $class->section }}
                                                                     </option>
@@ -362,11 +368,12 @@
                                        value="{{ session('user_institute') }}"
                                        readonly>
                             @else
-                                <input type="text"
-                                       name="institute"
-                                       class="form-control"
-                                       placeholder="Enter institute name"
-                                       required>
+                                <select name="institute" class="form-select" required>
+                                    <option value="">Select institute</option>
+                                    @foreach($instituteOptions as $instituteOption)
+                                        <option value="{{ $instituteOption }}">{{ $instituteOption }}</option>
+                                    @endforeach
+                                </select>
                             @endif
                         </div>
 

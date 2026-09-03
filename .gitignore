@@ -64,3 +64,6 @@ auth.json
 Homestead.json
 Homestead.yaml
 .aider*
+
+# Generated manual-deployment packages
+/dist/mobile-deployment/

@@ -170,6 +170,8 @@
                                         <td>
                                             @if($log->ended_at)
                                                 {{ \Carbon\Carbon::parse($log->ended_at)->format('d M Y h:i A') }}
+                                            @elseif($log->activity_status === 'Disconnected')
+                                                <span class="badge bg-secondary">Disconnected</span>
                                             @else
                                                 <span class="badge bg-success">Currently Active</span>
                                             @endif

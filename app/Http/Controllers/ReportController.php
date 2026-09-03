@@ -475,11 +475,20 @@ class ReportController extends Controller
         return $pdf->download($payload['file_name']);
     }
 
-    private function downloadableReportPayload(Request $request, string $reportMode): array
+    /**
+     * Produces the same report payload for authenticated mobile clients without
+     * relying on a browser session. The caller owns institute scoping.
+     */
+    public function mobileReportPayload(Request $request, string $reportMode, ?string $institute): array
+    {
+        return $this->downloadableReportPayload($request, $reportMode, $institute);
+    }
+
+    private function downloadableReportPayload(Request $request, string $reportMode, ?string $forcedInstitute = null): array
     {
         [$periodFrom, $periodTo, $periodLabel] = $this->reportDateWindow($request, $reportMode);
         $downloadRouteName = $this->reportDownloadRouteName($reportMode);
-        $institute = $this->selectedReportInstitute($request, $downloadRouteName);
+        $institute = $forcedInstitute ?? $this->selectedReportInstitute($request, $downloadRouteName);
         $isStudentReport = in_array($reportMode, ['student-ai-review', 'weekly-student-performance', 'monthly-student-performance'], true);
         $isTeacherReport = in_array($reportMode, ['stem-engineer-prep', 'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance'], true);
         $selectedClass = $isStudentReport ? ($request->filled('student_class') ? trim((string) $request->input('student_class')) : null) : null;

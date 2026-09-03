@@ -197,7 +197,12 @@
                                 <input type="hidden" name="institute" value="{{ session('user_institute') }}">
                                 <input type="text" class="form-control" value="{{ session('user_institute') }}" readonly>
                             @else
-                                <input type="text" name="institute" class="form-control" placeholder="Enter institute name" required>
+                                <select name="institute" class="form-select" required>
+                                    <option value="">Select institute</option>
+                                    @foreach($instituteOptions as $instituteOption)
+                                        <option value="{{ $instituteOption }}">{{ $instituteOption }}</option>
+                                    @endforeach
+                                </select>
                             @endif
                         </div>
 
@@ -271,7 +276,17 @@
                                     <input type="hidden" name="institute" value="{{ session('user_institute') }}">
                                     <input type="text" class="form-control" value="{{ session('user_institute') }}" readonly>
                                 @else
-                                    <input type="text" name="institute" class="form-control" value="{{ $user->institute }}" required>
+                                    <select name="institute" class="form-select" required>
+                                        <option value="">Select institute</option>
+                                        @foreach($instituteOptions as $instituteOption)
+                                            <option value="{{ $instituteOption }}" {{ $user->institute === $instituteOption ? 'selected' : '' }}>
+                                                {{ $instituteOption }}
+                                            </option>
+                                        @endforeach
+                                        @if($user->institute && !collect($instituteOptions ?? [])->contains($user->institute))
+                                            <option value="{{ $user->institute }}" selected>{{ $user->institute }}</option>
+                                        @endif
+                                    </select>
                                 @endif
                             </div>
 

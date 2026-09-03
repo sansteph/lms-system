@@ -72,15 +72,24 @@ class TeacherStudentProfileController extends Controller
         ) + ['showFilterPlaceholder' => ! $hasFilters]);
     }
 
-    public function export(Request $request)
+    public function export(Request $request, bool $explicitFiltersOnly = false)
     {
         $teacher = User::findOrFail(session('user_id'));
-        ['selectedClass' => $selectedStudentClass] =
-            $this->buildStudentClassPager($request, $teacher->institute, 'teacher.student.profiles');
-        ['selectedSection' => $selectedStudentSection] =
-            $this->buildStudentSectionPager($request, $teacher->institute, $selectedStudentClass, 'teacher.student.profiles');
+        if ($explicitFiltersOnly) {
+            $selectedStudentClass = $request->input('student_class');
+            $selectedStudentSection = $request->input('student_section');
+        } else {
+            ['selectedClass' => $selectedStudentClass] =
+                $this->buildStudentClassPager($request, $teacher->institute, 'teacher.student.profiles');
+            ['selectedSection' => $selectedStudentSection] =
+                $this->buildStudentSectionPager($request, $teacher->institute, $selectedStudentClass, 'teacher.student.profiles');
+        }
 
         $students = $this->teacherAssignedStudentsQuery($teacher)
+            ->when($request->filled('search'), fn ($query) => $query->where(fn ($q) => $q
+                ->where('name', 'like', '%'.$request->search.'%')->orWhere('student_id', 'like', '%'.$request->search.'%')
+                ->when($explicitFiltersOnly, fn ($q) => $q->orWhere('class', 'like', '%'.$request->search.'%')->orWhere('section', 'like', '%'.$request->search.'%'))))
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($selectedStudentClass, function ($query) use ($selectedStudentClass) {
                 $query->where('class', $selectedStudentClass);
             })

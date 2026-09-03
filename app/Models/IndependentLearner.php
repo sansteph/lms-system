@@ -4,10 +4,13 @@ namespace App\Models;
 use App\Models\CourseEnrollment;
 use App\Models\Certificate;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-class IndependentLearner extends Model
+class IndependentLearner extends Authenticatable
 {
+    use HasApiTokens;
+
     protected $fillable = [
         'name',
         'email',

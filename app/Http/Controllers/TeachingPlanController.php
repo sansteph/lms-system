@@ -369,7 +369,7 @@ class TeachingPlanController extends Controller
             'class' => 'required|string|max:255',
             'section' => 'nullable|string|max:50',
             'start_date' => 'required|date',
-            'release_day' => 'required|string|max:20',
+            'release_day' => 'required|in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday',
             'contents_per_week' => 'required|integer|min:1|max:10',
             'release_policy' => 'required|in:scheduled_weekly_release,release_next_only_if_previous_completed',
             'status' => 'required|in:active,inactive',
@@ -379,6 +379,13 @@ class TeachingPlanController extends Controller
         $course = Course::with(['courseContents.content'])
             ->findOrFail($request->course_id);
         $this->authorizeCourse($course);
+
+        $classExists = SchoolClass::where('institute', $course->institute)->where('status', 1)
+            ->where('class_name', $request->class)
+            ->when($request->filled('section'), fn ($q) => $q->where('section', $request->section))->exists();
+        if (!$classExists || $course->is_template_source) {
+            return redirect()->back()->withErrors(['class' => 'Select an active class belonging to this live course institute.']);
+        }
 
         if (!$course->courseContents()->where('status', 'active')->exists()) {
             return redirect()->back()
@@ -411,7 +418,7 @@ class TeachingPlanController extends Controller
             'title' => 'required|string|max:255',
             'class' => 'required|string|max:255',
             'section' => 'nullable|string|max:50',
-            'release_day' => 'required|string|max:20',
+            'release_day' => 'required|in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday',
             'contents_per_week' => 'required|integer|min:1|max:10',
             'release_policy' => 'required|in:scheduled_weekly_release,release_next_only_if_previous_completed',
             'status' => 'required|in:active,inactive',
@@ -710,6 +717,13 @@ class TeachingPlanController extends Controller
         ) {
             return redirect()->back()
                 ->with('error', 'A week can only be marked completed after its topics are completed through STEM Engineer sessions.');
+        }
+
+        if ($request->status === 'released') {
+            if ($week->status !== 'released' && !app(TeachingPlanReleaseService::class)->releaseWeek($week)) {
+                return redirect()->back()->with('error', 'This week cannot be released before the plan starts or its required earlier weeks are complete.');
+            }
+            return redirect()->back()->with('success', 'Teaching Plan week released.');
         }
 
         $week->update([

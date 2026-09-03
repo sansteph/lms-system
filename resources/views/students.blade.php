@@ -229,6 +229,8 @@
                                         @endforeach
 
                                         @foreach($instituteStudents as $student)
+                                            <tr>
+                                                <td colspan="9" class="p-0 border-0">
                                             <div class="modal fade" id="editStudentModal{{ $student->id }}" tabindex="-1" aria-hidden="true">
                                                 <div class="modal-dialog modal-xl modal-dialog-centered">
                                                     <div class="modal-content">
@@ -258,18 +260,48 @@
                                                                             <input type="hidden" name="institute" value="{{ $managedInstitute }}">
                                                                             <input type="text" class="form-control" value="{{ $managedInstitute }}" readonly>
                                                                         @else
-                                                                            <input type="text" name="institute" class="form-control" value="{{ $student->institute }}" required>
+                                                                            <select name="institute" class="form-select" required>
+                                                                                <option value="">Select institute</option>
+                                                                                @foreach(($instituteOptions ?? collect()) as $instituteOption)
+                                                                                    <option value="{{ $instituteOption }}" {{ $student->institute === $instituteOption ? 'selected' : '' }}>
+                                                                                        {{ $instituteOption }}
+                                                                                    </option>
+                                                                                @endforeach
+                                                                                @if($student->institute && !collect($instituteOptions ?? [])->contains($student->institute))
+                                                                                    <option value="{{ $student->institute }}" selected>{{ $student->institute }}</option>
+                                                                                @endif
+                                                                            </select>
                                                                         @endif
                                                                     </div>
 
                                                                     <div class="col-md-3">
                                                                         <label class="form-label">Class</label>
-                                                                        <input type="text" name="class" class="form-control" value="{{ $student->class }}" required>
+                                                                        <select name="class" class="form-select" required>
+                                                                            <option value="">Select class</option>
+                                                                            @foreach(($classOptions ?? collect()) as $classOption)
+                                                                                <option value="{{ $classOption }}" {{ $student->class === $classOption ? 'selected' : '' }}>
+                                                                                    {{ $classOption }}
+                                                                                </option>
+                                                                            @endforeach
+                                                                            @if($student->class && !collect($classOptions ?? [])->contains($student->class))
+                                                                                <option value="{{ $student->class }}" selected>{{ $student->class }}</option>
+                                                                            @endif
+                                                                        </select>
                                                                     </div>
 
                                                                     <div class="col-md-3">
                                                                         <label class="form-label">Section</label>
-                                                                        <input type="text" name="section" class="form-control" value="{{ $student->section }}" required>
+                                                                        <select name="section" class="form-select" required>
+                                                                            <option value="">Select section</option>
+                                                                            @foreach(($sectionOptions ?? collect()) as $sectionOption)
+                                                                                <option value="{{ $sectionOption }}" {{ $student->section === $sectionOption ? 'selected' : '' }}>
+                                                                                    {{ $sectionOption }}
+                                                                                </option>
+                                                                            @endforeach
+                                                                            @if($student->section && !collect($sectionOptions ?? [])->contains($student->section))
+                                                                                <option value="{{ $student->section }}" selected>{{ $student->section }}</option>
+                                                                            @endif
+                                                                        </select>
                                                                     </div>
 
                                                                     <div class="col-md-6">
@@ -290,7 +322,7 @@
 
                                                                     <div class="col-md-6">
                                                                         <label class="form-label">Password</label>
-                                                                        <input type="password" name="password" class="form-control" placeholder="Leave blank to keep existing password">
+                                                                        <input type="password" name="password" class="form-control" placeholder="Leave blank to keep existing password" autocomplete="new-password">
                                                                     </div>
 
                                                                     <div class="col-md-6">
@@ -319,6 +351,8 @@
                                                     </div>
                                                 </div>
                                             </div>
+                                                </td>
+                                            </tr>
                                         @endforeach
                                     @empty
                                         <tr>
@@ -370,18 +404,48 @@
                                 <input type="hidden" name="institute" value="{{ $managedInstitute }}">
                                 <input type="text" class="form-control" value="{{ $managedInstitute }}" readonly>
                             @else
-                                <input type="text" name="institute" class="form-control" value="{{ old('institute') }}" required>
+                                <select name="institute" class="form-select" required>
+                                    <option value="">Select institute</option>
+                                    @foreach(($instituteOptions ?? collect()) as $instituteOption)
+                                        <option value="{{ $instituteOption }}" {{ old('institute') === $instituteOption ? 'selected' : '' }}>
+                                            {{ $instituteOption }}
+                                        </option>
+                                    @endforeach
+                                    @if(old('institute') && !collect($instituteOptions ?? [])->contains(old('institute')))
+                                        <option value="{{ old('institute') }}" selected>{{ old('institute') }}</option>
+                                    @endif
+                                </select>
                             @endif
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label">Class</label>
-                            <input type="text" name="class" class="form-control" value="{{ old('class') }}" required>
+                            <select name="class" class="form-select" required>
+                                <option value="">Select class</option>
+                                @foreach(($classOptions ?? collect()) as $classOption)
+                                    <option value="{{ $classOption }}" {{ old('class') === $classOption ? 'selected' : '' }}>
+                                        {{ $classOption }}
+                                    </option>
+                                @endforeach
+                                @if(old('class') && !collect($classOptions ?? [])->contains(old('class')))
+                                    <option value="{{ old('class') }}" selected>{{ old('class') }}</option>
+                                @endif
+                            </select>
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label">Section</label>
-                            <input type="text" name="section" class="form-control" value="{{ old('section') }}" required>
+                            <select name="section" class="form-select" required>
+                                <option value="">Select section</option>
+                                @foreach(($sectionOptions ?? collect()) as $sectionOption)
+                                    <option value="{{ $sectionOption }}" {{ old('section') === $sectionOption ? 'selected' : '' }}>
+                                        {{ $sectionOption }}
+                                    </option>
+                                @endforeach
+                                @if(old('section') && !collect($sectionOptions ?? [])->contains(old('section')))
+                                    <option value="{{ old('section') }}" selected>{{ old('section') }}</option>
+                                @endif
+                            </select>
                         </div>
 
                         <div class="col-md-6">
