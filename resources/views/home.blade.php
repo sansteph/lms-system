@@ -74,9 +74,44 @@
                             <path d="M12 2.25a7.25 7.25 0 0 0-7.25 7.25c0 5.44 7.25 12.25 7.25 12.25s7.25-6.81 7.25-12.25A7.25 7.25 0 0 0 12 2.25zm0 10.1a2.85 2.85 0 1 1 0-5.7 2.85 2.85 0 0 1 0 5.7z"/>
                         </svg>
                     </a>
+                    <a href="{{ asset('downloads/InnovatEdge.apk') }}"
+                       class="hero-social-download"
+                       download
+                       title="Download Android app">
+                        <i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i>
+                        <span class="visually-hidden">Download Android app</span>
+                    </a>
                 </div>
 
             </div>
+
+            <aside class="android-launch-announcement"
+                   id="androidLaunchAnnouncement"
+                   aria-label="InnovatEdge Android app announcement">
+                <div class="android-launch-icon" aria-hidden="true">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                </div>
+                <div class="android-launch-copy">
+                    <div class="android-launch-kicker">
+                        <span class="android-launch-dot"></span>
+                        Now available
+                    </div>
+                    <strong>Take InnovatEdge wherever learning happens.</strong>
+                    <span>Install the official Android app for direct access to your learning workspace.</span>
+                </div>
+                <a href="{{ asset('downloads/InnovatEdge.apk') }}"
+                   class="android-launch-cta"
+                   download>
+                    <i class="fa-solid fa-download" aria-hidden="true"></i>
+                    Download for Android
+                </a>
+                <button type="button"
+                        class="android-launch-dismiss"
+                        id="dismissAndroidLaunch"
+                        aria-label="Dismiss Android app announcement">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </aside>
 
             <!-- HERO MAIN -->
             <div class="row align-items-center hero-main-row">
@@ -893,6 +928,19 @@
             });
 
             window.requestAnimationFrame(moveParticles);
+        });
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const announcement = document.getElementById('androidLaunchAnnouncement');
+        const dismissButton = document.getElementById('dismissAndroidLaunch');
+
+        if (!announcement || !dismissButton) return;
+
+        dismissButton.addEventListener('click', function () {
+            announcement.hidden = true;
         });
     });
 </script>
