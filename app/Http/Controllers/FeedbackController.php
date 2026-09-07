@@ -61,6 +61,31 @@ class FeedbackController extends Controller
         ], route('student.feedback'));
     }
 
+    public function panelCreate(Request $request)
+    {
+        $audience = $request->route('audience', 'manager');
+
+        return view('feedback.create', [
+            'audience' => 'admin',
+            'submitRoute' => route($audience . '.feedback.store'),
+            'backRoute' => route($audience . '.dashboard'),
+        ]);
+    }
+
+    public function panelStore(Request $request)
+    {
+        $user = User::findOrFail(session('user_id'));
+        $audience = $request->route('audience', 'manager');
+
+        return $this->sendFeedback($request, $user->role ?: 'Admin Panel', [
+            'Name' => $user->name,
+            'ID' => $user->user_id,
+            'Email' => $user->email ?: 'Not provided',
+            'Phone' => $user->phone ?: 'Not provided',
+            'Institute' => $user->institute ?: 'All Institutes',
+        ], route($audience . '.feedback'));
+    }
+
     private function sendFeedback(Request $request, string $senderType, array $senderDetails, string $redirectRoute)
     {
         $validated = $request->validate([

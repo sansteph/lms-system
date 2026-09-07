@@ -8,6 +8,7 @@
         'overview' => 'Reports',
         'student-ai-review' => 'Weekly Student AI Review Report',
         'stem-engineer-prep' => 'Weekly STEM Engineer Prep Report',
+        'daily-student-performance' => 'Daily Student Performance Report',
         'weekly-student-performance' => 'Weekly Student Performance Report',
         'monthly-student-performance' => 'Monthly Student Performance Report',
         'weekly-stem-engineer-performance' => 'Weekly STEM Engineer Performance Report',
@@ -17,6 +18,7 @@
         'overview' => 'Generate, view, and download LMS performance reports.',
         'student-ai-review' => 'Track weekly student AI review quiz completion, attempts, pass rates, and readiness.',
         'stem-engineer-prep' => 'Track weekly STEM Engineer prep quiz attempts, pass rates, and readiness.',
+        'daily-student-performance' => 'Track student progress and assessment outcomes for the selected day.',
         'weekly-student-performance' => 'Track student progress and assessment outcomes for the selected week.',
         'monthly-student-performance' => 'Track student progress and assessment outcomes for the selected month.',
         'weekly-stem-engineer-performance' => 'Track STEM Engineer weekly sessions, completion patterns, teaching hours, and prep readiness.',
@@ -25,19 +27,24 @@
     $isFocusedReport = $reportMode !== 'overview';
     $isStudentPrepReport = $reportMode == 'student-ai-review';
     $isTeacherPrepReport = $reportMode == 'stem-engineer-prep';
-    $isStudentPerformanceReport = in_array($reportMode, ['weekly-student-performance', 'monthly-student-performance'], true);
-    $isStudentScopedReport = in_array($reportMode, ['student-ai-review', 'weekly-student-performance', 'monthly-student-performance'], true);
+    $isStudentPerformanceReport = in_array($reportMode, ['daily-student-performance', 'weekly-student-performance', 'monthly-student-performance'], true);
+    $isStudentScopedReport = in_array($reportMode, ['student-ai-review', 'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance'], true);
     $isTeacherPerformanceReport = in_array($reportMode, ['weekly-stem-engineer-performance', 'monthly-stem-engineer-performance'], true);
+    $isDailyReport = str_starts_with($reportMode, 'daily-');
     $isWeeklyReport = str_starts_with($reportMode, 'weekly-');
     $isWeeklyPrepReport = in_array($reportMode, ['student-ai-review', 'stem-engineer-prep'], true);
     $isMonthlyReport = str_starts_with($reportMode, 'monthly-');
+    $reportRoutePrefix = session('user_role') === 'Principal'
+        ? 'principal.'
+        : (session('user_role') === 'Manager' ? 'manager.' : '');
     $downloadRoute = match ($reportMode) {
         'student-ai-review' => route('reports.student-ai-review.download'),
         'stem-engineer-prep' => route('reports.stem-engineer-prep.download'),
-        'weekly-student-performance' => route('reports.student-performance.weekly.download'),
-        'monthly-student-performance' => route('reports.student-performance.monthly.download'),
-        'weekly-stem-engineer-performance' => route('reports.stem-engineer-performance.weekly.download'),
-        'monthly-stem-engineer-performance' => route('reports.stem-engineer-performance.monthly.download'),
+        'daily-student-performance' => route($reportRoutePrefix . 'reports.student-performance.daily.download'),
+        'weekly-student-performance' => route($reportRoutePrefix . 'reports.student-performance.weekly.download'),
+        'monthly-student-performance' => route($reportRoutePrefix . 'reports.student-performance.monthly.download'),
+        'weekly-stem-engineer-performance' => route($reportRoutePrefix . 'reports.stem-engineer-performance.weekly.download'),
+        'monthly-stem-engineer-performance' => route($reportRoutePrefix . 'reports.stem-engineer-performance.monthly.download'),
         default => null,
     };
     $clearReportUrl = url()->current();
@@ -79,7 +86,7 @@
 
                         <form method="GET" action="{{ url()->current() }}">
                             <div class="lms-report-filter-grid">
-                            @if(session('user_role') == 'Admin')
+                            @if(in_array(session('user_role'), ['Admin', 'Manager'], true))
                                 <div class="lms-report-action-group">
                                     <label class="form-label">Institute</label>
                                     <select name="institute" class="form-select">
@@ -113,7 +120,12 @@
                                 </div>
                             @endif
 
-                            @if($isMonthlyReport)
+                            @if($isDailyReport)
+                                <div class="lms-report-action-group">
+                                    <label class="form-label">Report Date</label>
+                                    <input type="date" name="report_date" class="form-control" value="{{ request('report_date') }}">
+                                </div>
+                            @elseif($isMonthlyReport)
                                 <div class="lms-report-action-group">
                                     <label class="form-label">Report Month</label>
                                     <input type="month" name="report_month" class="form-control" value="{{ request('report_month') }}">
@@ -147,14 +159,16 @@
                             @if($downloadRoute)
                                 <form method="POST" action="{{ $downloadRoute }}" class="lms-report-status-action">
                                     @csrf
-                                    @if(session('user_role') == 'Admin')
+                                    @if(in_array(session('user_role'), ['Admin', 'Manager'], true))
                                         <input type="hidden" name="institute" value="{{ $selectedReportInstitute }}">
                                     @endif
                                     @if($isStudentScopedReport)
                                         <input type="hidden" name="student_class" value="{{ $selectedStudentReportClass }}">
                                         <input type="hidden" name="student_section" value="{{ $selectedStudentReportSection }}">
                                     @endif
-                                    @if($isMonthlyReport)
+                                    @if($isDailyReport)
+                                        <input type="hidden" name="report_date" value="{{ request('report_date') }}">
+                                    @elseif($isMonthlyReport)
                                         <input type="hidden" name="report_month" value="{{ request('report_month') }}">
                                     @else
                                         <input type="hidden" name="from_date" value="{{ request('from_date') }}">
@@ -217,9 +231,9 @@
             </div>
             @endif
 
-            @if(in_array($reportMode, ['overview', 'student-ai-review', 'stem-engineer-prep', 'weekly-student-performance', 'monthly-student-performance'], true))
+            @if(in_array($reportMode, ['overview', 'student-ai-review', 'stem-engineer-prep', 'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance'], true))
             <div class="row g-4 mb-4">
-                @if(in_array($reportMode, ['overview', 'student-ai-review', 'weekly-student-performance', 'monthly-student-performance'], true))
+                @if(in_array($reportMode, ['overview', 'student-ai-review', 'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance'], true))
                 <div class="col-md-3">
                     <div class="dashboard-card">
                         <h6>AI Reviews</h6>
@@ -443,7 +457,7 @@
             </div>
             @endif
 
-            @if(in_array($reportMode, ['overview', 'student-ai-review', 'weekly-student-performance', 'monthly-student-performance'], true))
+            @if(in_array($reportMode, ['overview', 'student-ai-review', 'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance'], true))
             <div class="card shadow border-0 mb-4">
                 <div class="card-body">
                     <h5 class="mb-3">

@@ -185,7 +185,7 @@
 
                                 @foreach($instituteClasses as $class)
                                     <div class="modal fade" id="editClassModal{{ $class->id }}" tabindex="-1">
-                                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                                    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                                         <div class="modal-content">
 
                                             <form method="POST" action="{{ route('classes.update', $class->id) }}">
@@ -332,7 +332,7 @@
 </div>
 
 <div class="modal fade" id="addClassModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
 
             <form method="POST" action="{{ route('classes.store') }}">

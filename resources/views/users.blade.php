@@ -156,7 +156,7 @@
 </div>
 
 <div class="modal fade" id="addUserModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
 
             <form method="POST" action="{{ route('users.store') }}">
@@ -235,7 +235,7 @@
 
 @foreach($users as $user)
     <div class="modal fade" id="editUserModal{{ $user->id }}" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
 
                 <form method="POST" action="{{ route('users.update', $user->id) }}">

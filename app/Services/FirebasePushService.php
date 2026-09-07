@@ -75,8 +75,16 @@ class FirebasePushService
 
             if ($response->failed()) {
                 $error = $response->json('error.status');
-                if (in_array($error, ['UNREGISTERED', 'INVALID_ARGUMENT'], true)) {
+                $details = $response->json('error.details', []);
+                // FCM may surface an invalid device registration as NOT_FOUND
+                // when the token was created by an older app/project config.
+                if (in_array($error, ['UNREGISTERED', 'INVALID_ARGUMENT', 'NOT_FOUND'], true)) {
                     $token->delete();
+                    Log::notice('Removed stale Firebase push token.', [
+                        'notification_id' => $notification->id,
+                        'token_id' => $token->id,
+                        'error' => $error,
+                    ]);
                     continue;
                 }
                 Log::warning('Firebase push send failed.', [
@@ -84,6 +92,7 @@ class FirebasePushService
                     'token_id' => $token->id,
                     'status' => $response->status(),
                     'error' => $error,
+                    'details' => $details,
                 ]);
             }
         }
@@ -109,6 +118,10 @@ class FirebasePushService
     private function tokensFor(LmsNotification $notification)
     {
         return MobilePushToken::query()
+            ->when($notification->student_id, function ($query) use ($notification) {
+                $query->where('pushable_type', Student::class)
+                    ->where('pushable_id', $notification->student_id);
+            })
             ->when($notification->target === 'teachers', fn ($query) => $query->where('role', 'STEM Engineer'))
             ->when($notification->target === 'students', fn ($query) => $query->whereIn('role', ['Student', 'Hybrid Learner']))
             ->when($notification->institute, function ($query) use ($notification) {

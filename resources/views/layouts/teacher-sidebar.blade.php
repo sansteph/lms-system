@@ -44,6 +44,11 @@
         <i class="fa-solid fa-key"></i><span>Change Password</span>
     </a>
 
+    <a href="{{ route('teacher.mfa.settings') }}"
+       class="sidebar-link {{ request()->routeIs('teacher.mfa.*') ? 'active' : '' }}">
+        <i class="fa-solid fa-shield-halved"></i><span>Two-Factor Authentication</span>
+    </a>
+
     <a href="{{ route('teacher.feedback') }}"
        class="sidebar-link {{ request()->routeIs('teacher.feedback*') ? 'active' : '' }}">
         <i class="fa-solid fa-comment-dots"></i><span>Feedback</span>

@@ -7,6 +7,9 @@ use App\Models\AssessmentResult;
 use App\Models\AssessmentSession;
 use App\Models\Certificate;
 use App\Models\Institute;
+use App\Models\AiComponentContentProfile;
+use App\Models\AiQuizAttempt;
+use App\Models\Content;
 use Illuminate\Support\Str;
 use App\Models\Assessment;
 use App\Models\Student;
@@ -14,12 +17,13 @@ use App\Models\SchoolClass;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use App\Support\BuildsInstituteSectionPager;
+use App\Services\Ai\GeminiAiService;
 
 class AssessmentResultController extends Controller
 {
     use BuildsInstituteSectionPager;
 
-    public function store(Request $request)
+    public function store(Request $request, GeminiAiService $ai)
     {
         $request->validate([
             'student_id' => 'required',
@@ -53,7 +57,9 @@ class AssessmentResultController extends Controller
                 ->with('error', 'You have already submitted this assessment.');
         }
 
-        AssessmentResult::create([
+        $assessment = Assessment::findOrFail($request->assessment_id);
+
+        $result = AssessmentResult::create([
             'student_id' => $request->student_id,
             'assessment_id' => $request->assessment_id,
             'score' => 0,
@@ -87,8 +93,55 @@ class AssessmentResultController extends Controller
             ]);
         }
 
+        if ($assessment->assessment_category === 'Component Mastery') {
+            return $this->evaluateComponentMasteryResult($result, $assessment, $ai);
+        }
+
         return redirect()->route('student.history')
             ->with('success', 'Assessment submitted successfully. It is waiting for manual evaluation.');
+    }
+
+    private function evaluateComponentMasteryResult(AssessmentResult $result, Assessment $assessment, GeminiAiService $ai)
+    {
+        try {
+            $paper = json_decode((string) $assessment->ai_generation_payload, true) ?: [];
+            $evaluation = $ai->evaluateComponentMasteryAssessment([
+                'assessment_title' => $assessment->assessment_title,
+                'component' => $assessment->component_label,
+                'total_marks' => $assessment->total_marks,
+                'sections' => $paper['sections'] ?? [],
+                'student_answer' => $result->answer_text,
+            ]);
+
+            $totalMarks = max(1, (float) ($evaluation['total_marks'] ?? $assessment->total_marks));
+            $score = max(0, min($totalMarks, (float) ($evaluation['score'] ?? 0)));
+            $percentage = round(($score / $totalMarks) * 100, 2);
+            $passed = $percentage >= 40 && (bool) ($evaluation['passed'] ?? true);
+
+            $result->update([
+                'score' => $score,
+                'total_marks' => $totalMarks,
+                'percentage' => $percentage,
+                'status' => 'Completed',
+                'badge' => $passed ? $this->calculateBadge($percentage) : null,
+                'feedback' => $evaluation['feedback'] ?? 'AI evaluation completed.',
+                'passed' => $passed,
+                'evaluated_by' => null,
+                'evaluated_at' => now(),
+            ]);
+
+            if ($passed) {
+                $this->prepareCertificateRequestIfEligible($result->student_id, $assessment);
+            }
+
+            return redirect()->route('student.history')
+                ->with('success', 'Component Mastery assessment evaluated automatically by AI.');
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return redirect()->route('student.history')
+                ->with('success', 'Assessment submitted. AI evaluation is temporarily unavailable, so it has been queued for review.');
+        }
     }
 
     public function reviewResults(Request $request)
@@ -494,8 +547,77 @@ class AssessmentResultController extends Controller
             return false;
         }
 
-        return $this->studentClassName($student) ==
+        $classMatches = $this->studentClassName($student) ==
             preg_replace('/\s+/', ' ', trim((string) $assessment->assigned_class));
+
+        if (!$classMatches) {
+            return false;
+        }
+
+        if ($assessment->assessment_category === 'Component Mastery') {
+            return $this->studentHasComponentMasteryEligibility($student, $assessment->component_key);
+        }
+
+        return true;
+    }
+
+    private function studentHasComponentMasteryEligibility(Student $student, ?string $componentKey): bool
+    {
+        if (!$componentKey) {
+            return false;
+        }
+
+        $contentIds = Content::query()
+            ->where('status', 1)
+            ->where('institute', $student->institute)
+            ->where(function ($query) use ($student) {
+                $assignedClass = $this->studentClassName($student);
+
+                $query->whereRaw(
+                    "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                    [$assignedClass]
+                )
+                ->orWhere(function ($courseQuery) use ($assignedClass, $student) {
+                    $courseQuery->whereHas('course', function ($q) use ($assignedClass, $student) {
+                        $q->where('institute', $student->institute)
+                            ->whereRaw(
+                                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                                [$assignedClass]
+                            );
+                    });
+                });
+            })
+            ->pluck('id');
+
+        $eligibleContentIds = AiComponentContentProfile::whereIn('content_id', $contentIds)
+            ->where('component_key', $componentKey)
+            ->where('is_practical', true)
+            ->where('confidence', '>=', 45)
+            ->pluck('content_id');
+
+        if ($eligibleContentIds->count() < 5) {
+            return false;
+        }
+
+        $aiQuizOwnerIds = Content::with('courseContent.sourceTemplateContent.aiSummary')
+            ->whereIn('id', $eligibleContentIds)
+            ->get()
+            ->map(function (Content $content) {
+                $sourceContent = $content->courseContent?->sourceTemplateContent;
+
+                return $sourceContent && ($sourceContent->aiSummary || $sourceContent->hasAiPdfMaterial())
+                    ? $sourceContent->id
+                    : $content->id;
+            })
+            ->unique()
+            ->values();
+
+        return AiQuizAttempt::where('student_id', $student->id)
+            ->where('attempt_type', 'student')
+            ->where('status', 'passed')
+            ->whereIn('content_id', $aiQuizOwnerIds)
+            ->distinct('content_id')
+            ->count('content_id') >= 5;
     }
 
     private function assessmentWindowIsOpen(Assessment $assessment): bool
@@ -542,6 +664,11 @@ class AssessmentResultController extends Controller
 
     private function prepareCertificateRequestIfEligible($studentId, Assessment $assessment)
     {
+        if ($assessment->assessment_category === 'Component Mastery') {
+            $this->prepareComponentMasteryCertificateRequest($studentId, $assessment);
+            return;
+        }
+
         if ($assessment->assessment_category != 'Annual') {
             return;
         }
@@ -613,6 +740,49 @@ class AssessmentResultController extends Controller
             'issued_date' => null,
             'status' => 'pending_admin_approval',
             'certificate_type' => 'Annual',
+        ]);
+    }
+
+    private function prepareComponentMasteryCertificateRequest($studentId, Assessment $assessment): void
+    {
+        if (!$assessment->certificate_eligible || !$assessment->component_key) {
+            return;
+        }
+
+        $result = AssessmentResult::where('student_id', $studentId)
+            ->where('assessment_id', $assessment->id)
+            ->where('status', 'Completed')
+            ->whereNotNull('evaluated_at')
+            ->where('passed', true)
+            ->first();
+
+        if (!$result || (float) $result->percentage < 40) {
+            return;
+        }
+
+        $existingCertificate = Certificate::where('student_id', $studentId)
+            ->where('certificate_type', 'Component Mastery')
+            ->where('course_id', null)
+            ->where('final_classification', 'like', '%' . $assessment->component_label . '%')
+            ->first();
+
+        if ($existingCertificate) {
+            return;
+        }
+
+        $finalScore = round((float) $result->percentage, 2);
+
+        Certificate::create([
+            'student_id' => $studentId,
+            'course_id' => null,
+            'certificate_code' => 'CM-' . strtoupper(Str::random(10)),
+            'badge_count' => round($finalScore),
+            'final_score' => $finalScore,
+            'final_grade' => $this->calculateFinalGrade($finalScore),
+            'final_classification' => trim('Component Mastery - ' . $assessment->component_label),
+            'issued_date' => null,
+            'status' => 'pending_admin_approval',
+            'certificate_type' => 'Component Mastery',
         ]);
     }
 

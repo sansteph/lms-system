@@ -232,7 +232,7 @@
                                             <tr>
                                                 <td colspan="9" class="p-0 border-0">
                                             <div class="modal fade" id="editStudentModal{{ $student->id }}" tabindex="-1" aria-hidden="true">
-                                                <div class="modal-dialog modal-xl modal-dialog-centered">
+                                                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
                                                     <div class="modal-content">
                                                         <form method="POST" action="{{ route($studentRouteNames['update'], $student->id) }}">
                                                             @csrf
@@ -376,7 +376,7 @@
 </div>
 
 <div class="modal fade" id="addStudentModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <form method="POST" action="{{ route($studentRouteNames['store']) }}">
                 @csrf
@@ -401,10 +401,10 @@
                         <div class="col-md-6">
                             <label class="form-label">Institute</label>
                             @if(in_array(session('user_role'), ['InstituteAdmin', 'Teacher'], true))
-                                <input type="hidden" name="institute" value="{{ $managedInstitute }}">
+                                <input id="addStudentInstitute" type="hidden" name="institute" value="{{ $managedInstitute }}">
                                 <input type="text" class="form-control" value="{{ $managedInstitute }}" readonly>
                             @else
-                                <select name="institute" class="form-select" required>
+                                <select id="addStudentInstitute" name="institute" class="form-select" required>
                                     <option value="">Select institute</option>
                                     @foreach(($instituteOptions ?? collect()) as $instituteOption)
                                         <option value="{{ $instituteOption }}" {{ old('institute') === $instituteOption ? 'selected' : '' }}>
@@ -420,7 +420,7 @@
 
                         <div class="col-md-3">
                             <label class="form-label">Class</label>
-                            <select name="class" class="form-select" required>
+                            <select id="addStudentClass" name="class" class="form-select" required>
                                 <option value="">Select class</option>
                                 @foreach(($classOptions ?? collect()) as $classOption)
                                     <option value="{{ $classOption }}" {{ old('class') === $classOption ? 'selected' : '' }}>
@@ -435,7 +435,7 @@
 
                         <div class="col-md-3">
                             <label class="form-label">Section</label>
-                            <select name="section" class="form-select" required>
+                            <select id="addStudentSection" name="section" class="form-select" required>
                                 <option value="">Select section</option>
                                 @foreach(($sectionOptions ?? collect()) as $sectionOption)
                                     <option value="{{ $sectionOption }}" {{ old('section') === $sectionOption ? 'selected' : '' }}>
@@ -489,7 +489,7 @@
 </div>
 
 <div class="modal fade" id="bulkUploadStudentsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <form method="POST" action="{{ route($studentRouteNames['bulkUpload']) }}" enctype="multipart/form-data">
                 @csrf
@@ -547,5 +547,46 @@
         overflow-y: auto;
     }
 </style>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const instituteField = document.getElementById('addStudentInstitute');
+    const classField = document.getElementById('addStudentClass');
+    const sectionField = document.getElementById('addStudentSection');
+    const sectionMap = @json($sectionOptionsByInstituteClass ?? []);
+
+    if (!instituteField || !classField || !sectionField) return;
+
+    const refreshSections = function () {
+        const selectedInstitute = instituteField.value || '';
+        const selectedClass = classField.value || '';
+        const selectedSection = sectionField.value || '';
+        const sectionSet = new Set();
+        const instituteBuckets = selectedInstitute
+            ? [sectionMap[selectedInstitute] || {}]
+            : Object.values(sectionMap);
+
+        instituteBuckets.forEach(function (classes) {
+            (classes[selectedClass] || []).forEach(function (section) {
+                sectionSet.add(section);
+            });
+        });
+
+        sectionField.replaceChildren(new Option('Select section', ''));
+        Array.from(sectionSet).sort().forEach(function (section) {
+            sectionField.add(new Option(section, section, false, section === selectedSection));
+        });
+        if (selectedSection && sectionSet.has(selectedSection)) {
+            sectionField.value = selectedSection;
+        }
+    };
+
+    instituteField.addEventListener('change', refreshSections);
+    classField.addEventListener('change', refreshSections);
+    refreshSections();
+});
+</script>
+@endpush
 
 @endsection

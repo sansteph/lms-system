@@ -161,7 +161,7 @@ class UserController extends Controller
         ]);
 
         $user = User::where('email', $request->email)
-            ->whereIn('role', ['Admin', 'InstituteAdmin'])
+            ->whereIn('role', ['Admin', 'InstituteAdmin', 'Manager', 'Principal'])
             ->where('status', 1)
             ->get()
             ->first(function ($user) use ($request) {
@@ -169,6 +169,14 @@ class UserController extends Controller
             });
 
         if ($user) {
+
+            if ($user->mfa_enabled) {
+                try {
+                    return $this->startMfaChallenge($request, $user, 'admin');
+                } catch (\Illuminate\Validation\ValidationException $exception) {
+                    return back()->withErrors($exception->errors())->withInput();
+                }
+            }
 
             session([
                 'user_id' => $user->id,
@@ -189,7 +197,7 @@ class UserController extends Controller
             session([
                 'tracking_session_id' => $userSession->id,
             ]);
-            return redirect()->route('admin.dashboard');
+            return redirect()->route($this->dashboardRouteNameFor($user));
         }
 
         return redirect()->back()
@@ -227,7 +235,7 @@ class UserController extends Controller
 
         $allowedRoles = $role === 'teacher'
             ? ['Teacher']
-            : ['Admin', 'InstituteAdmin'];
+            : ['Admin', 'InstituteAdmin', 'Manager', 'Principal'];
 
         $user = User::where('email', $request->email)
             ->whereIn('role', $allowedRoles)
@@ -258,6 +266,14 @@ class UserController extends Controller
             });
 
         if ($user) {
+
+            if ($user->mfa_enabled) {
+                try {
+                    return $this->startMfaChallenge($request, $user, 'teacher');
+                } catch (\Illuminate\Validation\ValidationException $exception) {
+                    return back()->withErrors($exception->errors())->withInput();
+                }
+            }
 
             session([
                 'user_id' => $user->id,
@@ -310,12 +326,194 @@ class UserController extends Controller
         return redirect()->route('home');
     }
 
+    public function showMfaVerify()
+    {
+        abort_unless(session()->has('mfa_challenge_token'), 403);
+
+        return view('auth.mfa-verify', [
+            'channel' => session('mfa_channel', 'email'),
+            'emailHint' => session('mfa_email_hint'),
+        ]);
+    }
+
+    public function verifyMfa(Request $request)
+    {
+        $request->validate(['code' => ['required', 'digits:6']]);
+        $token = session('mfa_challenge_token');
+
+        abort_unless($token, 403);
+
+        try {
+            $challenge = app(\App\Services\MfaChallengeService::class)
+                ->verify($token, $request->code, $request->ip(), $request->userAgent());
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return back()->withErrors($exception->errors())->withInput();
+        }
+
+        $account = User::findOrFail($challenge->account_id);
+        $mode = session('mfa_login_mode', 'admin');
+
+        session()->forget(['mfa_challenge_token', 'mfa_channel', 'mfa_email_hint', 'mfa_login_mode']);
+        session([
+            'user_id' => $account->id,
+            'user_name' => $account->name,
+            'user_role' => $account->role,
+            'user_institute' => $account->institute,
+            'password_changed_at' => $account->password_changed_at,
+        ]);
+
+        $userSession = UserSession::create([
+            'user_type' => $account->role,
+            'user_id' => $account->id,
+            'login_time' => now(),
+            'ip_address' => $request->ip(),
+            'browser' => $request->userAgent(),
+        ]);
+
+        session(['tracking_session_id' => $userSession->id]);
+
+        if ($mode === 'teacher') {
+            session(['teacher_login_notification_deliveries' => app(\App\Services\LmsNotificationService::class)->reserveTeacherLoginNotifications($account)]);
+            return redirect()->route('teacher.dashboard');
+        }
+
+        return redirect()->route($this->dashboardRouteNameFor($account));
+    }
+
+    public function resendMfa(Request $request)
+    {
+        $token = session('mfa_challenge_token');
+        abort_unless($token, 403);
+
+        try {
+            app(\App\Services\MfaChallengeService::class)->resend($token, $request->ip(), $request->userAgent());
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
+
+        return back()->with('success', 'If the challenge is still valid, a new verification code has been sent.');
+    }
+
+    private function startMfaChallenge(Request $request, User $user, string $mode)
+    {
+        try {
+            $token = app(\App\Services\MfaChallengeService::class)
+                ->issue($user, 'email', $request->ip(), $request->userAgent());
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return back()->withErrors($exception->errors())->withInput();
+        }
+
+        session([
+            'mfa_challenge_token' => $token,
+            'mfa_channel' => 'email',
+            'mfa_email_hint' => preg_replace('/(?<=.).(?=.*@)/', '*', $user->email),
+            'mfa_login_mode' => $mode,
+        ]);
+
+        return redirect()->route('mfa.verify');
+    }
+
+    public function mfaSettings()
+    {
+        $user = User::findOrFail(session('user_id'));
+
+        return view('auth.mfa-settings', compact('user'));
+    }
+
+    public function beginMfaSetup(Request $request)
+    {
+        $user = User::findOrFail(session('user_id'));
+
+        $request->validate(['current_password' => ['required', 'string']]);
+        if (!Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors(['current_password' => 'The current password is incorrect.']);
+        }
+
+        try {
+            $token = app(\App\Services\MfaChallengeService::class)
+                ->issue($user, 'email', $request->ip(), $request->userAgent());
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return back()->withErrors($exception->errors())->withInput();
+        }
+
+        session(['mfa_setup_challenge_token' => $token]);
+
+        return redirect()->route($this->mfaRouteName('settings'))
+            ->with('success', 'A verification code has been sent to your registered email.');
+    }
+
+    public function confirmMfaSetup(Request $request)
+    {
+        $request->validate(['code' => ['required', 'digits:6']]);
+        $token = session('mfa_setup_challenge_token');
+        abort_unless($token, 403);
+
+        try {
+            app(\App\Services\MfaChallengeService::class)
+                ->verify($token, $request->code, $request->ip(), $request->userAgent());
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
+
+        $user = User::findOrFail(session('user_id'));
+        $user->update(['mfa_enabled' => true]);
+        \App\Models\MfaAuditLog::create([
+            'account_type' => User::class,
+            'account_id' => $user->id,
+            'event' => 'enabled',
+            'channel' => 'email',
+            'successful' => true,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+        session()->forget('mfa_setup_challenge_token');
+
+        return redirect()->route($this->mfaRouteName('settings'))
+            ->with('success', 'Two-factor authentication is now enabled for your account.');
+    }
+
+    public function disableMfa(Request $request)
+    {
+        $user = User::findOrFail(session('user_id'));
+        $request->validate(['current_password' => ['required', 'string']]);
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors(['current_password' => 'The current password is incorrect.']);
+        }
+
+        $user->update(['mfa_enabled' => false]);
+        \App\Models\MfaAuditLog::create([
+            'account_type' => User::class,
+            'account_id' => $user->id,
+            'event' => 'disabled',
+            'channel' => 'email',
+            'successful' => true,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return redirect()->route($this->mfaRouteName('settings'))
+            ->with('success', 'Two-factor authentication has been disabled.');
+    }
+
+    private function mfaRouteName(string $suffix): string
+    {
+        return match (session('user_role')) {
+            'Teacher' => 'teacher.mfa.' . $suffix,
+            'Principal' => 'principal.mfa.' . $suffix,
+            default => 'admin.mfa.' . $suffix,
+        };
+    }
+
 
     public function changePassword()
     {
+        $user = User::find(session('user_id'));
+        $isPrincipal = $user?->role === 'Principal';
+
         return view('change-password', [
-            'submitRoute' => route('admin.change.password.submit'),
-            'dashboardRoute' => route('admin.dashboard'),
+            'submitRoute' => route($isPrincipal ? 'principal.change.password.submit' : 'admin.change.password.submit'),
+            'dashboardRoute' => route($this->dashboardRouteNameFor($user)),
             'sidebar' => 'admin',
         ]);
     }
@@ -510,7 +708,7 @@ class UserController extends Controller
         if (session('user_id') == $user->id) {
             $dashboardRoute = $user->role === 'Teacher'
                 ? route('teacher.dashboard')
-                : route('admin.dashboard');
+                : route($this->dashboardRouteNameFor($user));
         } else {
             $dashboardRoute = $user->role === 'Teacher'
                 ? route('teacher.login')
@@ -561,6 +759,15 @@ class UserController extends Controller
             'status' => 'success',
             'message' => 'Password changed successfully.',
         ]);
+    }
+
+    private function dashboardRouteNameFor(?User $user): string
+    {
+        return match ($user?->role) {
+            'Manager' => 'manager.dashboard',
+            'Principal' => 'principal.dashboard',
+            default => 'admin.dashboard',
+        };
     }
 
     public function markTopicComplete(Request $request, $contentId)

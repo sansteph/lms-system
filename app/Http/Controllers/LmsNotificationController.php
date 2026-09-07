@@ -30,7 +30,7 @@ class LmsNotificationController extends Controller
             ->latest()
             ->get();
 
-        $institutes = session('user_role') == 'Admin'
+        $institutes = in_array(session('user_role'), ['Admin', 'Manager'], true)
             ? Institute::where('status', 1)->orderBy('institute_name')->get()
             : collect();
 
@@ -43,7 +43,7 @@ class LmsNotificationController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'message' => ['required', 'string', 'max:3000'],
             'target' => ['required', 'in:all,teachers,students'],
-            'institute' => [session('user_role') == 'Admin' ? 'nullable' : 'prohibited', 'nullable', 'string', 'max:255'],
+            'institute' => [in_array(session('user_role'), ['Admin', 'Manager'], true) ? 'nullable' : 'prohibited', 'nullable', 'string', 'max:255'],
             'starts_at' => ['nullable', 'date'],
             'expires_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
             'status' => ['required', 'in:active,draft,archived'],
@@ -93,7 +93,7 @@ class LmsNotificationController extends Controller
     public function studentIndex(Request $request)
     {
         $student = Student::findOrFail(session('student_id'));
-        $notifications = $this->audienceNotifications('students', $student->institute, $request);
+        $notifications = $this->audienceNotifications('students', $student->institute, $request, $student->id);
         $showFilterPlaceholder = !($request->filled('from_date') || $request->filled('to_date'));
 
         return view('notifications.audience', [
@@ -104,16 +104,24 @@ class LmsNotificationController extends Controller
         ]);
     }
 
-    private function audienceNotifications(string $audience, ?string $institute, Request $request)
+    private function audienceNotifications(string $audience, ?string $institute, Request $request, ?int $studentId = null)
     {
         $today = now()->toDateString();
 
         return LmsNotification::query()
             ->where('status', 'active')
-            ->whereIn('target', ['all', $audience])
-            ->where(function ($query) use ($institute) {
-                $query->whereNull('institute')
-                    ->when($institute, fn ($scope) => $scope->orWhere('institute', $institute));
+            ->where(function ($query) use ($audience, $institute, $studentId) {
+                $query->where(function ($scope) use ($audience, $institute) {
+                    $scope->whereIn('target', ['all', $audience])
+                        ->where(function ($instituteScope) use ($institute) {
+                            $instituteScope->whereNull('institute')
+                                ->when($institute, fn ($nested) => $nested->orWhere('institute', $institute));
+                        });
+                });
+
+                if ($audience === 'students' && $studentId) {
+                    $query->orWhere('student_id', $studentId);
+                }
             })
             ->where(function ($query) use ($today) {
                 $query->whereNull('starts_at')

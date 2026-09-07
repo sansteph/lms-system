@@ -7,7 +7,7 @@
         <div class="col-12 p-4 p-lg-5">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                 <div>
-                    <h2 class="fw-bold mb-1">AI Review Quiz</h2>
+                    <h2 class="fw-bold mb-1">AI Quiz</h2>
                     <p class="text-muted mb-0">
                         Choose the correct option for each question. Navigation, refresh, tab switching, copy/paste, and right-click are restricted.
                     </p>
@@ -25,7 +25,7 @@
             @if($latestAttempt)
                 <div class="alert {{ $latestAttempt->status == 'passed' ? 'alert-success' : 'alert-warning' }}">
                     <div class="fw-bold mb-1">
-                        Latest AI Review:
+                        Latest AI Quiz:
                         {{ ucfirst($latestAttempt->status) }}
                         @if(!is_null($latestAttempt->percentage))
                             - {{ number_format($latestAttempt->percentage, 2) }}%
@@ -42,7 +42,7 @@
                     <div class="text-muted small fw-semibold text-uppercase mb-2">
                         {{ $content->content_title }}
                     </div>
-                    <h5 class="fw-bold mb-1">MCQ Review Quiz</h5>
+                    <h5 class="fw-bold mb-1">MCQ AI Quiz</h5>
                     <p class="text-muted mb-0">
                         Passing score is {{ rtrim(rtrim(number_format(config('ai.content.student_passing_percentage', 60), 2), '0'), '.') }}%. Passing this review marks the lesson complete.
                     </p>
@@ -94,7 +94,7 @@
                         <div class="d-flex justify-content-end gap-2">
                             <button type="submit" class="btn btn-success">
                                 <i class="fa fa-paper-plane me-2"></i>
-                                Submit AI Review
+                                Submit AI Quiz
                             </button>
                         </div>
                     </form>
@@ -179,7 +179,7 @@
             <i class="fa fa-triangle-exclamation"></i>
             <h4 class="fw-bold mb-2" id="lockedPrepWarningTitle">Restricted Action</h4>
             <p class="text-muted mb-0" id="lockedPrepWarningText">
-                AI review quiz is in progress. Do not switch tabs, refresh, go back, copy/paste, right-click, or use restricted shortcuts.
+                AI quiz is in progress. Do not switch tabs, refresh, go back, copy/paste, right-click, or use restricted shortcuts.
             </p>
         </div>
     </div>
@@ -217,7 +217,7 @@
                 }
 
                 if (warningText) {
-                    warningText.textContent = message || 'AI review quiz is in progress. Do not switch tabs, refresh, go back, copy/paste, right-click, or use restricted shortcuts.';
+                    warningText.textContent = message || 'AI quiz is in progress. Do not switch tabs, refresh, go back, copy/paste, right-click, or use restricted shortcuts.';
                 }
 
                 warning.classList.add('active');

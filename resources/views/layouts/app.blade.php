@@ -63,10 +63,15 @@
             'student.content.ai-review.quiz*'
         );
         $showNotifications = !request()->routeIs('blogs*');
+        $showAiChatbot = !session('student_id') || request()->routeIs('home');
         $panelHomeUrl = route('home');
 
         if (in_array(session('user_role'), ['Admin', 'InstituteAdmin'], true)) {
             $panelHomeUrl = route('admin.dashboard');
+        } elseif (session('user_role') == 'Manager') {
+            $panelHomeUrl = route('manager.dashboard');
+        } elseif (session('user_role') == 'Principal') {
+            $panelHomeUrl = route('principal.dashboard');
         } elseif (session('user_role') == 'Teacher') {
             $panelHomeUrl = route('teacher.dashboard');
         } elseif (session('student_id')) {
@@ -82,6 +87,10 @@
             $panelUserRoleLabel = 'Admin';
         } elseif (session('user_role') == 'InstituteAdmin') {
             $panelUserRoleLabel = 'Institute Admin';
+        } elseif (session('user_role') == 'Manager') {
+            $panelUserRoleLabel = 'Manager';
+        } elseif (session('user_role') == 'Principal') {
+            $panelUserRoleLabel = 'Principal';
         } elseif (session('user_role') == 'Teacher') {
             $panelUserRoleLabel = 'STEM Engineer';
         } elseif (session('student_id')) {
@@ -648,7 +657,10 @@
 @if($showNotifications)
     @include('notifications.popup')
 @endif
-@include('partials.ai-chatbot')
+@if($showAiChatbot)
+    @include('partials.ai-chatbot')
+@endif
 
+@stack('scripts')
 </body>
 </html>

@@ -495,7 +495,7 @@
      id="bulkUploadContentModal"
      tabindex="-1">
 
-    <div class="modal-dialog modal-xl bulk-upload-modal">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable bulk-upload-modal">
 
         <div class="modal-content">
 
@@ -738,7 +738,7 @@
      id="editContentModal{{ $content->id }}"
      tabindex="-1">
 
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
 
         <div class="modal-content">
 

@@ -155,7 +155,7 @@
 </div>
 
 <div class="modal fade" id="editStudentProfileModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-scrollable">
         <div class="modal-content">
             <form method="POST" action="{{ route('student.profile.update') }}" enctype="multipart/form-data">
                 @csrf

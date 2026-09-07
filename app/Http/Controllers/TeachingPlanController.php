@@ -498,18 +498,63 @@ class TeachingPlanController extends Controller
         $plan = TeachingPlan::with('course')->findOrFail($id);
         $this->authorizePlan($plan);
 
-        $request->validate([
+        $validated = $request->validate([
+            'title' => 'nullable|string|max:255',
+            'start_date' => 'nullable|date',
+            'release_day' => 'required|in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday',
             'status' => 'required|in:active,inactive,completed',
             'remarks' => 'nullable|string|max:2000',
         ]);
 
-        $plan->update([
-            'status' => $request->status,
-            'remarks' => $request->remarks,
-        ]);
+        DB::transaction(function () use ($plan, $validated) {
+            $oldStartDate = $plan->start_date ? Carbon::parse($plan->start_date)->toDateString() : null;
+            $newStartDate = $validated['start_date'] ?? $oldStartDate;
+            $scheduleChanged = $oldStartDate !== $newStartDate || $plan->release_day !== $validated['release_day'];
+
+            $plan->update([
+                'title' => filled($validated['title'] ?? null) ? $validated['title'] : $plan->title,
+                'start_date' => $newStartDate,
+                'plan_start_date' => $newStartDate,
+                'release_day' => $validated['release_day'],
+                'status' => $validated['status'],
+                'remarks' => $validated['remarks'] ?? null,
+            ]);
+
+            if ($scheduleChanged && $newStartDate) {
+                $startDate = Carbon::parse($newStartDate)->startOfDay();
+
+                $plan->weeks()
+                    ->where('status', 'locked')
+                    ->orderBy('week_number')
+                    ->get()
+                    ->each(function (TeachingPlanWeek $week) use ($startDate, $validated) {
+                        $weekStart = $startDate->copy()->addWeeks(max(0, ((int) $week->week_number) - 1));
+                        $releaseDate = $this->releaseDateForWeek($weekStart, (int) $week->week_number, $validated['release_day']);
+
+                        $week->update([
+                            'week_start_date' => $weekStart->toDateString(),
+                            'week_end_date' => $weekStart->copy()->addDays(6)->toDateString(),
+                            'release_date' => $releaseDate->toDateString(),
+                        ]);
+                    });
+            }
+        });
 
         return redirect()->back()
             ->with('success', 'Teaching Plan updated successfully.');
+    }
+
+    private function releaseDateForWeek(Carbon $weekStart, int $weekNumber, string $releaseDay): Carbon
+    {
+        if ($weekNumber === 1) {
+            return $weekStart->copy();
+        }
+
+        if (strtolower($weekStart->format('l')) === strtolower($releaseDay)) {
+            return $weekStart->copy()->subWeek();
+        }
+
+        return $weekStart->copy()->previous($releaseDay);
     }
 
     public function releaseNext($id, TeachingPlanReleaseService $releaseService)

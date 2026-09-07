@@ -446,6 +446,9 @@
             return;
         }
 
+        frameImage.loading = 'lazy';
+        heroFrameImage.loading = 'lazy';
+
         const frameSet = function (action, count) {
             return Array.from({ length: count || 8 }, function (_, index) {
                 const frameNumber = String(index + 1).padStart(2, '0');
@@ -839,6 +842,9 @@
         };
 
         document.querySelectorAll('.homepage-particle-field').forEach(function (field) {
+            field.classList.add('homepage-particle-field-static');
+            return;
+
             const particleCount = window.innerWidth < 768
                 ? 52
                 : (window.innerWidth < 1200 ? 88 : 124);

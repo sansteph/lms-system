@@ -20,6 +20,7 @@ use App\Http\Controllers\CommunityFeedController;
 use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\LmsNotificationController;
 use App\Http\Controllers\NewsroomController;
+use App\Http\Controllers\PrincipalController;
 use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\TeachingPlanController;
 
@@ -77,6 +78,9 @@ Route::middleware(['independent.auth'])->group(function () {
 //Admin + InstituteAdmin Shared Public Routes
 Route::get('/admin-login', [PageController::class, 'adminLogin'])->name('admin.login');
 Route::post('/admin-login', [UserController::class, 'adminLogin'])->name('admin.login.submit');
+Route::get('/mfa/verify', [UserController::class, 'showMfaVerify'])->name('mfa.verify');
+Route::post('/mfa/verify', [UserController::class, 'verifyMfa'])->name('mfa.verify.submit');
+Route::post('/mfa/resend', [UserController::class, 'resendMfa'])->name('mfa.resend');
 Route::get('/admin/forgot-password', [UserController::class, 'forgotPassword'])->defaults('role', 'admin')->name('admin.forgot.password');
 Route::post('/admin/forgot-password', [UserController::class, 'forgotPasswordSubmit'])->defaults('role', 'admin')->name('admin.forgot.password.submit');
 
@@ -87,6 +91,10 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
 
     Route::get('/admin/change-password', [UserController::class, 'changePassword'])->name('admin.change.password');
     Route::post('/admin/change-password', [UserController::class, 'changePasswordSubmit'])->name('admin.change.password.submit');
+    Route::get('/admin/two-factor', [UserController::class, 'mfaSettings'])->name('admin.mfa.settings');
+    Route::post('/admin/two-factor/enable', [UserController::class, 'beginMfaSetup'])->name('admin.mfa.enable');
+    Route::post('/admin/two-factor/verify', [UserController::class, 'confirmMfaSetup'])->name('admin.mfa.verify');
+    Route::post('/admin/two-factor/disable', [UserController::class, 'disableMfa'])->name('admin.mfa.disable');
 
     Route::get('/admin/management', [PageController::class, 'adminManagementHub'])->name('admin.management');
     Route::get('/admin/reports', [PageController::class, 'adminReportsHub'])->name('admin.reports.hub');
@@ -145,6 +153,15 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::post('/reports/stem-engineer-prep/download', [ReportController::class, 'downloadPdf'])
         ->defaults('reportMode', 'stem-engineer-prep')
         ->name('reports.stem-engineer-prep.download');
+    Route::get('/reports/student-performance/daily', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'daily-student-performance')
+        ->name('reports.student-performance.daily');
+    Route::get('/reports/student-performance/daily/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'daily-student-performance')
+        ->name('reports.student-performance.daily.download.get');
+    Route::post('/reports/student-performance/daily/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'daily-student-performance')
+        ->name('reports.student-performance.daily.download');
     Route::get('/reports/student-performance/weekly', [ReportController::class, 'index'])
         ->defaults('reportMode', 'weekly-student-performance')
         ->name('reports.student-performance.weekly');
@@ -228,6 +245,15 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::post('/admin/class-session-report/weekly/download', [PageController::class, 'downloadClassSessionReportPdf'])
         ->defaults('reportType', 'weekly')
         ->name('admin.class-session.report.weekly.download');
+    Route::get('/admin/class-session-report/monthly', [PageController::class, 'classSessionReport'])
+        ->defaults('reportType', 'monthly')
+        ->name('admin.class-session.report.monthly');
+    Route::get('/admin/class-session-report/monthly/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'monthly')
+        ->name('admin.class-session.report.monthly.download.get');
+    Route::post('/admin/class-session-report/monthly/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'monthly')
+        ->name('admin.class-session.report.monthly.download');
 
     Route::get('/notifications', [LmsNotificationController::class, 'index'])->name('notifications');
     Route::post('/notifications/store', [LmsNotificationController::class, 'store'])->name('notifications.store');
@@ -255,6 +281,117 @@ Route::middleware(['admin.auth', 'track.activity'])->group(function () {
     Route::post('/admin/topic-complete/{contentId}', [UserController::class, 'markTopicComplete'])->name('admin.complete-topic');
 });
 
+//Manager Routes
+Route::middleware(['manager.auth', 'track.activity'])->group(function () {
+    Route::get('/manager-dashboard', [PageController::class, 'managerDashboard'])->name('manager.dashboard');
+    Route::get('/manager/reports', [PageController::class, 'managerReportsHub'])->name('manager.reports.hub');
+    Route::get('/manager/feedback', [FeedbackController::class, 'panelCreate'])->defaults('audience', 'manager')->name('manager.feedback');
+    Route::post('/manager/feedback', [FeedbackController::class, 'panelStore'])->defaults('audience', 'manager')->name('manager.feedback.store');
+
+    Route::get('/manager/class-session-report/daily', [PageController::class, 'classSessionReport'])
+        ->defaults('reportType', 'daily')
+        ->name('manager.class-session.report.daily');
+    Route::post('/manager/class-session-report/daily/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'daily')
+        ->name('manager.class-session.report.daily.download');
+    Route::get('/manager/class-session-report/weekly', [PageController::class, 'classSessionReport'])
+        ->defaults('reportType', 'weekly')
+        ->name('manager.class-session.report.weekly');
+    Route::post('/manager/class-session-report/weekly/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'weekly')
+        ->name('manager.class-session.report.weekly.download');
+    Route::get('/manager/class-session-report/monthly', [PageController::class, 'classSessionReport'])
+        ->defaults('reportType', 'monthly')
+        ->name('manager.class-session.report.monthly');
+    Route::post('/manager/class-session-report/monthly/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'monthly')
+        ->name('manager.class-session.report.monthly.download');
+
+    Route::get('/manager/reports/student-performance/daily', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'daily-student-performance')
+        ->name('manager.reports.student-performance.daily');
+    Route::post('/manager/reports/student-performance/daily/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'daily-student-performance')
+        ->name('manager.reports.student-performance.daily.download');
+    Route::get('/manager/reports/student-performance/weekly', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'weekly-student-performance')
+        ->name('manager.reports.student-performance.weekly');
+    Route::post('/manager/reports/student-performance/weekly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'weekly-student-performance')
+        ->name('manager.reports.student-performance.weekly.download');
+    Route::get('/manager/reports/student-performance/monthly', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'monthly-student-performance')
+        ->name('manager.reports.student-performance.monthly');
+    Route::post('/manager/reports/student-performance/monthly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'monthly-student-performance')
+        ->name('manager.reports.student-performance.monthly.download');
+
+    Route::get('/manager/reports/stem-engineer-performance/weekly', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'weekly-stem-engineer-performance')
+        ->name('manager.reports.stem-engineer-performance.weekly');
+    Route::post('/manager/reports/stem-engineer-performance/weekly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'weekly-stem-engineer-performance')
+        ->name('manager.reports.stem-engineer-performance.weekly.download');
+    Route::get('/manager/reports/stem-engineer-performance/monthly', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'monthly-stem-engineer-performance')
+        ->name('manager.reports.stem-engineer-performance.monthly');
+    Route::post('/manager/reports/stem-engineer-performance/monthly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'monthly-stem-engineer-performance')
+        ->name('manager.reports.stem-engineer-performance.monthly.download');
+});
+
+//Principal Routes
+Route::middleware(['principal.auth', 'track.activity'])->group(function () {
+    Route::get('/principal-dashboard', [PageController::class, 'principalDashboard'])->name('principal.dashboard');
+    Route::get('/principal/reports', [PageController::class, 'principalReportsHub'])->name('principal.reports.hub');
+    Route::get('/principal/change-password', [UserController::class, 'changePassword'])->name('principal.change.password');
+    Route::post('/principal/change-password', [UserController::class, 'changePasswordSubmit'])->name('principal.change.password.submit');
+    Route::get('/principal/two-factor', [UserController::class, 'mfaSettings'])->name('principal.mfa.settings');
+    Route::post('/principal/two-factor/enable', [UserController::class, 'beginMfaSetup'])->name('principal.mfa.enable');
+    Route::post('/principal/two-factor/verify', [UserController::class, 'confirmMfaSetup'])->name('principal.mfa.verify');
+    Route::post('/principal/two-factor/disable', [UserController::class, 'disableMfa'])->name('principal.mfa.disable');
+    Route::get('/principal/feedback', [FeedbackController::class, 'panelCreate'])->defaults('audience', 'principal')->name('principal.feedback');
+    Route::post('/principal/feedback', [FeedbackController::class, 'panelStore'])->defaults('audience', 'principal')->name('principal.feedback.store');
+
+    Route::get('/principal/class-session-report/daily', [PageController::class, 'classSessionReport'])
+        ->defaults('reportType', 'daily')
+        ->name('principal.class-session.report.daily');
+    Route::post('/principal/class-session-report/daily/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'daily')
+        ->name('principal.class-session.report.daily.download');
+    Route::get('/principal/class-session-report/weekly', [PageController::class, 'classSessionReport'])
+        ->defaults('reportType', 'weekly')
+        ->name('principal.class-session.report.weekly');
+    Route::post('/principal/class-session-report/weekly/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'weekly')
+        ->name('principal.class-session.report.weekly.download');
+    Route::get('/principal/class-session-report/monthly', [PageController::class, 'classSessionReport'])
+        ->defaults('reportType', 'monthly')
+        ->name('principal.class-session.report.monthly');
+    Route::post('/principal/class-session-report/monthly/download', [PageController::class, 'downloadClassSessionReportPdf'])
+        ->defaults('reportType', 'monthly')
+        ->name('principal.class-session.report.monthly.download');
+
+    Route::get('/principal/reports/student-performance/daily', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'daily-student-performance')
+        ->name('principal.reports.student-performance.daily');
+    Route::post('/principal/reports/student-performance/daily/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'daily-student-performance')
+        ->name('principal.reports.student-performance.daily.download');
+    Route::get('/principal/reports/student-performance/weekly', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'weekly-student-performance')
+        ->name('principal.reports.student-performance.weekly');
+    Route::post('/principal/reports/student-performance/weekly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'weekly-student-performance')
+        ->name('principal.reports.student-performance.weekly.download');
+    Route::get('/principal/reports/student-performance/monthly', [ReportController::class, 'index'])
+        ->defaults('reportMode', 'monthly-student-performance')
+        ->name('principal.reports.student-performance.monthly');
+    Route::post('/principal/reports/student-performance/monthly/download', [ReportController::class, 'downloadPdf'])
+        ->defaults('reportMode', 'monthly-student-performance')
+        ->name('principal.reports.student-performance.monthly.download');
+});
+
 //Super Admin Only Routes
 Route::middleware(['admin.auth', 'super.admin'])->group(function () {
 
@@ -268,6 +405,11 @@ Route::middleware(['admin.auth', 'super.admin'])->group(function () {
     Route::get('/admin/independent-learners/{id}', [IndependentLearnerController::class, 'showLearner'])->name('admin.independent.learners.show');
 
     Route::get('/admin/activity-monitoring', [PageController::class, 'activityMonitoring'])->name('admin.activity.monitoring');
+
+    Route::get('/principals', [PrincipalController::class, 'index'])->name('principals');
+    Route::post('/principals/store', [PrincipalController::class, 'store'])->name('principals.store');
+    Route::post('/principals/update/{id}', [PrincipalController::class, 'update'])->name('principals.update');
+    Route::get('/principals/delete/{id}', [PrincipalController::class, 'delete'])->name('principals.delete');
 
 });
 
@@ -304,6 +446,10 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
     Route::post('/teacher/profile', [PageController::class, 'updateTeacherProfile'])->name('teacher.profile.update');
     Route::get('/teacher/change-password', [UserController::class, 'teacherChangePassword'])->name('teacher.change.password');
     Route::post('/teacher/change-password', [UserController::class, 'teacherChangePasswordSubmit'])->name('teacher.change.password.submit');
+    Route::get('/teacher/two-factor', [UserController::class, 'mfaSettings'])->name('teacher.mfa.settings');
+    Route::post('/teacher/two-factor/enable', [UserController::class, 'beginMfaSetup'])->name('teacher.mfa.enable');
+    Route::post('/teacher/two-factor/verify', [UserController::class, 'confirmMfaSetup'])->name('teacher.mfa.verify');
+    Route::post('/teacher/two-factor/disable', [UserController::class, 'disableMfa'])->name('teacher.mfa.disable');
     Route::get('/teacher/feedback', [FeedbackController::class, 'teacherCreate'])->name('teacher.feedback');
     Route::post('/teacher/feedback', [FeedbackController::class, 'teacherStore'])->name('teacher.feedback.store');
     Route::get('/teacher/notifications', [LmsNotificationController::class, 'teacherIndex'])->name('teacher.notifications');
@@ -359,6 +505,8 @@ Route::middleware(['teacher.auth','track.activity'])->group(function () {
 // Student public routes
 Route::get('/student-login', [PageController::class, 'studentLogin'])->name('student.login');
 Route::post('/student-login', [PageController::class, 'studentLoginSubmit'])->name('student.login.submit');
+Route::get('/student-mfa', [PageController::class, 'studentMfa'])->name('student.mfa');
+Route::post('/student-mfa/verify', [PageController::class, 'verifyStudentMfa'])->name('student.mfa.verify');
 
 // Student protected routes
 Route::middleware(['student.auth','track.activity'])->group(function () {
@@ -366,6 +514,8 @@ Route::middleware(['student.auth','track.activity'])->group(function () {
     Route::get('/student-dashboard',[PageController::class, 'studentDashboard'])->name('student.dashboard');
 
     Route::get('/student/take-assessment',[PageController::class, 'studentTakeAssessment'])->name('student.assessment');
+    Route::get('/student/component-mastery',[PageController::class, 'studentComponentMastery'])->name('student.component-mastery');
+    Route::post('/student/component-assessments/{componentKey}/generate',[PageController::class, 'generateStudentComponentAssessment'])->name('student.component-assessments.generate');
     Route::get('/student/take-assessment/{assessment}/start',[PageController::class, 'studentAssessmentTaking'])->name('student.assessment.take');
     Route::get('/student/history',[PageController::class, 'studentHistory'])->name('student.history');
 

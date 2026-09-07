@@ -37,8 +37,10 @@ return [
 
     'firebase' => [
         'project_id' => env('FIREBASE_PROJECT_ID'),
+        'web_api_key' => env('FIREBASE_WEB_API_KEY'),
         'credentials' => env('FIREBASE_CREDENTIALS'),
         'service_account_json' => env('FIREBASE_SERVICE_ACCOUNT_JSON'),
+        'default_country_code' => env('FIREBASE_DEFAULT_COUNTRY_CODE', '+91'),
     ],
 
 ];

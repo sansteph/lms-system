@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'student.auth' => \App\Http\Middleware\StudentAuth::class,
             'track.activity' => \App\Http\Middleware\TrackUserActivity::class,
             'super.admin' => \App\Http\Middleware\SuperAdminOnly::class,
+            'manager.auth' => \App\Http\Middleware\ManagerAuth::class,
+            'principal.auth' => \App\Http\Middleware\PrincipalAuth::class,
             'independent.auth' => \App\Http\Middleware\IndependentAuth::class,
 
         ]);

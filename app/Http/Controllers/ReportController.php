@@ -32,14 +32,17 @@ class ReportController extends Controller
         $selectedReportInstitute = null;
         $selectedStudentReportClass = null;
         $selectedStudentReportSection = null;
-        $reportInstituteOptions = session('user_role') == 'Admin'
+        $isGlobalReportRole = in_array(session('user_role'), ['Admin', 'Manager'], true);
+        $isScopedReportRole = in_array(session('user_role'), ['InstituteAdmin', 'Principal'], true);
+        $reportInstituteOptions = $isGlobalReportRole
             ? Institute::where('status', 1)->orderBy('institute_name')->pluck('institute_name')
             : collect([session('user_institute')]);
-        $selectedReportInstitute = session('user_role') == 'InstituteAdmin'
+        $selectedReportInstitute = $isScopedReportRole
             ? session('user_institute')
             : ($request->filled('institute') ? trim((string) $request->input('institute')) : null);
         $isStudentScopedReport = in_array($reportMode, [
             'student-ai-review',
+            'daily-student-performance',
             'weekly-student-performance',
             'monthly-student-performance',
         ], true);
@@ -75,12 +78,13 @@ class ReportController extends Controller
         $hasFilters = $request->filled('institute')
             || $request->filled('student_class')
             || $request->filled('student_section')
+            || $request->filled('report_date')
             || $request->filled('report_month')
             || $request->filled('from_date')
             || $request->filled('to_date');
-        $isInstituteScoped = session('user_role') == 'InstituteAdmin'
-            || (session('user_role') == 'Admin' && $selectedReportInstitute);
-        $institute = session('user_role') == 'InstituteAdmin'
+        $isInstituteScoped = $isScopedReportRole
+            || ($isGlobalReportRole && $selectedReportInstitute);
+        $institute = $isScopedReportRole
             ? session('user_institute')
             : $selectedReportInstitute;
 
@@ -333,7 +337,7 @@ class ReportController extends Controller
                 ];
             });
 
-        $instituteBreakdowns = (session('user_role') == 'InstituteAdmin'
+        $instituteBreakdowns = ($isScopedReportRole
                 ? Institute::where('institute_name', session('user_institute'))
                 : ($isInstituteScoped
                     ? Institute::where('institute_name', $institute)
@@ -489,7 +493,7 @@ class ReportController extends Controller
         [$periodFrom, $periodTo, $periodLabel] = $this->reportDateWindow($request, $reportMode);
         $downloadRouteName = $this->reportDownloadRouteName($reportMode);
         $institute = $forcedInstitute ?? $this->selectedReportInstitute($request, $downloadRouteName);
-        $isStudentReport = in_array($reportMode, ['student-ai-review', 'weekly-student-performance', 'monthly-student-performance'], true);
+        $isStudentReport = in_array($reportMode, ['student-ai-review', 'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance'], true);
         $isTeacherReport = in_array($reportMode, ['stem-engineer-prep', 'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance'], true);
         $selectedClass = $isStudentReport ? ($request->filled('student_class') ? trim((string) $request->input('student_class')) : null) : null;
         $selectedSection = $isStudentReport ? ($request->filled('student_section') ? trim((string) $request->input('student_section')) : null) : null;
@@ -587,6 +591,7 @@ class ReportController extends Controller
         $title = match ($reportMode) {
             'student-ai-review' => 'Weekly Student AI Review Report',
             'stem-engineer-prep' => 'Weekly STEM Engineer Prep Report',
+            'daily-student-performance' => 'Daily Student Performance Report',
             'weekly-student-performance' => 'Weekly Student Performance Report',
             'monthly-student-performance' => 'Monthly Student Performance Report',
             'weekly-stem-engineer-performance' => 'Weekly STEM Engineer Performance Report',
@@ -615,15 +620,15 @@ class ReportController extends Controller
 
     private function selectedReportInstitute(Request $request, string $routeName): ?string
     {
+        if (in_array(session('user_role'), ['InstituteAdmin', 'Principal'], true)) {
+            return session('user_institute');
+        }
+
         if ($request->filled('institute')) {
             return trim((string) $request->input('institute'));
         }
 
-        if (session('user_role') == 'InstituteAdmin') {
-            return session('user_institute');
-        }
-
-        if (session('user_role') != 'Admin') {
+        if (!in_array(session('user_role'), ['Admin', 'Manager'], true)) {
             return null;
         }
 
@@ -749,6 +754,7 @@ class ReportController extends Controller
         return match ($reportMode) {
             'student-ai-review' => 'reports.student-ai-review.download',
             'stem-engineer-prep' => 'reports.stem-engineer-prep.download',
+            'daily-student-performance' => 'reports.student-performance.daily.download',
             'weekly-student-performance' => 'reports.student-performance.weekly.download',
             'monthly-student-performance' => 'reports.student-performance.monthly.download',
             'weekly-stem-engineer-performance' => 'reports.stem-engineer-performance.weekly.download',
@@ -870,6 +876,12 @@ class ReportController extends Controller
 
     private function reportDateWindow(Request $request, string $reportMode): array
     {
+        if (str_starts_with($reportMode, 'daily-')) {
+            $date = \Carbon\Carbon::parse($request->input('report_date', now()->toDateString()));
+
+            return [$date->toDateString(), $date->toDateString(), $date->format('d M Y')];
+        }
+
         if (str_starts_with($reportMode, 'monthly-')) {
             $month = $request->input('report_month', now()->format('Y-m'));
             $start = \Carbon\Carbon::parse($month . '-01')->startOfMonth();

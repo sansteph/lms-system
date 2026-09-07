@@ -5,16 +5,22 @@
 @php
     $reportType = $reportType ?? request('report_type', 'weekly');
     $isDailyReport = $reportType == 'daily';
-    $reportTitle = $isDailyReport ? 'Daily Session Report' : 'Weekly Session Report';
-    $reportDescription = $isDailyReport
-        ? 'Select one date and generate a focused session execution report.'
-        : 'Select a date range and generate a weekly session execution report.';
-    $reportRoute = $isDailyReport
-        ? route('admin.class-session.report.daily')
-        : route('admin.class-session.report.weekly');
-    $downloadRoute = $isDailyReport
-        ? route('admin.class-session.report.daily.download')
-        : route('admin.class-session.report.weekly.download');
+    $isMonthlyReport = $reportType == 'monthly';
+    $reportTitle = match ($reportType) {
+        'daily' => 'Daily Session Report',
+        'monthly' => 'Monthly Session Report',
+        default => 'Weekly Session Report',
+    };
+    $reportDescription = match ($reportType) {
+        'daily' => 'Select one date and generate a focused session execution report.',
+        'monthly' => 'Select one month and generate a monthly session execution report.',
+        default => 'Select a date range and generate a weekly session execution report.',
+    };
+    $sessionReportPrefix = session('user_role') === 'Principal'
+        ? 'principal'
+        : (session('user_role') === 'Manager' ? 'manager' : 'admin');
+    $reportRoute = route($sessionReportPrefix . '.class-session.report.' . $reportType);
+    $downloadRoute = route($sessionReportPrefix . '.class-session.report.' . $reportType . '.download');
 @endphp
 
 <div class="container-fluid">
@@ -43,7 +49,7 @@
 
                     <form method="GET" action="{{ $reportRoute }}">
                         <div class="lms-report-filter-grid">
-                        @if(session('user_role') == 'Admin')
+                        @if(in_array(session('user_role'), ['Admin', 'Manager'], true))
                             <div class="lms-report-action-group">
                                 <label class="form-label">Institute</label>
                                 <select name="institute" class="form-select">
@@ -59,6 +65,11 @@
                             <div class="lms-report-action-group">
                                 <label class="form-label">Report Date</label>
                                 <input type="date" name="report_date" id="dailyReportDate" class="form-control" value="{{ request('report_date') }}">
+                            </div>
+                        @elseif($isMonthlyReport)
+                            <div class="lms-report-action-group">
+                                <label class="form-label">Report Month</label>
+                                <input type="month" name="report_month" class="form-control" value="{{ request('report_month') }}">
                             </div>
                         @else
                             <div class="lms-report-action-group">
@@ -84,6 +95,9 @@
                             @if($isDailyReport)
                                 Showing sessions for:
                                 {{ request('report_date') ? \Carbon\Carbon::parse(request('report_date'))->format('d M Y') : 'Select a date' }}
+                            @elseif($isMonthlyReport)
+                                Showing sessions for:
+                                {{ request('report_month') ? \Carbon\Carbon::parse(request('report_month') . '-01')->format('F Y') : 'Select a month' }}
                             @else
                                 Showing sessions from:
                                 {{ request('from_date') ? \Carbon\Carbon::parse(request('from_date'))->format('d M Y') : 'Start' }}
@@ -93,11 +107,13 @@
                         </span>
                         <form method="POST" action="{{ $downloadRoute }}" class="lms-report-status-action">
                             @csrf
-                            @if(session('user_role') == 'Admin')
+                            @if(in_array(session('user_role'), ['Admin', 'Manager'], true))
                                 <input type="hidden" name="institute" value="{{ $selectedReportInstitute }}">
                             @endif
                             @if($isDailyReport)
                                 <input type="hidden" name="report_date" value="{{ request('report_date') }}">
+                            @elseif($isMonthlyReport)
+                                <input type="hidden" name="report_month" value="{{ request('report_month') }}">
                             @else
                                 <input type="hidden" name="from_date" value="{{ request('from_date') }}">
                                 <input type="hidden" name="to_date" value="{{ request('to_date') }}">

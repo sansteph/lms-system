@@ -24,6 +24,8 @@ Route::prefix('v1')->group(function () {
 });
 
 Route::post('/login', [MobileApiController::class, 'login']);
+Route::post('/student-mfa/verify', [MobileApiController::class, 'verifyStudentMfa']);
+Route::post('/mfa/verify', [MobileApiController::class, 'verifyMobileMfa']);
 Route::get('/public/newsroom', [\App\Http\Controllers\Api\MobilePublicController::class, 'newsroom'])->middleware('throttle:20,1');
 Route::post('/public/verify-certificate', [\App\Http\Controllers\Api\MobilePublicController::class, 'verifyCertificate'])->middleware('throttle:10,1');
 Route::get('/session-completion-video/{fileName}', [\App\Http\Controllers\PageController::class, 'streamSessionCompletionVideo'])
@@ -48,6 +50,10 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\MobileRoleAccess::class]
     Route::post('/feedback', [MobileApiController::class, 'submitFeedback']);
     Route::post('/push-token', [MobileApiController::class, 'storePushToken']);
     Route::delete('/push-token', [MobileApiController::class, 'deletePushToken']);
+    Route::get('/mfa/status', [MobileApiController::class, 'mobileMfaStatus']);
+    Route::post('/mfa/enable', [MobileApiController::class, 'beginMobileMfaSetup']);
+    Route::post('/mfa/verify-enable', [MobileApiController::class, 'verifyMobileMfaSetup']);
+    Route::post('/mfa/disable', [MobileApiController::class, 'disableMobileMfa']);
     Route::post('/ai-chat/ask', [MobileApiController::class, 'aiChatAsk'])->middleware('throttle:20,1');
     Route::post('/ai/report-insights', [MobileApiController::class, 'aiReportInsights']);
     Route::post('/ai/assessment-question-paper', [MobileApiController::class, 'aiAssessmentQuestionPaper']);
@@ -72,6 +78,8 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\MobileRoleAccess::class]
     Route::get('/engineer/notifications', [MobileApiController::class, 'engineerNotifications']);
 
     Route::get('/student/assessments', [MobileApiController::class, 'studentAssessments']);
+    Route::get('/student/component-mastery', [MobileApiController::class, 'studentComponentMastery']);
+    Route::post('/student/component-mastery/{componentKey}/generate', [MobileApiController::class, 'generateStudentComponentMastery']);
     Route::get('/student/assessment-results', [MobileApiController::class, 'studentAssessmentResults']);
     Route::get('/student/learning-content', [MobileApiController::class, 'learningContent']);
     Route::get('/student/content/{contentId}/preview', [MobileApiController::class, 'studentContentPreview']);
@@ -103,6 +111,12 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\MobileRoleAccess::class]
     Route::get('/admin/management-filters/{area}', [MobileApiController::class, 'managementFilters']);
     Route::get('/admin/reports', [MobileApiController::class, 'adminReports']);
     Route::get('/admin/reports/export', [MobileApiController::class, 'adminReportExportUrl']);
+    Route::get('/manager/reports', [MobileApiController::class, 'managerReports']);
+    Route::get('/principal/reports', [MobileApiController::class, 'principalReports']);
+    Route::get('/panel/reports/export-url', [MobileApiController::class, 'panelReportExportUrl']);
+    Route::get('/manager/approvals', [MobileApiController::class, 'adminApprovals']);
+    Route::get('/panel/notifications', [MobileApiController::class, 'panelNotifications']);
+    Route::post('/panel/feedback', [MobileApiController::class, 'submitPanelFeedback']);
     Route::get('/admin/monitoring', [MobileApiController::class, 'adminMonitoring']);
     Route::get('/admin/monitoring/{type}', [MobileApiController::class, 'adminMonitoringDetails']);
     Route::get('/admin/notifications', [MobileApiController::class, 'adminNotifications']);

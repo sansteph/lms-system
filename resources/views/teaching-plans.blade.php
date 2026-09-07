@@ -530,7 +530,7 @@
 
 @foreach($plans as $plan)
     <div class="modal fade" id="editTeachingPlanModal{{ $plan->id }}" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <form method="POST" action="{{ route('teaching-plans.update', $plan->id) }}">
                     @csrf
@@ -539,6 +539,27 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        <div class="alert alert-info small">
+                            Course, class, section, and content order are fixed after a plan is generated. Schedule changes apply only to locked weeks; released and completed weeks keep their existing history.
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Plan Title</label>
+                            <input type="text" name="title" class="form-control" value="{{ $plan->title }}" placeholder="{{ $plan->course->course_title ?? 'Teaching Plan' }}">
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Plan Start Date</label>
+                                <input type="date" name="start_date" class="form-control" value="{{ $plan->start_date ? \Carbon\Carbon::parse($plan->start_date)->format('Y-m-d') : '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Release Day</label>
+                                <select name="release_day" class="form-select" required>
+                                    @foreach(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $day)
+                                        <option value="{{ $day }}" {{ $plan->release_day === $day ? 'selected' : '' }}>{{ $day }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label">Status</label>
                             <select name="status" class="form-control" required>
@@ -562,7 +583,7 @@
     </div>
 
     <div class="modal fade" id="deployAiTrainingModal{{ $plan->id }}" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <form method="POST" action="{{ route('teaching-plans.ai-training.deploy', $plan->id) }}">
                     @csrf

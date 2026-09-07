@@ -11,6 +11,7 @@ use App\Models\AiContentSummary;
 use App\Models\AiQuiz;
 use App\Models\AiQuizAnswer;
 use App\Models\AiQuizAttempt;
+use App\Models\AiComponentContentProfile;
 use App\Models\AiQuizQuestion;
 use App\Models\Certificate;
 use App\Models\ClassContentSession;
@@ -97,6 +98,64 @@ class MobileApiController extends Controller
         }
 
         [$tokenable, $responseRole, $institute, $avatar, $userId, $name] = $account;
+
+        if ($responseRole === 'Student') {
+            if (blank($tokenable->email)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Student guardian email verification is not configured.',
+                ], 422);
+            }
+
+            try {
+                $challengeToken = app(\App\Services\MfaChallengeService::class)
+                    ->issue($tokenable, 'email', $request->ip(), $request->userAgent());
+            } catch (\Throwable $exception) {
+                report($exception);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Student verification is temporarily unavailable.',
+                ], 503);
+            }
+
+            return response()->json([
+                'success' => false,
+                'mfa_required' => true,
+                'mfa_provider' => 'email',
+                'challenge_token' => $challengeToken,
+                'user_id' => $userId,
+                'name' => $name,
+                'role' => $responseRole,
+                'institute' => $institute ?? '',
+                'email_hint' => $this->emailHint((string) $tokenable->email),
+            ], 202);
+        }
+
+        if ($tokenable instanceof User && $tokenable->mfa_enabled) {
+            try {
+                $challengeToken = app(\App\Services\MfaChallengeService::class)
+                    ->issue($tokenable, 'email', $request->ip(), $request->userAgent());
+            } catch (\Throwable $exception) {
+                report($exception);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Verification is temporarily unavailable.',
+                ], 503);
+            }
+
+            return response()->json([
+                'success' => false,
+                'mfa_required' => true,
+                'mfa_provider' => 'email',
+                'challenge_token' => $challengeToken,
+                'user_id' => $userId,
+                'name' => $name,
+                'role' => $responseRole,
+                'institute' => $institute ?? '',
+                'email_hint' => $this->emailHint((string) $tokenable->email),
+            ], 202);
+        }
+
         $token = $tokenable->createToken('flutter-mobile-app')->plainTextToken;
 
         return response()->json([
@@ -110,7 +169,181 @@ class MobileApiController extends Controller
             'institute' => $institute ?? '',
             'avatar' => $avatar,
             'login_notifications' => app(\App\Services\LmsNotificationService::class)->mobileLoginNotifications($tokenable),
+            ]);
+    }
+
+    public function verifyStudentMfa(Request $request)
+    {
+        $validated = $request->validate([
+            'challenge_token' => ['required', 'string'],
+            'code' => ['required', 'digits:6'],
         ]);
+
+        $challenge = \App\Models\MfaChallenge::where('challenge_token_hash', hash('sha256', $validated['challenge_token']))->first();
+        if (!$challenge || $challenge->account_type !== Student::class) {
+            return response()->json(['success' => false, 'message' => 'The verification challenge is invalid or expired.'], 401);
+        }
+
+        $student = Student::find($challenge->account_id);
+        if (!$student || !$student->status) {
+            return response()->json(['success' => false, 'message' => 'The verification challenge is invalid or expired.'], 401);
+        }
+
+        try {
+            app(\App\Services\MfaChallengeService::class)->verify(
+                $validated['challenge_token'],
+                $validated['code'],
+                $request->ip(),
+                $request->userAgent(),
+            );
+        } catch (ValidationException $exception) {
+            return response()->json(['success' => false, 'message' => 'The verification code is invalid or expired.'], 401);
+        }
+
+        $token = $student->createToken('flutter-mobile-app')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Login successful',
+            'token' => $token,
+            'user_id' => $student->id,
+            'name' => $student->name,
+            'email' => $student->email ?? '',
+            'role' => 'Student',
+            'institute' => $student->institute ?? '',
+            'avatar' => $student->profile_image ?? null,
+            'login_notifications' => app(\App\Services\LmsNotificationService::class)->mobileLoginNotifications($student),
+        ]);
+    }
+
+    public function verifyMobileMfa(Request $request)
+    {
+        $validated = $request->validate([
+            'challenge_token' => ['required', 'string'],
+            'code' => ['required', 'digits:6'],
+        ]);
+
+        $challenge = \App\Models\MfaChallenge::where(
+            'challenge_token_hash',
+            hash('sha256', $validated['challenge_token'])
+        )->first();
+        if (!$challenge || !in_array($challenge->account_type, [Student::class, User::class], true)) {
+            return response()->json(['success' => false, 'message' => 'The verification challenge is invalid or expired.'], 401);
+        }
+
+        $account = $challenge->account_type::find($challenge->account_id);
+        if (!$account || !($account instanceof Student || ($account instanceof User && $account->status))) {
+            return response()->json(['success' => false, 'message' => 'The verification challenge is invalid or expired.'], 401);
+        }
+
+        try {
+            app(\App\Services\MfaChallengeService::class)->verify(
+                $validated['challenge_token'],
+                $validated['code'],
+                $request->ip(),
+                $request->userAgent(),
+            );
+        } catch (ValidationException $exception) {
+            return response()->json(['success' => false, 'message' => 'The verification code is invalid or expired.'], 401);
+        }
+
+        $role = $account instanceof Student ? 'Student' : $this->displayRoleFor($account);
+        return response()->json([
+            'success' => true,
+            'message' => 'Login successful',
+            'token' => $account->createToken('flutter-mobile-app')->plainTextToken,
+            'user_id' => $account->id,
+            'name' => $account->name,
+            'email' => $account->email ?? '',
+            'role' => $role,
+            'institute' => $account->institute ?? '',
+            'avatar' => $account instanceof Student ? ($account->profile_image ?? null) : null,
+            'login_notifications' => app(\App\Services\LmsNotificationService::class)->mobileLoginNotifications($account),
+        ]);
+    }
+
+    public function mobileMfaStatus(Request $request)
+    {
+        $account = $request->user();
+        abort_unless($account instanceof User, 403);
+
+        return response()->json([
+            'enabled' => (bool) $account->mfa_enabled,
+            'channel' => 'email',
+            'email_hint' => $this->emailHint((string) $account->email),
+        ]);
+    }
+
+    public function beginMobileMfaSetup(Request $request)
+    {
+        $account = $request->user();
+        abort_unless($account instanceof User, 403);
+        $request->validate(['current_password' => ['required', 'string']]);
+        if (!Hash::check($request->current_password, $account->password)) {
+            return response()->json(['message' => 'The current password is incorrect.'], 422);
+        }
+
+        try {
+            $token = app(\App\Services\MfaChallengeService::class)
+                ->issue($account, 'email', $request->ip(), $request->userAgent());
+        } catch (ValidationException $exception) {
+            return response()->json(['message' => 'We could not send a verification code right now. Please try again later.'], 503);
+        }
+
+        return response()->json([
+            'message' => 'A verification code was sent to your registered email.',
+            'challenge_token' => $token,
+            'email_hint' => $this->emailHint((string) $account->email),
+        ], 202);
+    }
+
+    public function verifyMobileMfaSetup(Request $request)
+    {
+        $account = $request->user();
+        abort_unless($account instanceof User, 403);
+        $validated = $request->validate([
+            'challenge_token' => ['required', 'string'],
+            'code' => ['required', 'digits:6'],
+        ]);
+        try {
+            app(\App\Services\MfaChallengeService::class)->verify(
+                $validated['challenge_token'], $validated['code'], $request->ip(), $request->userAgent()
+            );
+        } catch (ValidationException $exception) {
+            return response()->json(['message' => 'The verification code is invalid or expired.'], 422);
+        }
+        $account->update(['mfa_enabled' => true]);
+        \App\Models\MfaAuditLog::create([
+            'account_type' => User::class,
+            'account_id' => $account->id,
+            'event' => 'enabled',
+            'channel' => 'email',
+            'successful' => true,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+        return response()->json(['message' => 'Two-factor authentication is now enabled.', 'enabled' => true]);
+    }
+
+    public function disableMobileMfa(Request $request)
+    {
+        $account = $request->user();
+        abort_unless($account instanceof User, 403);
+        $request->validate(['current_password' => ['required', 'string']]);
+        if (!Hash::check($request->current_password, $account->password)) {
+            return response()->json(['message' => 'The current password is incorrect.'], 422);
+        }
+        $account->update(['mfa_enabled' => false]);
+        \App\Models\MfaAuditLog::create([
+            'account_type' => User::class,
+            'account_id' => $account->id,
+            'event' => 'disabled',
+            'channel' => 'email',
+            'successful' => true,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+        return response()->json(['message' => 'Two-factor authentication has been disabled.', 'enabled' => false]);
     }
 
     public function forgotPassword(Request $request)
@@ -657,6 +890,12 @@ class MobileApiController extends Controller
 
     public function aiChatAsk(Request $request, GeminiAiService $geminiAiService)
     {
+        abort_if(
+            $request->user() instanceof Student,
+            403,
+            'Students can use the AI chatbot only from the home page.'
+        );
+
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:1200'],
         ]);
@@ -854,6 +1093,43 @@ class MobileApiController extends Controller
         );
     }
 
+    public function submitPanelFeedback(Request $request)
+    {
+        $account = $request->user();
+        abort_unless($account instanceof User && in_array($account->role, ['Manager', 'Principal'], true), 403);
+        $validated = $request->validate([
+            'category' => ['required', 'string', 'in:General,Learning Content,Assessment,Session,Technical Issue,Other'],
+            'subject' => ['required', 'string', 'max:150'],
+            'message' => ['required', 'string', 'max:5000'],
+        ]);
+
+        try {
+            Mail::send('emails.feedback-submitted', [
+                'senderType' => $account->role,
+                'senderDetails' => [
+                    'Name' => $account->name,
+                    'ID' => $account->user_id,
+                    'Email' => $account->email ?: 'Not provided',
+                    'Phone' => $account->phone ?: 'Not provided',
+                    'Institute' => $account->institute ?: 'All Institutes',
+                ],
+                'category' => $validated['category'],
+                'feedbackSubject' => $validated['subject'],
+                'feedbackMessage' => $validated['message'],
+                'submittedAt' => now()->format('d M Y, h:i A'),
+            ], function ($message) use ($validated) {
+                $message->to('tinkedgemain@gmail.com')
+                    ->cc(['support@tinkedge.com', 'shah@tinkedge.com'])
+                    ->subject('InnovatEdge Feedback: ' . Str::limit($validated['subject'], 110));
+            });
+        } catch (Throwable $exception) {
+            report($exception);
+            return response()->json(['success' => false, 'message' => 'Feedback could not be sent right now.'], 503);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Feedback submitted successfully.']);
+    }
+
     public function adminReportExportUrl(Request $request)
     {
         $account = $this->requireAdmin($request);
@@ -883,6 +1159,48 @@ class MobileApiController extends Controller
         ]);
     }
 
+    public function managerReports(Request $request, ReportController $reports)
+    {
+        $this->requireRole($request, ['Manager']);
+        $reportMode = $this->mobileReportMode($request);
+        abort_unless(in_array($reportMode, [
+            'daily-session', 'weekly-session', 'monthly-session',
+            'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance',
+        ], true), 422, 'Unsupported manager report type.');
+
+        return response()->json($reports->mobileReportPayload($request, $reportMode, null));
+    }
+
+    public function principalReports(Request $request, ReportController $reports)
+    {
+        $account = $this->requireRole($request, ['Principal']);
+        $reportMode = $this->mobileReportMode($request);
+        abort_unless(in_array($reportMode, [
+            'daily-session', 'weekly-session', 'monthly-session',
+            'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance',
+        ], true), 422, 'Unsupported principal report type.');
+
+        return response()->json($reports->mobileReportPayload($request, $reportMode, $account->institute));
+    }
+
+    public function panelReportExportUrl(Request $request)
+    {
+        $account = $this->requireRole($request, ['Manager', 'Principal']);
+        $reportMode = $this->mobileReportMode($request);
+        $allowed = $account->role === 'Manager'
+            ? ['daily-session', 'weekly-session', 'monthly-session', 'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance']
+            : ['daily-session', 'weekly-session', 'monthly-session', 'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance'];
+        abort_unless(in_array($reportMode, $allowed, true), 422, 'Unsupported report type.');
+
+        return response()->json([
+            'url' => URL::temporarySignedRoute('mobile.admin.report-export', now()->addMinutes(5), array_merge([
+                'accountId' => $account->id,
+                'reportMode' => $reportMode,
+            ], $request->only(['institute', 'student_class', 'student_section', 'report_date', 'from_date', 'to_date', 'report_month']))),
+            'expires_in_seconds' => 300,
+        ]);
+    }
+
     public function serveAdminReportExport(
         Request $request,
         int $accountId,
@@ -891,10 +1209,10 @@ class MobileApiController extends Controller
         GeminiAiService $ai
     ) {
         $account = User::findOrFail($accountId);
-        abort_unless(in_array($account->role, ['Admin', 'InstituteAdmin'], true), 403, 'Admin access is required.');
+        abort_unless(in_array($account->role, ['Admin', 'InstituteAdmin', 'Manager', 'Principal'], true), 403, 'Report access is required.');
         abort_unless(in_array($reportMode, $this->mobileReportModes(), true), 422, 'Unsupported report type.');
 
-        $institute = $account->role === 'InstituteAdmin'
+        $institute = in_array($account->role, ['InstituteAdmin', 'Principal'], true)
             ? $account->institute
             : trim((string) $request->input('institute', ''));
         $payload = $reports->mobileReportPayload($request, $reportMode, $institute !== '' ? $institute : null);
@@ -991,6 +1309,64 @@ class MobileApiController extends Controller
             });
 
         $page = (clone $query)->latest('started_at')->orderByDesc('id')->paginate(50);
+        $contentIdsByLogId = $page->getCollection()
+            ->mapWithKeys(function (UserActivityLog $log) {
+                preg_match('#content-preview/(\d+)/for/#', (string) $log->page_url, $matches);
+
+                return !empty($matches[1])
+                    ? [$log->id => (int) $matches[1]]
+                    : [];
+            });
+        $contentContextByLogId = Content::whereIn('id', $contentIdsByLogId->values()->unique())
+            ->get(['id', 'content_title', 'assigned_class', 'section', 'institute'])
+            ->keyBy('id');
+        $contentContextByLogId = $contentIdsByLogId
+            ->mapWithKeys(function ($contentId, $logId) use ($contentContextByLogId) {
+                $content = $contentContextByLogId->get($contentId);
+                $classLabel = $content
+                    ? trim((string) $content->assigned_class . ' ' . (string) $content->section)
+                    : '';
+
+                return [
+                    $logId => [
+                        'title' => $content->content_title ?? null,
+                        'class_label' => $classLabel,
+                        'institute' => $content->institute ?? null,
+                    ],
+                ];
+            });
+        $teacherIdsOnPage = $page->getCollection()
+            ->where('user_type', 'Teacher')
+            ->pluck('user_id')
+            ->filter()
+            ->unique()
+            ->values();
+        $teachersById = User::whereIn('id', $teacherIdsOnPage)
+            ->get(['id', 'institute'])
+            ->keyBy('id');
+        $classesByInstitute = SchoolClass::whereIn('institute', $teachersById->pluck('institute')->filter()->unique())
+            ->orderBy('class_name')
+            ->orderBy('section')
+            ->get()
+            ->groupBy('institute')
+            ->map(function ($classes) {
+                return $classes
+                    ->map(fn (SchoolClass $class) => trim((string) $class->class_name . ' ' . (string) $class->section))
+                    ->filter()
+                    ->unique(fn ($className) => mb_strtolower($className))
+                    ->values();
+            });
+        $teacherClassLabelsById = $teachersById->mapWithKeys(function (User $teacher) use ($classesByInstitute) {
+            $classes = $classesByInstitute->get($teacher->institute, collect());
+            $label = $classes->take(3)->implode(', ');
+
+            if ($classes->count() > 3) {
+                $label .= ' +' . ($classes->count() - 3) . ' more';
+            }
+
+            return [$teacher->id => $label ?: 'Unassigned Class'];
+        });
+
         return response()->json([
             'pagination' => $this->pageMetadata($page),
             'title' => 'Learning Content Monitoring',
@@ -1003,13 +1379,22 @@ class MobileApiController extends Controller
                 ['label' => 'Total minutes', 'value' => (string) round(((int) (clone $query)->sum('duration_seconds')) / 60)],
             ],
             'items' => $page->getCollection()
-                ->map(function (UserActivityLog $log) {
+                ->map(function (UserActivityLog $log) use ($contentContextByLogId, $teacherClassLabelsById) {
                     $user = $log->user_type === 'Teacher' ? $log->teacher : $log->student;
                     $startedAt = $log->started_at ? Carbon::parse($log->started_at)->format('Y-m-d H:i') : '';
+                    $contentContext = $contentContextByLogId->get($log->id, []);
+                    $institute = $user?->institute ?: ($contentContext['institute'] ?? 'Unassigned Institute');
+                    $classLabel = $log->user_type === 'Student'
+                        ? trim((string) ($user?->class ?? '') . ' ' . (string) ($user?->section ?? ''))
+                        : trim((string) ($contentContext['class_label'] ?? ''));
+
+                    if ($classLabel === '' && $log->user_type === 'Teacher') {
+                        $classLabel = $teacherClassLabelsById->get($log->user_id, '');
+                    }
 
                     return [
                         'title' => $user?->name ?: ($log->user_type === 'Teacher' ? 'STEM Engineer Deleted' : 'Student Deleted'),
-                        'subtitle' => trim(($log->section_name ?: 'Content') . ' · ' . ($user?->institute ?: 'Institute n/a')),
+                        'subtitle' => trim(($classLabel !== '' ? $classLabel : 'Unassigned Class') . ' · ' . $institute),
                         'status' => $log->activity_status,
                         'meta' => trim($startedAt . ' · ' . round(((int) $log->duration_seconds) / 60) . ' min'),
                     ];
@@ -1022,6 +1407,9 @@ class MobileApiController extends Controller
     {
         $studentClass = trim((string) $request->input('student_class', ''));
         $studentSection = trim((string) $request->input('student_section', ''));
+        $status = trim((string) $request->input('status', ''));
+        $date = trim((string) $request->input('date', ''));
+        $search = trim((string) $request->input('search', ''));
 
         $query = AssessmentSession::with(['assessment', 'student', 'teacher'])
             ->when($institute, fn ($builder) => $builder->whereHas('assessment', fn ($assessment) => $assessment->where('institute', $institute)))
@@ -1032,6 +1420,18 @@ class MobileApiController extends Controller
                         ->when($studentClass !== '', fn ($inner) => $inner->where('class', $studentClass))
                         ->when($studentSection !== '', fn ($inner) => $inner->where('section', $studentSection));
                 });
+            })
+            ->when(in_array($status, ['Started', 'Submitted', 'AutoSubmitted'], true), fn ($builder) => $builder->where('status', $status))
+            ->when($date !== '', fn ($builder) => $builder->whereDate('started_at', $date))
+            ->when($search !== '', function ($builder) use ($search) {
+                $builder->where(function ($searchQuery) use ($search) {
+                    $searchQuery->whereHas('assessment', fn ($assessment) => $assessment->where('assessment_title', 'like', '%' . $search . '%'))
+                        ->orWhereHas('student', function ($student) use ($search) {
+                            $student->where('name', 'like', '%' . $search . '%')
+                                ->orWhere('student_id', 'like', '%' . $search . '%');
+                        })
+                        ->orWhereHas('teacher', fn ($teacher) => $teacher->where('name', 'like', '%' . $search . '%'));
+                });
             });
 
         $page = (clone $query)->latest()->orderByDesc('id')->paginate(50);
@@ -1039,7 +1439,9 @@ class MobileApiController extends Controller
             'pagination' => $this->pageMetadata($page),
             'title' => 'Assessment Monitoring',
             'subtitle' => 'Monitor assessments, status, and assessment activity.',
-            'filters' => $this->adminMonitoringFilters($this->requireAdmin($request), $institute),
+            'filters' => $this->adminMonitoringFilters($this->requireAdmin($request), $institute) + [
+                'statuses' => ['Started', 'Submitted', 'AutoSubmitted'],
+            ],
             'summary' => [
                 ['label' => 'Sessions', 'value' => (string) (clone $query)->count()],
                 ['label' => 'Submitted', 'value' => (string) (clone $query)->whereIn('status', ['Submitted', 'AutoSubmitted'])->count()],
@@ -1049,10 +1451,18 @@ class MobileApiController extends Controller
                 ->map(function (AssessmentSession $session) {
                     $user = $session->user_type === 'Teacher' ? $session->teacher : $session->student;
                     $startedAt = $session->started_at ? Carbon::parse($session->started_at)->format('Y-m-d H:i') : '';
+                    $institute = $user?->institute ?: ($session->assessment?->institute ?: 'Unassigned Institute');
+                    $classLabel = $session->user_type === 'Student'
+                        ? trim((string) ($user?->class ?? '') . ' ' . (string) ($user?->section ?? ''))
+                        : '';
+
+                    if ($classLabel === '') {
+                        $classLabel = trim((string) ($session->assessment?->assigned_class ?? ''));
+                    }
 
                     return [
                         'title' => $session->assessment?->assessment_title ?: 'Assessment',
-                        'subtitle' => trim(($user?->name ?: 'User n/a') . ' · ' . ($session->assessment?->institute ?: 'Institute n/a')),
+                        'subtitle' => trim(($user?->name ?: 'User unavailable') . ' · ' . ($classLabel !== '' ? $classLabel : 'Unassigned Class') . ' · ' . $institute),
                         'status' => $session->status ?: 'Pending',
                         'meta' => trim($startedAt . ' · Violations: ' . (int) $session->violation_count),
                     ];
@@ -1097,11 +1507,18 @@ class MobileApiController extends Controller
             ],
             'items' => $page->getCollection()
                 ->map(function (AssessmentResult $result) {
+                    $institute = $result->student?->institute ?: ($result->assessment?->institute ?: 'Unassigned Institute');
+                    $classLabel = trim((string) ($result->student?->class ?? '') . ' ' . (string) ($result->student?->section ?? ''));
+
+                    if ($classLabel === '') {
+                        $classLabel = trim((string) ($result->assessment?->assigned_class ?? ''));
+                    }
+
                     return [
-                        'title' => $result->student?->name ?: 'Student',
-                        'subtitle' => trim(($result->assessment?->assessment_title ?: 'Assessment') . ' · ' . ($result->student?->institute ?: 'Institute n/a')),
+                        'title' => $result->student?->name ?: 'Student unavailable',
+                        'subtitle' => trim(($result->assessment?->assessment_title ?: 'Assessment') . ' · ' . ($classLabel !== '' ? $classLabel : 'Unassigned Class') . ' · ' . $institute),
                         'status' => $result->status ?: ($result->evaluated_at ? 'Evaluated' : 'Pending'),
-                        'meta' => trim(($result->percentage !== null ? round((float) $result->percentage, 1) . '%' : 'Score n/a') . ' · ' . ($result->evaluator?->name ?: 'Evaluator n/a')),
+                        'meta' => trim(($result->percentage !== null ? round((float) $result->percentage, 1) . '%' : 'Score unavailable') . ' · ' . ($result->evaluator?->name ?: 'Evaluator unavailable')),
                     ];
                 })
                 ->values(),
@@ -1157,7 +1574,8 @@ class MobileApiController extends Controller
 
     public function adminApprovals(Request $request)
     {
-        $account = $this->requireAdmin($request);
+        $account = $request->user();
+        abort_unless($account instanceof User && in_array($account->role, ['Admin', 'InstituteAdmin', 'Manager'], true), 403, 'Approval access is required.');
         $institute = $account->role === 'InstituteAdmin'
             ? $account->institute
             : trim((string) $request->input('institute', ''));
@@ -1201,6 +1619,31 @@ class MobileApiController extends Controller
                     'status' => $item->status,
                 ])->values(),
         ]);
+    }
+
+    public function panelNotifications(Request $request)
+    {
+        $account = $request->user();
+        abort_unless($account instanceof User && in_array($account->role, ['Manager', 'Principal'], true), 403);
+
+        $notifications = LmsNotification::query()
+            ->where('status', 'active')
+            ->whereIn('target', ['all', strtolower($account->role) . 's'])
+            ->when($account->role === 'Principal', fn ($q) => $q->where(function ($scope) use ($account) {
+                $scope->whereNull('institute')->orWhere('institute', $account->institute);
+            }))
+            ->latest()
+            ->limit(100)
+            ->get()
+            ->map(fn (LmsNotification $notification) => [
+                'id' => $notification->id,
+                'title' => $notification->title,
+                'message' => $notification->message,
+                'target' => $notification->target,
+                'created_at' => optional($notification->created_at)->toDateTimeString(),
+            ])->values();
+
+        return response()->json(['title' => 'Notifications', 'notifications' => $notifications]);
     }
 
     public function adminIndependentLearners(Request $request)
@@ -2160,11 +2603,45 @@ class MobileApiController extends Controller
         $this->ensureAdminInstituteAccess($account, $plan->institute);
 
         $validated = $request->validate([
+            'title' => ['nullable', 'string', 'max:255'],
+            'start_date' => ['nullable', 'date'],
+            'release_day' => ['required', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
             'status' => ['required', 'in:active,inactive,completed'],
             'remarks' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $plan->update($validated);
+        DB::transaction(function () use ($plan, $validated) {
+            $oldStartDate = $plan->start_date ? Carbon::parse($plan->start_date)->toDateString() : null;
+            $newStartDate = $validated['start_date'] ?? $oldStartDate;
+            $scheduleChanged = $oldStartDate !== $newStartDate || $plan->release_day !== $validated['release_day'];
+
+            $plan->update([
+                'title' => filled($validated['title'] ?? null) ? $validated['title'] : $plan->title,
+                'start_date' => $newStartDate,
+                'plan_start_date' => $newStartDate,
+                'release_day' => $validated['release_day'],
+                'status' => $validated['status'],
+                'remarks' => $validated['remarks'] ?? null,
+            ]);
+
+            if ($scheduleChanged && $newStartDate) {
+                $startDate = Carbon::parse($newStartDate)->startOfDay();
+                $plan->weeks()->where('status', 'locked')->orderBy('week_number')->get()->each(function (TeachingPlanWeek $week) use ($startDate, $validated) {
+                    $weekStart = $startDate->copy()->addWeeks(max(0, ((int) $week->week_number) - 1));
+                    $releaseDate = (int) $week->week_number === 1
+                        ? $weekStart->copy()
+                        : (strtolower($weekStart->format('l')) === strtolower($validated['release_day'])
+                            ? $weekStart->copy()->subWeek()
+                            : $weekStart->copy()->previous($validated['release_day']));
+
+                    $week->update([
+                        'week_start_date' => $weekStart->toDateString(),
+                        'week_end_date' => $weekStart->copy()->addDays(6)->toDateString(),
+                        'release_date' => $releaseDate->toDateString(),
+                    ]);
+                });
+            }
+        });
 
         return response()->json([
             'success' => true,
@@ -2259,6 +2736,10 @@ class MobileApiController extends Controller
         app(\App\Services\ClassSessionLifecycle::class)->expire($teacher);
         $class = $request->filled('class_id')
             ? SchoolClass::where('institute', $teacher->institute)->findOrFail($request->integer('class_id')) : null;
+        $today = now()->toDateString();
+        $currentWeekStart = now()->copy()->startOfWeek()->toDateString();
+        $currentWeekEnd = now()->copy()->endOfWeek()->toDateString();
+
         $pendingPage = ClassContentSession::query()
             ->where('institute', $teacher->institute)->where('stem_engineer_id', $teacher->id)
             ->whereIn('status', ['in_progress', 'partially_completed', 'cancelled'])
@@ -2269,18 +2750,41 @@ class MobileApiController extends Controller
             })
             ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 ELSE 1 END")
             ->latest('session_date')->orderByDesc('id')->paginate(30);
+        $todayPage = ClassContentSession::query()
+            ->where('institute', $teacher->institute)
+            ->where('stem_engineer_id', $teacher->id)
+            ->whereDate('session_date', $today)
+            ->when($class, fn ($q) => $q->where('class', $class->class_name)->where('section', $class->section))
+            ->with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
+            ->latest('session_date')
+            ->orderByDesc('id')
+            ->paginate(30);
         $contentPage = TeachingPlanItem::query()
             ->whereHas('plan', function ($q) use ($teacher, $class) {
                 $q->where('institute', $teacher->institute)->where('is_template', false)->whereIn('status', ['active', 'completed'])
                     ->when($class, fn ($q) => $q->where('class', $class->class_name)->where('section', $class->section));
             })
             ->whereIn('status', ['released', 'completed'])
+            ->whereHas('week', function ($q) use ($today, $currentWeekStart, $currentWeekEnd) {
+                $q->where(function ($weekQuery) use ($today) {
+                    $weekQuery->whereDate('week_start_date', '<=', $today)
+                        ->whereDate('week_end_date', '>=', $today);
+                })->orWhere(function ($weekQuery) use ($currentWeekStart, $currentWeekEnd) {
+                    $weekQuery->whereNull('week_start_date')
+                        ->whereNull('week_end_date')
+                        ->whereBetween('release_date', [$currentWeekStart, $currentWeekEnd]);
+                });
+            })
             ->whereHas('content', fn ($q) => $q->where('status', 1))
             ->with(['content.aiSummary', 'content.courseContent.sourceTemplateContent.aiSummary', 'plan', 'week'])
             ->orderBy('teaching_plan_week_id')->orderBy('sort_order')->orderBy('id')->paginate(30);
 
         return response()->json([
-            'pagination' => ['pending_sessions' => $this->pageMetadata($pendingPage), 'learning_content' => $this->pageMetadata($contentPage)],
+            'pagination' => [
+                'pending_sessions' => $this->pageMetadata($pendingPage),
+                'today_sessions' => $this->pageMetadata($todayPage),
+                'learning_content' => $this->pageMetadata($contentPage),
+            ],
             'my_classes' => SchoolClass::query()
                 ->where('institute', $teacher->institute)
                 ->orderBy('class_name')
@@ -2306,6 +2810,23 @@ class MobileApiController extends Controller
                         'title' => $session->planned_topic ?: 'Session',
                         'subtitle' => trim(($session->class ?? 'Class n/a') . ($session->section ? ' · ' . $session->section : '') . ($session->status ? ' · ' . $session->status : '')),
                         'status' => $session->status,
+                        'can_end' => in_array($session->status, ['in_progress', 'started'], true),
+                    ];
+                })
+                ->values(),
+            'today_sessions' => $todayPage->getCollection()
+                ->map(function (ClassContentSession $session) {
+                    return [
+                        'id' => $session->id,
+                        'session_id' => $session->id,
+                        'item_id' => $session->teaching_plan_item_id,
+                        'content_id' => $session->content_id,
+                        'title' => $session->planned_topic ?: ($session->content?->content_title ?: 'Session'),
+                        'subtitle' => trim(($session->class ?? 'Class n/a') . ($session->section ? ' · ' . $session->section : '') . ($session->status ? ' · ' . $session->status : '')),
+                        'status' => $session->status,
+                        'session_date' => $session->session_date,
+                        'start_time' => $session->start_time,
+                        'end_time' => $session->end_time,
                         'can_end' => in_array($session->status, ['in_progress', 'started'], true),
                     ];
                 })
@@ -2701,17 +3222,21 @@ class MobileApiController extends Controller
                 ->orderBy('course_id')
                 ->orderBy('lesson_order')
                 ->get()
-                ->map(function (Content $content) use ($completedIds, $unlockedIds) {
+                ->map(function (Content $content) use ($account, $completedIds, $unlockedIds) {
                     $locked = !$unlockedIds->contains((int) $content->id);
-                    $summary = $locked ? null : $content->effective_ai_summary;
+                    $requiresAiQuiz = !$locked
+                        && $this->studentContentRequiresAiReview($account, $content)
+                        && $this->lessonNeedsAiReview($content, $account->id);
+
                     return [
                         'id' => $content->id,
                         'content_id' => $content->id,
                         'title' => $content->content_title ?: 'Lesson',
                         'status' => $locked ? 'Locked' : ($completedIds->contains((int) $content->id) ? 'Completed' : 'Available'),
                         'summary' => trim(($content->course?->course_title ?? 'Course') . ' · ' . ($content->description ?: 'Learning content')),
-                        'ai_summary' => $summary && $summary->status === 'generated' ? $summary->summary : null,
-                        'has_ai_summary' => (bool) ($summary && $summary->status === 'generated'),
+                        'requires_ai_quiz' => $requiresAiQuiz,
+                        'ai_summary' => null,
+                        'has_ai_summary' => false,
                     ];
                 });
         } elseif ($role === 'STEM Engineer') {
@@ -2925,6 +3450,106 @@ class MobileApiController extends Controller
         ]);
     }
 
+    public function studentComponentMastery(Request $request)
+    {
+        $student = $request->user();
+        abort_unless($student instanceof Student, 403, 'Student access is required.');
+
+        $passedContentIds = AiQuizAttempt::query()
+            ->where('student_id', $student->id)
+            ->where('attempt_type', self::AI_STUDENT_ATTEMPT_TYPE)
+            ->where('status', 'passed')
+            ->whereNotNull('content_id')
+            ->pluck('content_id')
+            ->unique();
+
+        $offers = AiComponentContentProfile::query()
+            ->where('is_practical', true)
+            ->whereIn('content_id', $passedContentIds)
+            ->get()
+            ->groupBy('component_key')
+            ->map(function (Collection $profiles, string $componentKey) {
+                return [
+                    'component_key' => $componentKey,
+                    'component_label' => $profiles->first()->component_label,
+                    'completed_practical_topics' => $profiles->pluck('content_id')->unique()->count(),
+                    'content_ids' => $profiles->pluck('content_id')->unique()->values()->all(),
+                ];
+            })
+            ->filter(fn (array $offer) => $offer['completed_practical_topics'] >= 5)
+            ->values();
+
+        $keys = $offers->pluck('component_key');
+        $assessments = Assessment::query()
+            ->where('institute', $student->institute)
+            ->where('assessment_category', 'Component Mastery')
+            ->whereIn('component_key', $keys)
+            ->where('status', 1)
+            ->where('question_paper_status', 'Approved')
+            ->latest()
+            ->get()
+            ->unique('component_key')
+            ->keyBy('component_key');
+
+        $results = AssessmentResult::query()
+            ->where('student_id', $student->id)
+            ->whereIn('assessment_id', $assessments->pluck('id'))
+            ->latest()
+            ->get()
+            ->keyBy('assessment_id');
+
+        return response()->json([
+            'assessments' => $offers->map(function (array $offer) use ($assessments, $results) {
+                $assessment = $assessments->get($offer['component_key']);
+                $result = $assessment ? $results->get($assessment->id) : null;
+
+                return [
+                    'component_key' => $offer['component_key'],
+                    'component_label' => $offer['component_label'],
+                    'completed_practical_topics' => $offer['completed_practical_topics'],
+                    'assessment_id' => $assessment?->id,
+                    'assessment_title' => $assessment?->assessment_title,
+                    'status' => $result
+                        ? ($result->status === 'Completed'
+                            ? ($result->passed ? 'Certificate pending approval' : 'Completed - score below certification grade')
+                            : 'Pending AI evaluation')
+                        : ($assessment ? 'Ready to take' : 'Eligible - assessment not prepared'),
+                    'can_take' => (bool) $assessment && !$result,
+                ];
+            })->values(),
+        ]);
+    }
+
+    public function generateStudentComponentMastery(Request $request, string $componentKey, GeminiAiService $ai)
+    {
+        $student = $request->user();
+        abort_unless($student instanceof Student, 403, 'Student access is required.');
+
+        $response = app(\App\Http\Controllers\PageController::class)
+            ->generateStudentComponentAssessment($request, $componentKey, $ai, $student);
+
+        if ($response instanceof \Illuminate\Http\RedirectResponse) {
+            $error = $response->getSession()?->get('error');
+            if ($error) {
+                return response()->json(['success' => false, 'message' => $error], 422);
+            }
+        }
+
+        $assessment = Assessment::query()
+            ->where('institute', $student->institute)
+            ->where('assessment_category', 'Component Mastery')
+            ->where('component_key', $componentKey)
+            ->where('assigned_class', $this->studentClassName($student))
+            ->latest()
+            ->first();
+
+        return response()->json([
+            'success' => (bool) $assessment,
+            'assessment_id' => $assessment?->id,
+            'message' => $assessment ? 'Component mastery assessment is ready.' : 'The assessment could not be prepared right now.',
+        ], $assessment ? 200 : 503);
+    }
+
     public function completeStudentLesson(Request $request, int $contentId)
     {
         $student = $request->user();
@@ -2955,8 +3580,9 @@ class MobileApiController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Lesson is ready for AI review.',
+                'message' => 'Lesson is ready for the AI quiz.',
                 'requires_ai_review' => true,
+                'requires_ai_quiz' => true,
                 'content_id' => $content->id,
             ]);
         }
@@ -2976,6 +3602,7 @@ class MobileApiController extends Controller
             'success' => true,
             'message' => 'Lesson marked as completed.',
             'requires_ai_review' => false,
+            'requires_ai_quiz' => false,
             'content_id' => $content->id,
         ]);
     }
@@ -3011,7 +3638,7 @@ class MobileApiController extends Controller
 
         $summary = $this->generatedAiSummaryForContentRecord($content);
         if (!$summary) {
-            abort(409, 'AI review is not available for this content yet.');
+            abort(409, 'AI quiz is not available for this content yet.');
         }
 
         $gradeLevel = $this->studentGradeName($student);
@@ -3028,8 +3655,8 @@ class MobileApiController extends Controller
                 'id' => $content->id,
                 'title' => $content->content_title,
                 'summary' => trim(($content->course?->course_title ?? 'Course') . ' · ' . ($content->description ?: 'Learning content')),
-                'ai_summary' => $summary->summary,
-                'has_ai_summary' => true,
+                'ai_summary' => null,
+                'has_ai_summary' => false,
             ],
             'quiz' => [
                 'id' => $quiz->id,
@@ -3084,7 +3711,7 @@ class MobileApiController extends Controller
 
         $summary = $this->generatedAiSummaryForContentRecord($content);
         if (!$summary) {
-            abort(409, 'AI review is not available for this content yet.');
+            abort(409, 'AI quiz is not available for this content yet.');
         }
 
         $gradeLevel = $this->studentGradeName($student);
@@ -3113,7 +3740,7 @@ class MobileApiController extends Controller
             ->map(fn ($answer) => trim((string) $answer));
 
         if ($answers->filter()->isEmpty()) {
-            abort(422, 'Please answer at least one question before submitting the AI review.');
+            abort(422, 'Please answer at least one question before submitting the AI quiz.');
         }
 
         $attempt = AiQuizAttempt::create([
@@ -3175,8 +3802,8 @@ class MobileApiController extends Controller
         return response()->json([
             'success' => true,
             'message' => $status === 'passed'
-                ? 'AI review passed. Lesson marked as completed.'
-                : 'AI review score is below ' . $passingPercentage . '%. Please review the content and try again.',
+                ? 'AI quiz passed. Lesson marked as completed.'
+                : 'AI quiz score is below ' . $passingPercentage . '%. Please review the content and try again.',
             'status' => $status,
             'percentage' => $percentage,
             'score' => $evaluation['score'] ?? null,
@@ -3368,6 +3995,14 @@ class MobileApiController extends Controller
             403,
             'Admin access is required.'
         );
+
+        return $account;
+    }
+
+    private function requireRole(Request $request, array $roles): User
+    {
+        $account = $request->user();
+        abort_unless($account instanceof User && in_array($account->role, $roles, true), 403, 'This account cannot access the requested workspace.');
 
         return $account;
     }
@@ -3681,7 +4316,7 @@ class MobileApiController extends Controller
             [
                 'provider' => $summary->provider,
                 'model' => $summary->model,
-                'title' => ($audience == 'teacher' ? 'AI Prep - ' : 'AI Review - ') . ($gradeLevel ? $gradeLevel . ' - ' : '') . $quizContent->content_title,
+                'title' => ($audience == 'teacher' ? 'AI Prep - ' : 'AI Quiz - ') . ($gradeLevel ? $gradeLevel . ' - ' : '') . $quizContent->content_title,
                 'instructions' => $audience == 'teacher'
                     ? 'Answer these prep questions before teaching this lesson.'
                     : 'Answer these questions after reviewing the completed lesson.',
@@ -3941,6 +4576,26 @@ class MobileApiController extends Controller
         }
     }
 
+    private function phoneHint(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', $phone);
+        if (strlen($digits) <= 4) {
+            return '****';
+        }
+
+        return str_repeat('*', max(0, strlen($digits) - 4)) . substr($digits, -4);
+    }
+
+    private function emailHint(string $email): string
+    {
+        [$local, $domain] = array_pad(explode('@', $email, 2), 2, '');
+        if ($local === '' || $domain === '') {
+            return 'your registered guardian email';
+        }
+
+        return substr($local, 0, 1) . str_repeat('*', max(1, strlen($local) - 2)) . substr($local, -1) . '@' . $domain;
+    }
+
     private function resolveAccount(string $email, string $password, string $role): ?array
     {
         if ($role === 'Hybrid Learner') {
@@ -3986,6 +4641,30 @@ class MobileApiController extends Controller
                 $student->profile_image ?? null,
                 $student->id,
                 $student->name,
+            ];
+        }
+
+        if (in_array($role, ['Manager', 'Principal'], true)) {
+            $user = User::query()
+                ->where('email', $email)
+                ->where('role', $role)
+                ->where('status', 1)
+                ->get()
+                ->first(function (User $user) use ($password) {
+                    return $this->passwordMatches($password, (string) $user->password);
+                });
+
+            if (!$user) {
+                return null;
+            }
+
+            return [
+                $user,
+                $role,
+                $user->institute,
+                $user->profile_image ?? null,
+                $user->id,
+                $user->name,
             ];
         }
 
@@ -4054,7 +4733,7 @@ class MobileApiController extends Controller
         if ($account instanceof User) {
             return in_array($account->role, ['Teacher', 'STEM Engineer'], true)
                 ? 'STEM Engineer'
-                : ($account->role === 'InstituteAdmin' ? 'InstituteAdmin' : 'Admin');
+                : ($account->role === 'InstituteAdmin' ? 'InstituteAdmin' : $account->role);
         }
 
         return 'User';
@@ -4189,6 +4868,18 @@ class MobileApiController extends Controller
                     ['label' => 'Classes', 'value' => (string) SchoolClass::count()],
                     ['label' => 'Teachers', 'value' => (string) User::whereIn('role', ['Teacher', 'STEM Engineer'])->count()],
                     ['label' => 'Assessments', 'value' => (string) Assessment::count()],
+                ],
+            ];
+        }
+
+        if (in_array($role, ['Manager', 'Principal'], true)) {
+            return [
+                'headline' => $role . ' reporting workspace',
+                'description' => $role === 'Principal' ? ($account->institute ?: 'Assigned institute') : 'All institutions',
+                'metrics' => [
+                    ['label' => 'Session reports', 'value' => 'Daily / Weekly / Monthly'],
+                    ['label' => $role === 'Manager' ? 'Engineer performance' : 'Student performance', 'value' => 'Available'],
+                    ['label' => 'AI report PDFs', 'value' => 'Available'],
                 ],
             ];
         }
@@ -4394,7 +5085,9 @@ class MobileApiController extends Controller
         return [
             'daily-session',
             'weekly-session',
+            'monthly-session',
             'student-ai-review',
+            'daily-student-performance',
             'weekly-student-performance',
             'monthly-student-performance',
             'stem-engineer-prep',

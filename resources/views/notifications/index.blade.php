@@ -85,7 +85,7 @@
                             </select>
                         </div>
 
-                        @if(session('user_role') == 'Admin')
+                        @if(in_array(session('user_role'), ['Admin', 'Manager'], true))
                             <div class="col-md-4">
                                 <label class="form-label">Institute</label>
                                 <select name="institute" class="form-select">

@@ -11,6 +11,8 @@ class LmsNotification extends Model
         'message',
         'target',
         'institute',
+        'student_id',
+        'component_key',
         'notification_type',
         'starts_at',
         'expires_at',

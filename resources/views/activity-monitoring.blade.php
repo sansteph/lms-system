@@ -14,46 +14,55 @@
                 </p>
             </div>
 
-            @include('partials.section-navigator', [
-                'sectionPager' => $sectionPager,
-                'sectionDescription' => 'Learning content access is shown one institute at a time for faster monitoring.'
-            ])
-
-            <form method="GET" class="mb-4">
-                <input type="hidden" name="section_page" value="{{ request('section_page', 1) }}">
-
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-3">
-                        <label class="form-label fw-semibold">Access Date</label>
-                        <input type="date"
-                               name="date"
-                               value="{{ request('date') }}"
-                               class="form-control">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body lms-report-filter-card">
+                    <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+                        <div>
+                            <h5 class="mb-1">Monitoring Filters</h5>
+                            <p class="text-muted mb-0">Narrow learning activity by institute, date, and viewer type.</p>
+                        </div>
+                        <span class="badge bg-light text-dark border">Learning Content</span>
                     </div>
 
-                    <div class="col-md-3">
-                        <label class="form-label fw-semibold">Viewer Type</label>
-                        <select name="viewer_type" class="form-select">
-                            <option value="">All Viewers</option>
-                            <option value="Teacher" @selected($viewerType === 'Teacher')>STEM Engineers</option>
-                            <option value="Student" @selected($viewerType === 'Student')>Students</option>
-                        </select>
-                    </div>
+                    <form method="GET">
+                        <div class="lms-report-filter-grid">
+                            @if(session('user_role') == 'Admin')
+                                <div class="lms-monitor-filter-item">
+                                    <label class="form-label">Institute</label>
+                                    <select name="institute" class="form-select">
+                                        <option value="">All Institutes</option>
+                                        @foreach($instituteOptions as $institute)
+                                            <option value="{{ $institute }}" @selected(($selectedInstitute ?? '') === $institute)>{{ $institute }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @endif
 
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary w-100">
-                            Apply Filter
-                        </button>
-                    </div>
+                            <div class="lms-monitor-filter-item">
+                                <label class="form-label">Access Date</label>
+                                <input type="date" name="date" value="{{ request('date') }}" class="form-control">
+                            </div>
 
-                    <div class="col-md-2">
-                        <a href="{{ route('admin.activity.monitoring', ['section_page' => request('section_page', 1)]) }}"
-                           class="btn btn-outline-secondary w-100">
-                            Reset
-                        </a>
-                    </div>
+                            <div class="lms-monitor-filter-item">
+                                <label class="form-label">Viewer Type</label>
+                                <select name="viewer_type" class="form-select">
+                                    <option value="">All Viewers</option>
+                                    <option value="Teacher" @selected($viewerType === 'Teacher')>STEM Engineers</option>
+                                    <option value="Student" @selected($viewerType === 'Student')>Students</option>
+                                </select>
+                            </div>
+
+                            <div class="lms-report-action-group lms-monitor-action-group">
+                                <button type="submit" class="btn btn-primary lms-report-action-button">Apply Filters</button>
+                                <a href="{{ route('admin.activity.monitoring') }}"
+                                   class="btn btn-outline-secondary lms-report-action-button">
+                                    Clear
+                                </a>
+                            </div>
+                        </div>
+                    </form>
                 </div>
-            </form>
+            </div>
 
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
@@ -92,8 +101,8 @@
                             <h5 class="mb-4">Top Content Viewers</h5>
 
                             <div class="table-responsive">
-                                <table class="table table-bordered table-hover align-middle">
-                                    <thead>
+                                <table class="table table-bordered table-hover align-middle lms-monitor-table">
+                                    <thead class="table-light">
                                         <tr>
                                             <th>User</th>
                                             <th>Role</th>
@@ -134,8 +143,8 @@
                     <h5 class="mb-4">Learning Content Access Log</h5>
 
                     <div class="table-responsive">
-                        <table class="table table-bordered table-hover align-middle">
-                            <thead>
+                        <table class="table table-bordered table-hover align-middle lms-monitor-table">
+                            <thead class="table-light">
                                 <tr>
                                     <th>User</th>
                                     <th>Role</th>
@@ -150,15 +159,24 @@
                                 @forelse($contentLogs as $log)
                                     @php
                                         $person = $log->user_type == 'Teacher' ? $log->teacher : $log->student;
+                                        $contentContext = ($contentContextByLogId ?? collect())->get($log->id, []);
                                         $classLabel = $log->user_type == 'Student'
                                             ? trim(($person->class ?? '') . ' ' . ($person->section ?? ''))
-                                            : 'N/A';
+                                            : trim((string) ($contentContext['class_label'] ?? ''));
+
+                                        if ($classLabel === '' && $log->user_type == 'Teacher') {
+                                            $classLabel = ($teacherClassLabelsById ?? collect())->get($log->user_id, '');
+                                        }
+
+                                        if ($classLabel === '') {
+                                            $classLabel = 'Unassigned Class';
+                                        }
                                     @endphp
 
                                     <tr>
                                         <td>{{ $person->name ?? ($log->user_type == 'Teacher' ? 'STEM Engineer Deleted' : 'Student Deleted') }}</td>
                                         <td>{{ $log->user_type == 'Teacher' ? 'STEM Engineer' : 'Student' }}</td>
-                                        <td>{{ $classLabel ?: 'N/A' }}</td>
+                                        <td>{{ $classLabel }}</td>
                                         <td>
                                             @if($log->route_name == 'content.preview')
                                                 Secure Preview

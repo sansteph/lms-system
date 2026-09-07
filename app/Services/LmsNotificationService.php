@@ -166,8 +166,17 @@ class LmsNotificationService
         $deliveries = $teacher ? $this->reserveTeacherLoginNotifications($account) : [];
         $audience = $teacher ? 'teachers' : 'students';
         $today = now()->toDateString();
-        return LmsNotification::where('status', 'active')->whereIn('target', ['all', $audience])
-            ->where(fn ($q) => $q->whereNull('institute')->when($account->institute, fn ($q) => $q->orWhere('institute', $account->institute)))
+        return LmsNotification::where('status', 'active')
+            ->where(function ($q) use ($audience, $account) {
+                $q->where(function ($regular) use ($audience, $account) {
+                    $regular->whereIn('target', ['all', $audience])
+                        ->where(fn ($scope) => $scope->whereNull('institute')->when($account->institute, fn ($scope) => $scope->orWhere('institute', $account->institute)));
+                });
+
+                if (!$account instanceof User && $audience === 'students') {
+                    $q->orWhere('student_id', $account->id);
+                }
+            })
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhereDate('starts_at', '<=', $today))
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhereDate('expires_at', '>=', $today))
             ->when($teacher, fn ($q) => $q->where(fn ($q) => $q->whereNull('notification_type')

@@ -10,6 +10,7 @@ class Assessment extends Model
     protected $casts = [
         'ai_generated' => 'boolean',
         'ai_source_content_ids' => 'array',
+        'certificate_eligible' => 'boolean',
     ];
 
     public function results()
@@ -40,6 +41,9 @@ class Assessment extends Model
         'assessment_type',
         'assigned_class',
         'assessment_category',
+        'component_key',
+        'component_label',
+        'certificate_eligible',
         'assessment_date',
         'start_time',
         'end_time',

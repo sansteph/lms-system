@@ -269,7 +269,7 @@
 </div>
 
 <div class="modal fade" id="createAssessmentModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <form method="POST" action="{{ route('teacher.assessments.store') }}" enctype="multipart/form-data">
                 @csrf
@@ -299,7 +299,7 @@
 
 @foreach($assessments as $assessment)
 <div class="modal fade" id="editAssessmentModal{{ $assessment->id }}" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <form method="POST" action="{{ route('teacher.assessments.update', $assessment->id) }}" enctype="multipart/form-data">
                 @csrf

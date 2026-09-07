@@ -34,7 +34,7 @@
             <i class="fa fa-user-check"></i>
 
             <span>
-                Access restricted to approved students and STEM Engineers.
+                Access restricted to approved students, STEM Engineers, and principals.
             </span>
 
         </div>
@@ -71,6 +71,20 @@
                 <div>
                     <h5>Student Login</h5>
                     <p>Access learning dashboard</p>
+                </div>
+
+            </a>
+
+            <a href="{{ route('admin.login', ['portal' => 'principal']) }}"
+               class="portal-role-card principal-card">
+
+                <div class="portal-role-icon">
+                    <i class="fa fa-user-tie"></i>
+                </div>
+
+                <div>
+                    <h5>Principal Login</h5>
+                    <p>Review institute reports</p>
                 </div>
 
             </a>

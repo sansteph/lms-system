@@ -102,6 +102,71 @@ class GeminiAiService
         ];
     }
 
+    public function classifyComponentContent(array $items): array
+    {
+        $apiKey = config('ai.gemini.api_key');
+        $model = config('ai.gemini.model');
+
+        if (blank($apiKey)) {
+            throw new RuntimeException('Gemini API key is missing. Add GEMINI_API_KEY to the .env file.');
+        }
+
+        $prompt = $this->componentClassificationPrompt($items);
+        $responseText = $this->generateText($model, $prompt);
+        $payload = $this->decodeJsonResponse($responseText);
+
+        return [
+            'items' => $payload['items'] ?? [],
+            'model' => $model,
+        ];
+    }
+
+    public function generateComponentMasteryQuestionPaper(array $context): array
+    {
+        $apiKey = config('ai.gemini.api_key');
+        $model = config('ai.gemini.model');
+
+        if (blank($apiKey)) {
+            throw new RuntimeException('Gemini API key is missing. Add GEMINI_API_KEY to the .env file.');
+        }
+
+        $prompt = $this->componentMasteryQuestionPaperPrompt($context);
+        $responseText = $this->generateText($model, $prompt);
+        $payload = $this->decodeJsonResponse($responseText);
+
+        return [
+            'title' => $payload['title'] ?? ($context['assessment_title'] ?? 'Component Mastery Assessment'),
+            'instructions' => $payload['instructions'] ?? [],
+            'sections' => $payload['sections'] ?? [],
+            'blueprint' => $payload['blueprint'] ?? [],
+            'model' => $model,
+        ];
+    }
+
+    public function evaluateComponentMasteryAssessment(array $context): array
+    {
+        $apiKey = config('ai.gemini.api_key');
+        $model = config('ai.gemini.model');
+
+        if (blank($apiKey)) {
+            throw new RuntimeException('Gemini API key is missing. Add GEMINI_API_KEY to the .env file.');
+        }
+
+        $prompt = $this->componentMasteryEvaluationPrompt($context);
+        $responseText = $this->generateText($model, $prompt);
+        $payload = $this->decodeJsonResponse($responseText);
+
+        return [
+            'score' => max(0, (float) ($payload['score'] ?? 0)),
+            'total_marks' => max(1, (float) ($payload['total_marks'] ?? ($context['total_marks'] ?? 1))),
+            'percentage' => max(0, min(100, (float) ($payload['percentage'] ?? 0))),
+            'passed' => (bool) ($payload['passed'] ?? false),
+            'feedback' => $payload['feedback'] ?? 'AI evaluation completed.',
+            'answer_feedback' => $payload['answer_feedback'] ?? [],
+            'model' => $model,
+        ];
+    }
+
     public function answerChatQuestion(string $question, array $contextItems, string $audienceLabel): array
     {
         $apiKey = config('ai.gemini.api_key');
@@ -387,6 +452,127 @@ Rules:
 - Keep questions clear for the class level.
 - expected_points are for evaluator reference only.
 - If source content is limited, create fewer high-quality questions but still match total marks.
+PROMPT;
+    }
+
+    private function componentClassificationPrompt(array $items): string
+    {
+        $payload = json_encode($items, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        return <<<PROMPT
+You are classifying InnovatEdge STEM lesson content by the dominant practical component or technology family.
+
+Content items:
+{$payload}
+
+Return only valid JSON with this exact structure:
+{
+  "items": [
+    {
+      "content_id": 1,
+      "component_key": "arduino",
+      "component_label": "Arduino",
+      "is_practical": true,
+      "confidence": 90,
+      "evidence": ["short phrase from title/summary proving the classification"]
+    }
+  ]
+}
+
+Rules:
+- Classify each item into one dominant component family such as Arduino, Sensors, Microcontrollers, Microprocessors, Motors, Robotics, IoT, Electronics, Coding, AI, or Design Thinking.
+- component_key must be lowercase slug text, for example arduino, sensors, microcontrollers.
+- is_practical should be true only for hands-on projects, experiments, builds, lab activities, circuits, coding tasks, or hardware work.
+- confidence must be 0 to 100.
+- Use only supplied titles, summaries, key points, and extracted text snippets.
+- Do not invent components that are not supported by the supplied item.
+- If unsure, use "general-stem" / "General STEM" with lower confidence.
+PROMPT;
+    }
+
+    private function componentMasteryQuestionPaperPrompt(array $context): string
+    {
+        $maxChars = (int) config('ai.content.max_summary_input_chars', 24000);
+        $context['content_text'] = mb_substr((string) ($context['content_text'] ?? ''), 0, $maxChars);
+        $payload = json_encode($context, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        return <<<PROMPT
+You are creating a rigorous component mastery assessment for InnovatEdge LMS.
+
+Assessment request and source content:
+{$payload}
+
+Return only valid JSON with this exact structure:
+{
+  "title": "Question paper title",
+  "instructions": ["Instruction 1", "Instruction 2"],
+  "blueprint": [
+    {
+      "topic": "Topic name",
+      "marks": 10,
+      "difficulty": "Easy/Medium/Hard",
+      "reason": "Why this topic is included"
+    }
+  ],
+  "sections": [
+    {
+      "heading": "Section A",
+      "description": "Conceptual, practical, troubleshooting, and design questions",
+      "questions": [
+        {
+          "number": 1,
+          "question": "Question text",
+          "marks": 5,
+          "difficulty": "Medium",
+          "expected_points": ["Point 1", "Point 2"]
+        }
+      ]
+    }
+  ]
+}
+
+Rules:
+- This is a proper certificate-eligible assessment, not a prep quiz.
+- Use only the supplied completed practical lesson content.
+- Do not create MCQs.
+- Total marks across all questions must equal requested total_marks.
+- Include conceptual understanding, wiring/build logic, code reasoning, debugging/troubleshooting, safety, and mini project design questions where supported by the source content.
+- Questions must test mastery across at least 5 completed practical experiments for the component.
+- Keep questions clear for the student's class level.
+- expected_points are for evaluator reference only.
+PROMPT;
+    }
+
+    private function componentMasteryEvaluationPrompt(array $context): string
+    {
+        $payload = json_encode($context, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        return <<<PROMPT
+You are the evaluator for a rigorous, certificate-eligible InnovatEdge Component Mastery assessment.
+
+Assessment and submission data:
+{$payload}
+
+Return only valid JSON with this exact structure:
+{
+  "score": 0,
+  "total_marks": 50,
+  "percentage": 0,
+  "passed": false,
+  "feedback": "Concise overall feedback",
+  "answer_feedback": [
+    {"question_number": 1, "marks_awarded": 0, "feedback": "Specific feedback"}
+  ]
+}
+
+Rules:
+- Evaluate against the supplied expected_points, marks, source content, and the student's answer.
+- Reward correct reasoning, practical wiring/build logic, code reasoning, troubleshooting, safety, and design decisions.
+- Do not award marks for unsupported claims or copied filler.
+- The certification pass threshold is 40 percent or higher.
+- total_marks must match the assessment total marks.
+- percentage must be score divided by total_marks multiplied by 100.
+- Keep feedback specific and constructive.
 PROMPT;
     }
 

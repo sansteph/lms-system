@@ -506,7 +506,7 @@
                                 <span class="student-dashboard-action-icon"><i class="fa-solid fa-book-open"></i></span>
                                 <span>
                                     <strong>Learning Content</strong>
-                                    <small>Open released lessons and AI reviews.</small>
+                                    <small>Open released lessons and quizzes.</small>
                                 </span>
                                 <i class="fa-solid fa-chevron-right student-dashboard-action-arrow"></i>
                             </a>

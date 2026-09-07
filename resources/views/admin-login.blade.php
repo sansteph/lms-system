@@ -2,6 +2,19 @@
 
 @section('content')
 
+@php
+    $portalRole = $portalRole ?? request('portal');
+    $isPrincipalPortal = $portalRole === 'principal';
+    $accessLabel = $isPrincipalPortal ? 'Principal Access Portal' : 'Admin Access Portal';
+    $badgeLabel = $isPrincipalPortal ? 'INSTITUTE REPORTING' : 'SYSTEM ADMINISTRATION';
+    $subtitle = $isPrincipalPortal
+        ? 'Sign in securely to review your institute sessions and student performance reports.'
+        : 'Sign in securely to manage institutions, learners, analytics and LMS operations.';
+    $emailPlaceholder = $isPrincipalPortal ? 'Enter principal email' : 'Enter admin email';
+    $buttonLabel = $isPrincipalPortal ? 'Login to Principal Panel' : 'Login to Admin Panel';
+    $iconClass = $isPrincipalPortal ? 'fa-user-tie' : 'fa-user-shield';
+@endphp
+
 <div class="auth-page admin-auth-page">
 
     <div class="auth-bg-glow glow-1"></div>
@@ -12,18 +25,18 @@
         <div class="auth-logo">
 
             <div class="auth-logo-icon">
-                <i class="fa fa-user-shield"></i>
+                <i class="fa {{ $iconClass }}"></i>
             </div>
 
             <div>
                 <h5>InnovatEdge</h5>
-                <span>Admin Access Portal</span>
+                <span>{{ $accessLabel }}</span>
             </div>
 
         </div>
 
         <div class="auth-badge">
-            SYSTEM ADMINISTRATION
+            {{ $badgeLabel }}
         </div>
 
         <h1 class="auth-title">
@@ -31,8 +44,7 @@
         </h1>
 
         <p class="auth-subtitle">
-            Sign in securely to manage institutions,
-            learners, analytics and LMS operations.
+            {{ $subtitle }}
         </p>
 
         @if(session('success'))
@@ -71,7 +83,7 @@
                     <input type="email"
                            name="email"
                            class="form-control auth-input"
-                           placeholder="Enter admin email"
+                           placeholder="{{ $emailPlaceholder }}"
                            required>
 
                 </div>
@@ -111,7 +123,7 @@
 
                 <i class="fa fa-right-to-bracket"></i>
 
-                Login to Admin Panel
+                {{ $buttonLabel }}
 
             </button>
 

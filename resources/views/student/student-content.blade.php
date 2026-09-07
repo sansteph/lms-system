@@ -287,29 +287,14 @@
 
                                     @elseif($completed)
 
-                                        @if($aiReviewRequired && $aiReviewCleared)
+                                        <button class="btn btn-success w-100"
+                                                disabled>
 
-                                            <a href="{{ route('student.content.ai-review', $content->id) }}"
-                                               class="btn btn-outline-primary w-100">
+                                            <i class="fa fa-check-circle me-2"></i>
 
-                                                <i class="fa fa-brain me-2"></i>
+                                            Lesson Completed
 
-                                                AI Summary
-
-                                            </a>
-
-                                        @else
-
-                                            <button class="btn btn-success w-100"
-                                                    disabled>
-
-                                                <i class="fa fa-check-circle me-2"></i>
-
-                                                Lesson Completed
-
-                                            </button>
-
-                                        @endif
+                                        </button>
 
                                     @else
 

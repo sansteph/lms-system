@@ -127,7 +127,11 @@
     @endforeach
 
     <div class="footer-note">
-        AI-generated draft question paper. Admin approval is required before student access.
+        @if(($meta['assessment_category'] ?? '') === 'Component Mastery')
+            AI-generated component mastery question paper based on completed practical learning content.
+        @else
+            AI-generated draft question paper. Admin approval is required before student access.
+        @endif
     </div>
 </body>
 </html>

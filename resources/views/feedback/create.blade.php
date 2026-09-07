@@ -6,8 +6,10 @@
     <div class="row">
         @if($audience === 'teacher')
             @include('layouts.teacher-sidebar')
-        @else
+        @elseif($audience === 'student')
             @include('layouts.student-sidebar')
+        @else
+            @include('layouts.sidebar')
         @endif
 
         <div class="col-md-10 col-lg-10 p-4">

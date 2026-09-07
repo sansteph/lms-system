@@ -16,6 +16,18 @@ class AiChatController extends Controller
 {
     public function ask(Request $request, GeminiAiService $geminiAiService)
     {
+        if (session('student_id')) {
+            $homePath = parse_url(route('home'), PHP_URL_PATH) ?: '/';
+            $refererPath = parse_url((string) $request->headers->get('referer'), PHP_URL_PATH) ?: '';
+            $normalizePath = fn (string $path): string => rtrim($path, '/') ?: '/';
+
+            abort_unless(
+                $normalizePath($refererPath) === $normalizePath($homePath),
+                403,
+                'Students can use the AI chatbot only from the home page.'
+            );
+        }
+
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:1200'],
         ]);
@@ -43,13 +55,11 @@ class AiChatController extends Controller
     private function viewerContext(): array
     {
         if (session('student_id')) {
-            $student = Student::find(session('student_id'));
-
             return [
-                'type' => 'student',
-                'label' => 'Student',
-                'model' => $student,
-                'institute' => $student?->institute,
+                'type' => 'guest',
+                'label' => 'Website Visitor',
+                'model' => null,
+                'institute' => null,
             ];
         }
 

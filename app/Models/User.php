@@ -35,6 +35,7 @@ class User extends Authenticatable
         'phone',
         'institute',
         'password_changed_at',
+        'mfa_enabled',
     ];
 
     /**
@@ -57,6 +58,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'mfa_enabled' => 'boolean',
         ];
     }
 }

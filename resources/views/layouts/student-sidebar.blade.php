@@ -16,6 +16,10 @@
         <i class="fa-solid fa-clipboard-check"></i><span>Take Assessment</span>
     </a>
 
+    <a href="{{ route('student.component-mastery') }}" class="sidebar-link {{ request()->routeIs('student.component-mastery*') ? 'active' : '' }}">
+        <i class="fa-solid fa-microchip"></i><span>Component Mastery</span>
+    </a>
+
     <a href="{{ route('student.history') }}" class="sidebar-link {{ request()->routeIs('student.history') ? 'active' : '' }}">
         <i class="fa-solid fa-clock-rotate-left"></i><span>Assessment History</span>
     </a>

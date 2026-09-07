@@ -12,7 +12,11 @@ class SuperAdminOnly
     {
         if (session('user_role') !== 'Admin') {
 
-            return redirect()->route('admin.dashboard')
+            $fallbackRoute = session('user_role') === 'Manager'
+                ? 'manager.dashboard'
+                : (session('user_role') === 'Principal' ? 'principal.dashboard' : 'admin.dashboard');
+
+            return redirect()->route($fallbackRoute)
                 ->with('error', 'Access denied.');
 
         }

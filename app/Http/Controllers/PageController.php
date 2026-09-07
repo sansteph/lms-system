@@ -15,18 +15,21 @@ use App\Models\StudentAchievement;
 use App\Models\LessonProgress;  
 use App\Models\CertificateVerificationLog;
 use App\Models\AssessmentSession;
+use App\Models\LmsNotification;
 use App\Models\User;
 use App\Models\Course;
 use App\Models\ClassContentSession;
 use App\Models\TeachingPlan;
 use App\Models\TeachingPlanItem;
 use App\Models\AiContentSummary;
+use App\Models\AiComponentContentProfile;
 use App\Models\AiQuiz;
 use App\Models\AiQuizAnswer;
 use App\Models\AiQuizAttempt;
 use App\Models\AiQuizQuestion;
 use App\Services\TeachingPlanReleaseService;
 use App\Services\Ai\GeminiAiService;
+use App\Services\FirebasePushService;
 use App\Support\BuildsInstituteSectionPager;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\ClassTimetable;
@@ -75,11 +78,18 @@ class PageController extends Controller
 
     public function adminLogin()
     {
-        if (session('user_role') == 'Admin') {
-            return redirect()->route('admin.dashboard');
+        if (session('user_role')) {
+            return redirect()->route(match (session('user_role')) {
+                'Manager' => 'manager.dashboard',
+                'Principal' => 'principal.dashboard',
+                'Teacher' => 'teacher.dashboard',
+                default => 'admin.dashboard',
+            });
         }
 
-        return view('admin-login');
+        return view('admin-login', [
+            'portalRole' => request('portal'),
+        ]);
     }
 
     public function teacherLogin()
@@ -172,6 +182,12 @@ class PageController extends Controller
                 'icon' => 'fa-building-columns',
                 'route' => route('institutes'),
             ];
+            $items[] = [
+                'title' => 'Principal Management',
+                'description' => 'Assign one principal account to each institute.',
+                'icon' => 'fa-user-tie',
+                'route' => route('principals'),
+            ];
         }
 
         return view('admin-feature-hub', [
@@ -200,6 +216,12 @@ class PageController extends Controller
                     'route' => route('admin.class-session.report.weekly'),
                 ],
                 [
+                    'title' => 'Monthly Session Report',
+                    'description' => 'Review sessions across a selected month.',
+                    'icon' => 'fa-calendar-days',
+                    'route' => route('admin.class-session.report.monthly'),
+                ],
+                [
                     'title' => 'Weekly Student AI Review',
                     'description' => 'Track weekly student AI review quiz completion, attempts, and pass rates.',
                     'icon' => 'fa-user-graduate',
@@ -210,6 +232,12 @@ class PageController extends Controller
                     'description' => 'Track weekly STEM Engineer AI prep quiz readiness and clearance.',
                     'icon' => 'fa-clipboard-question',
                     'route' => route('reports.stem-engineer-prep'),
+                ],
+                [
+                    'title' => 'Daily Student Performance',
+                    'description' => 'Review student progress for a selected day.',
+                    'icon' => 'fa-chart-simple',
+                    'route' => route('reports.student-performance.daily'),
                 ],
                 [
                     'title' => 'Weekly Student Performance',
@@ -234,6 +262,195 @@ class PageController extends Controller
                     'description' => 'Review STEM Engineer consistency and outcomes by month.',
                     'icon' => 'fa-chart-pie',
                     'route' => route('reports.stem-engineer-performance.monthly'),
+                ],
+            ],
+        ]);
+    }
+
+    public function managerDashboard()
+    {
+        return view('panel-report-summary-dashboard', [
+            'title' => 'Manager Dashboard',
+            'description' => 'Global reporting access across institutions and STEM Engineer performance.',
+            'scopeLabel' => 'All institutions',
+            'summaryItems' => [
+                [
+                    'label' => 'Institution Reports',
+                    'cadence' => 'Daily, Weekly, Monthly',
+                    'coverage' => 'Session execution and institution activity across every institute.',
+                ],
+                [
+                    'title' => 'STEM Engineer Performance',
+                    'label' => 'STEM Engineer Performance',
+                    'cadence' => 'Weekly, Monthly',
+                    'coverage' => 'Teaching consistency, conducted sessions, hours, and prep readiness.',
+                ],
+            ],
+            'notes' => [
+                'AI report PDFs are available inside the Reports section.',
+                'Approvals, notifications, feedback, and password changes remain available from the sidebar.',
+            ],
+            'quickActions' => [
+                [
+                    'label' => 'Open Reports',
+                    'icon' => 'fa-chart-line',
+                    'route' => route('manager.reports.hub'),
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'AI PDFs',
+                    'icon' => 'fa-file-pdf',
+                    'route' => route('manager.reports.student-performance.weekly'),
+                    'tone' => 'success',
+                ],
+                [
+                    'label' => 'Approvals',
+                    'icon' => 'fa-circle-check',
+                    'route' => route('admin.approvals'),
+                    'tone' => 'warning',
+                ],
+                [
+                    'label' => 'Feedback',
+                    'icon' => 'fa-comment-dots',
+                    'route' => route('manager.feedback'),
+                    'tone' => 'info',
+                ],
+            ],
+        ]);
+    }
+
+    public function managerReportsHub()
+    {
+        return view('admin-feature-hub', [
+            'title' => 'Manager Reports',
+            'description' => 'Generate institution-wide reports and AI downloadable PDFs.',
+            'items' => [
+                [
+                    'title' => 'Daily Institution Report',
+                    'description' => 'Review all institution sessions for a selected day.',
+                    'icon' => 'fa-calendar-day',
+                    'route' => route('manager.class-session.report.daily'),
+                ],
+                [
+                    'title' => 'Weekly Institution Report',
+                    'description' => 'Review all institution sessions for a selected week.',
+                    'icon' => 'fa-calendar-week',
+                    'route' => route('manager.class-session.report.weekly'),
+                ],
+                [
+                    'title' => 'Monthly Institution Report',
+                    'description' => 'Review all institution sessions for a selected month.',
+                    'icon' => 'fa-calendar-days',
+                    'route' => route('manager.class-session.report.monthly'),
+                ],
+                [
+                    'title' => 'Weekly STEM Engineer Performance',
+                    'description' => 'Evaluate sessions, hours, and prep readiness weekly.',
+                    'icon' => 'fa-person-chalkboard',
+                    'route' => route('manager.reports.stem-engineer-performance.weekly'),
+                ],
+                [
+                    'title' => 'Monthly STEM Engineer Performance',
+                    'description' => 'Evaluate STEM Engineer consistency monthly.',
+                    'icon' => 'fa-chart-pie',
+                    'route' => route('manager.reports.stem-engineer-performance.monthly'),
+                ],
+            ],
+        ]);
+    }
+
+    public function principalDashboard()
+    {
+        return view('panel-report-summary-dashboard', [
+            'title' => 'Principal Dashboard',
+            'description' => 'Institute-scoped reporting access for sessions and student performance.',
+            'scopeLabel' => session('user_institute') ?: 'Assigned institute',
+            'summaryItems' => [
+                [
+                    'label' => 'Session Reports',
+                    'cadence' => 'Daily, Weekly, Monthly',
+                    'coverage' => 'Session execution and class activity inside the assigned institute.',
+                ],
+                [
+                    'label' => 'Student Performance',
+                    'cadence' => 'Daily, Weekly, Monthly',
+                    'coverage' => 'Student progress, assessment activity, and performance trends for the institute.',
+                ],
+            ],
+            'notes' => [
+                'Report exports are available inside the Reports section.',
+                'Feedback and password changes remain available from the sidebar.',
+            ],
+            'quickActions' => [
+                [
+                    'label' => 'Session Reports',
+                    'icon' => 'fa-calendar-check',
+                    'route' => route('principal.class-session.report.daily'),
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'Student Reports',
+                    'icon' => 'fa-user-graduate',
+                    'route' => route('principal.reports.student-performance.weekly'),
+                    'tone' => 'success',
+                ],
+                [
+                    'label' => 'Feedback',
+                    'icon' => 'fa-comment-dots',
+                    'route' => route('principal.feedback'),
+                    'tone' => 'info',
+                ],
+                [
+                    'label' => 'Password',
+                    'icon' => 'fa-key',
+                    'route' => route('principal.change.password'),
+                    'tone' => 'warning',
+                ],
+            ],
+        ]);
+    }
+
+    public function principalReportsHub()
+    {
+        return view('admin-feature-hub', [
+            'title' => 'Principal Reports',
+            'description' => 'All reports are scoped to your assigned institute.',
+            'items' => [
+                [
+                    'title' => 'Daily Session Report',
+                    'description' => 'Review sessions conducted on one selected date.',
+                    'icon' => 'fa-calendar-day',
+                    'route' => route('principal.class-session.report.daily'),
+                ],
+                [
+                    'title' => 'Weekly Session Report',
+                    'description' => 'Review session execution across a selected week.',
+                    'icon' => 'fa-calendar-week',
+                    'route' => route('principal.class-session.report.weekly'),
+                ],
+                [
+                    'title' => 'Monthly Session Report',
+                    'description' => 'Review session execution across a selected month.',
+                    'icon' => 'fa-calendar-days',
+                    'route' => route('principal.class-session.report.monthly'),
+                ],
+                [
+                    'title' => 'Daily Student Performance',
+                    'description' => 'Review student performance for one selected date.',
+                    'icon' => 'fa-chart-simple',
+                    'route' => route('principal.reports.student-performance.daily'),
+                ],
+                [
+                    'title' => 'Weekly Student Performance',
+                    'description' => 'Review student performance for a selected week.',
+                    'icon' => 'fa-chart-line',
+                    'route' => route('principal.reports.student-performance.weekly'),
+                ],
+                [
+                    'title' => 'Monthly Student Performance',
+                    'description' => 'Review student performance for a selected month.',
+                    'icon' => 'fa-chart-pie',
+                    'route' => route('principal.reports.student-performance.monthly'),
                 ],
             ],
         ]);
@@ -394,6 +611,7 @@ class PageController extends Controller
             'instituteOptions' => $instituteOptions,
             'classOptions' => $classOptions,
             'sectionOptions' => $sectionOptions,
+            'sectionOptionsByInstituteClass' => $this->studentSectionOptionsByInstituteClass($managedInstitute),
         ]);
     }
 
@@ -468,7 +686,54 @@ class PageController extends Controller
             'showFilterPlaceholder' => !$hasFilters,
             'classOptions' => $classOptions,
             'sectionOptions' => $sectionOptions,
+            'sectionOptionsByInstituteClass' => $this->studentSectionOptionsByInstituteClass($teacher->institute),
         ]);
+    }
+
+    private function studentSectionOptionsByInstituteClass(?string $institute = null): array
+    {
+        $options = [];
+
+        SchoolClass::query()
+            ->when($institute, fn ($query) => $query->where('institute', $institute))
+            ->whereNotNull('class_name')
+            ->whereNotNull('section')
+            ->get(['institute', 'class_name', 'section'])
+            ->each(function ($row) use (&$options) {
+                $instituteKey = (string) $row->institute;
+                $classKey = trim((string) $row->class_name);
+                $section = trim((string) $row->section);
+                if ($classKey !== '' && $section !== '') {
+                    $options[$instituteKey][$classKey][] = $section;
+                }
+            });
+
+        Student::query()
+            ->when($institute, fn ($query) => $query->where('institute', $institute))
+            ->whereNotNull('class')
+            ->whereNotNull('section')
+            ->get(['institute', 'class', 'section'])
+            ->each(function ($row) use (&$options) {
+                $instituteKey = (string) $row->institute;
+                $classKey = trim((string) $row->class);
+                $section = trim((string) $row->section);
+                if ($classKey !== '' && $section !== '') {
+                    $options[$instituteKey][$classKey][] = $section;
+                }
+            });
+
+        foreach ($options as $instituteKey => $classes) {
+            foreach ($classes as $classKey => $sections) {
+                $options[$instituteKey][$classKey] = collect($sections)
+                    ->filter()
+                    ->unique()
+                    ->sort()
+                    ->values()
+                    ->all();
+            }
+        }
+
+        return $options;
     }
 
     private function buildStudentClassPager(Request $request, ?string $institute, string $routeName): array
@@ -1223,95 +1488,96 @@ class PageController extends Controller
         $teacher = User::find(session('user_id'));
         $this->autoEndExpiredClassSessions($teacher);
 
-        $today = now()->format('Y-m-d');
+        $today = now()->toDateString();
+        $currentWeekStart = now()->copy()->startOfWeek()->toDateString();
+        $currentWeekEnd = now()->copy()->endOfWeek()->toDateString();
         $classOptions = $this->teacherAssignedClassNames($teacher);
         $selectedClass = $request->input('class');
-        $hasFilters = filled($selectedClass);
 
-        $releasedItems = collect();
-        $teacherPassedPrepKeys = collect();
-        $aiTrainingRequiredItemIds = collect();
-        $sessions = collect();
-        $unfinishedSessions = collect();
-        $activeSessions = collect();
-        $sessionCompletionVideoUrl = null;
+        $releasedItems = TeachingPlanItem::with([
+                'plan',
+                'week',
+                'course',
+                'content.aiSummary',
+                'content.courseContent.sourceTemplateContent.aiSummary',
+                'courseContent',
+            ])
+            ->where('status', 'released')
+            ->whereDoesntHave('sessions', function ($query) {
+                $query->where('status', 'completed');
+            })
+            ->whereNotExists(function ($query) {
+                $query->selectRaw('1')
+                    ->from('class_content_sessions')
+                    ->whereNull('class_content_sessions.teaching_plan_item_id')
+                    ->where('class_content_sessions.status', 'completed')
+                    ->whereColumn('class_content_sessions.teaching_plan_id', 'teaching_plan_items.teaching_plan_id')
+                    ->whereColumn('class_content_sessions.teaching_plan_week_id', 'teaching_plan_items.teaching_plan_week_id')
+                    ->whereColumn('class_content_sessions.content_id', 'teaching_plan_items.content_id');
+            })
+            ->whereHas('week', function ($query) use ($today, $currentWeekStart, $currentWeekEnd) {
+                $query->where(function ($weekQuery) use ($today) {
+                    $weekQuery->whereDate('week_start_date', '<=', $today)
+                        ->whereDate('week_end_date', '>=', $today);
+                })->orWhere(function ($weekQuery) use ($currentWeekStart, $currentWeekEnd) {
+                    $weekQuery->whereNull('week_start_date')
+                        ->whereNull('week_end_date')
+                        ->whereBetween('release_date', [$currentWeekStart, $currentWeekEnd]);
+                });
+            })
+            ->whereHas('plan', function ($query) use ($teacher, $selectedClass) {
+                $query->where('institute', $teacher->institute)
+                    ->where('status', 'active')
+                    ->when($selectedClass, function ($classQuery) use ($selectedClass) {
+                        $classQuery->whereRaw(
+                            "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                            [$selectedClass]
+                        );
+                    });
+            })
+            ->orderBy('sort_order')
+            ->get();
 
-        if ($hasFilters) {
-            $releasedItems = TeachingPlanItem::with([
-                    'plan',
-                    'week',
-                    'course',
-                    'content.aiSummary',
-                    'content.courseContent.sourceTemplateContent.aiSummary',
-                    'courseContent',
-                ])
-                ->where('status', 'released')
-                ->whereDoesntHave('sessions', function ($query) {
-                    $query->where('status', 'completed');
-                })
-                ->whereNotExists(function ($query) {
-                    $query->selectRaw('1')
-                        ->from('class_content_sessions')
-                        ->whereNull('class_content_sessions.teaching_plan_item_id')
-                        ->where('class_content_sessions.status', 'completed')
-                        ->whereColumn('class_content_sessions.teaching_plan_id', 'teaching_plan_items.teaching_plan_id')
-                        ->whereColumn('class_content_sessions.teaching_plan_week_id', 'teaching_plan_items.teaching_plan_week_id')
-                        ->whereColumn('class_content_sessions.content_id', 'teaching_plan_items.content_id');
-                })
-                ->whereHas('plan', function ($query) use ($teacher, $selectedClass) {
-                    $query->where('institute', $teacher->institute)
-                        ->where('status', 'active')
-                        ->when($selectedClass, function ($classQuery) use ($selectedClass) {
-                            $classQuery->whereRaw(
-                                "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                                [$selectedClass]
-                            );
-                        });
-                })
-                ->orderBy('sort_order')
-                ->get();
+        $teacherPassedPrepKeys = $this->teacherPassedPrepKeys($teacher);
 
-            $teacherPassedPrepKeys = $this->teacherPassedPrepKeys($teacher);
+        $aiTrainingRequiredItemIds = $releasedItems
+            ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
+            ->pluck('id')
+            ->unique()
+            ->values();
 
-            $aiTrainingRequiredItemIds = $releasedItems
-                ->filter(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item))
-                ->pluck('id')
-                ->unique()
-                ->values();
+        $sessions = ClassContentSession::with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
+            ->where('stem_engineer_id', $teacher->id)
+            ->where('institute', $teacher->institute)
+            ->whereDate('session_date', $today)
+            ->when($selectedClass, function ($query) use ($selectedClass) {
+                $query->whereRaw(
+                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                    [$selectedClass]
+                );
+            })
+            ->latest()
+            ->get();
 
-            $sessions = ClassContentSession::with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
-                ->where('stem_engineer_id', $teacher->id)
-                ->where('institute', $teacher->institute)
-                ->whereDate('session_date', $today)
-                ->when($selectedClass, function ($query) use ($selectedClass) {
-                    $query->whereRaw(
-                        "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                        [$selectedClass]
-                    );
-                })
-                ->latest()
-                ->get();
+        $unfinishedSessions = ClassContentSession::with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
+            ->where('stem_engineer_id', $teacher->id)
+            ->where('institute', $teacher->institute)
+            ->whereIn('status', ['in_progress', 'partially_completed'])
+            ->when($selectedClass, function ($query) use ($selectedClass) {
+                $query->whereRaw(
+                    "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
+                    [$selectedClass]
+                );
+            })
+            ->orderBy('status')
+            ->latest('session_date')
+            ->latest()
+            ->get();
 
-            $unfinishedSessions = ClassContentSession::with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
-                ->where('stem_engineer_id', $teacher->id)
-                ->where('institute', $teacher->institute)
-                ->whereIn('status', ['in_progress', 'partially_completed'])
-                ->when($selectedClass, function ($query) use ($selectedClass) {
-                    $query->whereRaw(
-                        "REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?",
-                        [$selectedClass]
-                    );
-                })
-                ->orderBy('status')
-                ->latest('session_date')
-                ->latest()
-                ->get();
-
-            $activeSessions = $unfinishedSessions->where('status', 'in_progress');
-            $sessionCompletionVideoUrl = session('sessionCompletionCelebration')
-                ? $this->randomSessionCompletionVideoUrl()
-                : null;
-        }
+        $activeSessions = $unfinishedSessions->where('status', 'in_progress');
+        $sessionCompletionVideoUrl = session('sessionCompletionCelebration')
+            ? $this->randomSessionCompletionVideoUrl()
+            : null;
 
         return view(
             'teacher.my-classes',
@@ -1325,7 +1591,7 @@ class PageController extends Controller
                 'teacherPassedPrepKeys',
                 'aiTrainingRequiredItemIds',
                 'sessionCompletionVideoUrl'
-            ) + ['showFilterPlaceholder' => !$hasFilters]
+            ) + ['showFilterPlaceholder' => false]
         );
     }
 
@@ -2478,6 +2744,66 @@ class PageController extends Controller
             });
 
         if ($student) {
+            if (blank($student->email)) {
+                return redirect()->back()->with('error', 'Student guardian email is not configured. Please contact your institute administrator.');
+            }
+
+            try {
+                $challengeToken = app(\App\Services\MfaChallengeService::class)
+                    ->issue($student, 'email', $request->ip(), $request->userAgent());
+            } catch (\Throwable $exception) {
+                report($exception);
+                return redirect()->back()->with('error', 'Student verification is temporarily unavailable. Please try again later.');
+            }
+
+            session([
+                'student_mfa_challenge_token' => $challengeToken,
+                'student_mfa_pending_id' => $student->id,
+            ]);
+
+            return redirect()->route('student.mfa');
+        }
+
+        return redirect()->back()->with('error', 'Invalid student login details');
+    }
+
+    public function studentMfa()
+    {
+        abort_unless(session('student_mfa_challenge_token') && session('student_mfa_pending_id'), 403);
+
+        $student = Student::findOrFail(session('student_mfa_pending_id'));
+        abort_if(blank($student->email), 403);
+
+        return view('student-mfa', [
+            'student' => $student,
+            'firebaseConfig' => [
+                'apiKey' => config('services.firebase.web_api_key'),
+                'authDomain' => env('FIREBASE_AUTH_DOMAIN'),
+                'projectId' => config('services.firebase.project_id'),
+                'messagingSenderId' => env('FIREBASE_MESSAGING_SENDER_ID'),
+                'appId' => env('FIREBASE_APP_ID'),
+            ],
+        ]);
+    }
+
+    public function verifyStudentMfa(Request $request)
+    {
+        $request->validate(['code' => ['required', 'digits:6']]);
+        $challengeToken = session('student_mfa_challenge_token');
+        $studentId = session('student_mfa_pending_id');
+        abort_unless($challengeToken && $studentId, 403);
+
+        $student = Student::findOrFail($studentId);
+        try {
+            app(\App\Services\MfaChallengeService::class)->verify(
+                $challengeToken,
+                $request->string('code')->toString(),
+                $request->ip(),
+                $request->userAgent(),
+            );
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
 
             session([
                 'student_id' => $student->id,
@@ -2497,13 +2823,12 @@ class PageController extends Controller
                 'tracking_session_id' => $userSession->id
             ]);
 
-            return redirect()->route('student.dashboard');
-        }
+            session()->forget(['student_mfa_challenge_token', 'student_mfa_pending_id']);
 
-        return redirect()->back()->with('error', 'Invalid student login details');
+            return redirect()->route('student.dashboard');
     }
 
-    public function studentDashboard()
+    public function studentDashboard(GeminiAiService $ai)
     {
         $student = Student::find(session('student_id'));
 
@@ -2525,6 +2850,9 @@ class PageController extends Controller
             ->pluck('assessment_id');
 
         $assignedClass = $this->studentClassName($student);
+
+        $componentOffers = $this->studentComponentAssessmentOffers($student, $ai);
+        $this->notifyStudentComponentMasteryOffers($student, $componentOffers);
 
         $assessmentBaseQuery = Assessment::where('status', 1)
             ->where('institute', $student->institute)
@@ -2719,18 +3047,81 @@ class PageController extends Controller
             ->exists();
     }
 
-    public function studentTakeAssessment(Request $request)
+    public function studentComponentMastery(Request $request, GeminiAiService $ai)
+    {
+        $student = Student::findOrFail(session('student_id'));
+        $offers = $this->studentComponentAssessmentOffers($student, $ai);
+        $this->notifyStudentComponentMasteryOffers($student, $offers);
+
+        $componentKeys = $offers->pluck('component_key')->filter()->values();
+        $assessments = Assessment::query()
+            ->where('institute', $student->institute)
+            ->where('assessment_category', 'Component Mastery')
+            ->whereIn('component_key', $componentKeys)
+            ->where('status', 1)
+            ->where('question_paper_status', 'Approved')
+            ->latest()
+            ->get()
+            ->unique('component_key')
+            ->keyBy('component_key');
+
+        $results = AssessmentResult::with('assessment')
+            ->where('student_id', $student->id)
+            ->whereHas('assessment', function ($query) use ($componentKeys) {
+                $query->where('assessment_category', 'Component Mastery')
+                    ->whereIn('component_key', $componentKeys);
+            })
+            ->latest()
+            ->get()
+            ->unique(fn ($result) => $result->assessment?->component_key)
+            ->keyBy(fn ($result) => $result->assessment?->component_key);
+
+        $masteryAssessments = $offers->map(function (array $offer) use ($assessments, $results) {
+            $assessment = $assessments->get($offer['component_key']);
+            $result = $results->get($offer['component_key']);
+
+            if ($result) {
+                $status = $result->status === 'Completed'
+                    ? ($result->passed ? 'Certificate pending approval' : 'Completed - score below certification grade')
+                    : 'Pending AI evaluation';
+            } elseif ($assessment) {
+                $status = 'Ready to take';
+            } else {
+                $status = 'Eligible - assessment not prepared';
+            }
+
+            return [
+                'offer' => $offer,
+                'assessment' => $assessment,
+                'result' => $result,
+                'status' => $status,
+            ];
+        });
+
+        return view('student.component-mastery', compact('masteryAssessments'));
+    }
+
+    public function studentTakeAssessment(Request $request, GeminiAiService $ai)
     {
         $studentId = session('student_id');
 
         $student = Student::findOrFail($studentId);
         $assignedClass = $this->studentClassName($student);
+        $componentAssessmentOffers = $this->studentComponentAssessmentOffers($student, $ai);
+        $eligibleComponentKeys = $componentAssessmentOffers
+            ->pluck('component_key')
+            ->filter()
+            ->values();
 
         $availableAssessments = Assessment::where('status', 1)
             ->where('institute', $student->institute)
             ->where('question_paper_status', 'Approved')
             ->whereNotNull('file_path')
             ->whereDate('assessment_date', '<=', today())
+            ->where(function ($query) use ($eligibleComponentKeys) {
+                $query->where('assessment_category', '!=', 'Component Mastery')
+                    ->orWhereIn('component_key', $eligibleComponentKeys);
+            })
             ->whereRaw(
                 "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
                 [$assignedClass]
@@ -2808,9 +3199,334 @@ class PageController extends Controller
             'student.student-assessment',
             compact(
                 'assessments',
-                'selectedAssessment'
+                'selectedAssessment',
+                'componentAssessmentOffers'
             )
         );
+    }
+
+    public function generateStudentComponentAssessment(Request $request, string $componentKey, GeminiAiService $ai, ?Student $apiStudent = null)
+    {
+        $student = $apiStudent ?: Student::findOrFail(session('student_id'));
+        $assignedClass = $this->studentClassName($student);
+        $offers = $this->studentComponentAssessmentOffers($student, $ai);
+        $offer = $offers->firstWhere('component_key', $componentKey);
+
+        if (!$offer) {
+            return redirect()
+                ->route('student.assessment')
+                ->with('error', 'You need to complete at least 5 practical topics for this component before taking the mastery assessment.');
+        }
+
+        $attemptedAssessmentIds = AssessmentResult::where('student_id', $student->id)
+            ->pluck('assessment_id');
+
+        $existingAssessment = Assessment::where('status', 1)
+            ->where('institute', $student->institute)
+            ->where('assessment_category', 'Component Mastery')
+            ->where('component_key', $componentKey)
+            ->where('question_paper_status', 'Approved')
+            ->whereRaw("REPLACE(TRIM(assigned_class), '  ', ' ') = ?", [$assignedClass])
+            ->whereNotIn('id', $attemptedAssessmentIds)
+            ->latest()
+            ->first();
+
+        if ($existingAssessment) {
+            return redirect()
+                ->route('student.assessment', ['assessment_id' => $existingAssessment->id])
+                ->with('success', $existingAssessment->component_label . ' mastery assessment is ready.');
+        }
+
+        $contents = Content::with(['aiSummary', 'courseContent.sourceTemplateContent.aiSummary'])
+            ->whereIn('id', $offer['content_ids'])
+            ->where('status', 1)
+            ->get();
+
+        $contentContext = $this->componentMasteryContentContext($contents);
+
+        if (mb_strlen($contentContext) < 100) {
+            return redirect()
+                ->route('student.assessment')
+                ->with('error', 'There is not enough readable lesson material to generate this component assessment yet.');
+        }
+
+        try {
+            $paper = $ai->generateComponentMasteryQuestionPaper([
+                'assessment_title' => 'Basics of ' . $offer['component_label'],
+                'assessment_category' => 'Component Mastery',
+                'component' => $offer['component_label'],
+                'assigned_class' => $assignedClass,
+                'student_class' => $student->class,
+                'total_marks' => 50,
+                'duration_minutes' => 60,
+                'completed_practical_topics' => $contents->pluck('content_title')->values()->all(),
+                'content_text' => $contentContext,
+            ]);
+
+            [$filePath, $previewPath] = $this->storeComponentMasteryQuestionPaperPdf($paper, [
+                'assessment_title' => $paper['title'] ?? ('Basics of ' . $offer['component_label']),
+                'assessment_category' => 'Component Mastery',
+                'assigned_class' => $assignedClass,
+                'assessment_date' => today()->toDateString(),
+                'duration' => 60,
+                'total_marks' => 50,
+                'teacher_name' => 'AI Assessment Engine',
+                'institute' => $student->institute,
+                'contents' => $contents,
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return redirect()
+                ->route('student.assessment')
+                ->with('error', 'AI could not generate this component assessment right now. Please try again later.');
+        }
+
+        $assessment = Assessment::create([
+            'institute' => $student->institute,
+            'assessment_title' => $paper['title'] ?? ('Basics of ' . $offer['component_label']),
+            'assessment_type' => 'Student',
+            'assigned_class' => $assignedClass,
+            'assessment_category' => 'Component Mastery',
+            'component_key' => $componentKey,
+            'component_label' => $offer['component_label'],
+            'certificate_eligible' => true,
+            'assessment_date' => today()->toDateString(),
+            'start_time' => null,
+            'end_time' => null,
+            'total_marks' => 50,
+            'duration' => '60',
+            'question_paper_type' => 'AI Component Mastery Question Paper',
+            'ai_generated' => true,
+            'ai_source_content_ids' => $contents->pluck('id')->values()->all(),
+            'ai_generation_payload' => json_encode($paper, JSON_UNESCAPED_SLASHES),
+            'file_path' => $filePath,
+            'question_paper_preview_path' => $previewPath,
+            'question_paper_status' => 'Approved',
+            'question_paper_reviewed_by' => null,
+            'question_paper_reviewed_at' => now(),
+            'question_paper_feedback' => null,
+            'status' => 1,
+            'content_id' => $contents->first()?->id,
+            'teacher_id' => null,
+        ]);
+
+        return redirect()
+            ->route('student.assessment', ['assessment_id' => $assessment->id])
+            ->with('success', $assessment->component_label . ' mastery assessment generated successfully.');
+    }
+
+    private function studentComponentAssessmentOffers(Student $student, ?GeminiAiService $ai = null)
+    {
+        $contentIds = $this->studentAvailableContentIds($student);
+        $contents = Content::with(['aiSummary', 'courseContent.sourceTemplateContent.aiSummary'])
+            ->whereIn('id', $contentIds)
+            ->where('status', 1)
+            ->get();
+
+        $completedContentIds = $this->studentPassedAiReviewContentIds($student, $contents);
+        $completedContents = $contents
+            ->whereIn('id', $completedContentIds)
+            ->values();
+
+        if ($completedContents->count() < 5) {
+            return collect();
+        }
+
+        $this->ensureComponentProfilesForContents($completedContents, $ai);
+
+        $profiles = AiComponentContentProfile::whereIn('content_id', $completedContents->pluck('id'))
+            ->where('is_practical', true)
+            ->where('confidence', '>=', 45)
+            ->get()
+            ->keyBy('content_id');
+
+        return $completedContents
+            ->filter(fn (Content $content) => $profiles->has($content->id))
+            ->groupBy(fn (Content $content) => $profiles->get($content->id)->component_key)
+            ->map(function ($componentContents, $componentKey) use ($profiles) {
+                $profile = $profiles->get($componentContents->first()->id);
+
+                return [
+                    'component_key' => $componentKey,
+                    'component_label' => $profile->component_label,
+                    'completed_count' => $componentContents->count(),
+                    'content_ids' => $componentContents->pluck('id')->values()->all(),
+                    'content_titles' => $componentContents->pluck('content_title')->values()->all(),
+                ];
+            })
+            ->filter(fn ($offer) => $offer['completed_count'] >= 5)
+            ->sortBy('component_label')
+            ->values();
+    }
+
+    private function notifyStudentComponentMasteryOffers(Student $student, $offers): void
+    {
+        foreach ($offers as $offer) {
+            $notification = LmsNotification::firstOrCreate(
+                [
+                    'student_id' => $student->id,
+                    'component_key' => $offer['component_key'],
+                    'notification_type' => 'component_mastery_eligible',
+                ],
+                [
+                    'title' => 'New Component Mastery assessment available',
+                    'message' => 'You are eligible for the ' . $offer['component_label'] . ' Component Mastery assessment after completing ' . $offer['completed_count'] . ' practical topics. Open Component Mastery to begin.',
+                    'target' => 'students',
+                    'institute' => $student->institute,
+                    'starts_at' => today()->toDateString(),
+                    'expires_at' => null,
+                    'status' => 'active',
+                    'login_display_limit' => 0,
+                    'created_by' => null,
+                ]
+            );
+
+            if ($notification->wasRecentlyCreated) {
+                app(FirebasePushService::class)->sendLmsNotification($notification);
+            }
+        }
+    }
+
+    private function ensureComponentProfilesForContents($contents, ?GeminiAiService $ai = null): void
+    {
+        $contents = collect($contents)->values();
+        $existingIds = AiComponentContentProfile::whereIn('content_id', $contents->pluck('id'))
+            ->pluck('content_id')
+            ->map(fn ($id) => (int) $id);
+
+        $missing = $contents
+            ->reject(fn (Content $content) => $existingIds->contains((int) $content->id))
+            ->values();
+
+        if ($missing->isEmpty()) {
+            return;
+        }
+
+        $items = $missing->map(function (Content $content) {
+            $summary = $this->generatedAiSummaryForContentRecord($content);
+
+            return [
+                'content_id' => $content->id,
+                'title' => $content->content_title,
+                'summary' => mb_substr((string) ($summary?->summary ?? $content->description ?? ''), 0, 1200),
+                'key_points' => $summary?->key_points ?? [],
+                'text_snippet' => mb_substr((string) ($summary?->extracted_text ?? ''), 0, 1600),
+            ];
+        })->all();
+
+        $classifiedItems = [];
+
+        if ($ai) {
+            try {
+                $classifiedItems = $ai->classifyComponentContent($items)['items'] ?? [];
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        $classifiedById = collect($classifiedItems)->keyBy(fn ($item) => (int) ($item['content_id'] ?? 0));
+
+        foreach ($missing as $content) {
+            $classification = $classifiedById->get((int) $content->id) ?: $this->fallbackComponentClassification($content);
+            $componentLabel = trim((string) ($classification['component_label'] ?? 'General STEM')) ?: 'General STEM';
+            $componentKey = trim((string) ($classification['component_key'] ?? Str::slug($componentLabel)));
+
+            AiComponentContentProfile::updateOrCreate(
+                ['content_id' => $content->id],
+                [
+                    'component_key' => $componentKey ?: 'general-stem',
+                    'component_label' => $componentLabel,
+                    'is_practical' => (bool) ($classification['is_practical'] ?? false),
+                    'confidence' => min(100, max(0, (int) ($classification['confidence'] ?? 50))),
+                    'evidence' => $classification['evidence'] ?? [],
+                    'provider' => config('ai.provider', 'gemini'),
+                    'model' => config('ai.gemini.model'),
+                    'analyzed_at' => now(),
+                ]
+            );
+        }
+    }
+
+    private function fallbackComponentClassification(Content $content): array
+    {
+        $summary = $this->generatedAiSummaryForContentRecord($content);
+        $text = mb_strtolower(implode(' ', array_filter([
+            $content->content_title,
+            $content->description,
+            $summary?->summary,
+            implode(' ', $summary?->key_points ?? []),
+        ])));
+
+        $components = [
+            'arduino' => 'Arduino',
+            'sensor' => 'Sensors',
+            'sensors' => 'Sensors',
+            'microcontroller' => 'Microcontrollers',
+            'microprocessor' => 'Microprocessors',
+            'motor' => 'Motors',
+            'servo' => 'Motors',
+            'robot' => 'Robotics',
+            'iot' => 'IoT',
+            'circuit' => 'Electronics',
+            'electronics' => 'Electronics',
+            'coding' => 'Coding',
+            'programming' => 'Coding',
+        ];
+
+        foreach ($components as $needle => $label) {
+            if (str_contains($text, $needle)) {
+                return [
+                    'component_key' => Str::slug($label),
+                    'component_label' => $label,
+                    'is_practical' => true,
+                    'confidence' => 55,
+                    'evidence' => [$content->content_title],
+                ];
+            }
+        }
+
+        return [
+            'component_key' => 'general-stem',
+            'component_label' => 'General STEM',
+            'is_practical' => str_contains($text, 'project') || str_contains($text, 'experiment') || str_contains($text, 'build'),
+            'confidence' => 35,
+            'evidence' => [$content->content_title],
+        ];
+    }
+
+    private function componentMasteryContentContext($contents): string
+    {
+        return collect($contents)
+            ->map(function (Content $content) {
+                $summary = $this->generatedAiSummaryForContentRecord($content);
+                $parts = array_filter([
+                    'Content: ' . $content->content_title,
+                    $content->description,
+                    $summary?->summary,
+                    implode("\n", $summary?->key_points ?? []),
+                    mb_substr((string) ($summary?->extracted_text ?? ''), 0, 5000),
+                ]);
+
+                return implode("\n", $parts);
+            })
+            ->filter()
+            ->implode("\n\n---\n\n");
+    }
+
+    private function storeComponentMasteryQuestionPaperPdf(array $paper, array $meta): array
+    {
+        $pdf = Pdf::loadView('pdf.ai-question-paper', [
+            'paper' => $paper,
+            'meta' => $meta,
+        ])->setPaper('a4', 'portrait');
+
+        $fileName = 'component_mastery_' . now()->format('Ymd_His') . '_' . uniqid() . '.pdf';
+        $filePath = 'assessment-papers/' . $fileName;
+
+        Storage::disk('local')->put($filePath, $pdf->output());
+
+        return [$filePath, $filePath];
     }
 
     public function studentAssessmentTaking(Assessment $assessment)
@@ -3259,8 +3975,15 @@ class PageController extends Controller
     {
         $date = $request->date;
         $viewerType = $request->viewer_type;
-        ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
-            $this->buildInstituteSectionPager($request, 'admin.activity.monitoring');
+        $selectedInstitute = session('user_role') == 'Admin'
+            ? trim((string) $request->input('institute', ''))
+            : session('user_institute');
+        $currentInstitute = $selectedInstitute !== '' ? $selectedInstitute : null;
+
+        $instituteOptions = Institute::where('status', 1)
+            ->orderBy('institute_name')
+            ->pluck('institute_name')
+            ->values();
 
         $contentLogsQuery = UserActivityLog::with(['teacher', 'student'])
             ->whereIn('user_type', ['Teacher', 'Student'])
@@ -3271,7 +3994,7 @@ class PageController extends Controller
             ->when(in_array($viewerType, ['Teacher', 'Student'], true), function ($query) use ($viewerType) {
                 $query->where('user_type', $viewerType);
             })
-            ->where(function ($query) use ($currentInstitute) {
+            ->when($currentInstitute, function ($query) use ($currentInstitute) {
                 $query->where(function ($teacherQuery) use ($currentInstitute) {
                     $teacherQuery->where('user_type', 'Teacher')
                         ->whereHas('teacher', function ($teacher) use ($currentInstitute) {
@@ -3290,6 +4013,58 @@ class PageController extends Controller
             ->latest('started_at')
             ->paginate(30)
             ->withQueryString();
+
+        $contentIdsByLogId = $contentLogs->getCollection()
+            ->mapWithKeys(function ($log) {
+                preg_match('#content-preview/(\d+)/for/#', (string) $log->page_url, $matches);
+
+                return !empty($matches[1])
+                    ? [$log->id => (int) $matches[1]]
+                    : [];
+            });
+
+        $contentContextByLogId = Content::whereIn('id', $contentIdsByLogId->values()->unique())
+            ->get(['id', 'content_title', 'assigned_class', 'section', 'institute'])
+            ->keyBy('id');
+
+        $contentContextByLogId = $contentIdsByLogId
+            ->mapWithKeys(function ($contentId, $logId) use ($contentContextByLogId) {
+                $content = $contentContextByLogId->get($contentId);
+                $classLabel = $content
+                    ? trim((string) $content->assigned_class . ' ' . (string) $content->section)
+                    : '';
+
+                return [
+                    $logId => [
+                        'title' => $content->content_title ?? null,
+                        'class_label' => $classLabel,
+                        'institute' => $content->institute ?? null,
+                    ],
+                ];
+            });
+
+        $teacherIdsOnPage = $contentLogs->getCollection()
+            ->where('user_type', 'Teacher')
+            ->pluck('user_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $teacherClassLabelsById = User::whereIn('id', $teacherIdsOnPage)
+            ->get(['id', 'institute'])
+            ->mapWithKeys(function (User $teacher) {
+                $classes = $this->teacherAssignedClassNames($teacher)
+                    ->filter()
+                    ->unique(fn ($className) => mb_strtolower($className))
+                    ->values();
+                $label = $classes->take(3)->implode(', ');
+
+                if ($classes->count() > 3) {
+                    $label .= ' +' . ($classes->count() - 3) . ' more';
+                }
+
+                return [$teacher->id => $label ?: 'Unassigned Class'];
+            });
 
         $totalAccesses = (clone $contentLogsQuery)->count();
         $teacherAccesses = (clone $contentLogsQuery)->where('user_type', 'Teacher')->count();
@@ -3314,7 +4089,7 @@ class PageController extends Controller
                     : Student::find($row->user_id);
 
                 $row->display_name = $user->name ?? ($row->user_type == 'Teacher' ? 'STEM Engineer Deleted' : 'Student Deleted');
-                $row->institute = $user->institute ?? 'N/A';
+                $row->institute = $user->institute ?? 'Unassigned Institute';
                 $row->class_label = $row->user_type == 'Student'
                     ? trim(($user->class ?? '') . ' ' . ($user->section ?? ''))
                     : null;
@@ -3325,7 +4100,10 @@ class PageController extends Controller
         return view('activity-monitoring', compact(
             'contentLogs',
             'currentInstitute',
-            'sectionPager',
+            'selectedInstitute',
+            'instituteOptions',
+            'contentContextByLogId',
+            'teacherClassLabelsById',
             'viewerType',
             'totalAccesses',
             'teacherAccesses',
@@ -3390,7 +4168,7 @@ class PageController extends Controller
         if ($this->studentContentRequiresAiReview($student, $content) && $this->lessonNeedsAiReview($content, $studentId)) {
             $this->unlockStudentAiReview($studentId, $content->id);
 
-            return redirect()->route('student.content.ai-review', $content->id);
+            return redirect()->route('student.content.ai-review.quiz', $content->id);
         }
 
         LessonProgress::updateOrCreate(
@@ -3444,21 +4222,24 @@ class PageController extends Controller
         if (!$summary) {
             return redirect()
                 ->route('student.content')
-                ->with('error', 'AI review is not available for this content yet.');
+                ->with('error', 'AI quiz is not available for this content yet.');
         }
 
         $gradeLevel = $this->studentGradeName($student);
         $quiz = $this->studentQuizForContent($content, $summary, $gradeLevel);
         $latestAttempt = AiQuizAttempt::where('ai_quiz_id', $quiz->id)
             ->where('student_id', $studentId)
+            ->where('attempt_type', self::AI_STUDENT_ATTEMPT_TYPE)
             ->latest()
             ->first();
 
-        return view('student.ai-review', compact(
-            'content',
-            'summary',
-            'latestAttempt'
-        ));
+        if ($latestAttempt && $latestAttempt->status == 'passed') {
+            return redirect()
+                ->route('student.content')
+                ->with('success', 'AI quiz already cleared. This lesson is complete.');
+        }
+
+        return redirect()->route('student.content.ai-review.quiz', $content->id);
     }
 
     public function studentAiReviewQuiz($id)
@@ -3494,7 +4275,7 @@ class PageController extends Controller
         if (!$summary) {
             return redirect()
                 ->route('student.content')
-                ->with('error', 'AI review is not available for this content yet.');
+                ->with('error', 'AI quiz is not available for this content yet.');
         }
 
         $gradeLevel = $this->studentGradeName($student);
@@ -3506,8 +4287,8 @@ class PageController extends Controller
 
         if ($latestAttempt && $latestAttempt->status == 'passed') {
             return redirect()
-                ->route('student.content.ai-review', $content->id)
-                ->with('success', 'Training assessment already cleared. This lesson is complete.');
+                ->route('student.content')
+                ->with('success', 'AI quiz already cleared. This lesson is complete.');
         }
 
         return view('student.ai-review-quiz', compact(
@@ -3550,7 +4331,7 @@ class PageController extends Controller
         if (!$summary) {
             return redirect()
                 ->route('student.content')
-                ->with('error', 'AI review is not available for this content yet.');
+                ->with('error', 'AI quiz is not available for this content yet.');
         }
 
         $gradeLevel = $this->studentGradeName($student);
@@ -3564,8 +4345,8 @@ class PageController extends Controller
 
         if ($alreadyPassed) {
             return redirect()
-                ->route('student.content.ai-review', $content->id)
-                ->with('success', 'Training assessment already cleared. This lesson is complete.');
+                ->route('student.content')
+                ->with('success', 'AI quiz already cleared. This lesson is complete.');
         }
 
         $autoSubmitted = $request->boolean('auto_submitted');
@@ -3583,7 +4364,7 @@ class PageController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Please answer at least one question before submitting the AI review.');
+                ->with('error', 'Please answer at least one question before submitting the AI quiz.');
         }
 
         $attempt = AiQuizAttempt::create([
@@ -3655,12 +4436,12 @@ class PageController extends Controller
 
             return redirect()
                 ->route('student.content')
-                ->with('success', 'AI review passed. Lesson marked as completed.');
+            ->with('success', 'AI quiz passed. Lesson marked as completed.');
         }
 
         return redirect()
             ->route('student.content.ai-review.quiz', $content->id)
-            ->with('error', 'AI review score is below ' . $passingPercentage . '%. Please review the content and try again.');
+            ->with('error', 'AI quiz score is below ' . $passingPercentage . '%. Please review the content and try again.');
     }
 
     private function lessonNeedsAiReview(Content $content, int $studentId): bool
@@ -4039,7 +4820,7 @@ class PageController extends Controller
             [
                 'provider' => $summary->provider,
                 'model' => $summary->model,
-                'title' => ($audience == 'teacher' ? 'AI Prep - ' : 'AI Review - ') . ($gradeLevel ? $gradeLevel . ' - ' : '') . $quizContent->content_title,
+                'title' => ($audience == 'teacher' ? 'AI Prep - ' : 'AI Quiz - ') . ($gradeLevel ? $gradeLevel . ' - ' : '') . $quizContent->content_title,
                 'instructions' => $audience == 'teacher'
                     ? 'Answer these prep questions before teaching this lesson.'
                     : 'Answer these questions after reviewing the completed lesson.',
@@ -4401,8 +5182,20 @@ class PageController extends Controller
             return false;
         }
 
-        return $this->studentClassName($student) ==
+        $classMatches = $this->studentClassName($student) ==
             preg_replace('/\s+/', ' ', trim((string) $assessment->assigned_class));
+
+        if (!$classMatches) {
+            return false;
+        }
+
+        if ($assessment->assessment_category === 'Component Mastery') {
+            return $this->studentComponentAssessmentOffers($student)
+                ->pluck('component_key')
+                ->contains($assessment->component_key);
+        }
+
+        return true;
     }
 
     private function assessmentWindowIsOpen(Assessment $assessment): bool
@@ -4432,28 +5225,59 @@ class PageController extends Controller
 
     public function assessmentMonitoring(Request $request)
     {
-        $sectionPager = null;
-        $classSectionPager = null;
-        $studentSectionPager = null;
-        $currentInstitute = null;
-        $selectedStudentClass = null;
-        $selectedStudentSection = null;
+        $selectedStudentClass = trim((string) $request->input('student_class', '')) ?: null;
+        $selectedStudentSection = trim((string) $request->input('student_section', '')) ?: null;
+        $statusFilter = trim((string) $request->input('status', ''));
+        $dateFilter = trim((string) $request->input('date', ''));
+        $searchFilter = trim((string) $request->input('search', ''));
+        $selectedInstitute = session('user_role') == 'InstituteAdmin'
+            ? session('user_institute')
+            : trim((string) $request->input('institute', ''));
 
-        if (session('user_role') == 'Admin') {
-            ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
-                $this->buildInstituteSectionPager($request, 'admin.assessment.monitoring');
-        }
+        $instituteOptions = Institute::where('status', 1)
+            ->orderBy('institute_name')
+            ->pluck('institute_name')
+            ->values();
 
-        if (session('user_role') == 'InstituteAdmin') {
-            $currentInstitute = session('user_institute');
-        }
+        $currentInstitute = $selectedInstitute !== '' ? $selectedInstitute : null;
 
-        if ($currentInstitute) {
-            ['selectedClass' => $selectedStudentClass, 'sectionPager' => $classSectionPager] =
-                $this->buildStudentClassPager($request, $currentInstitute, 'admin.assessment.monitoring');
+        $schoolClassOptions = SchoolClass::when($currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
+            })
+            ->whereNotNull('class_name')
+            ->orderBy('class_name')
+            ->pluck('class_name')
+            ->map(fn ($className) => trim((string) $className));
 
-            ['selectedSection' => $selectedStudentSection, 'sectionPager' => $studentSectionPager] =
-                $this->buildStudentSectionPager($request, $currentInstitute, $selectedStudentClass, 'admin.assessment.monitoring');
+        $studentClassOptions = Student::when($currentInstitute, function ($query) use ($currentInstitute) {
+                $query->where('institute', $currentInstitute);
+            })
+            ->whereNotNull('class')
+            ->orderBy('class')
+            ->distinct()
+            ->pluck('class')
+            ->map(fn ($className) => trim((string) $className));
+
+        $classOptions = $schoolClassOptions
+            ->merge($studentClassOptions)
+            ->filter()
+            ->unique(fn ($className) => mb_strtolower($className))
+            ->sort()
+            ->values();
+
+        $sectionOptions = collect();
+        if ($selectedStudentClass) {
+            $sectionOptions = Student::when($currentInstitute, function ($query) use ($currentInstitute) {
+                    $query->where('institute', $currentInstitute);
+                })
+                ->where('class', $selectedStudentClass)
+                ->whereNotNull('section')
+                ->orderBy('section')
+                ->pluck('section')
+                ->map(fn ($section) => trim((string) $section))
+                ->filter()
+                ->unique(fn ($section) => mb_strtolower($section))
+                ->values();
         }
 
         $sessions = AssessmentSession::with([
@@ -4476,18 +5300,42 @@ class PageController extends Controller
                     }
                 });
             })
+            ->when(in_array($statusFilter, ['Started', 'Submitted', 'AutoSubmitted'], true), function ($query) use ($statusFilter) {
+                $query->where('status', $statusFilter);
+            })
+            ->when($dateFilter !== '', function ($query) use ($dateFilter) {
+                $query->whereDate('started_at', $dateFilter);
+            })
+            ->when($searchFilter !== '', function ($query) use ($searchFilter) {
+                $query->where(function ($searchQuery) use ($searchFilter) {
+                    $searchQuery->whereHas('assessment', function ($assessmentQuery) use ($searchFilter) {
+                        $assessmentQuery->where('assessment_title', 'like', '%' . $searchFilter . '%');
+                    })
+                    ->orWhereHas('student', function ($studentQuery) use ($searchFilter) {
+                        $studentQuery->where('name', 'like', '%' . $searchFilter . '%')
+                            ->orWhere('student_id', 'like', '%' . $searchFilter . '%');
+                    })
+                    ->orWhereHas('teacher', function ($teacherQuery) use ($searchFilter) {
+                        $teacherQuery->where('name', 'like', '%' . $searchFilter . '%');
+                    });
+                });
+            })
             ->latest()
             ->paginate(30)
             ->withQueryString();
 
         return view('assessment-monitoring', compact(
             'sessions',
-            'sectionPager',
-            'classSectionPager',
-            'studentSectionPager',
             'currentInstitute',
+            'selectedInstitute',
             'selectedStudentClass',
-            'selectedStudentSection'
+            'selectedStudentSection',
+            'statusFilter',
+            'dateFilter',
+            'searchFilter',
+            'instituteOptions',
+            'classOptions',
+            'sectionOptions'
         ));
     }
 
@@ -4739,10 +5587,11 @@ class PageController extends Controller
         $reportInstituteOptions = collect();
         $hasFilters = $request->filled('report_date')
             || $request->filled('institute')
+            || $request->filled('report_month')
             || $request->filled('from_date')
             || $request->filled('to_date');
 
-        if (session('user_role') == 'Admin') {
+        if (in_array(session('user_role'), ['Admin', 'Manager'], true)) {
             $selectedReportInstitute = $request->filled('institute')
                 ? trim((string) $request->input('institute'))
                 : null;
@@ -4780,13 +5629,13 @@ class PageController extends Controller
         $sectionPager = null;
         $currentInstitute = null;
 
-        if (session('user_role') == 'Admin') {
+        if (in_array(session('user_role'), ['Admin', 'Manager'], true)) {
+            $routeName = (string) ($request->route()?->getName() ?: 'admin.class-session.report.weekly');
+            $routePrefix = str_starts_with($routeName, 'manager.') ? 'manager' : 'admin';
             ['currentInstitute' => $currentInstitute, 'sectionPager' => $sectionPager] =
                 $this->buildInstituteSectionPager(
                     $request,
-                    $reportType == 'daily'
-                        ? 'admin.class-session.report.daily.download'
-                        : 'admin.class-session.report.weekly.download'
+                    $routePrefix . '.class-session.report.' . $reportType . '.download'
                 );
 
         }
@@ -4798,7 +5647,7 @@ class PageController extends Controller
             ->orderBy('session_date')
             ->get();
 
-        $scope = session('user_role') == 'InstituteAdmin'
+        $scope = in_array(session('user_role'), ['InstituteAdmin', 'Principal'], true)
             ? session('user_institute')
             : (
                 $request->filled('institute')
@@ -4806,13 +5655,13 @@ class PageController extends Controller
                     : ($currentInstitute ?: 'All Institutes')
             );
 
-        $periodLabel = $reportType == 'daily'
-            ? \Carbon\Carbon::parse($request->input('report_date', now()->toDateString()))->format('d M Y')
-            : (
-                ($request->filled('from_date') || $request->filled('to_date'))
-                    ? trim(($request->filled('from_date') ? \Carbon\Carbon::parse($request->from_date)->format('d M Y') : 'Start') . ' - ' . ($request->filled('to_date') ? \Carbon\Carbon::parse($request->to_date)->format('d M Y') : 'Today'))
-                    : 'All available sessions'
-            );
+        $periodLabel = match ($reportType) {
+            'daily' => \Carbon\Carbon::parse($request->input('report_date', now()->toDateString()))->format('d M Y'),
+            'monthly' => \Carbon\Carbon::parse($request->input('report_month', now()->format('Y-m')) . '-01')->format('F Y'),
+            default => ($request->filled('from_date') || $request->filled('to_date'))
+                ? trim(($request->filled('from_date') ? \Carbon\Carbon::parse($request->from_date)->format('d M Y') : 'Start') . ' - ' . ($request->filled('to_date') ? \Carbon\Carbon::parse($request->to_date)->format('d M Y') : 'Today'))
+                : 'All available sessions',
+        };
 
         $totalSessions = $sessions->count();
         $completedSessions = $sessions->where('status', 'completed')->count();
@@ -4862,9 +5711,11 @@ class PageController extends Controller
             ],
         ];
 
-        $title = $reportType == 'daily'
-            ? 'Daily Session Report'
-            : 'Weekly Session Report';
+        $title = match ($reportType) {
+            'daily' => 'Daily Session Report',
+            'monthly' => 'Monthly Session Report',
+            default => 'Weekly Session Report',
+        };
 
         try {
             $insights = $ai->generateReportInsights($title, $metrics);
@@ -4895,6 +5746,12 @@ class PageController extends Controller
         $dailyReportDate = $reportType == 'daily'
             ? \Carbon\Carbon::parse($request->input('report_date', now()->toDateString()))->toDateString()
             : null;
+        $monthlyReportStart = $reportType == 'monthly'
+            ? \Carbon\Carbon::parse($request->input('report_month', now()->format('Y-m')) . '-01')->startOfMonth()->toDateString()
+            : null;
+        $monthlyReportEnd = $reportType == 'monthly'
+            ? \Carbon\Carbon::parse($request->input('report_month', now()->format('Y-m')) . '-01')->endOfMonth()->toDateString()
+            : null;
 
         return ClassContentSession::with([
                 'schoolClass',
@@ -4903,22 +5760,26 @@ class PageController extends Controller
                 'teachingPlan',
                 'stemEngineer',
             ])
-            ->when(session('user_role') == 'Admin' && $request->filled('institute'), function ($query) use ($request) {
+            ->when(in_array(session('user_role'), ['Admin', 'Manager'], true) && $request->filled('institute'), function ($query) use ($request) {
                 $query->where('institute', $request->input('institute'));
             })
             ->when($reportType == 'daily', function ($query) use ($dailyReportDate) {
                 $query->whereDate('session_date', $dailyReportDate);
             })
-            ->when($reportType != 'daily' && $request->filled('from_date'), function ($query) use ($request) {
+            ->when($reportType == 'monthly', function ($query) use ($monthlyReportStart, $monthlyReportEnd) {
+                $query->whereDate('session_date', '>=', $monthlyReportStart)
+                    ->whereDate('session_date', '<=', $monthlyReportEnd);
+            })
+            ->when($reportType == 'weekly' && $request->filled('from_date'), function ($query) use ($request) {
                 $query->whereDate('session_date', '>=', $request->from_date);
             })
-            ->when($reportType != 'daily' && $request->filled('to_date'), function ($query) use ($request) {
+            ->when($reportType == 'weekly' && $request->filled('to_date'), function ($query) use ($request) {
                 $query->whereDate('session_date', '<=', $request->to_date);
             })
-            ->when(session('user_role') == 'Admin' && $request->filled('institute'), function ($query) use ($request) {
+            ->when(in_array(session('user_role'), ['Admin', 'Manager'], true) && $request->filled('institute'), function ($query) use ($request) {
                 $query->where('institute', $request->institute);
             })
-            ->when(session('user_role') == 'InstituteAdmin', function ($query) {
+            ->when(in_array(session('user_role'), ['InstituteAdmin', 'Principal'], true), function ($query) {
                 $query->where('institute', session('user_institute'));
             });
     }
@@ -4929,8 +5790,12 @@ class PageController extends Controller
             return 'daily';
         }
 
-        return ($request->route('reportType') ?? $request->query('report_type')) == 'daily'
-            ? 'daily'
+        if (str_contains((string) $request->route()?->getName(), '.monthly')) {
+            return 'monthly';
+        }
+
+        return in_array(($request->route('reportType') ?? $request->query('report_type')), ['daily', 'monthly'], true)
+            ? ($request->route('reportType') ?? $request->query('report_type'))
             : 'weekly';
     }
 
