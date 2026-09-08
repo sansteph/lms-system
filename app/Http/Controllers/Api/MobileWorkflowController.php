@@ -8,6 +8,7 @@ use App\Services\{MobileWebContext, TeachingPlanReleaseService, TeachingPlanTemp
 use App\Services\Ai\{GeminiAiService, PdfTextExtractionService};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class MobileWorkflowController extends Controller
 {
@@ -51,6 +52,12 @@ class MobileWorkflowController extends Controller
     {
         $this->authorizeArea($request, $area);
         $a = $request->user();
+        if ($area === 'profile' && $action === 'edit') {
+            return $this->updateProfile($request);
+        }
+        if ($area === 'profile' && $action === 'remove-photo') {
+            return $this->removeProfilePhoto($request);
+        }
         if ($area === 'results' && $action === 'insights') {
             abort_unless($a instanceof User && in_array($a->role, ['Teacher', 'STEM Engineer'], true), 403);
             try {
@@ -116,8 +123,6 @@ class MobileWorkflowController extends Controller
                 'teaching-plans/lagged-content' => $plans->storeLaggedContent($request, $id),
                 'teaching-plans/release-check' => $plans->runReleaseCheck(app(TeachingPlanReleaseService::class)),
                 'hybrid-learners/toggle' => app(IndependentLearnerController::class)->toggleStatus($id),
-                'profile/edit' => $request->user() instanceof Student ? $page->updateStudentProfile($request) : $page->updateTeacherProfile($request),
-                'profile/remove-photo' => $request->user() instanceof Student ? $page->removeStudentProfileImage() : abort(403),
                 'community/create' => $feed->store($request),
                 'community/comment' => $feed->storeComment($request, $id),
                 'community/edit-comment' => $feed->updateComment($request, $id),
@@ -479,8 +484,91 @@ class MobileWorkflowController extends Controller
             }
         }
         return response()->json(['title' => 'Profile', 'records' => [['id' => $a->id, 'title' => $a->name, 'subtitle' => $a->email,
-            'image' => $a->profile_image ? Storage::disk('public')->url($a->profile_image) : null, 'details' => $values,
+            'image' => $this->publicProfileImageUrl($a->profile_image ?? null), 'details' => $values,
             'actions' => [$this->action('edit', 'Edit profile', $fields, $values), ...($a instanceof Student ? [$this->action('remove-photo', 'Remove photo', confirm: true)] : [])]]], 'actions' => [], 'filters' => []]);
+    }
+
+    private function updateProfile(Request $request)
+    {
+        $account = $request->user();
+        abort_unless($account instanceof User || $account instanceof Student, 403);
+
+        $rules = [
+            'linkedin_url' => ['nullable', 'url', 'max:255'],
+            'profile_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ];
+
+        if ($account instanceof User) {
+            $rules += [
+                'user_id' => ['required', 'string', 'max:255', Rule::unique('users', 'user_id')->ignore($account->id)],
+                'name' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($account->id)],
+                'designation' => ['nullable', 'string', 'max:255'],
+                'qualification' => ['required', 'string', 'max:255'],
+                'joined_on' => ['nullable', 'date'],
+            ];
+        }
+
+        $validated = $request->validate($rules);
+        $updates = collect($validated)
+            ->except('profile_image')
+            ->all();
+
+        if ($request->hasFile('profile_image')) {
+            $this->deleteProfileFile($account->profile_image ?? null);
+            $updates['profile_image'] = $request->file('profile_image')->store('profile-images', 'public');
+        }
+
+        $account->update($updates);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated successfully.',
+            'avatar' => $this->publicProfileImageUrl($account->fresh()->profile_image ?? null),
+        ]);
+    }
+
+    private function removeProfilePhoto(Request $request)
+    {
+        $account = $request->user();
+        abort_unless($account instanceof Student, 403);
+
+        $this->deleteProfileFile($account->profile_image);
+        $account->update(['profile_image' => null]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile image removed successfully.',
+        ]);
+    }
+
+    private function deleteProfileFile(?string $path): void
+    {
+        if (blank($path) || str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return;
+        }
+
+        $path = preg_replace('#^/?storage/#', '', $path);
+        if (filled($path)) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+
+    private function publicProfileImageUrl(?string $path): ?string
+    {
+        if (blank($path)) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        if (str_starts_with($path, '/storage/') || str_starts_with($path, 'storage/')) {
+            return url('/' . ltrim($path, '/'));
+        }
+
+        return Storage::disk('public')->url(ltrim($path, '/'));
     }
 
     private function community(Request $r)

@@ -167,7 +167,7 @@ class MobileApiController extends Controller
             'email' => $tokenable->email ?? $email,
             'role' => $responseRole,
             'institute' => $institute ?? '',
-            'avatar' => $avatar,
+            'avatar' => $this->publicStorageUrl($avatar),
             'login_notifications' => app(\App\Services\LmsNotificationService::class)->mobileLoginNotifications($tokenable),
             ]);
     }
@@ -211,7 +211,7 @@ class MobileApiController extends Controller
             'email' => $student->email ?? '',
             'role' => 'Student',
             'institute' => $student->institute ?? '',
-            'avatar' => $student->profile_image ?? null,
+            'avatar' => $this->publicStorageUrl($student->profile_image ?? null),
             'login_notifications' => app(\App\Services\LmsNotificationService::class)->mobileLoginNotifications($student),
         ]);
     }
@@ -257,7 +257,7 @@ class MobileApiController extends Controller
             'email' => $account->email ?? '',
             'role' => $role,
             'institute' => $account->institute ?? '',
-            'avatar' => $account instanceof Student ? ($account->profile_image ?? null) : null,
+            'avatar' => $this->publicStorageUrl($account instanceof Student ? ($account->profile_image ?? null) : null),
             'login_notifications' => app(\App\Services\LmsNotificationService::class)->mobileLoginNotifications($account),
         ]);
     }
@@ -445,7 +445,7 @@ class MobileApiController extends Controller
             'email' => $account->email ?? '',
             'role' => $this->displayRoleFor($account),
             'institute' => $account->institute ?? '',
-            'avatar' => $account->profile_image ?? $account->avatar ?? null,
+            'avatar' => $this->publicStorageUrl($account->profile_image ?? $account->avatar ?? null),
         ]);
     }
 
@@ -738,7 +738,7 @@ class MobileApiController extends Controller
             'email' => $student->email ?? $account->email ?? '',
             'role' => 'Student',
             'institute' => $student->institute ?? $account->institute ?? '',
-            'avatar' => $student->profile_image ?? $account->profile_image ?? $account->avatar ?? null,
+            'avatar' => $this->publicStorageUrl($student->profile_image ?? $account->profile_image ?? $account->avatar ?? null),
             'profile_fields' => [
                 'linkedin_url' => $student->linkedin_url ?? '',
             ],
@@ -4658,6 +4658,23 @@ class MobileApiController extends Controller
         }
 
         return substr($local, 0, 1) . str_repeat('*', max(1, strlen($local) - 2)) . substr($local, -1) . '@' . $domain;
+    }
+
+    private function publicStorageUrl(?string $path): ?string
+    {
+        if (blank($path)) {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        if (Str::startsWith($path, ['/storage/', 'storage/'])) {
+            return URL::to('/' . ltrim($path, '/'));
+        }
+
+        return Storage::disk('public')->url(ltrim($path, '/'));
     }
 
     private function resolveAccount(string $email, string $password, string $role): ?array
