@@ -284,8 +284,10 @@
                                 <label class="form-label">Availability</label>
                                 <select name="availability_type" class="form-select" required>
                                     <option value="Institute">Institute Only</option>
-                                    <option value="Independent">Hybrid Learners Only</option>
-                                    <option value="Both">Both</option>
+                                    @if(session('user_role') == 'Admin')
+                                        <option value="Independent">Hybrid Learners Only</option>
+                                        <option value="Both">Both</option>
+                                    @endif
                                 </select>
                             </div>
 
@@ -611,7 +613,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">Availability</label>
                                 <select name="availability_type" class="form-select" required>
-                                    @foreach(['Institute' => 'Institute Only', 'Independent' => 'Hybrid Learners Only', 'Both' => 'Both'] as $value => $label)
+                                    @foreach((session('user_role') == 'Admin' ? ['Institute' => 'Institute Only', 'Independent' => 'Hybrid Learners Only', 'Both' => 'Both'] : ['Institute' => 'Institute Only']) as $value => $label)
                                         <option value="{{ $value }}" {{ $course->availability_type == $value ? 'selected' : '' }}>{{ $label }}</option>
                                     @endforeach
                                 </select>

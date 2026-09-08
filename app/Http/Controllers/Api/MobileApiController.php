@@ -354,14 +354,19 @@ class MobileApiController extends Controller
         ]);
 
         $role = trim($validated['role']);
-        if (!in_array($role, ['Admin', 'STEM Engineer'], true)) {
+        if (!in_array($role, ['Admin', 'STEM Engineer', 'Manager', 'Principal'], true)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Student accounts cannot use password reset here.',
             ], 403);
         }
 
-        $userRole = $role === 'STEM Engineer' ? ['Teacher'] : ['Admin', 'InstituteAdmin'];
+        $userRole = match ($role) {
+            'STEM Engineer' => ['Teacher', 'STEM Engineer'],
+            'Manager' => ['Manager'],
+            'Principal' => ['Principal'],
+            default => ['Admin', 'InstituteAdmin'],
+        };
         $user = User::where('email', $validated['email'])
             ->whereIn('role', $userRole)
             ->where('status', 1)
@@ -405,7 +410,7 @@ class MobileApiController extends Controller
         $account = $request->user();
         $role = $this->displayRoleFor($account);
 
-        if (!in_array($role, ['Admin', 'STEM Engineer'], true)) {
+        if (!in_array($role, ['Admin', 'STEM Engineer', 'Manager', 'Principal'], true)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Student accounts cannot change password from this screen.',
@@ -1836,7 +1841,7 @@ class MobileApiController extends Controller
 
     public function adminInstitutes(Request $request)
     {
-        $account = $this->requireAdmin($request);
+        $account = $this->requireRole($request, ['Admin', 'InstituteAdmin', 'Manager']);
 
         return response()->json([
             'institutes' => Institute::query()
@@ -2429,17 +2434,22 @@ class MobileApiController extends Controller
                 ->tap(fn ($query) => app(\App\Services\MobileManagementFilters::class)->apply($query, $request, 'courses'))
                 ->when(
                     $account->role === 'InstituteAdmin',
-                    fn ($query) => $query->where('institute', $account->institute)
+                    fn ($query) => $query
+                        ->where('institute', $account->institute)
+                        ->where('availability_type', 'Institute')
                 )
                 ->orderBy('institute')
                 ->orderBy('course_title')
                 ->get()
-                ->map(function (Course $course) {
+                ->map(function (Course $course) use ($account) {
+                    $canManage = $account->role === 'Admin' || ! $this->isHybridLearnerCourse($course);
                     return [
                         'id' => $course->id,
                         'title' => $course->course_title,
                         'subtitle' => trim(($course->institute ? 'Institute: ' . $course->institute . ' · ' : '') . ($course->assigned_class ?? 'General course')),
                         'status' => $course->status ? 'Active' : 'Draft',
+                        'availability_type' => $course->availability_type,
+                        'can_manage' => $canManage,
                     ];
                 })
                 ->values(),
@@ -2451,6 +2461,7 @@ class MobileApiController extends Controller
         $account = $this->requireAdmin($request);
         $course = Course::findOrFail($id);
         $this->ensureAdminInstituteAccess($account, $course->institute);
+        $this->ensureHybridLearnerCourseManagementAllowed($account, $course);
 
         return response()->json([
             'course' => [
@@ -2481,6 +2492,7 @@ class MobileApiController extends Controller
             'is_active' => 'required|boolean', 'is_template_source' => 'nullable|boolean',
             'institute' => [$account->role === 'Admin' && !$template ? 'required' : 'nullable', 'string', 'exists:institutes,institute_name'],
         ]);
+        $this->ensureHybridLearnerCourseManagementAllowed($account, $data['availability_type'] ?? null);
         $data['institute'] = $account->role === 'InstituteAdmin' ? $account->institute : ($template ? null : ($data['institute'] ?? null));
         if (!empty($data['assigned_class']) && !SchoolClass::where('class_name', $data['assigned_class'])
             ->when($data['institute'], fn ($q) => $q->where('institute', $data['institute']))->exists()) {
@@ -2503,6 +2515,7 @@ class MobileApiController extends Controller
         $account = $this->requireAdmin($request);
         $course = Course::findOrFail($id);
         $this->ensureAdminInstituteAccess($account, $course->institute);
+        $this->ensureHybridLearnerCourseManagementAllowed($account, $course);
         $data = $this->courseInput($request, $account);
         if ($data['institute'] !== $course->institute && ($course->contents()->exists() || TeachingPlan::where('course_id', $id)->exists())) {
             throw ValidationException::withMessages(['institute' => 'A course with lessons or teaching plans cannot be moved to another institute.']);
@@ -2516,6 +2529,7 @@ class MobileApiController extends Controller
         $account = $this->requireAdmin($request);
         $course = Course::findOrFail($id);
         $this->ensureAdminInstituteAccess($account, $course->institute);
+        $this->ensureHybridLearnerCourseManagementAllowed($account, $course);
         return app(\App\Http\Controllers\CourseController::class)->delete($id);
     }
 
@@ -2567,15 +2581,37 @@ class MobileApiController extends Controller
             })
             ->values();
 
-        $options = TeachingPlan::query()
+        $requestedInstitute = trim((string) $request->input('institute', ''));
+        $selectedInstitute = $account->role === 'InstituteAdmin'
+            ? ($requestedInstitute !== '' && $requestedInstitute !== $account->institute ? '__unauthorised_institute__' : $account->institute)
+            : $requestedInstitute;
+        $selectedInstitute = $selectedInstitute !== '' ? $selectedInstitute : null;
+        $configuredClasses = SchoolClass::query()
+            ->where('status', 1)
+            ->when($selectedInstitute, fn ($q) => $q->where('institute', $selectedInstitute));
+        $planOptions = TeachingPlan::query()
             ->when($account->role === 'InstituteAdmin', fn ($q) => $q->where('institute', $account->institute))
-            ->when($request->filled('institute'), fn ($q) => $q->where('institute', $request->input('institute')));
+            ->when($selectedInstitute, fn ($q) => $q->where('institute', $selectedInstitute));
+        $classOptions = (clone $configuredClasses)->pluck('class_name')
+            ->merge((clone $planOptions)->pluck('class'))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
+        $sectionOptions = (clone $configuredClasses)
+            ->when($request->filled('plan_class'), fn ($q) => $q->where('class_name', $request->input('plan_class')))
+            ->pluck('section')
+            ->merge((clone $planOptions)->when($request->filled('plan_class'), fn ($q) => $q->where('class', $request->input('plan_class')))->pluck('section'))
+            ->map(fn ($section) => filled($section) ? $section : '__unassigned')
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
         return response()->json([
             'plans' => $plans,
             'pagination' => $this->pageMetadata($page),
-            'classes' => (clone $options)->distinct()->orderBy('class')->pluck('class')->filter()->values(),
-            'sections' => (clone $options)->when($request->filled('plan_class'), fn ($q) => $q->where('class', $request->input('plan_class')))
-                ->distinct()->orderBy('section')->pluck('section')->map(fn ($s) => $s ?: '__unassigned')->unique()->values(),
+            'classes' => $classOptions,
+            'sections' => $sectionOptions,
             'institutes' => Institute::query()->where('status', 1)
                 ->when($account->role === 'InstituteAdmin', fn ($q) => $q->where('institute_name', $account->institute))
                 ->orderBy('institute_name')->pluck('institute_name'),
@@ -2740,14 +2776,24 @@ class MobileApiController extends Controller
         $currentWeekStart = now()->copy()->startOfWeek()->toDateString();
         $currentWeekEnd = now()->copy()->endOfWeek()->toDateString();
 
-        $pendingPage = ClassContentSession::query()
+        $completedPlanItems = ClassContentSession::where('stem_engineer_id', $teacher->id)
+            ->where('status', 'completed')
+            ->whereNotNull('teaching_plan_item_id')
+            ->select('teaching_plan_item_id');
+
+        $latestPendingSessionIds = ClassContentSession::query()
+            ->selectRaw('MAX(id)')
             ->where('institute', $teacher->institute)->where('stem_engineer_id', $teacher->id)
             ->whereIn('status', ['in_progress', 'partially_completed', 'cancelled'])
             ->when($class, fn ($q) => $q->where('class', $class->class_name)->where('section', $class->section))
-            ->where(function ($q) use ($teacher) {
-                $q->whereNull('teaching_plan_item_id')->orWhereNotIn('teaching_plan_item_id',
-                    ClassContentSession::where('stem_engineer_id', $teacher->id)->where('status', 'completed')->whereNotNull('teaching_plan_item_id')->select('teaching_plan_item_id'));
+            ->where(function ($q) use ($completedPlanItems) {
+                $q->whereNull('teaching_plan_item_id')
+                    ->orWhereNotIn('teaching_plan_item_id', $completedPlanItems);
             })
+            ->groupBy('teaching_plan_item_id', 'class', 'section', 'content_id');
+
+        $pendingPage = ClassContentSession::query()
+            ->whereIn('id', $latestPendingSessionIds)
             ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 ELSE 1 END")
             ->latest('session_date')->orderByDesc('id')->paginate(30);
         $todayPage = ClassContentSession::query()
@@ -3999,6 +4045,24 @@ class MobileApiController extends Controller
         return $account;
     }
 
+    private function isHybridLearnerCourse(Course|string|null $courseOrAvailability): bool
+    {
+        $availability = $courseOrAvailability instanceof Course
+            ? $courseOrAvailability->availability_type
+            : $courseOrAvailability;
+
+        return in_array($availability, ['Independent', 'Both'], true);
+    }
+
+    private function ensureHybridLearnerCourseManagementAllowed(User $account, Course|string|null $courseOrAvailability): void
+    {
+        abort_if(
+            $account->role !== 'Admin' && $this->isHybridLearnerCourse($courseOrAvailability),
+            403,
+            'Only Super Admin can manage Hybrid Learner courses.'
+        );
+    }
+
     private function requireRole(Request $request, array $roles): User
     {
         $account = $request->user();
@@ -4944,7 +5008,9 @@ class MobileApiController extends Controller
             ['title' => 'STEM Engineer Management', 'subtitle' => $scope(User::whereIn('role', ['Teacher', 'STEM Engineer']))->count() . ' engineers available'],
             ['title' => 'Student Management', 'subtitle' => $scope(Student::query())->count() . ' students available'],
             ['title' => 'Class Management', 'subtitle' => $scope(SchoolClass::query())->count() . ' classes available'],
-            ['title' => 'Course Management', 'subtitle' => $scope(Course::query())->count() . ' courses available'],
+            ['title' => 'Course Management', 'subtitle' => $scope(Course::query())
+                ->when($role === 'InstituteAdmin', fn ($q) => $q->where('availability_type', 'Institute'))
+                ->count() . ' courses available'],
             ['title' => 'Teaching Plans', 'subtitle' => $scope(TeachingPlan::query())->count() . ' plans available'],
         ];
 
@@ -5034,16 +5100,37 @@ class MobileApiController extends Controller
 
     private function mobileTeachingPlanPayload(TeachingPlan $plan): array
     {
+        $account = request()->user();
         $plan->loadMissing([
             'course',
             'weeks' => fn ($query) => $query->withCount('items')->orderBy('week_number'),
+            'course.courseContents.content',
         ]);
+        $accessibleInstituteNames = $account instanceof User && $account->role === 'Admin'
+            ? Institute::query()->where('status', 1)->pluck('institute_name')
+            : collect([$plan->institute])->filter();
+        $aiTrainingReleaseDates = TeachingPlanWeek::whereHas('plan', function ($query) use ($accessibleInstituteNames) {
+                $query->where('is_template', false)
+                    ->whereIn('institute', $accessibleInstituteNames)
+                    ->whereIn('status', ['active', 'completed']);
+            })
+            ->where(fn ($query) => $query->whereNotNull('release_date')->orWhereNotNull('week_start_date'))
+            ->get(['release_date', 'week_start_date'])
+            ->flatMap(fn ($week) => [
+                $week->release_date ? Carbon::parse($week->release_date)->toDateString() : null,
+                $week->week_start_date ? Carbon::parse($week->week_start_date)->toDateString() : null,
+            ])
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
 
         return [
             'id' => $plan->id,
             'title' => $plan->is_template
                 ? ($plan->title ?: 'Teaching Plan Template')
                 : trim(($plan->class ?: 'Class n/a') . ($plan->section ? ' · ' . $plan->section : '')),
+            'plan_title' => $plan->title,
             'subtitle' => trim(($plan->course?->course_title ?: 'Course') . ' · ' . ($plan->institute ?: 'Template / institute n/a')),
             'status' => $plan->status ?: 'inactive',
             'is_template' => (bool) $plan->is_template,
@@ -5052,9 +5139,30 @@ class MobileApiController extends Controller
             'course_title' => $plan->course?->course_title,
             'class' => $plan->class,
             'section' => $plan->section,
+            'start_date' => filled($plan->start_date) ? Carbon::parse($plan->start_date)->toDateString() : null,
+            'release_day' => $plan->release_day ?: 'Friday',
             'remarks' => $plan->remarks,
             'release_policy' => $plan->release_policy,
             'ai_training_start_date' => optional($plan->ai_training_start_date)->toDateString(),
+            'ai_training_release_dates' => $aiTrainingReleaseDates,
+            'ai_training_institutes' => $account instanceof User && $account->role === 'Admin'
+                ? Institute::query()->where('status', 1)->orderBy('institute_name')->get(['id', 'institute_name'])->map(fn (Institute $institute) => [
+                    'id' => $institute->id,
+                    'name' => $institute->institute_name,
+                    'selected' => $institute->institute_name === $plan->institute,
+                ])->values()
+                : [],
+            'lagged_course_contents' => $plan->course?->courseContents
+                ? $plan->course->courseContents
+                    ->where('status', 'active')
+                    ->sortBy('sort_order')
+                    ->map(fn ($courseContent) => [
+                        'id' => $courseContent->id,
+                        'title' => $courseContent->content?->content_title ?? $courseContent->title ?? 'Content',
+                        'sort_order' => $courseContent->sort_order,
+                    ])
+                    ->values()
+                : [],
             'weeks' => $plan->weeks
                 ->map(fn (TeachingPlanWeek $week) => $this->mobileTeachingPlanWeekPayload($week))
                 ->values(),

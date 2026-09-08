@@ -27,6 +27,7 @@ Route::post('/login', [MobileApiController::class, 'login']);
 Route::post('/student-mfa/verify', [MobileApiController::class, 'verifyStudentMfa']);
 Route::post('/mfa/verify', [MobileApiController::class, 'verifyMobileMfa']);
 Route::get('/public/newsroom', [\App\Http\Controllers\Api\MobilePublicController::class, 'newsroom'])->middleware('throttle:20,1');
+Route::get('/public/community', [\App\Http\Controllers\Api\MobilePublicController::class, 'community'])->middleware('throttle:20,1');
 Route::post('/public/verify-certificate', [\App\Http\Controllers\Api\MobilePublicController::class, 'verifyCertificate'])->middleware('throttle:10,1');
 Route::get('/session-completion-video/{fileName}', [\App\Http\Controllers\PageController::class, 'streamSessionCompletionVideo'])
     ->middleware(['signed', 'throttle:30,1'])->name('mobile.session-completion-video');

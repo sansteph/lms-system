@@ -15,15 +15,17 @@ class MobileWorkflowController extends Controller
     {
         $a = $request->user();
         $admin = $a instanceof User && in_array($a->role, ['Admin', 'InstituteAdmin'], true);
+        $manager = $a instanceof User && $a->role === 'Manager';
         $teacher = $a instanceof User && in_array($a->role, ['Teacher', 'STEM Engineer'], true);
         abort_unless(match ($area) {
-            'teaching-plans', 'question-papers' => $admin,
+            'teaching-plans' => $admin,
+            'question-papers' => $admin || $manager,
             'students', 'assessments' => $teacher,
-            'results', 'certificates' => $teacher || $admin,
+            'results', 'certificates' => $teacher || $admin || $manager,
             'hybrid-learners' => $a instanceof User && $a->role === 'Admin',
             'awards', 'badges' => $a instanceof Student,
             'profile' => $teacher || $a instanceof Student,
-            'community' => $teacher || $admin || $a instanceof Student,
+            'community' => $teacher || $admin || $manager || $a instanceof Student,
             default => false,
         }, 403);
     }
@@ -73,9 +75,9 @@ class MobileWorkflowController extends Controller
         }
         if ($area === 'certificates') {
             $certificate = Certificate::with('student')->findOrFail($id);
-            abort_unless($a->role === 'Admin' || $certificate->student?->institute === $a->institute, 403);
+            abort_unless(in_array($a->role, ['Admin', 'Manager'], true) || $certificate->student?->institute === $a->institute, 403);
             if (in_array($action, ['revoke', 'reissue'], true)) {
-                abort_unless(in_array($a->role, ['Admin', 'InstituteAdmin'], true), 403);
+                abort_unless(in_array($a->role, ['Admin', 'InstituteAdmin', 'Manager'], true), 403);
             }
         }
         if ($area === 'results' && $action === 'disqualify') {
@@ -189,7 +191,8 @@ class MobileWorkflowController extends Controller
 
     private function action(string $id, string $label, array $fields = [], array $values = [], bool $confirm = false): array
     {
-        return compact('id', 'label', 'fields', 'values', 'confirm');
+        return ['id' => $id, 'label' => $label, 'fields' => $fields,
+            'values' => (object) $values, 'confirm' => $confirm];
     }
 
     private function choices($values): array
@@ -428,7 +431,19 @@ class MobileWorkflowController extends Controller
         $query = $this->search($this->scope(TeachingPlan::with('course', 'weeks'), $r), $r, ['title', 'class', 'institute'])->latest();
         foreach (['class', 'status', 'is_template'] as $column) if ($r->filled($column)) $query->where($column, $r->input($column));
         return $this->page($r, 'Teaching plan controls', $query, function ($p) use ($admin, $institutes) {
-            $actions = [$this->action('edit', 'Edit plan', [$this->field('status', 'Status', 'select', true, $this->enums(['active', 'inactive', 'completed'])), $this->field('remarks', 'Remarks', 'textarea')], $p->only('status', 'remarks'))];
+            $actions = [$this->action('edit', 'Edit plan', [
+                $this->field('title', 'Plan title'),
+                $this->field('start_date', 'Start date', 'date'),
+                $this->field('release_day', 'Release day', 'select', true, $this->enums(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'])),
+                $this->field('status', 'Status', 'select', true, $this->enums(['active', 'inactive', 'completed'])),
+                $this->field('remarks', 'Remarks', 'textarea'),
+            ], [
+                'title' => $p->title,
+                'start_date' => filled($p->start_date) ? \Carbon\Carbon::parse($p->start_date)->format('Y-m-d') : null,
+                'release_day' => $p->release_day ?: 'Friday',
+                'status' => $p->status,
+                'remarks' => $p->remarks,
+            ])];
             if (!$p->is_template) {
                 $actions[] = $this->action('release-next', 'Release next week', confirm: true);
                 $ai = $admin ? [$this->field('selected_institute_ids', 'Institutes', 'multi', true, $this->choices($institutes))] : [];
@@ -482,6 +497,7 @@ class MobileWorkflowController extends Controller
                 if ($admin || ($own && $p->status !== 'Approved')) $actions[] = $this->action('delete', 'Delete post', confirm: true);
                 $comments = $p->comments->map(fn ($c) => ['id' => $c->id, 'body' => $c->body, 'editable' => $c->commenter_type === $actor['type'] && (int) $c->commenter_id === (int) $actor['id']]);
                 return ['id' => $p->id, 'title' => $p->title, 'subtitle' => $p->body, 'status' => $p->status, 'image' => $p->image_path ? Storage::disk('public')->url($p->image_path) : null,
+                    'liked' => $p->isLikedBy($actor['type'], $actor['id']),
                     'attachment' => $p->attachment_path ? Storage::disk('public')->url($p->attachment_path) : null, 'details' => ['type' => $p->post_type, 'likes' => $p->likes->count()], 'comments' => $comments, 'actions' => $actions];
             });
             return response()->json(['title' => 'Community', 'records' => $records, 'filters' => [$this->field('tab', 'View', 'select', false, $this->enums($actor['type'] === 'Student' ? ['feed','profile'] : ['feed','profile','approvals'])), $this->field('type', 'Post type', 'select', false, $this->enums($data['postTypes']))],

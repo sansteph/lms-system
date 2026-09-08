@@ -115,7 +115,9 @@ class CourseController extends Controller
                 'next_label' => $currentPage < $sections->count() ? ($sections->get($currentPage)['label'] ?? 'Next') : null,
             ];
         } else {
-            $courseQuery->where('institute', session('user_institute'));
+            $courseQuery
+                ->where('institute', session('user_institute'))
+                ->where('availability_type', 'Institute');
         }
 
         if ($currentInstitute) {
@@ -369,6 +371,32 @@ class CourseController extends Controller
         return redirect()->route('courses', $scope);
     }
 
+    private function isHybridLearnerCourse(Course|string|null $courseOrAvailability): bool
+    {
+        $availability = $courseOrAvailability instanceof Course
+            ? $courseOrAvailability->availability_type
+            : $courseOrAvailability;
+
+        return in_array($availability, ['Independent', 'Both'], true);
+    }
+
+    private function ensureHybridLearnerCourseManagementAllowed(Course|string|null $courseOrAvailability): void
+    {
+        if (! $this->isHybridLearnerCourse($courseOrAvailability)) {
+            return;
+        }
+
+        if (request()->is('api/*')) {
+            $user = request()->user();
+            abort_unless($user instanceof \App\Models\User && $user->role === 'Admin', 403, 'Only Super Admin can manage Hybrid Learner courses.');
+            return;
+        }
+
+        if (session('user_role') != 'Admin') {
+            abort(403, 'Only Super Admin can manage Hybrid Learner courses.');
+        }
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -393,6 +421,7 @@ class CourseController extends Controller
             'contents.*.student_file' => 'nullable|file|extensions:pdf|max:51200',
         ]);
 
+        $this->ensureHybridLearnerCourseManagementAllowed($request->availability_type);
         $this->ensureCourseContentFilesWereReceived($request, false);
 
         DB::transaction(function () use ($request) {
@@ -443,6 +472,8 @@ class CourseController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        $this->ensureHybridLearnerCourseManagementAllowed($course);
+
         $request->validate([
             'course_title' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -456,6 +487,8 @@ class CourseController extends Controller
                 : 'nullable|string|max:255',
             'is_template_source' => 'nullable|boolean',
         ]);
+
+        $this->ensureHybridLearnerCourseManagementAllowed($request->availability_type);
 
         $isTemplateSource = session('user_role') == 'Admin' && $request->boolean('is_template_source');
 
@@ -484,6 +517,7 @@ class CourseController extends Controller
     {
         $course = Course::findOrFail($id);
         if (request()->is('api/*')) $this->authorizeCourse($course);
+        $this->ensureHybridLearnerCourseManagementAllowed($course);
 
         if (
             session('user_role') == 'InstituteAdmin' &&
@@ -539,6 +573,7 @@ class CourseController extends Controller
     {
         $course = Course::findOrFail($id);
         $this->authorizeCourse($course);
+        $this->ensureHybridLearnerCourseManagementAllowed($course);
 
         $request->validate([
             'contents' => 'required|array|min:1',
@@ -573,6 +608,7 @@ class CourseController extends Controller
     {
         $course = Course::findOrFail($id);
         $this->authorizeCourse($course);
+        $this->ensureHybridLearnerCourseManagementAllowed($course);
 
         if ($courseContent->course_id != $course->id) {
             abort(404);
@@ -614,6 +650,7 @@ class CourseController extends Controller
     {
         $course = Course::findOrFail($id);
         $this->authorizeCourse($course);
+        $this->ensureHybridLearnerCourseManagementAllowed($course);
 
         if ($courseContent->course_id != $course->id) {
             abort(404);
@@ -673,6 +710,16 @@ class CourseController extends Controller
 
     private function authorizeCourse(Course $course): void
     {
+        if ($this->isHybridLearnerCourse($course)) {
+            if (request()->is('api/*')) {
+                $user = request()->user();
+                abort_unless($user instanceof \App\Models\User && $user->role === 'Admin', 403);
+                return;
+            }
+
+            abort_unless(session('user_role') == 'Admin', 403, 'Only Super Admin can manage Hybrid Learner courses.');
+        }
+
         if (request()->is('api/*')) {
             $user = request()->user();
             abort_unless($user instanceof \App\Models\User && ($user->role === 'Admin' ||

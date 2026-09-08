@@ -198,6 +198,21 @@ class MobileWorkflowParityTest extends TestCase
         $this->postJson('/api/students/import')->assertForbidden();
     }
 
+    public function test_student_filter_options_include_empty_classes_and_scoped_sections(): void
+    {
+        SchoolClass::create(['class_name' => 'Class 11', 'section' => 'STEM-F', 'institute' => 'Alpha']);
+        SchoolClass::create(['class_name' => 'Class 12', 'section' => 'Private', 'institute' => 'Beta']);
+        Student::create(['student_id' => 'LEGACY1', 'name' => 'Legacy', 'institute' => 'Alpha', 'class' => 'Legacy Class', 'section' => 'Legacy Section']);
+
+        $request = \Illuminate\Http\Request::create('/', 'GET', ['student_class' => 'Class 11', 'institute' => 'Beta']);
+        $request->setUserResolver(fn () => $this->user('InstituteAdmin', 'Alpha'));
+
+        $fields = collect(app(\App\Services\MobileManagementFilters::class)->fields($request, 'students'))->keyBy('name');
+
+        $this->assertSame(['Class 10', 'Class 11', 'Legacy Class'], array_column($fields['student_class']['options'], 'value'));
+        $this->assertSame(['STEM-F'], array_column($fields['student_section']['options'], 'value'));
+    }
+
     private function course(): Course
     {
         return Course::create(['course_title' => 'Robotics', 'assigned_class' => 'Class 10', 'institute' => 'Alpha']);

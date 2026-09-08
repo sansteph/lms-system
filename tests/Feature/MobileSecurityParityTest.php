@@ -24,7 +24,7 @@ class MobileSecurityParityTest extends TestCase
             'courses' => ['course_title','institute','status','is_template_source','assigned_class'],
             'contents' => ['content_title','institute','course_id','status','is_released','assigned_class','lesson_order','preview_pdf_path','student_preview_pdf_path','student_file_path','file_path'],
             'course_contents' => ['course_id','content_id','sort_order','status','source_template_content_id'],
-            'teaching_plans' => ['title','course_id','institute','class','section','status','is_template','start_date','release_policy','ai_training_start_date','remarks'],
+            'teaching_plans' => ['title','course_id','institute','class','section','status','is_template','start_date','release_day','release_policy','ai_training_start_date','remarks'],
             'teaching_plan_weeks' => ['teaching_plan_id','week_number','status','release_date','week_start_date','week_end_date','release_reason','released_at','completed_at'],
             'teaching_plan_items' => ['teaching_plan_id','teaching_plan_week_id','content_id','status','released_at','completed_at','sort_order','completed_by','completed_by_role','course_id'],
             'ai_content_summaries' => ['content_id','summary','status','key_points','teacher_quiz','student_quiz','provider','model'],
@@ -687,9 +687,17 @@ class MobileSecurityParityTest extends TestCase
         Sanctum::actingAs($this->user('InstituteAdmin'));
         Course::create(['course_title' => 'Alpha course', 'institute' => 'Alpha', 'status' => 1]);
         Course::create(['course_title' => 'Beta course', 'institute' => 'Beta', 'status' => 1]);
-        TeachingPlan::create(['title' => 'Alpha plan', 'institute' => 'Alpha', 'status' => 'active', 'is_template' => 0]);
+        $plan = TeachingPlan::create([
+            'title' => 'Alpha plan',
+            'institute' => 'Alpha',
+            'status' => 'active',
+            'is_template' => 0,
+            'start_date' => '2026-09-11',
+            'release_day' => 'Friday',
+        ]);
         TeachingPlan::create(['title' => 'Beta plan', 'institute' => 'Beta', 'status' => 'active', 'is_template' => 0]);
-        $this->getJson('/api/workflows/teaching-plans')->assertOk()->assertJsonCount(1, 'records')->assertJsonPath('records.0.title', 'Alpha plan')->assertJsonCount(1, 'actions.0.fields.0.options');
+        $this->getJson('/api/workflows/teaching-plans')->assertOk()->assertJsonCount(1, 'records')->assertJsonPath('records.0.title', 'Alpha plan')->assertJsonCount(1, 'actions.0.fields.0.options')->assertJsonPath('records.0.actions.0.values.start_date', '2026-09-11')->assertJsonPath('records.0.actions.0.values.release_day', 'Friday');
+        $this->getJson('/api/admin/teaching-plans/'.$plan->id)->assertOk()->assertJsonPath('plan.plan_title', 'Alpha plan')->assertJsonPath('plan.start_date', '2026-09-11')->assertJsonPath('plan.release_day', 'Friday');
         Sanctum::actingAs($student);
         $this->getJson('/api/workflows/badges')->assertOk()->assertJsonCount(1, 'records')->assertJsonPath('records.0.status', 'Gold Badge');
         Sanctum::actingAs($this->student());

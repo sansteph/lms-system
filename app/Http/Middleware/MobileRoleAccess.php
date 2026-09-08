@@ -23,7 +23,13 @@ class MobileRoleAccess
         } elseif ($request->is('api/hybrid/*')) {
             abort_unless($account instanceof IndependentLearner, 403);
         } elseif ($request->is('api/admin/*')) {
-            abort_unless($account instanceof User && in_array($account->role, ['Admin', 'InstituteAdmin'], true), 403);
+            $managerApprovalPath = $request->is('api/admin/approvals*')
+                || $request->is('api/admin/submissions/*')
+                || $request->is('api/admin/institutes');
+            $allowedRoles = $managerApprovalPath
+                ? ['Admin', 'InstituteAdmin', 'Manager']
+                : ['Admin', 'InstituteAdmin'];
+            abort_unless($account instanceof User && in_array($account->role, $allowedRoles, true), 403);
             if ($request->is('api/admin/independent-learners*')) {
                 abort_unless($account->role === 'Admin', 403);
             }

@@ -22,6 +22,11 @@ class CourseAuthoringController extends Controller
         abort_unless($user instanceof User && in_array($user->role, ['Admin', 'InstituteAdmin'], true), 403);
         $course = Course::findOrFail($id);
         abort_unless($user->role === 'Admin' || (filled($user->institute) && $course->institute === $user->institute), 403);
+        abort_if(
+            $user->role !== 'Admin' && in_array($course->availability_type, ['Independent', 'Both'], true),
+            403,
+            'Only Super Admin can manage Hybrid Learner courses.'
+        );
 
         return $course;
     }
@@ -153,6 +158,11 @@ class CourseAuthoringController extends Controller
         $user = User::findOrFail($accountId);
         $link = CourseContent::with(['course', 'content'])->findOrFail($lessonId);
         abort_unless($user->role === 'Admin' || ($user->role === 'InstituteAdmin' && filled($user->institute) && $user->institute === $link->course?->institute), 403);
+        abort_if(
+            $user->role !== 'Admin' && in_array($link->course?->availability_type, ['Independent', 'Both'], true),
+            403,
+            'Only Super Admin can manage Hybrid Learner courses.'
+        );
         abort_unless(in_array($audience, ['teacher', 'student'], true), 404);
         $path = $audience === 'student' ? $link->content?->student_file_path : $link->content?->file_path;
         abort_unless($path, 404);

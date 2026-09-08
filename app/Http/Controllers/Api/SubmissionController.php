@@ -166,7 +166,7 @@ class SubmissionController extends Controller
     private function adminScope(Request $request): ?string
     {
         $user = $request->user();
-        abort_unless($user instanceof User && in_array($user->role, ['Admin', 'InstituteAdmin'], true), 403);
+        abort_unless($user instanceof User && in_array($user->role, ['Admin', 'InstituteAdmin', 'Manager'], true), 403);
         if ($user->role === 'InstituteAdmin') {
             abort_unless(filled($user->institute), 403);
 

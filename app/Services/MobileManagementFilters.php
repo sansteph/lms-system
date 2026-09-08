@@ -23,6 +23,9 @@ class MobileManagementFilters
         };
         foreach ($columns as $key => $column) if ($r->filled($key)) $query->where($column, $r->input($key));
         if ($area === 'courses') {
+            if ($r->user()?->role === 'InstituteAdmin') {
+                $query->where('availability_type', 'Institute');
+            }
             if ($r->filled('course_class')) $query->where(fn ($q) => $q->where('assigned_class', $r->course_class)
                 ->orWhereHas('courseContents.content', fn ($c) => $c->where('assigned_class', $r->course_class)));
             if ($r->filled('content_section')) $query->where(fn ($q) => $q
@@ -67,13 +70,22 @@ class MobileManagementFilters
         if ($area === 'teachers') return $fields;
         $classKey = match ($area) { 'students' => 'student_class', 'classes' => 'class_name', default => 'course_class' };
         $sectionKey = match ($area) { 'students' => 'student_section', 'classes' => 'section_name', default => 'content_section' };
-        $classes = $scope($area === 'students' ? Student::query() : SchoolClass::query());
-        $classColumn = $area === 'students' ? 'class' : 'class_name';
-        $fields[] = $field($classKey, 'Class', $options((clone $classes)->pluck($classColumn)), 'institute');
-        $fields[] = $field($sectionKey, 'Section', $options($classes->when($r->filled($classKey), fn ($q) => $q->where($classColumn, $r->input($classKey)))->pluck('section')), $classKey);
+        $classes = $scope(SchoolClass::query());
+        $classNames = (clone $classes)->pluck('class_name');
+        $sections = (clone $classes)->when($r->filled($classKey), fn ($q) => $q->where('class_name', $r->input($classKey)))->pluck('section');
+        if ($area === 'students') {
+            // Include legacy student values as well as classes with no enrollments yet.
+            $students = $scope(Student::query());
+            $classNames = $classNames->merge((clone $students)->pluck('class'));
+            $sections = $sections->merge($students->when($r->filled($classKey), fn ($q) => $q->where('class', $r->input($classKey)))->pluck('section'));
+        }
+        $fields[] = $field($classKey, 'Class', $options($classNames), 'institute');
+        $fields[] = $field($sectionKey, 'Section', $options($sections), $classKey);
         if ($area === 'courses') {
             $courses = Course::query();
-            if (!$admin) $courses->where('institute', $institute);
+            if (!$admin) {
+                $courses->where('institute', $institute)->where('availability_type', 'Institute');
+            }
             $copy = $r->duplicate();
             $copy->query->remove('course_title');
             $fields[] = $field('course_title', 'Course', $options($this->apply($courses, $copy, $area)->pluck('course_title')), 'content_section');

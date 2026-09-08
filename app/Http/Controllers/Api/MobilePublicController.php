@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\{Controller, PageController};
+use App\Models\CommunityPost;
 use App\Services\Newsroom\NewsroomFeedService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class MobilePublicController extends Controller
 {
@@ -12,6 +14,37 @@ class MobilePublicController extends Controller
     {
         // Public refreshes reuse the website cache, rather than triggering paid AI on every pull.
         return response()->json($feed->feed(false));
+    }
+
+    public function community(Request $request)
+    {
+        $posts = CommunityPost::withExistingAuthor()
+            ->where('status', 'Approved')
+            ->when($request->filled('search'), fn ($query) => $query->where(function ($scope) use ($request) {
+                $scope->where('title', 'like', '%' . $request->string('search') . '%')
+                    ->orWhere('body', 'like', '%' . $request->string('search') . '%');
+            }))
+            ->latest('published_at')
+            ->latest('id')
+            ->paginate(12);
+
+        return response()->json([
+            'posts' => $posts->getCollection()->map(fn (CommunityPost $post) => [
+                'id' => $post->id,
+                'title' => $post->title,
+                'body' => $post->body,
+                'type' => $post->post_type,
+                'author' => $post->authorName(),
+                'author_role' => $post->roleLabel(),
+                'published_at' => optional($post->published_at)->toIso8601String(),
+                'image' => $post->image_path ? Storage::disk('public')->url($post->image_path) : null,
+            ])->values(),
+            'pagination' => [
+                'page' => $posts->currentPage(),
+                'last_page' => $posts->lastPage(),
+                'total' => $posts->total(),
+            ],
+        ]);
     }
 
     public function verifyCertificate(Request $request)
