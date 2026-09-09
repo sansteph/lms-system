@@ -73,8 +73,8 @@ class SubmissionController extends Controller
             }
 
             return response()->json([
-                'achievements' => $achievements
-                    ->merge($certificates)
+                'achievements' => collect($achievements->all())
+                    ->merge($certificates->all())
                     ->sortByDesc(fn ($item) => $item['sort_date'] ?? '')
                     ->values()
                     ->map(function (array $item) {
