@@ -58,7 +58,7 @@ class SubmissionController extends Controller
                 ->map(fn ($item) => $this->payload($item, true));
             $certificates = Certificate::query()
                 ->where('student_id', $id)
-                ->whereIn('status', ['approved', 'Approved', 'Issued'])
+                ->whereIn(DB::raw('LOWER(status)'), ['approved', 'issued'])
                 ->latest('issued_date')
                 ->latest('id')
                 ->get()
@@ -103,8 +103,10 @@ class SubmissionController extends Controller
 
     private function certificatePayload(Certificate $certificate): array
     {
-        $issuedDate = $certificate->issued_date ?: $certificate->approved_at ?: $certificate->updated_at;
-        $issuedAt = $issuedDate ? Carbon::parse($issuedDate) : null;
+        $issuedAt = $this->safeDate($certificate->issued_date)
+            ?? $this->safeDate($certificate->approved_at)
+            ?? $this->safeDate($certificate->updated_at)
+            ?? $this->safeDate($certificate->created_at);
         $meta = collect([
             $certificate->certificate_code,
             $certificate->final_score !== null ? 'Score: '.$certificate->final_score : null,
@@ -128,6 +130,19 @@ class SubmissionController extends Controller
             'document_path' => '/api/workflows/awards/'.$certificate->id.'/document',
             'sort_date' => optional($issuedAt)->toDateTimeString(),
         ];
+    }
+
+    private function safeDate($value): ?Carbon
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        try {
+            return $value instanceof Carbon ? $value : Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function save(Request $request, string $audience, string $kind, ?int $id = null)
