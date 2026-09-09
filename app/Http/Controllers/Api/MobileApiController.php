@@ -729,23 +729,103 @@ class MobileApiController extends Controller
         $account = $request->user();
         abort_unless($account instanceof Student, 403);
         $student = $account;
+        $badgeCount = AssessmentResult::where('student_id', $student->id)
+            ->whereNotNull('badge')
+            ->count();
+        $achievements = StudentAchievement::where('student_id', $student->id)
+            ->where('verification_status', 'Approved')
+            ->latest()
+            ->get()
+            ->map(function (StudentAchievement $achievement) {
+                return [
+                    'id' => $achievement->id,
+                    'title' => $achievement->title ?? 'Achievement',
+                    'achievement_type' => $achievement->achievement_type ?? '',
+                    'organizer' => $achievement->organizer ?? '',
+                    'position' => $achievement->position ?? '',
+                    'description' => $achievement->description ?? '',
+                    'achievement_date' => optional($achievement->achievement_date ? Carbon::parse($achievement->achievement_date) : null)->toDateString(),
+                    'status' => $achievement->verification_status ?? 'Approved',
+                    'certificate_url' => $this->publicStorageUrl($achievement->certificate_file),
+                    'attachment_url' => $this->publicStorageUrl($achievement->certificate_file),
+                ];
+            })
+            ->values();
+        $certificates = Certificate::query()
+            ->where('student_id', $student->id)
+            ->latest()
+            ->get()
+            ->map(function (Certificate $certificate) {
+                return [
+                    'id' => $certificate->id,
+                    'title' => $certificate->certificate_type
+                        ? $certificate->certificate_type . ' Certificate'
+                        : 'Certificate',
+                    'certificate_code' => $certificate->certificate_code ?? '',
+                    'badge_count' => $certificate->badge_count,
+                    'final_score' => $certificate->final_score,
+                    'final_grade' => $certificate->final_grade ?? '',
+                    'final_classification' => $certificate->final_classification ?? '',
+                    'issued_date' => optional($certificate->issued_date ? Carbon::parse($certificate->issued_date) : null)->toDateString(),
+                    'status' => $certificate->status ?? '',
+                ];
+            })
+            ->values();
+        $mySpaceItems = MySpace::where('created_by_type', 'Student')
+            ->where('created_by_id', $student->id)
+            ->whereIn('status', ['Approved', 'Featured'])
+            ->latest()
+            ->get()
+            ->map(function (MySpace $item) {
+                return [
+                    'id' => $item->id,
+                    'title' => $item->title ?? 'Submission',
+                    'type' => $item->type ?? '',
+                    'status' => $item->status ?? '',
+                    'description' => $item->description ?? '',
+                    'repository_link' => $item->repository_link ?? '',
+                    'attachment_url' => $this->publicStorageUrl($item->blueprint_pdf),
+                ];
+            })
+            ->values();
 
         return response()->json([
             'success' => true,
             'title' => 'Profile',
-            'summary' => 'View your student account details.',
+            'summary' => trim('Class ' . ($student->class ?? '') . ' - ' . ($student->section ?? '') . ' · ' . ($student->institute ?? ''), " \t\n\r\0\x0B-·"),
+            'student_id' => $student->student_id ?? '',
             'name' => $student->name ?? $account->name ?? '',
             'email' => $student->email ?? $account->email ?? '',
             'role' => 'Student',
+            'class' => $student->class ?? '',
+            'section' => $student->section ?? '',
             'institute' => $student->institute ?? $account->institute ?? '',
+            'contact' => $student->contact ?? '',
+            'guardian_name' => $student->guardian_name ?? '',
+            'is_robotics_club_member' => (bool) ($student->is_robotics_club_member ?? false),
+            'profile_completed' => (bool) ($student->profile_completed ?? false),
             'avatar' => $this->publicStorageUrl($student->profile_image ?? $account->profile_image ?? $account->avatar ?? null),
+            'stats' => [
+                'badges' => $badgeCount,
+                'achievements' => $achievements->count(),
+                'ideas_projects' => $mySpaceItems->count(),
+                'certificates' => $certificates->count(),
+            ],
             'profile_fields' => [
                 'linkedin_url' => $student->linkedin_url ?? '',
             ],
-            'sections' => [
-                ['title' => 'Account', 'subtitle' => 'Student profile and account details.'],
-                ['title' => 'Security', 'subtitle' => 'Use forgot password if you need access help.'],
+            'details' => [
+                ['label' => 'Student ID', 'value' => $student->student_id ?? ''],
+                ['label' => 'Student Name', 'value' => $student->name ?? ''],
+                ['label' => 'Official Email ID', 'value' => $student->email ?? 'Not provided'],
+                ['label' => 'Contact', 'value' => $student->contact ?? ''],
+                ['label' => 'Class', 'value' => trim(($student->class ?? '') . ' ' . ($student->section ?? ''))],
+                ['label' => 'Institute', 'value' => $student->institute ?? ''],
+                ['label' => 'Badges', 'value' => $badgeCount . ' Badges'],
             ],
+            'achievements' => $achievements,
+            'certificates' => $certificates,
+            'my_space_items' => $mySpaceItems,
         ]);
     }
 
@@ -757,7 +837,20 @@ class MobileApiController extends Controller
 
         $validated = $request->validate([
             'linkedin_url' => ['nullable', 'url', 'max:255'],
+            'profile_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_profile_image' => ['nullable', 'boolean'],
         ]);
+        if ($request->boolean('remove_profile_image') && $student->profile_image) {
+            Storage::disk('public')->delete($student->profile_image);
+            $validated['profile_image'] = null;
+        }
+        if ($request->hasFile('profile_image')) {
+            if ($student->profile_image) {
+                Storage::disk('public')->delete($student->profile_image);
+            }
+            $validated['profile_image'] = $request->file('profile_image')->store('profile-images', 'public');
+        }
+        unset($validated['remove_profile_image']);
         $student->update($validated);
 
         return response()->json([

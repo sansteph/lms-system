@@ -94,6 +94,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\MobileRoleAccess::class]
     Route::post('/student/assessment-sessions/{id}/violation', [\App\Http\Controllers\Api\MobileSessionController::class, 'violation']);
     Route::get('/student/profile', [MobileApiController::class, 'studentProfile']);
     Route::put('/student/profile', [MobileApiController::class, 'updateStudentProfile']);
+    Route::post('/student/profile', [MobileApiController::class, 'updateStudentProfile']);
     Route::get('/{audience}/{kind}', [SubmissionController::class, 'index'])->where(['audience' => 'student|engineer', 'kind' => 'my-space|achievements']);
     Route::post('/{audience}/{kind}', [SubmissionController::class, 'save'])->where(['audience' => 'student|engineer', 'kind' => 'my-space|achievements']);
     Route::post('/{audience}/{kind}/{id}', [SubmissionController::class, 'save'])->where(['audience' => 'student|engineer', 'kind' => 'my-space|achievements', 'id' => '[0-9]+']);
