@@ -279,10 +279,7 @@
                                                                                     @csrf
                                                                                     <div class="d-flex gap-2 align-items-center">
                                                                                     <select name="status" class="form-select form-select-sm">
-                                                                                        @if($week->status === 'completed')
-                                                                                            <option value="completed" selected>Completed</option>
-                                                                                        @endif
-                                                                                        @foreach(['locked', 'released', 'skipped'] as $status)
+                                                                                        @foreach(['locked', 'released', 'completed', 'skipped'] as $status)
                                                                                             <option value="{{ $status }}" {{ $week->status == $status ? 'selected' : '' }}>{{ ucfirst($status) }}</option>
                                                                                         @endforeach
                                                                                     </select>

@@ -758,34 +758,9 @@ class TeachingPlanController extends Controller
             'status' => 'required|in:locked,released,completed,skipped',
         ]);
 
-        if (
-            $request->status == 'completed' &&
-            $week->items()->where('status', '!=', 'completed')->exists()
-        ) {
-            return redirect()->back()
-                ->with('error', 'A week can only be marked completed after its topics are completed through STEM Engineer sessions.');
-        }
-
-        if ($request->status === 'released') {
-            if ($week->status !== 'released' && !app(TeachingPlanReleaseService::class)->releaseWeek($week)) {
-                return redirect()->back()->with('error', 'This week cannot be released before the plan starts or its required earlier weeks are complete.');
-            }
-            return redirect()->back()->with('success', 'Teaching Plan week released.');
-        }
-
-        $week->update([
-            'status' => $request->status,
-            'released_at' => $request->status == 'released' ? ($week->released_at ?: now()) : $week->released_at,
-            'completed_at' => $request->status == 'completed' ? ($week->completed_at ?: now()) : null,
-        ]);
-
-        if (in_array($request->status, ['locked', 'released', 'skipped'], true)) {
-            $week->items()->update([
-                'status' => $request->status,
-                'released_at' => $request->status == 'released' ? now() : null,
-                'completed_at' => null,
-            ]);
-        }
+        app(TeachingPlanReleaseService::class)->setWeekStatusByAdmin(
+            $week, $request->status, \App\Models\User::findOrFail(session('user_id'))
+        );
 
         return redirect()->back()
             ->with('success', 'Teaching Plan week updated.');

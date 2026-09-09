@@ -2723,32 +2723,7 @@ class MobileApiController extends Controller
             'status' => ['required', 'in:locked,released,completed,skipped'],
         ]);
 
-        if ($validated['status'] === 'completed' && $week->items()->where('status', '!=', 'completed')->exists()) {
-            throw ValidationException::withMessages([
-                'status' => 'A week can only be completed after all topics are completed through STEM Engineer sessions.',
-            ]);
-        }
-
-        if ($validated['status'] === 'released') {
-            if ($week->status !== 'released' && !app(TeachingPlanReleaseService::class)->releaseWeek($week)) {
-                throw ValidationException::withMessages(['status' => 'This week cannot be released before the plan starts or its required earlier weeks are complete.']);
-            }
-            return response()->json(['success' => true, 'message' => 'Week released.', 'week' => $this->mobileTeachingPlanWeekPayload($week->fresh()->loadCount('items'))]);
-        }
-
-        $week->update([
-            'status' => $validated['status'],
-            'released_at' => $validated['status'] === 'released' ? ($week->released_at ?: now()) : $week->released_at,
-            'completed_at' => $validated['status'] === 'completed' ? ($week->completed_at ?: now()) : null,
-        ]);
-
-        if (in_array($validated['status'], ['locked', 'released', 'skipped'], true)) {
-            $week->items()->update([
-                'status' => $validated['status'],
-                'released_at' => $validated['status'] === 'released' ? now() : null,
-                'completed_at' => null,
-            ]);
-        }
+        app(TeachingPlanReleaseService::class)->setWeekStatusByAdmin($week, $validated['status'], $account);
 
         return response()->json([
             'success' => true,

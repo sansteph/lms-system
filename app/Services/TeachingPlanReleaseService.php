@@ -52,6 +52,9 @@ class TeachingPlanReleaseService
 
             $dueWeeks = $plan->weeks()
                 ->where('status', 'locked')
+                ->where(function ($query) {
+                    $query->whereNull('release_reason')->orWhere('release_reason', '!=', 'admin_locked');
+                })
                 ->whereNotNull('release_date')
                 ->whereDate('release_date', '<=', $date->copy()->toDateString())
                 ->where(function ($query) {
@@ -133,6 +136,48 @@ class TeachingPlanReleaseService
         app(LmsNotificationService::class)->notifyTeachersOfReleasedWeek($week->fresh(['plan.course', 'items.content']));
 
         return true;
+        });
+    }
+
+    public function setWeekStatusByAdmin(TeachingPlanWeek $week, string $status, \App\Models\User $actor): void
+    {
+        abort_unless(in_array($actor->role, ['Admin', 'InstituteAdmin'], true), 403);
+        abort_unless(in_array($status, ['locked', 'released', 'completed', 'skipped'], true), 422);
+
+        DB::transaction(function () use ($week, $status, $actor) {
+            $plan = TeachingPlan::lockForUpdate()->findOrFail($week->teaching_plan_id);
+            abort_unless($actor->role === 'Admin' || $actor->institute === $plan->institute, 403);
+            abort_if($plan->is_template, 422, 'Deploy the template before changing week actions.');
+            $week = TeachingPlanWeek::lockForUpdate()->findOrFail($week->id);
+            $changed = $week->status !== $status;
+            $releasedAt = in_array($status, ['released', 'completed'], true)
+                ? ($changed ? now() : ($week->released_at ?: now())) : null;
+            $completedAt = $status === 'completed' ? ($week->completed_at ?: now()) : null;
+            $week->update([
+                'status' => $status,
+                'released_at' => $releasedAt,
+                'completed_at' => $completedAt,
+                'release_reason' => 'admin_'.$status,
+            ]);
+            $week->items()->update([
+                'status' => $status,
+                'released_at' => $releasedAt,
+                'completed_at' => $completedAt,
+                'completed_by' => $status === 'completed' ? $actor->id : null,
+                'completed_by_role' => $status === 'completed' ? $actor->role : null,
+            ]);
+
+            foreach ($week->items()->with('content')->get() as $item) {
+                if (!$item->content) continue;
+                $available = TeachingPlanItem::where('content_id', $item->content_id)
+                    ->where('status', 'completed')->whereHas('plan', fn ($query) => $query->where('is_template', false))
+                    ->exists();
+                $item->content->update(['is_released' => $available]);
+            }
+
+            if ($changed && $status === 'released') {
+                app(LmsNotificationService::class)->notifyTeachersOfReleasedWeek($week->fresh(['plan.course', 'items.content']));
+            }
         });
     }
 

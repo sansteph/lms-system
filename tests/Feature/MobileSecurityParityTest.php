@@ -557,6 +557,36 @@ class MobileSecurityParityTest extends TestCase
         $this->assertTrue($service->releaseWeek($second));
     }
 
+    public function test_admin_week_actions_override_schedule_and_keep_items_in_sync(): void
+    {
+        $admin = $this->user('InstituteAdmin');
+        Sanctum::actingAs($admin);
+        $plan = TeachingPlan::create(['institute' => 'Alpha', 'status' => 'active', 'is_template' => false,
+            'start_date' => today()->addMonth(), 'release_policy' => 'release_next_only_if_previous_completed']);
+        TeachingPlanWeek::create(['teaching_plan_id' => $plan->id, 'week_number' => 1, 'status' => 'locked']);
+        $week = TeachingPlanWeek::create(['teaching_plan_id' => $plan->id, 'week_number' => 2, 'status' => 'locked', 'release_date' => today()]);
+        $content = Content::create(['content_title' => 'Override lesson', 'status' => 1, 'is_released' => false]);
+        $item = TeachingPlanItem::create(['teaching_plan_id' => $plan->id, 'teaching_plan_week_id' => $week->id,
+            'content_id' => $content->id, 'status' => 'locked']);
+        $path = '/api/admin/teaching-plans/'.$plan->id.'/weeks/'.$week->id;
+
+        foreach (['released', 'completed', 'released', 'skipped', 'locked'] as $status) {
+            $this->putJson($path, ['status' => $status])->assertOk();
+            $this->assertSame($status, $week->fresh()->status);
+            $this->assertSame($status, $item->fresh()->status);
+            $this->assertSame($status === 'completed', (bool) $content->fresh()->is_released);
+        }
+        $plan->update(['start_date' => today(), 'release_policy' => 'scheduled_weekly_release']);
+        app(TeachingPlanReleaseService::class)->releaseDueWeek($plan);
+        $this->assertSame('locked', $week->fresh()->status);
+
+        $outsider = $this->user('InstituteAdmin');
+        $outsider->update(['institute' => 'Beta']);
+        Sanctum::actingAs($outsider);
+        $this->putJson($path, ['status' => 'released'])->assertForbidden();
+        $this->assertSame('locked', $week->fresh()->status);
+    }
+
     public function test_engineer_learning_content_shows_manually_released_next_week(): void
     {
         $teacher = $this->user('STEM Engineer');
