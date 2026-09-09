@@ -17,13 +17,14 @@ use App\Models\SchoolClass;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use App\Support\BuildsInstituteSectionPager;
+use App\Services\AssessmentAutoEvaluationService;
 use App\Services\Ai\GeminiAiService;
 
 class AssessmentResultController extends Controller
 {
     use BuildsInstituteSectionPager;
 
-    public function store(Request $request, GeminiAiService $ai)
+    public function store(Request $request, GeminiAiService $ai, AssessmentAutoEvaluationService $autoEvaluation)
     {
         $request->validate([
             'student_id' => 'required',
@@ -95,6 +96,13 @@ class AssessmentResultController extends Controller
 
         if ($assessment->assessment_category === 'Component Mastery') {
             return $this->evaluateComponentMasteryResult($result, $assessment, $ai);
+        }
+
+        if ($autoEvaluation->evaluateIfEligible($result)) {
+            $result->refresh();
+
+            return redirect()->route('student.history')
+                ->with('success', 'Assessment submitted and evaluated automatically. Your result is available now.');
         }
 
         return redirect()->route('student.history')
@@ -204,7 +212,35 @@ class AssessmentResultController extends Controller
                 'assessment.teacher',
                 'evaluator',
             ])
-            ->where('status', 'Pending Review')
+            ->where(function ($query) use ($statusFilter) {
+                if ($statusFilter === 'Pending Review') {
+                    $query->where('status', 'Pending Review');
+                    return;
+                }
+
+                if ($statusFilter === 'AI Evaluated') {
+                    $query->where('status', 'Completed')
+                        ->whereNull('evaluated_by')
+                        ->whereHas('assessment', fn ($assessmentQuery) => $assessmentQuery
+                            ->whereIn('assessment_category', ['Monthly', 'Annual'])
+                            ->whereNotNull('teacher_id'));
+                    return;
+                }
+
+                if ($statusFilter === 'Completed') {
+                    $query->where('status', 'Completed');
+                    return;
+                }
+
+                $query->where('status', 'Pending Review')
+                    ->orWhere(function ($aiQuery) {
+                        $aiQuery->where('status', 'Completed')
+                            ->whereNull('evaluated_by')
+                            ->whereHas('assessment', fn ($assessmentQuery) => $assessmentQuery
+                                ->whereIn('assessment_category', ['Monthly', 'Annual'])
+                                ->whereNotNull('teacher_id'));
+                    });
+            })
             ->when(session('user_role') == 'Teacher', function ($query) {
                 $teacher = User::findOrFail(session('user_id'));
 
@@ -228,7 +264,6 @@ class AssessmentResultController extends Controller
                         });
                 });
             })
-            ->when($statusFilter, fn ($query) => $query->where('status', $statusFilter))
             ->latest()
             ->paginate(20)
             ->withQueryString();
@@ -448,7 +483,7 @@ class AssessmentResultController extends Controller
         ]);
 
         if ($result->assessment) {
-            $this->prepareCertificateRequestIfEligible($result->student_id, $result->assessment);
+            $this->syncCertificateRequestAfterReview($result);
         }
 
         return redirect()->back()
@@ -741,6 +776,75 @@ class AssessmentResultController extends Controller
             'status' => 'pending_admin_approval',
             'certificate_type' => 'Annual',
         ]);
+    }
+
+    private function syncCertificateRequestAfterReview(AssessmentResult $result): void
+    {
+        $assessment = $result->assessment;
+
+        if (!$assessment) {
+            return;
+        }
+
+        if ($assessment->assessment_category === 'Annual') {
+            $this->removePendingAnnualCertificateIfNoLongerEligible($result->student_id, $assessment);
+        }
+
+        $this->prepareCertificateRequestIfEligible($result->student_id, $assessment);
+    }
+
+    private function removePendingAnnualCertificateIfNoLongerEligible($studentId, Assessment $assessment): void
+    {
+        $student = Student::find($studentId);
+
+        if (!$student) {
+            return;
+        }
+
+        $assignedClass = preg_replace('/\s+/', ' ', trim((string) $assessment->assigned_class));
+
+        if ($this->studentClassName($student) != $assignedClass) {
+            return;
+        }
+
+        $annualResult = AssessmentResult::where('student_id', $studentId)
+            ->where('assessment_id', $assessment->id)
+            ->where('status', 'Completed')
+            ->whereNotNull('evaluated_at')
+            ->where('passed', true)
+            ->first();
+
+        $eligible = false;
+
+        if ($annualResult) {
+            $monthlyAssessmentIds = Assessment::where('institute', $assessment->institute)
+                ->where('status', 1)
+                ->where('question_paper_status', 'Approved')
+                ->where('assessment_category', 'Monthly')
+                ->whereRaw(
+                    "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
+                    [$assignedClass]
+                )
+                ->whereDate('assessment_date', '<=', today())
+                ->pluck('id');
+
+            $monthlyResults = AssessmentResult::where('student_id', $studentId)
+                ->whereIn('assessment_id', $monthlyAssessmentIds)
+                ->where('status', 'Completed')
+                ->whereNotNull('evaluated_at')
+                ->get();
+
+            $eligible = (float) $monthlyResults->push($annualResult)->avg('percentage') >= 40;
+        }
+
+        if ($eligible) {
+            return;
+        }
+
+        Certificate::where('student_id', $studentId)
+            ->where('certificate_type', 'Annual')
+            ->whereIn('status', ['Pending', 'Pending Approval', 'pending_admin_approval'])
+            ->delete();
     }
 
     private function prepareComponentMasteryCertificateRequest($studentId, Assessment $assessment): void

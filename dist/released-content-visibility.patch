@@ -1,0 +1,19 @@
+diff --git a/app/Http/Controllers/Api/MobileApiController.php b/app/Http/Controllers/Api/MobileApiController.php
+--- a/app/Http/Controllers/Api/MobileApiController.php
++++ b/app/Http/Controllers/Api/MobileApiController.php
+@@ -2810,15 +2810,5 @@
+             })
+             ->whereIn('status', ['released', 'completed'])
+-            ->whereHas('week', function ($q) use ($today, $currentWeekStart, $currentWeekEnd) {
+-                $q->where(function ($weekQuery) use ($today) {
+-                    $weekQuery->whereDate('week_start_date', '<=', $today)
+-                        ->whereDate('week_end_date', '>=', $today);
+-                })->orWhere(function ($weekQuery) use ($currentWeekStart, $currentWeekEnd) {
+-                    $weekQuery->whereNull('week_start_date')
+-                        ->whereNull('week_end_date')
+-                        ->whereBetween('release_date', [$currentWeekStart, $currentWeekEnd]);
+-                });
+-            })
+             ->whereHas('content', fn ($q) => $q->where('status', 1))
+             ->with(['content.aiSummary', 'content.courseContent.sourceTemplateContent.aiSummary', 'plan', 'week'])
+             ->orderBy('teaching_plan_week_id')->orderBy('sort_order')->orderBy('id')->paginate(30);

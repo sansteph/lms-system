@@ -28,7 +28,7 @@ class MobileAssessmentService
 
     public function submit(AssessmentSession $session, ?string $answer, bool $automatic = false): AssessmentResult
     {
-        return DB::transaction(function () use ($session, $answer, $automatic) {
+        $result = DB::transaction(function () use ($session, $answer, $automatic) {
             $session = AssessmentSession::with('assessment')->lockForUpdate()->findOrFail($session->id);
             $existing = AssessmentResult::where('student_id', $session->user_id)->where('assessment_id', $session->assessment_id)->first();
             if ($existing) return $existing;
@@ -47,5 +47,9 @@ class MobileAssessmentService
             Cache::forget($this->draftKey($session));
             return $result;
         });
+
+        app(AssessmentAutoEvaluationService::class)->evaluateIfEligible($result);
+
+        return $result->refresh();
     }
 }

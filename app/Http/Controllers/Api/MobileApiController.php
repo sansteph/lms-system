@@ -2773,8 +2773,6 @@ class MobileApiController extends Controller
         $class = $request->filled('class_id')
             ? SchoolClass::where('institute', $teacher->institute)->findOrFail($request->integer('class_id')) : null;
         $today = now()->toDateString();
-        $currentWeekStart = now()->copy()->startOfWeek()->toDateString();
-        $currentWeekEnd = now()->copy()->endOfWeek()->toDateString();
 
         $completedPlanItems = ClassContentSession::where('stem_engineer_id', $teacher->id)
             ->where('status', 'completed')
@@ -2811,16 +2809,6 @@ class MobileApiController extends Controller
                     ->when($class, fn ($q) => $q->where('class', $class->class_name)->where('section', $class->section));
             })
             ->whereIn('status', ['released', 'completed'])
-            ->whereHas('week', function ($q) use ($today, $currentWeekStart, $currentWeekEnd) {
-                $q->where(function ($weekQuery) use ($today) {
-                    $weekQuery->whereDate('week_start_date', '<=', $today)
-                        ->whereDate('week_end_date', '>=', $today);
-                })->orWhere(function ($weekQuery) use ($currentWeekStart, $currentWeekEnd) {
-                    $weekQuery->whereNull('week_start_date')
-                        ->whereNull('week_end_date')
-                        ->whereBetween('release_date', [$currentWeekStart, $currentWeekEnd]);
-                });
-            })
             ->whereHas('content', fn ($q) => $q->where('status', 1))
             ->with(['content.aiSummary', 'content.courseContent.sourceTemplateContent.aiSummary', 'plan', 'week'])
             ->orderBy('teaching_plan_week_id')->orderBy('sort_order')->orderBy('id')->paginate(30);
@@ -3287,8 +3275,14 @@ class MobileApiController extends Controller
                 });
         } elseif ($role === 'STEM Engineer') {
             $lessons = $this->legacyPage(TeachingPlanItem::query()
-                ->whereHas('plan', fn ($query) => $query->where('institute', $account->institute))
-                ->with(['content', 'plan'])
+                ->whereIn('status', ['released', 'completed'])
+                ->whereHas('content', fn ($query) => $query->where('status', 1))
+                ->whereHas('plan', fn ($query) => $query
+                    ->where('institute', $account->institute)
+                    ->where('is_template', false)
+                    ->whereIn('status', ['active', 'completed']))
+                ->with(['content', 'plan.course', 'week'])
+                ->orderBy('teaching_plan_week_id')
                 ->orderBy('sort_order'), 'lessons')
                 ->map(function (TeachingPlanItem $item) {
                     return [
@@ -3955,17 +3949,25 @@ class MobileApiController extends Controller
             'auto_submitted' => ['nullable', 'boolean'],
         ]);
 
-        app(\App\Services\MobileAssessmentService::class)->submit($session, $validated['answer_text'] ?? null, $request->boolean('auto_submitted'));
+        $result = app(\App\Services\MobileAssessmentService::class)
+            ->submit($session, $validated['answer_text'] ?? null, $request->boolean('auto_submitted'));
 
         return response()->json([
             'success' => true,
-            'message' => 'Assessment submitted successfully.',
+            'message' => $result->evaluated_at
+                ? 'Assessment submitted and evaluated automatically.'
+                : 'Assessment submitted successfully. It is waiting for review.',
             'session_id' => $session->id,
             'assessment_id' => $assessment->id,
             'assessment_title' => $assessment->assessment_title,
-            'result_status' => 'Pending Review',
-            'score' => 0,
-            'total_marks' => (int) ($assessment->total_marks ?? 1),
+            'result_id' => $result->id,
+            'result_status' => $result->status,
+            'score' => (int) ($result->score ?? 0),
+            'total_marks' => (int) ($result->total_marks ?? $assessment->total_marks ?? 1),
+            'percentage' => $result->percentage !== null ? (float) $result->percentage : null,
+            'passed' => $result->passed,
+            'feedback' => $result->feedback,
+            'evaluated_at' => optional($result->evaluated_at)->format('Y-m-d H:i'),
         ]);
     }
 

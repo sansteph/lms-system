@@ -561,6 +561,13 @@
                             </div>
                         </div>
                         <div class="mb-3">
+                            <label class="form-label" for="releasePolicy{{ $plan->id }}">Release Policy</label>
+                            <select id="releasePolicy{{ $plan->id }}" name="release_policy" class="form-select" required>
+                                <option value="scheduled_weekly_release" {{ $plan->release_policy === 'scheduled_weekly_release' ? 'selected' : '' }}>Scheduled weekly release</option>
+                                <option value="release_next_only_if_previous_completed" {{ $plan->release_policy === 'release_next_only_if_previous_completed' ? 'selected' : '' }}>Release next only if previous weeks are completed</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">Status</label>
                             <select name="status" class="form-control" required>
                                 @foreach(['active', 'inactive', 'completed'] as $status)

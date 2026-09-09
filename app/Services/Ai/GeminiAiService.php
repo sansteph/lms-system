@@ -167,6 +167,30 @@ class GeminiAiService
         ];
     }
 
+    public function evaluateAssessmentSubmission(array $context): array
+    {
+        $apiKey = config('ai.gemini.api_key');
+        $model = config('ai.gemini.model');
+
+        if (blank($apiKey)) {
+            throw new RuntimeException('Gemini API key is missing. Add GEMINI_API_KEY to the .env file.');
+        }
+
+        $prompt = $this->assessmentSubmissionEvaluationPrompt($context);
+        $responseText = $this->generateText($model, $prompt);
+        $payload = $this->decodeJsonResponse($responseText);
+
+        return [
+            'score' => max(0, (float) ($payload['score'] ?? 0)),
+            'total_marks' => max(1, (float) ($payload['total_marks'] ?? ($context['total_marks'] ?? 1))),
+            'percentage' => max(0, min(100, (float) ($payload['percentage'] ?? 0))),
+            'passed' => (bool) ($payload['passed'] ?? false),
+            'feedback' => $payload['feedback'] ?? 'AI evaluation completed.',
+            'answer_feedback' => $payload['answer_feedback'] ?? [],
+            'model' => $model,
+        ];
+    }
+
     public function answerChatQuestion(string $question, array $contextItems, string $audienceLabel): array
     {
         $apiKey = config('ai.gemini.api_key');
@@ -573,6 +597,41 @@ Rules:
 - total_marks must match the assessment total marks.
 - percentage must be score divided by total_marks multiplied by 100.
 - Keep feedback specific and constructive.
+PROMPT;
+    }
+
+    private function assessmentSubmissionEvaluationPrompt(array $context): string
+    {
+        $payload = json_encode($context, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        return <<<PROMPT
+You are evaluating a Monthly or Annual InnovatEdge LMS assessment submitted by a student.
+
+Assessment, question paper, rubric hints, and student submission:
+{$payload}
+
+Return only valid JSON with this exact structure:
+{
+  "score": 0,
+  "total_marks": 50,
+  "percentage": 0,
+  "passed": false,
+  "feedback": "Concise overall feedback for the student and reviewer",
+  "answer_feedback": [
+    {"question_number": 1, "marks_awarded": 0, "feedback": "Specific feedback"}
+  ]
+}
+
+Rules:
+- Evaluate only against the supplied question paper text, structured sections, expected_points, blueprint, total marks, and the student's answer.
+- Award fair partial marks for correct concepts, practical STEM reasoning, calculations, diagrams described in text, code logic, troubleshooting, safety, and design decisions where relevant.
+- Do not reward unsupported claims, filler, copied question text, or answers unrelated to the paper.
+- Monthly assessments should be graded for current concept understanding and application.
+- Annual assessments should be graded more rigorously for broader reasoning, practical application, and project-style thinking.
+- The pass threshold is 40 percent or higher.
+- total_marks must match the supplied total_marks.
+- percentage must be score divided by total_marks multiplied by 100.
+- Keep feedback clear, specific, and professional.
 PROMPT;
     }
 

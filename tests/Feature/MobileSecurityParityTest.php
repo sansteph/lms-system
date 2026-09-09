@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{User, Student, Assessment, AssessmentSession, AssessmentResult, Certificate, TeachingPlan, TeachingPlanWeek, Content, ClassContentSession, SchoolClass, Course, Institute, LessonProgress, UserActivityLog, UserSession};
+use App\Models\{User, Student, Assessment, AssessmentSession, AssessmentResult, Certificate, TeachingPlan, TeachingPlanWeek, TeachingPlanItem, Content, ClassContentSession, SchoolClass, Course, Institute, LessonProgress, UserActivityLog, UserSession};
 use App\Services\{MobileAssessmentService, MobileContentAccess, TeachingPlanReleaseService, LmsNotificationService};
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\{DB, Schema, Cache, Hash, Storage};
@@ -556,6 +556,93 @@ class MobileSecurityParityTest extends TestCase
         $first->update(['status' => 'completed']);
         $this->assertTrue($service->releaseWeek($second));
     }
+
+    public function test_engineer_learning_content_shows_manually_released_next_week(): void
+    {
+        $teacher = $this->user('STEM Engineer');
+        $course = Course::create(['course_title' => 'STEM Course', 'institute' => 'Alpha', 'status' => 1]);
+        $plan = TeachingPlan::create([
+            'course_id' => $course->id,
+            'institute' => 'Alpha',
+            'class' => 'Class 10',
+            'section' => 'A',
+            'status' => 'active',
+            'is_template' => false,
+            'start_date' => today(),
+        ]);
+        $week = TeachingPlanWeek::create([
+            'teaching_plan_id' => $plan->id,
+            'week_number' => 2,
+            'status' => 'locked',
+            'release_date' => today()->addWeek(),
+            'week_start_date' => today()->addWeek(),
+            'week_end_date' => today()->addWeek()->addDays(6),
+        ]);
+        $content = Content::create([
+            'course_id' => $course->id,
+            'content_title' => 'Next Week Robotics',
+            'institute' => 'Alpha',
+            'status' => 1,
+            'file_path' => 'robotics.pdf',
+        ]);
+        TeachingPlanItem::create([
+            'teaching_plan_id' => $plan->id,
+            'teaching_plan_week_id' => $week->id,
+            'content_id' => $content->id,
+            'status' => 'locked',
+            'sort_order' => 1,
+        ]);
+
+        $this->assertNotNull(app(TeachingPlanReleaseService::class)->releaseNextWeek($plan));
+
+        Sanctum::actingAs($teacher);
+        $this->getJson('/api/engineer/learning-content')
+            ->assertOk()
+            ->assertJsonPath('lessons.0.content_id', (string) $content->id)
+            ->assertJsonPath('lessons.0.title', 'Next Week Robotics')
+            ->assertJsonPath('lessons.0.status', 'released');
+    }
+
+    public function test_engineer_sessions_content_includes_multiple_released_weeks(): void
+    {
+        Sanctum::actingAs($this->user('STEM Engineer'));
+        $class = SchoolClass::create(['class_name' => 'Class 10', 'section' => 'A', 'institute' => 'Alpha', 'status' => 1]);
+        $course = Course::create(['course_title' => 'Robotics', 'institute' => 'Alpha', 'status' => 1]);
+        $plan = TeachingPlan::create([
+            'course_id' => $course->id, 'institute' => 'Alpha', 'class' => 'Class 10',
+            'section' => 'A', 'status' => 'active', 'is_template' => false,
+            'start_date' => today(), 'release_policy' => 'scheduled_weekly_release',
+        ]);
+        $expectedIds = [];
+        for ($number = 1; $number <= 4; $number++) {
+            $start = today()->startOfWeek()->addWeeks($number - 1);
+            $week = TeachingPlanWeek::create([
+                'teaching_plan_id' => $plan->id, 'week_number' => $number, 'status' => 'locked',
+                'release_date' => $start, 'week_start_date' => $start, 'week_end_date' => $start->copy()->addDays(6),
+            ]);
+            for ($order = 1; $order <= 2; $order++) {
+                $content = Content::create(['course_id' => $course->id, 'content_title' => "Week $number Lesson $order", 'status' => 1]);
+                TeachingPlanItem::create([
+                    'teaching_plan_id' => $plan->id, 'teaching_plan_week_id' => $week->id,
+                    'content_id' => $content->id, 'status' => 'locked', 'sort_order' => $order,
+                ]);
+                if ($number <= 3) $expectedIds[] = $content->id;
+            }
+        }
+        for ($number = 1; $number <= 3; $number++) {
+            $this->assertNotNull(app(TeachingPlanReleaseService::class)->releaseNextWeek($plan));
+        }
+
+        $response = $this->getJson('/api/engineer/sessions?class_id='.$class->id)
+            ->assertOk()->assertJsonCount(6, 'learning_content')
+            ->assertJsonPath('pagination.learning_content.total', 6);
+        $this->assertEquals($expectedIds, array_column($response->json('learning_content'), 'content_id'));
+
+        $otherClass = SchoolClass::create(['class_name' => 'Class 9', 'section' => 'A', 'institute' => 'Alpha', 'status' => 1]);
+        $this->getJson('/api/engineer/sessions?class_id='.$otherClass->id)
+            ->assertOk()->assertJsonCount(0, 'learning_content');
+    }
+
     public function test_student_pdf_does_not_fall_back_to_teacher_version_when_student_pdf_exists(): void
     {
         $content = new Content(['preview_pdf_path' => 'teacher.pdf', 'student_file_path' => 'student.pdf']);

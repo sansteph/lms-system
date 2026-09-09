@@ -503,6 +503,7 @@ class TeachingPlanController extends Controller
             'start_date' => 'nullable|date',
             'release_day' => 'required|in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday',
             'status' => 'required|in:active,inactive,completed',
+            'release_policy' => 'sometimes|required|in:scheduled_weekly_release,release_next_only_if_previous_completed',
             'remarks' => 'nullable|string|max:2000',
         ]);
 
@@ -516,6 +517,7 @@ class TeachingPlanController extends Controller
                 'start_date' => $newStartDate,
                 'plan_start_date' => $newStartDate,
                 'release_day' => $validated['release_day'],
+                'release_policy' => $validated['release_policy'] ?? $plan->release_policy,
                 'status' => $validated['status'],
                 'remarks' => $validated['remarks'] ?? null,
             ]);

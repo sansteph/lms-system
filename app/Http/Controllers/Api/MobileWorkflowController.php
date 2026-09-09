@@ -327,7 +327,18 @@ class MobileWorkflowController extends Controller
             ->whereHas('student', fn ($s) => $s->where('name', 'like', '%'.$r->search.'%')->orWhere('student_id', 'like', '%'.$r->search.'%'))
             ->orWhereHas('assessment', fn ($a) => $a->where('assessment_title', 'like', '%'.$r->search.'%'))
             ->orWhere('badge', 'like', '%'.$r->search.'%')));
-        foreach (['status', 'badge'] as $column) if ($r->filled($column)) $query->where($column, $r->input($column));
+        if ($r->filled('status')) {
+            if ($r->input('status') === 'AI Evaluated') {
+                $query->where('status', 'Completed')
+                    ->whereNull('evaluated_by')
+                    ->whereHas('assessment', fn ($assessmentQuery) => $assessmentQuery
+                        ->whereIn('assessment_category', ['Monthly', 'Annual'])
+                        ->whereNotNull('teacher_id'));
+            } else {
+                $query->where('status', $r->input('status'));
+            }
+        }
+        if ($r->filled('badge')) $query->where('badge', $r->input('badge'));
         foreach (['student_class' => 'class', 'student_section' => 'section'] as $filter => $column) {
             if ($r->filled($filter)) $query->whereHas('student', fn ($s) => $s->where($column, $r->input($filter)));
         }
@@ -341,16 +352,24 @@ class MobileWorkflowController extends Controller
         $classOptions = (clone $roster)->pluck('class')->filter()->unique()->sort()->values()->all();
         $sectionOptions = $roster->when($r->filled('student_class'), fn ($s) => $s->where('class', $r->student_class))->pluck('section')->filter()->unique()->sort()->values()->all();
         return $this->page($r, 'Assessment review', $query, function ($result) {
+            $isAiEvaluated = $result->status === 'Completed'
+                && empty($result->evaluated_by)
+                && $result->assessment
+                && in_array($result->assessment->assessment_category, ['Monthly', 'Annual'], true);
+
             return ['id' => $result->id, 'title' => $result->student?->name, 'subtitle' => $result->assessment?->assessment_title,
-                'status' => $result->status, 'details' => $result->only(['answer_text', 'score', 'total_marks', 'feedback', 'percentage', 'badge']),
+                'status' => $isAiEvaluated ? 'AI Evaluated' : $result->status,
+                'details' => $result->only(['answer_text', 'score', 'total_marks', 'feedback', 'percentage', 'badge']) + [
+                    'evaluation_source' => $isAiEvaluated ? 'AI automated evaluation' : ($result->evaluated_by ? 'Reviewed by STEM Engineer/Admin' : 'Manual review pending'),
+                ],
                 'document' => $result->answer_file_path ? "/api/workflows/results/$result->id/document" : null,
-                'actions' => [$this->action('review', 'Evaluate answer', [$this->field('marks_awarded', 'Marks awarded', 'number', true), $this->field('feedback', 'Feedback', 'textarea'), $this->field('passed', 'Outcome', 'select', true, $this->choices([1 => 'Pass', 0 => 'Fail']))], ['marks_awarded' => $result->score, 'feedback' => $result->feedback, 'passed' => (int) $result->passed]),
+                'actions' => [$this->action('review', $isAiEvaluated ? 'Review AI score' : 'Evaluate answer', [$this->field('marks_awarded', 'Marks awarded', 'number', true), $this->field('feedback', 'Feedback', 'textarea'), $this->field('passed', 'Outcome', 'select', true, $this->choices([1 => 'Pass', 0 => 'Fail']))], ['marks_awarded' => $result->score, 'feedback' => $result->feedback, 'passed' => (int) $result->passed]),
                     $this->action('disqualify', 'Disqualify', [$this->field('reason', 'Reason', 'textarea', true)], confirm: true)]];
         }, filters: [
             $this->field('student_class', 'Class', 'select', options: $this->enums($classOptions)),
             $this->field('student_section', 'Section', 'select', options: $this->enums($sectionOptions)) + ['depends_on' => 'student_class'],
             $this->field('badge', 'Badge', 'select', options: $this->enums(['Gold', 'Silver', 'Bronze'])),
-            $this->field('status', 'Status', 'select', options: $this->enums(['Pending Review', 'Completed'])),
+            $this->field('status', 'Status', 'select', options: $this->enums(['Pending Review', 'AI Evaluated', 'Completed'])),
             $this->field('sort', 'Sort', 'select', options: $this->choices(['highest' => 'Highest', 'lowest' => 'Lowest', 'latest' => 'Latest', 'oldest' => 'Oldest'])),
         ]);
     }

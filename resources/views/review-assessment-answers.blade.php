@@ -101,7 +101,7 @@
             <div class="col-md-10 col-lg-10 p-4">
                 <div class="page-header mb-4">
                     <h2 class="mb-1">Assessment Evaluation</h2>
-                    <p class="text-muted mb-0">Review the approved question paper and student submission together, then enter final marks manually.</p>
+                    <p class="text-muted mb-0">Review pending submissions and AI-evaluated assessments, then confirm or adjust final marks.</p>
                 </div>
 
                 @if(session('success'))
@@ -156,6 +156,8 @@
                                 <select name="status" class="form-select">
                                     <option value="">All Statuses</option>
                                     <option value="Pending Review" @selected(($statusFilter ?? '') === 'Pending Review')>Pending Review</option>
+                                    <option value="AI Evaluated" @selected(($statusFilter ?? '') === 'AI Evaluated')>AI Evaluated</option>
+                                    <option value="Completed" @selected(($statusFilter ?? '') === 'Completed')>Completed</option>
                                 </select>
                             </div>
 
@@ -180,6 +182,11 @@
                         @foreach($classResults as $result)
                             @php
                                 $assessment = $result->assessment;
+                                $isAiEvaluated = $result->status === 'Completed'
+                                    && empty($result->evaluated_by)
+                                    && $assessment
+                                    && in_array($assessment->assessment_category, ['Monthly', 'Annual']);
+                                $statusLabel = $isAiEvaluated ? 'AI Evaluated' : ($result->status ?: 'Pending Review');
                                 $paperUrl = null;
                                 $paperExtension = $assessment ? strtolower(pathinfo($assessment->file_path ?? '', PATHINFO_EXTENSION)) : null;
                                 $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
@@ -198,7 +205,7 @@
                                         <div>
                                             <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
                                                 <h4 class="mb-0">{{ $assessment->assessment_title ?? 'Assessment Deleted' }}</h4>
-                                                <span class="status-chip">Pending Review</span>
+                                                <span class="status-chip">{{ $statusLabel }}</span>
                                             </div>
 
                                             <div class="text-muted mb-3">
@@ -271,7 +278,13 @@
                                                     <div class="card-body">
                                                         <div class="mb-3">
                                                             <div class="fw-semibold mb-1">Evaluation Status</div>
-                                                            <div class="text-muted small">Enter marks, feedback, and final decision.</div>
+                                                            <div class="text-muted small">
+                                                                @if($isAiEvaluated)
+                                                                    AI has assigned a score. Confirm it or adjust the final marks.
+                                                                @else
+                                                                    Enter marks, feedback, and final decision.
+                                                                @endif
+                                                            </div>
                                                         </div>
 
                                                         <form method="POST" action="{{ route(session('user_role') == 'Teacher' ? 'assessment.review.submit' : 'admin.assessment.review.submit', $result->id) }}">
