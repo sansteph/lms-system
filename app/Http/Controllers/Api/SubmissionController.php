@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Certificate;
 use App\Models\Institute;
 use App\Models\MySpace;
 use App\Models\SchoolClass;
@@ -12,6 +13,7 @@ use App\Models\TeacherAchievement;
 use App\Models\User;
 use App\Support\SyncsCommunityPosts;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -48,6 +50,33 @@ class SubmissionController extends Controller
     public function index(Request $request)
     {
         $achievement = $request->route('kind') === 'achievements';
+        if ($achievement && $request->route('audience') === 'student') {
+            [, $id] = $this->owner($request);
+            $achievements = $this->query($request, true)
+                ->latest()
+                ->get()
+                ->map(fn ($item) => $this->payload($item, true));
+            $certificates = Certificate::query()
+                ->where('student_id', $id)
+                ->whereIn('status', ['approved', 'Approved', 'Issued'])
+                ->latest('issued_date')
+                ->latest('id')
+                ->get()
+                ->map(fn (Certificate $certificate) => $this->certificatePayload($certificate));
+
+            return response()->json([
+                'achievements' => $achievements
+                    ->merge($certificates)
+                    ->sortByDesc(fn ($item) => $item['sort_date'] ?? '')
+                    ->values()
+                    ->map(function (array $item) {
+                        unset($item['sort_date']);
+
+                        return $item;
+                    }),
+            ]);
+        }
+
         $items = $this->query($request, $achievement)->latest()->get();
 
         return response()->json([
@@ -68,7 +97,37 @@ class SubmissionController extends Controller
                 'can_edit' => $achievement ? ($item instanceof StudentAchievement && $status !== 'Approved') : ! in_array($status, ['Approved', 'Featured'], true),
                 'can_delete' => $achievement || ! in_array($status, ['Approved', 'Featured'], true),
                 'attachment_url' => $path ? URL::temporarySignedRoute('mobile.submission-file', now()->addMinutes(5), ['kind' => $kind, 'id' => $item->id]) : null,
+                'sort_date' => optional($item->updated_at ?? $item->created_at)->toDateTimeString(),
             ]);
+    }
+
+    private function certificatePayload(Certificate $certificate): array
+    {
+        $issuedDate = $certificate->issued_date ?: $certificate->approved_at ?: $certificate->updated_at;
+        $issuedAt = $issuedDate ? Carbon::parse($issuedDate) : null;
+        $meta = collect([
+            $certificate->certificate_code,
+            $certificate->final_score !== null ? 'Score: '.$certificate->final_score : null,
+            $certificate->final_grade ? 'Grade: '.$certificate->final_grade : null,
+            $certificate->final_classification,
+        ])->filter()->implode(' | ');
+
+        return [
+            'id' => 'certificate-'.$certificate->id,
+            'source' => 'certificate',
+            'title' => ($certificate->certificate_type ?: 'Student').' Certificate',
+            'achievement_type' => 'Certificate',
+            'organizer' => 'InnovatEdge',
+            'description' => $meta,
+            'achievement_date' => optional($issuedAt)->toDateString(),
+            'position' => '',
+            'status' => 'Approved',
+            'can_edit' => false,
+            'can_delete' => false,
+            'attachment_url' => null,
+            'document_path' => '/api/workflows/awards/'.$certificate->id.'/document',
+            'sort_date' => optional($issuedAt)->toDateTimeString(),
+        ];
     }
 
     public function save(Request $request, string $audience, string $kind, ?int $id = null)

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Content;
+use App\Models\Certificate;
 use App\Models\Course;
 use App\Models\CourseContent;
 use App\Models\Institute;
@@ -44,7 +45,7 @@ class MobileWorkflowParityTest extends TestCase
             'course_contents' => ['course_id', 'content_id', 'sort_order', 'status', 'created_by'],
             'community_posts' => ['source_type', 'source_id', 'post_type', 'title', 'body', 'author_type', 'author_id', 'institute', 'status', 'published_at', 'approved_by', 'approved_at', 'rejected_at', 'attachment_path', 'attachment_original_name'],
             'teaching_plans' => ['course_id', 'course_content_id', 'content_id'], 'teaching_plan_items' => ['course_content_id', 'content_id', 'teaching_plan_id'],
-            'course_enrollments' => ['course_id'], 'certificates' => ['course_id'], 'class_timetables' => ['content_id'],
+            'course_enrollments' => ['course_id'], 'certificates' => ['student_id', 'certificate_code', 'badge_count', 'final_score', 'final_grade', 'final_classification', 'issued_date', 'status', 'certificate_type', 'course_id'], 'class_timetables' => ['content_id'],
             'assessments' => ['content_id'], 'lesson_progress' => ['content_id'], 'class_content_sessions' => ['content_id'],
         ] as $name => $columns) {
             Schema::create($name, function (Blueprint $table) use ($columns) {
@@ -130,6 +131,48 @@ class MobileWorkflowParityTest extends TestCase
         $this->getJson('/api/student/achievements')->assertOk()->assertJsonPath('achievements.0.achievement_date', '2026-09-01');
         $item->update(['verification_status' => 'Approved']);
         $this->postJson('/api/student/achievements/'.$item->id, $body)->assertForbidden();
+    }
+
+    public function test_student_achievements_include_approved_certificates(): void
+    {
+        $student = $this->student();
+        Certificate::create([
+            'student_id' => $student->id,
+            'certificate_code' => 'CERT-READY',
+            'status' => 'approved',
+            'certificate_type' => 'Annual',
+            'final_score' => 88,
+            'final_grade' => 'A',
+            'issued_date' => '2026-09-09',
+        ]);
+        Certificate::create([
+            'student_id' => $student->id,
+            'certificate_code' => 'CERT-PENDING',
+            'status' => 'Pending Approval',
+            'certificate_type' => 'Annual',
+        ]);
+        StudentAchievement::create([
+            'student_id' => $student->id,
+            'title' => 'Robotics Fair',
+            'achievement_type' => 'Competition',
+            'verification_status' => 'Approved',
+        ]);
+
+        Sanctum::actingAs($student);
+        $response = $this->getJson('/api/student/achievements')->assertOk();
+
+        $response->assertJsonCount(2, 'achievements')
+            ->assertJsonFragment([
+                'title' => 'Annual Certificate',
+                'achievement_type' => 'Certificate',
+                'can_edit' => false,
+                'can_delete' => false,
+                'description' => 'CERT-READY | Score: 88 | Grade: A',
+            ])
+            ->assertJsonFragment([
+                'title' => 'Robotics Fair',
+                'achievement_type' => 'Competition',
+            ]);
     }
 
     public function test_submission_rejects_wrong_file_types_and_cleans_up_replaced_proof(): void
