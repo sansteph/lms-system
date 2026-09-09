@@ -56,13 +56,21 @@ class SubmissionController extends Controller
                 ->latest()
                 ->get()
                 ->map(fn ($item) => $this->payload($item, true));
-            $certificates = Certificate::query()
-                ->where('student_id', $id)
-                ->whereIn(DB::raw('LOWER(status)'), ['approved', 'issued'])
-                ->latest('issued_date')
-                ->latest('id')
-                ->get()
-                ->map(fn (Certificate $certificate) => $this->certificatePayload($certificate));
+            try {
+                $certificates = Certificate::query()
+                    ->where('student_id', $id)
+                    ->where(function ($query) {
+                        $query->whereRaw('LOWER(COALESCE(status, ?)) = ?', ['', 'approved'])
+                            ->orWhereRaw('LOWER(COALESCE(status, ?)) = ?', ['', 'issued']);
+                    })
+                    ->latest('issued_date')
+                    ->latest('id')
+                    ->get()
+                    ->map(fn (Certificate $certificate) => $this->certificatePayload($certificate));
+            } catch (\Throwable $exception) {
+                report($exception);
+                $certificates = collect();
+            }
 
             return response()->json([
                 'achievements' => $achievements
