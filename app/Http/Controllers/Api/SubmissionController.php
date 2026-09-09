@@ -59,13 +59,13 @@ class SubmissionController extends Controller
             try {
                 $certificates = Certificate::query()
                     ->where('student_id', $id)
-                    ->where(function ($query) {
-                        $query->whereRaw('LOWER(COALESCE(status, ?)) = ?', ['', 'approved'])
-                            ->orWhereRaw('LOWER(COALESCE(status, ?)) = ?', ['', 'issued']);
-                    })
-                    ->latest('issued_date')
                     ->latest('id')
                     ->get()
+                    ->filter(fn (Certificate $certificate) => in_array(
+                        strtolower((string) $certificate->status),
+                        ['approved', 'issued'],
+                        true
+                    ))
                     ->map(fn (Certificate $certificate) => $this->certificatePayload($certificate));
             } catch (\Throwable $exception) {
                 report($exception);
