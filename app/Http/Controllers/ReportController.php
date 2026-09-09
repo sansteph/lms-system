@@ -485,14 +485,26 @@ class ReportController extends Controller
      */
     public function mobileReportPayload(Request $request, string $reportMode, ?string $institute): array
     {
-        return $this->downloadableReportPayload($request, $reportMode, $institute);
+        return array_merge($this->downloadableReportPayload($request, $reportMode, $institute), [
+            'report_mode' => $reportMode,
+            'report_schema_version' => 2,
+        ]);
     }
 
     private function downloadableReportPayload(Request $request, string $reportMode, ?string $forcedInstitute = null): array
     {
+        $request->validate([
+            'report_date' => 'nullable|date_format:Y-m-d',
+            'report_month' => 'nullable|date_format:Y-m',
+            'from_date' => 'nullable|date_format:Y-m-d',
+            'to_date' => 'nullable|date_format:Y-m-d'.($request->filled('from_date') ? '|after_or_equal:from_date' : ''),
+        ]);
         [$periodFrom, $periodTo, $periodLabel] = $this->reportDateWindow($request, $reportMode);
         $downloadRouteName = $this->reportDownloadRouteName($reportMode);
         $institute = $forcedInstitute ?? $this->selectedReportInstitute($request, $downloadRouteName);
+        if (in_array($reportMode, ['daily-session', 'weekly-session', 'monthly-session'], true)) {
+            return $this->sessionReportPayload($request, $reportMode, $institute);
+        }
         $isStudentReport = in_array($reportMode, ['student-ai-review', 'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance'], true);
         $isTeacherReport = in_array($reportMode, ['stem-engineer-prep', 'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance'], true);
         $selectedClass = $isStudentReport ? ($request->filled('student_class') ? trim((string) $request->input('student_class')) : null) : null;
@@ -521,7 +533,7 @@ class ReportController extends Controller
             })
             ->pluck('id');
 
-        $teacherIds = User::where('role', 'Teacher')
+        $teacherIds = User::whereIn('role', ['Teacher', 'STEM Engineer'])
             ->when($institute, fn ($query) => $query->where('institute', $institute))
             ->pluck('id');
 
@@ -603,18 +615,90 @@ class ReportController extends Controller
             ? $this->teacherReportRows($teacherIds, $periodFrom, $periodTo)
             : $this->studentClassReportRows($studentIds, $periodFrom, $periodTo);
 
+        $visuals = $this->reportVisuals($metrics, $isStudentReport, $isTeacherReport);
+        $metricKeys = match ($reportMode) {
+            'student-ai-review' => ['students', 'student_ai_attempts', 'student_ai_passed', 'student_ai_pass_rate', 'student_ai_average'],
+            'stem-engineer-prep' => ['stem_engineers', 'stem_engineer_prep_attempts', 'stem_engineer_prep_passed', 'stem_engineer_prep_pass_rate', 'stem_engineer_prep_average'],
+            'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance' => [
+                'stem_engineers', 'sessions', 'completed_sessions', 'session_completion_rate', 'teaching_hours',
+                'stem_engineer_prep_attempts', 'stem_engineer_prep_passed', 'stem_engineer_prep_pass_rate', 'stem_engineer_prep_average',
+            ],
+            default => ['students', 'assessment_results', 'assessment_average', 'student_ai_attempts', 'student_ai_passed', 'student_ai_pass_rate', 'student_ai_average'],
+        };
+        $metrics = array_intersect_key($metrics, array_flip($metricKeys));
+        if (in_array($reportMode, ['student-ai-review', 'stem-engineer-prep'], true)) {
+            $visuals = array_slice($visuals, 0, 1);
+        }
+
         return [
             'title' => $title,
             'scope' => $scope,
             'period_label' => $periodLabel,
             'metrics' => $metrics,
-            'table_title' => $isTeacherReport ? 'STEM Engineer Metrics' : 'Class-wise Student Metrics',
+            'table_title' => match ($reportMode) {
+                'stem-engineer-prep' => 'STEM Engineer Prep Quiz Readiness',
+                'student-ai-review' => 'Student AI Review Tracking',
+                default => $isTeacherReport ? 'STEM Engineer Performance' : 'Class-wise Student Performance',
+            },
             'table_headers' => $isTeacherReport
-                ? ['STEM Engineer', 'Institute', 'Sessions', 'Completed', 'Hours', 'Prep Attempts', 'Prep Passed', 'Prep Avg']
-                : ['Class', 'Institute', 'Students', 'Assessments', 'Assessment Avg', 'AI Attempts', 'AI Passed', 'AI Avg'],
+                ? ['STEM Engineer', 'Institute', 'Sessions', 'Completed', 'Partial', 'Hours', 'Prep Attempts', 'Prep Passed', 'Prep Avg']
+                : ['Class', 'Institute', 'Students', 'Sessions', 'Active Plans', 'Assessments', 'Assessment Avg', 'AI Attempts', 'AI Passed', 'AI Avg'],
             'table_rows' => $tableRows,
-            'visuals' => $this->reportVisuals($metrics, $isStudentReport, $isTeacherReport),
+            'visuals' => $visuals,
             'file_name' => (string) str($title)->slug('_') . '_' . now()->format('Ymd_His') . '.pdf',
+        ];
+    }
+
+    private function sessionReportPayload(Request $request, string $reportMode, ?string $institute): array
+    {
+        [$from, $to, $period] = $this->reportDateWindow($request, $reportMode);
+        // The web weekly session report uses open boundaries, not the current week by default.
+        if ($reportMode === 'weekly-session') {
+            $from = $request->filled('from_date') ? $request->input('from_date') : null;
+            $to = $request->filled('to_date') ? $request->input('to_date') : null;
+            $period = $from || $to ? ($from ?: 'Start').' - '.($to ?: 'Today') : 'All available sessions';
+        }
+        $sessions = ClassContentSession::with(['schoolClass', 'content', 'course', 'stemEngineer'])
+            ->when($institute, fn ($query) => $query->where('institute', $institute))
+            ->when($from, fn ($query) => $query->whereDate('session_date', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('session_date', '<=', $to))
+            ->orderBy('institute')->orderBy('class')->orderBy('section')->orderBy('session_date')->get();
+        $total = $sessions->count();
+        $completed = $sessions->where('status', 'completed')->count();
+        $partial = $sessions->where('status', 'partially_completed')->count();
+        $cancelled = $sessions->whereIn('status', ['cancelled', 'skipped'])->count();
+        $unfinished = $sessions->filter(fn ($session) => $session->status === 'in_progress' || !$session->ended_at)->count();
+        $metrics = [
+            'total_sessions' => $total,
+            'completed_sessions' => $completed,
+            'partially_completed_sessions' => $partial,
+            'cancelled_or_skipped_sessions' => $cancelled,
+            'unfinished_sessions' => $unfinished,
+            'completion_rate' => $total ? round($completed / $total * 100, 2) : 0,
+            'teaching_hours' => round($sessions->sum('duration_seconds') / 3600, 2),
+            'unique_classes' => $sessions->map(fn ($session) => trim($session->class.' '.$session->section))->filter()->unique()->count(),
+            'stem_engineers_involved' => $sessions->pluck('stem_engineer_id')->filter()->unique()->count(),
+        ];
+        $title = ucfirst(explode('-', $reportMode)[0]).' Session Report';
+        return [
+            'title' => $title, 'scope' => $institute ?: 'All Institutes', 'period_label' => $period,
+            'metrics' => $metrics, 'table_title' => 'Session Execution Data',
+            'table_headers' => ['Class', 'Institute', 'Course', 'Planned Content', 'STEM Engineer', 'Date', 'Duration', 'Status'],
+            'table_rows' => $sessions->map(fn ($session) => [
+                trim(($session->class ?? $session->schoolClass?->class_name ?? 'N/A').' '.($session->section ?? $session->schoolClass?->section ?? '')),
+                $session->institute ?? $session->schoolClass?->institute ?? 'N/A',
+                $session->course?->course_title ?? 'N/A',
+                $session->planned_topic ?? $session->content?->content_title ?? 'No Content',
+                $session->stemEngineer?->name ?? 'Deleted Engineer',
+                $session->session_date ? \Carbon\Carbon::parse($session->session_date)->format('d M Y') : '-',
+                gmdate('H:i:s', (int) ($session->duration_seconds ?? 0)),
+                ucwords(str_replace('_', ' ', $session->status ?? '')),
+            ])->all(),
+            'visuals' => [
+                ['title' => 'Session Completion', 'labels' => ['Completed', 'Partial', 'Cancelled/Skipped', 'Unfinished'], 'values' => [$completed, $partial, $cancelled, $unfinished]],
+                ['title' => 'Teaching Delivery', 'labels' => ['Teaching Hours', 'STEM Engineers', 'Classes'], 'values' => [$metrics['teaching_hours'], $metrics['stem_engineers_involved'], $metrics['unique_classes']]],
+            ],
+            'file_name' => (string) str($title)->slug('_').'_'.now()->format('Ymd_His').'.pdf',
         ];
     }
 
@@ -795,6 +879,12 @@ class ReportController extends Controller
                     trim($class->class_name . ' ' . $class->section),
                     $class->institute,
                     $classStudentIds->count(),
+                    ClassContentSession::where('institute', $class->institute)
+                        ->where('class', $class->class_name)->where('section', $class->section)
+                        ->when($periodFrom, fn ($query) => $query->whereDate('session_date', '>=', $periodFrom))
+                        ->when($periodTo, fn ($query) => $query->whereDate('session_date', '<=', $periodTo))->count(),
+                    TeachingPlan::where('institute', $class->institute)->where('class', $class->class_name)
+                        ->where('section', $class->section)->where('status', 'active')->count(),
                     (clone $results)->count(),
                     number_format((clone $results)->avg('percentage') ?? 0, 2) . '%',
                     (clone $attempts)->count(),
@@ -803,7 +893,6 @@ class ReportController extends Controller
                 ];
             })
             ->filter()
-            ->take(40)
             ->values()
             ->all();
     }
@@ -830,13 +919,13 @@ class ReportController extends Controller
                     $teacher->institute,
                     (clone $sessions)->count(),
                     (clone $sessions)->where('status', 'completed')->count(),
+                    (clone $sessions)->where('status', 'partially_completed')->count(),
                     number_format(((clone $sessions)->sum('duration_seconds') ?? 0) / 3600, 2),
                     (clone $attempts)->count(),
                     (clone $attempts)->where('status', 'passed')->count(),
                     number_format((clone $attempts)->avg('percentage') ?? 0, 2) . '%',
                 ];
             })
-            ->take(40)
             ->values()
             ->all();
     }

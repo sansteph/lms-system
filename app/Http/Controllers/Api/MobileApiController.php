@@ -1086,6 +1086,16 @@ class MobileApiController extends Controller
     public function adminReports(Request $request, ReportController $reports)
     {
         $account = $this->requireAdmin($request);
+        if ($request->boolean('filters_only')) {
+            $scoped = $account->role === 'InstituteAdmin';
+            return response()->json([
+                'institutes' => $scoped ? [$account->institute] : Institute::where('status', 1)->orderBy('institute_name')->pluck('institute_name'),
+                'classes' => Student::query()->when($scoped, fn ($query) => $query->where('institute', $account->institute))
+                    ->whereNotNull('class')->where('class', '!=', '')
+                    ->select('institute', 'class as class_name', 'section')->distinct()
+                    ->orderBy('institute')->orderBy('class')->orderBy('section')->get(),
+            ]);
+        }
         $reportMode = $this->mobileReportMode($request);
 
         // Institute administrators are never allowed to widen the report scope.
@@ -2642,6 +2652,7 @@ class MobileApiController extends Controller
             'title' => ['nullable', 'string', 'max:255'],
             'start_date' => ['nullable', 'date'],
             'release_day' => ['required', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
+            'release_policy' => ['sometimes', 'required', 'in:scheduled_weekly_release,release_next_only_if_previous_completed'],
             'status' => ['required', 'in:active,inactive,completed'],
             'remarks' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -2656,6 +2667,7 @@ class MobileApiController extends Controller
                 'start_date' => $newStartDate,
                 'plan_start_date' => $newStartDate,
                 'release_day' => $validated['release_day'],
+                'release_policy' => $validated['release_policy'] ?? $plan->release_policy,
                 'status' => $validated['status'],
                 'remarks' => $validated['remarks'] ?? null,
             ]);

@@ -557,6 +557,76 @@ class MobileSecurityParityTest extends TestCase
         $this->assertTrue($service->releaseWeek($second));
     }
 
+    public function test_mobile_session_reports_use_session_metrics_and_web_date_boundaries(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-09-09 12:00:00'));
+        Sanctum::actingAs($this->user('InstituteAdmin'));
+        foreach (['completed', 'partially_completed', 'cancelled', 'in_progress'] as $status) {
+            ClassContentSession::create(['institute' => 'Alpha', 'class' => 'Class 10', 'section' => 'A',
+                'session_date' => '2026-09-09', 'planned_topic' => 'Robotics', 'status' => $status,
+                'duration_seconds' => 1800, 'ended_at' => $status === 'in_progress' ? null : now()]);
+        }
+        ClassContentSession::create(['institute' => 'Alpha', 'class' => 'Class 10', 'session_date' => '2026-08-01', 'status' => 'completed', 'ended_at' => now()]);
+        ClassContentSession::create(['institute' => 'Beta', 'session_date' => '2026-09-09', 'status' => 'completed']);
+        $daily = $this->getJson('/api/admin/reports?report_mode=daily-session&institute=Beta')
+            ->assertOk()->assertJsonPath('report_schema_version', 2)->assertJsonPath('report_mode', 'daily-session')
+            ->assertJsonPath('title', 'Daily Session Report')->assertJsonPath('scope', 'Alpha')
+            ->assertJsonPath('metrics.total_sessions', 4)->assertJsonPath('metrics.completed_sessions', 1)
+            ->assertJsonPath('metrics.partially_completed_sessions', 1)->assertJsonPath('metrics.cancelled_or_skipped_sessions', 1)
+            ->assertJsonPath('metrics.unfinished_sessions', 1)->assertJsonPath('metrics.teaching_hours', 2)
+            ->assertJsonCount(4, 'table_rows')->assertJsonPath('table_headers.3', 'Planned Content');
+        $this->assertArrayNotHasKey('assessment_results', $daily->json('metrics'));
+        $this->getJson('/api/admin/reports?report_mode=weekly-session')->assertOk()->assertJsonPath('metrics.total_sessions', 5);
+        $this->getJson('/api/admin/reports?report_mode=monthly-session&report_month=2026-09')->assertOk()->assertJsonPath('metrics.total_sessions', 4);
+        $this->getJson('/api/admin/reports?report_mode=weekly-session&from_date=2026-09-01')->assertOk()->assertJsonPath('metrics.total_sessions', 4);
+        $this->getJson('/api/admin/reports?report_mode=weekly-session&from_date=2026-09-09&to_date=2026-09-01')->assertUnprocessable();
+    }
+
+    public function test_mobile_report_filters_and_panel_roles_keep_the_correct_scope(): void
+    {
+        $student = $this->student();
+        $other = $this->student();
+        $other->update(['institute' => 'Beta', 'class' => 'Class 99']);
+        Sanctum::actingAs($this->user('InstituteAdmin'));
+        $this->getJson('/api/admin/reports?filters_only=1&institute=Beta')
+            ->assertOk()->assertJsonCount(1, 'classes')->assertJsonPath('classes.0.institute', 'Alpha');
+        ClassContentSession::create(['institute' => 'Alpha', 'session_date' => today(), 'status' => 'completed']);
+        ClassContentSession::create(['institute' => 'Beta', 'session_date' => today(), 'status' => 'completed']);
+        Sanctum::actingAs($this->user('Principal'));
+        $this->getJson('/api/principal/reports?report_mode=daily-session&institute=Beta')
+            ->assertOk()->assertJsonPath('scope', 'Alpha')->assertJsonPath('metrics.total_sessions', 1);
+        $this->getJson('/api/principal/reports?report_mode=weekly-stem-engineer-performance')->assertUnprocessable();
+        Sanctum::actingAs($this->user('Manager'));
+        $this->getJson('/api/manager/reports?report_mode=daily-session&institute=Beta')
+            ->assertOk()->assertJsonPath('scope', 'Beta')->assertJsonPath('metrics.total_sessions', 1);
+        $this->getJson('/api/manager/reports?report_mode=daily-student-performance')->assertUnprocessable();
+    }
+
+    public function test_mobile_reports_select_metrics_and_rows_for_each_report_family(): void
+    {
+        Sanctum::actingAs($this->user('InstituteAdmin'));
+        $student = $this->student();
+        SchoolClass::create(['institute' => 'Alpha', 'class_name' => $student->class, 'section' => $student->section]);
+        $teacher = $this->user('STEM Engineer');
+        ClassContentSession::create(['institute' => 'Alpha', 'class' => $student->class, 'section' => $student->section,
+            'stem_engineer_id' => $teacher->id, 'session_date' => today(), 'status' => 'partially_completed', 'duration_seconds' => 1800]);
+        TeachingPlan::create(['institute' => 'Alpha', 'class' => $student->class, 'section' => $student->section, 'status' => 'active']);
+        DB::table('ai_quiz_attempts')->insert(['student_id' => $student->id, 'attempt_type' => 'student', 'status' => 'passed', 'percentage' => 80, 'submitted_at' => now()]);
+        DB::table('ai_quiz_attempts')->insert(['teacher_id' => $teacher->id, 'attempt_type' => 'teacher_prep', 'status' => 'failed', 'percentage' => 40, 'submitted_at' => now()]);
+        foreach (['student-ai-review', 'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance'] as $mode) {
+            $response = $this->getJson('/api/admin/reports?report_mode='.$mode)->assertOk()
+                ->assertJsonPath('metrics.student_ai_attempts', 1)->assertJsonPath('metrics.student_ai_passed', 1)
+                ->assertJsonPath('table_headers.3', 'Sessions')->assertJsonPath('table_rows.0.3', 1)
+                ->assertJsonPath('table_rows.0.4', 1);
+            $this->assertArrayNotHasKey('stem_engineer_prep_attempts', $response->json('metrics'));
+        }
+        foreach (['stem-engineer-prep', 'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance'] as $mode) {
+            $response = $this->getJson('/api/admin/reports?report_mode='.$mode)->assertOk()
+                ->assertJsonPath('metrics.stem_engineer_prep_attempts', 1)->assertJsonPath('table_headers.4', 'Partial');
+            $this->assertArrayNotHasKey('student_ai_attempts', $response->json('metrics'));
+        }
+    }
+
     public function test_admin_week_actions_override_schedule_and_keep_items_in_sync(): void
     {
         $admin = $this->user('InstituteAdmin');
