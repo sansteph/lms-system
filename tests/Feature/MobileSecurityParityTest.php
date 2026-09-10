@@ -18,7 +18,7 @@ class MobileSecurityParityTest extends TestCase
         config(['database.default' => 'sqlite', 'database.connections.sqlite.database' => ':memory:', 'database.connections.sqlite.url' => null, 'cache.default' => 'array', 'session.driver' => 'array']);
         DB::purge('sqlite');
         foreach ([
-            'users' => ['user_id','name','email','password','role','institute','status','qualification','designation','joined_on','linkedin_url','profile_image'],
+            'users' => ['user_id','name','email','password','role','institute','status','qualification','designation','joined_on','linkedin_url','profile_image','phone'],
             'students' => ['student_id','name','email','password','institute','class','section','status','contact','guardian_name','is_robotics_club_member','profile_completed','linkedin_url','profile_image'],
             'institutes' => ['institute_name','status','location','institute_id','contact_person','email','phone'], 'classes' => ['class_name','section','institute','status','academic_year','class_teacher'],
             'courses' => ['course_title','institute','status','is_template_source','assigned_class'],
@@ -358,6 +358,67 @@ class MobileSecurityParityTest extends TestCase
         $this->assertSame('Alpha Prime', $admin->institute);
         $this->assertSame('0', (string) $admin->status);
         $this->assertTrue(Hash::check('NewPass123', $admin->password));
+    }
+
+    public function test_mobile_principal_management_matches_web_rules(): void
+    {
+        Institute::create(['institute_name' => 'Alpha', 'status' => 1]);
+        Institute::create(['institute_name' => 'Beta', 'status' => 1]);
+        $existing = User::create([
+            'user_id' => 'PR0001',
+            'name' => 'Alpha Principal',
+            'email' => 'principal.alpha@example.com',
+            'password' => Hash::make('Secret123'),
+            'role' => 'Principal',
+            'institute' => 'Alpha',
+            'phone' => '111',
+            'status' => 1,
+        ]);
+
+        Sanctum::actingAs($this->user('InstituteAdmin'));
+        $this->getJson('/api/admin/principals')->assertForbidden();
+
+        Sanctum::actingAs($this->user('Admin'));
+        $this->getJson('/api/admin/principals?institute=Alpha')
+            ->assertOk()
+            ->assertJsonCount(1, 'principals')
+            ->assertJsonPath('principals.0.email', 'principal.alpha@example.com')
+            ->assertJsonPath('institutes.0', 'Alpha');
+
+        $this->postJson('/api/admin/principals', [
+            'name' => 'Duplicate Principal',
+            'institute' => 'Alpha',
+            'phone' => '222',
+            'email' => 'duplicate@example.com',
+            'password' => 'Secret123',
+        ])->assertStatus(422);
+
+        $createdId = $this->postJson('/api/admin/principals', [
+            'name' => 'Beta Principal',
+            'institute' => 'Beta',
+            'phone' => '333',
+            'email' => 'principal.beta@example.com',
+            'password' => 'Secret123',
+        ])->assertOk()->json('principal.id');
+
+        $this->putJson('/api/admin/principals/'.$existing->id, [
+            'name' => 'Alpha Principal Updated',
+            'institute' => 'Alpha',
+            'phone' => '444',
+            'email' => 'principal.alpha.updated@example.com',
+            'password' => '',
+            'status' => false,
+        ])->assertOk();
+
+        $existing->refresh();
+        $this->assertSame('Alpha Principal Updated', $existing->name);
+        $this->assertSame('444', $existing->phone);
+        $this->assertSame('principal.alpha.updated@example.com', $existing->email);
+        $this->assertSame('0', (string) $existing->status);
+        $this->assertTrue(Hash::check('Secret123', $existing->password));
+
+        $this->deleteJson('/api/admin/principals/'.$createdId)->assertOk();
+        $this->assertDatabaseMissing('users', ['id' => $createdId]);
     }
 
     public function test_gap_management_filter_controls_and_queries_match_selected_scope(): void

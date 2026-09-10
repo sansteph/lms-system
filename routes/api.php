@@ -144,6 +144,11 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\MobileRoleAccess::class]
     Route::post('/admin/institutes', [MobileApiController::class, 'storeAdminInstitute']);
     Route::put('/admin/institutes/{id}', [MobileApiController::class, 'updateAdminInstitute']);
     Route::delete('/admin/institutes/{id}', [MobileApiController::class, 'deleteAdminInstitute']);
+    Route::get('/admin/principals', [MobileApiController::class, 'adminPrincipals']);
+    Route::get('/admin/principals/{id}', [MobileApiController::class, 'adminPrincipal']);
+    Route::post('/admin/principals', [MobileApiController::class, 'storeAdminPrincipal']);
+    Route::put('/admin/principals/{id}', [MobileApiController::class, 'updateAdminPrincipal']);
+    Route::delete('/admin/principals/{id}', [MobileApiController::class, 'deleteAdminPrincipal']);
     Route::get('/admin/classes', [MobileApiController::class, 'adminClasses']);
     Route::get('/admin/classes/{id}', [MobileApiController::class, 'adminClass']);
     Route::post('/admin/classes', [MobileApiController::class, 'storeAdminClass']);

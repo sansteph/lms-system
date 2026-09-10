@@ -50,6 +50,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -2181,6 +2182,178 @@ class MobileApiController extends Controller
         abort_if($account->role !== 'Admin', 403, 'Only Super Admin can delete institutes.');
         return app(\App\Services\MobileWebContext::class)->run($request,
             fn () => app(\App\Http\Controllers\InstituteController::class)->delete($id));
+    }
+
+    public function adminPrincipals(Request $request)
+    {
+        $account = $this->requireAdmin($request);
+        abort_if($account->role !== 'Admin', 403, 'Only Super Admin can manage principals.');
+        $search = trim((string) $request->input('search'));
+        $institute = trim((string) $request->input('institute'));
+
+        $page = User::query()
+            ->where('role', 'Principal')
+            ->when($institute !== '', fn ($query) => $query->where('institute', $institute))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('institute', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('institute')
+            ->orderBy('name')
+            ->paginate(20);
+
+        return response()->json([
+            'principals' => $page->getCollection()
+                ->map(fn (User $principal) => $this->mobilePrincipalPayload($principal))
+                ->values(),
+            'institutes' => Institute::query()
+                ->where('status', 1)
+                ->orderBy('institute_name')
+                ->pluck('institute_name')
+                ->values(),
+            'pagination' => $this->pageMetadata($page),
+        ]);
+    }
+
+    public function adminPrincipal(Request $request, int $id)
+    {
+        $account = $this->requireAdmin($request);
+        abort_if($account->role !== 'Admin', 403, 'Only Super Admin can manage principals.');
+        $principal = User::where('role', 'Principal')->findOrFail($id);
+
+        return response()->json(['principal' => $this->mobilePrincipalPayload($principal)]);
+    }
+
+    public function storeAdminPrincipal(Request $request)
+    {
+        $account = $this->requireAdmin($request);
+        abort_if($account->role !== 'Admin', 403, 'Only Super Admin can create principals.');
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'institute' => ['required', 'string', 'max:255', 'exists:institutes,institute_name'],
+            'phone' => ['required', 'string', 'max:30'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'max:255'],
+        ]);
+
+        abort_if(
+            User::where('role', 'Principal')->where('institute', $validated['institute'])->exists(),
+            422,
+            'This institute already has a principal assigned.'
+        );
+
+        $principal = User::create([
+            'user_id' => $this->nextMobilePrincipalUserId(),
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'],
+            'institute' => $validated['institute'],
+            'role' => 'Principal',
+            'password' => Hash::make($validated['password']),
+            'status' => 1,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Principal added successfully.',
+            'principal' => $this->mobilePrincipalPayload($principal),
+        ]);
+    }
+
+    public function updateAdminPrincipal(Request $request, int $id)
+    {
+        $account = $this->requireAdmin($request);
+        abort_if($account->role !== 'Admin', 403, 'Only Super Admin can edit principals.');
+        $principal = User::where('role', 'Principal')->findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'institute' => ['required', 'string', 'max:255', 'exists:institutes,institute_name'],
+            'phone' => ['required', 'string', 'max:30'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($principal->id)],
+            'password' => ['nullable', 'string', 'min:8', 'max:255'],
+            'status' => ['required', 'boolean'],
+        ]);
+
+        abort_if(
+            User::where('role', 'Principal')
+                ->where('institute', $validated['institute'])
+                ->where('id', '!=', $principal->id)
+                ->exists(),
+            422,
+            'This institute already has a principal assigned.'
+        );
+
+        $updates = [
+            'name' => $validated['name'],
+            'institute' => $validated['institute'],
+            'phone' => $validated['phone'],
+            'email' => $validated['email'],
+            'status' => (bool) $validated['status'],
+        ];
+
+        if (!empty($validated['password'])) {
+            $updates['password'] = Hash::make($validated['password']);
+        }
+
+        $principal->update($updates);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Principal updated successfully.',
+            'principal' => $this->mobilePrincipalPayload($principal->fresh()),
+        ]);
+    }
+
+    public function deleteAdminPrincipal(Request $request, int $id)
+    {
+        $account = $this->requireAdmin($request);
+        abort_if($account->role !== 'Admin', 403, 'Only Super Admin can delete principals.');
+        User::where('role', 'Principal')->findOrFail($id)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Principal deleted successfully.',
+        ]);
+    }
+
+    private function mobilePrincipalPayload(User $principal): array
+    {
+        return [
+            'id' => $principal->id,
+            'user_id' => $principal->user_id,
+            'title' => $principal->name,
+            'name' => $principal->name,
+            'institute' => $principal->institute,
+            'phone' => $principal->phone,
+            'email' => $principal->email,
+            'subtitle' => trim(($principal->institute ?: 'Institute n/a') . ($principal->phone ? ' · ' . $principal->phone : '') . ($principal->email ? ' · ' . $principal->email : '')),
+            'status' => $principal->status ? 'Active' : 'Inactive',
+        ];
+    }
+
+    private function nextMobilePrincipalUserId(): string
+    {
+        $last = User::where('role', 'Principal')
+            ->where('user_id', 'like', 'PR%')
+            ->orderByDesc('id')
+            ->value('user_id');
+
+        $next = $last && preg_match('/PR(\d+)/', $last, $matches)
+            ? ((int) $matches[1]) + 1
+            : 1;
+
+        do {
+            $candidate = 'PR' . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+            $next++;
+        } while (User::where('user_id', $candidate)->exists());
+
+        return $candidate;
     }
 
     public function adminClasses(Request $request)
@@ -5517,6 +5690,10 @@ class MobileApiController extends Controller
                 'title' => 'Institute Management',
                 'subtitle' => Institute::count() . ' institutes available',
             ]);
+            $items[] = [
+                'title' => 'Principal Management',
+                'subtitle' => User::where('role', 'Principal')->count() . ' principals available',
+            ];
         }
 
         return $items;
