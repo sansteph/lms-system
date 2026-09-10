@@ -10,7 +10,7 @@
             <div class="page-header mb-4">
                 <h2 class="mb-1">Pending Sessions</h2>
                 <p class="text-muted mb-0">
-                    Continue unfinished class sessions and catch up on admin-assigned lagged content.
+                    Continue unfinished class sessions and catch up on overdue released content.
                 </p>
             </div>
 
@@ -58,7 +58,7 @@
                 </div>
                 <div class="col-md-4">
                     <div class="dashboard-card">
-                        <h6>Lagged Content</h6>
+                        <h6>Catch-up Content</h6>
                         <h2>{{ $laggedItems->count() }}</h2>
                     </div>
                 </div>
@@ -230,7 +230,7 @@
                 </div>
                 <div class="card-body">
                     <div class="alert alert-warning py-2 mb-3">
-                        These catch-up or repeat contents were added by Admin for your institute.
+                        These released contents are overdue, repeated, or admin-assigned for catch-up.
                     </div>
                     <div class="table-responsive lms-table-shell">
                         <table class="table table-bordered table-hover align-middle lms-table-fit">

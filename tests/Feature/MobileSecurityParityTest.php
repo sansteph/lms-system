@@ -27,12 +27,13 @@ class MobileSecurityParityTest extends TestCase
             'teaching_plans' => ['title','course_id','institute','class','section','status','is_template','start_date','release_day','release_policy','ai_training_start_date','remarks'],
             'teaching_plan_weeks' => ['teaching_plan_id','week_number','status','release_date','week_start_date','week_end_date','release_reason','released_at','completed_at'],
             'teaching_plan_items' => ['teaching_plan_id','teaching_plan_week_id','content_id','status','released_at','completed_at','sort_order','completed_by','completed_by_role','course_id'],
-            'ai_content_summaries' => ['content_id','summary','status','key_points','teacher_quiz','student_quiz','provider','model'],
+            'ai_content_summaries' => ['content_id','summary','status','key_points','teacher_quiz','student_quiz','provider','model','extracted_text'],
             'ai_quizzes' => ['content_id','audience','grade_level','status','provider','model','title','instructions','total_marks','passing_marks'],
             'ai_quiz_questions' => ['ai_quiz_id','question_order','question_type','question_text','options','expected_answer','marks'],
             'ai_quiz_attempts' => ['ai_quiz_id','content_id','attempt_type','grade_level','teacher_id','student_id','status','started_at','submitted_at','score','percentage','feedback','evaluated_at'],
             'ai_quiz_answers' => ['ai_quiz_attempt_id','ai_quiz_question_id','answer_text','score','feedback'],
-            'assessments' => ['assessment_title','assessment_type','institute','assigned_class','assessment_category','assessment_date','start_time','end_time','duration','total_marks','teacher_id','status','question_paper_status','file_path','question_paper_preview_path','question_paper_reviewed_by','question_paper_reviewed_at','question_paper_feedback','question_paper_type','ai_generated','ai_source_content_ids','ai_generation_payload','content_id'],
+            'ai_component_content_profiles' => ['content_id','component_key','component_label','is_practical','confidence','evidence','provider','model','analyzed_at'],
+            'assessments' => ['assessment_title','assessment_type','institute','assigned_class','assessment_category','assessment_date','start_time','end_time','duration','total_marks','teacher_id','status','question_paper_status','file_path','question_paper_preview_path','question_paper_reviewed_by','question_paper_reviewed_at','question_paper_feedback','question_paper_type','ai_generated','ai_source_content_ids','ai_generation_payload','content_id','component_key','component_label','certificate_eligible'],
             'assessment_sessions' => ['assessment_id','user_id','user_type','started_at','submitted_at','status','violation_count','last_violation_at'],
             'assessment_results' => ['assessment_id','student_id','score','total_marks','status','percentage','answer_text','answer_file_path','badge','feedback','passed','evaluated_by','evaluated_at'],
             'certificates' => ['student_id','certificate_code','badge_count','final_score','final_grade','final_classification','issued_date','status','approved_by','approved_at','rejection_reason','certificate_type','course_id'],
@@ -410,6 +411,76 @@ class MobileSecurityParityTest extends TestCase
         $review = $this->getJson('/api/student/content/'.$content->id.'/ai-review')->assertOk();
         $answers = \App\Models\AiQuizQuestion::where('ai_quiz_id', $review->json('quiz.id'))->pluck('expected_answer', 'id')->all();
         $this->postJson('/api/student/content/'.$content->id.'/ai-review/quiz', ['answers' => $answers])->assertOk()->assertJsonPath('status', 'passed');
+    }
+
+    public function test_ai_prep_and_student_ai_quiz_enforce_preview_and_assessment_style_restrictions(): void
+    {
+        $teacher = $this->user(); $student = $this->student();
+        $content = Content::create(['content_title' => 'Robotics', 'assigned_class' => 'Class 10', 'institute' => 'Alpha', 'status' => 1]);
+        \App\Models\AiContentSummary::create(['content_id' => $content->id, 'status' => 'generated', 'summary' => 'Robots combine sensing, control, and movement.', 'key_points' => ['Sensors detect input.']]);
+
+        Sanctum::actingAs($teacher);
+        $this->getJson('/api/engineer/learning-content/'.$content->id.'/ai-prep')->assertForbidden();
+
+        $plan = TeachingPlan::create(['institute' => 'Alpha', 'class' => 'Class 10', 'section' => 'A', 'status' => 'active', 'is_template' => false, 'ai_training_start_date' => today()]);
+        $week = TeachingPlanWeek::create(['teaching_plan_id' => $plan->id, 'status' => 'released', 'release_date' => today()]);
+        $item = TeachingPlanItem::create(['teaching_plan_id' => $plan->id, 'teaching_plan_week_id' => $week->id, 'content_id' => $content->id, 'status' => 'released']);
+
+        $prep = $this->getJson('/api/engineer/learning-content/'.$content->id.'/ai-prep?item_id='.$item->id)->assertOk();
+        $this->postJson('/api/engineer/learning-content/'.$content->id.'/ai-prep/quiz', [
+            'item_id' => $item->id,
+            'answers' => [],
+        ])->assertUnprocessable();
+        $this->postJson('/api/engineer/learning-content/'.$content->id.'/ai-prep/quiz', [
+            'item_id' => $item->id,
+            'answers' => [],
+            'auto_submitted' => true,
+        ])->assertOk()->assertJsonPath('status', 'failed')->assertJsonPath('auto_submitted', true);
+
+        $item->update(['status' => 'completed']);
+        Cache::put('student_ai_review_unlock_'.$student->id.'_'.$content->id, true);
+        Sanctum::actingAs($student);
+        $this->getJson('/api/student/content/'.$content->id.'/ai-review')->assertOk();
+        $this->postJson('/api/student/content/'.$content->id.'/ai-review/quiz', [
+            'answers' => [],
+        ])->assertUnprocessable();
+        $this->postJson('/api/student/content/'.$content->id.'/ai-review/quiz', [
+            'answers' => [],
+            'auto_submitted' => true,
+        ])->assertOk()->assertJsonPath('status', 'failed')->assertJsonPath('auto_submitted', true);
+    }
+
+    public function test_mobile_component_mastery_matches_web_card_states(): void
+    {
+        $student = $this->student();
+        $plan = TeachingPlan::create(['institute' => 'Alpha', 'class' => 'Class 10', 'section' => 'A', 'status' => 'active', 'is_template' => false]);
+        $week = TeachingPlanWeek::create(['teaching_plan_id' => $plan->id, 'status' => 'released', 'release_date' => today()]);
+        $contents = collect(range(1, 5))->map(function ($i) use ($student, $plan, $week) {
+            $content = Content::create(['content_title' => "Robot build $i", 'assigned_class' => 'Class 10', 'institute' => 'Alpha', 'status' => 1]);
+            TeachingPlanItem::create(['teaching_plan_id' => $plan->id, 'teaching_plan_week_id' => $week->id, 'content_id' => $content->id, 'status' => 'completed']);
+            \App\Models\AiContentSummary::create(['content_id' => $content->id, 'status' => 'generated', 'summary' => 'Robot project with motor sensors and control.']);
+            \App\Models\AiComponentContentProfile::create(['content_id' => $content->id, 'component_key' => 'robotics', 'component_label' => 'Robotics', 'is_practical' => 1, 'confidence' => 90]);
+            \App\Models\AiQuizAttempt::create(['content_id' => $content->id, 'student_id' => $student->id, 'attempt_type' => 'student', 'status' => 'passed', 'percentage' => 80]);
+            return $content;
+        });
+
+        $assessment = Assessment::create(['assessment_title' => 'Robotics Mastery', 'institute' => 'Alpha', 'assigned_class' => 'Class 10 A', 'assessment_category' => 'Component Mastery', 'component_key' => 'robotics', 'component_label' => 'Robotics', 'status' => 1, 'question_paper_status' => 'Approved', 'file_path' => 'paper.pdf', 'assessment_date' => today()]);
+        Sanctum::actingAs($student);
+        $this->getJson('/api/student/component-mastery')
+            ->assertOk()
+            ->assertJsonPath('assessments.0.component_label', 'Robotics')
+            ->assertJsonPath('assessments.0.completed_practical_topics', 5)
+            ->assertJsonPath('assessments.0.content_titles.0', $contents->first()->content_title)
+            ->assertJsonPath('assessments.0.assessment_id', $assessment->id)
+            ->assertJsonPath('assessments.0.can_take', true)
+            ->assertJsonPath('assessments.0.can_prepare', false);
+
+        AssessmentResult::create(['student_id' => $student->id, 'assessment_id' => $assessment->id, 'status' => 'Completed', 'percentage' => 88, 'passed' => 1]);
+        $this->getJson('/api/student/component-mastery')
+            ->assertOk()
+            ->assertJsonPath('assessments.0.can_take', false)
+            ->assertJsonPath('assessments.0.can_view_result', true)
+            ->assertJsonPath('assessments.0.percentage', 88);
     }
 
     public function test_gap_session_completion_returns_celebration_only_for_manual_completion(): void
@@ -1042,14 +1113,28 @@ class MobileSecurityParityTest extends TestCase
         $this->getJson('/api/student/content/'.$locked->id.'/preview')->assertForbidden();
     }
 
-    public function test_pending_sessions_are_filtered_paginated_and_restore_the_plan_item_id(): void
+    public function test_pending_sessions_keep_one_actionable_row_and_include_overdue_plan_items(): void
     {
         $teacher = $this->user(); Sanctum::actingAs($teacher);
         $class = SchoolClass::create(['class_name' => 'Class 10', 'section' => 'A', 'institute' => 'Alpha', 'status' => 1]);
-        for ($i = 0; $i < 31; $i++) ClassContentSession::create(['stem_engineer_id' => $teacher->id, 'institute' => 'Alpha', 'class' => 'Class 10', 'section' => 'A', 'teaching_plan_item_id' => 8, 'status' => 'partially_completed', 'session_date' => today()]);
-        ClassContentSession::create(['stem_engineer_id' => $teacher->id, 'institute' => 'Alpha', 'class' => 'Class 9', 'section' => 'A', 'teaching_plan_item_id' => 9, 'status' => 'cancelled', 'session_date' => today()]);
-        $this->getJson('/api/engineer/sessions?class_id='.$class->id)->assertOk()->assertJsonCount(30, 'pending_sessions')->assertJsonPath('pagination.pending_sessions.total', 31)->assertJsonPath('pending_sessions.0.item_id', '8');
-        $this->getJson('/api/engineer/sessions?class_id='.$class->id.'&page=2')->assertOk()->assertJsonCount(1, 'pending_sessions');
+        $course = Course::create(['course_title' => 'STEM', 'institute' => 'Alpha', 'status' => 1]);
+        $content = Content::create(['content_title' => 'Robotics', 'course_id' => $course->id, 'institute' => 'Alpha', 'status' => 1, 'file_path' => 'robotics.pdf']);
+        $missedContent = Content::create(['content_title' => 'Circuits', 'course_id' => $course->id, 'institute' => 'Alpha', 'status' => 1, 'file_path' => 'circuits.pdf']);
+        $plan = TeachingPlan::create(['title' => 'Class 10 Plan', 'course_id' => $course->id, 'institute' => 'Alpha', 'class' => 'Class 10', 'section' => 'A', 'status' => 'active', 'is_template' => false]);
+        $week = TeachingPlanWeek::create(['teaching_plan_id' => $plan->id, 'week_number' => 1, 'status' => 'released', 'week_start_date' => today()->subDays(8)->toDateString(), 'week_end_date' => today()->subDay()->toDateString()]);
+        $attemptedItem = TeachingPlanItem::create(['teaching_plan_id' => $plan->id, 'teaching_plan_week_id' => $week->id, 'course_id' => $course->id, 'content_id' => $content->id, 'status' => 'released', 'sort_order' => 1]);
+        $missedItem = TeachingPlanItem::create(['teaching_plan_id' => $plan->id, 'teaching_plan_week_id' => $week->id, 'course_id' => $course->id, 'content_id' => $missedContent->id, 'status' => 'released', 'sort_order' => 2]);
+        for ($i = 0; $i < 3; $i++) ClassContentSession::create(['stem_engineer_id' => $teacher->id, 'institute' => 'Alpha', 'class' => 'Class 10', 'section' => 'A', 'teaching_plan_item_id' => $attemptedItem->id, 'content_id' => $content->id, 'status' => 'partially_completed', 'session_date' => today()]);
+        ClassContentSession::create(['stem_engineer_id' => $teacher->id, 'institute' => 'Alpha', 'class' => 'Class 9', 'section' => 'A', 'teaching_plan_item_id' => 999, 'status' => 'cancelled', 'session_date' => today()]);
+        ClassContentSession::create(['stem_engineer_id' => $teacher->id, 'institute' => 'Alpha', 'class' => 'Class 10', 'section' => 'A', 'teaching_plan_item_id' => $attemptedItem->id, 'content_id' => $content->id, 'status' => 'completed', 'session_date' => today()]);
+        $this->getJson('/api/engineer/sessions?class_id='.$class->id)
+            ->assertOk()
+            ->assertJsonCount(1, 'pending_sessions')
+            ->assertJsonPath('pagination.pending_sessions.total', 1)
+            ->assertJsonPath('pending_sessions.0.item_id', $missedItem->id)
+            ->assertJsonPath('pending_sessions.0.status', 'catch_up')
+            ->assertJsonCount(1, 'today_sessions');
+        $this->getJson('/api/engineer/sessions?class_id='.$class->id.'&page=2')->assertOk()->assertJsonCount(0, 'pending_sessions');
         $class->update(['institute' => 'Beta']);
         $this->getJson('/api/engineer/sessions?class_id='.$class->id)->assertNotFound();
     }

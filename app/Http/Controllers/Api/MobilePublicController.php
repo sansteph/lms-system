@@ -49,14 +49,22 @@ class MobilePublicController extends Controller
 
     public function verifyCertificate(Request $request)
     {
-        $data = app(PageController::class)->verifyCertificateSubmit($request)->getData();
-        $certificate = $data['certificate'];
-        $status = !$certificate ? 'failed' : ($data['revoked'] ? 'revoked' : ($data['inactive'] ? 'pending_approval' : 'verified'));
-        return response()->json(['status' => $status, 'certificate' => $status !== 'verified' ? null : [
+        $data = app(PageController::class)->verifyCertificateSubmit($request)->getData(true);
+        $certificate = $data['certificate'] ?? null;
+        $status = !$certificate ? 'failed' : (($data['revoked'] ?? false) ? 'revoked' : (($data['inactive'] ?? false) ? 'pending_approval' : 'verified'));
+        $message = match ($status) {
+            'verified' => 'Certificate verified successfully.',
+            'revoked' => 'This certificate has been revoked.',
+            'pending_approval' => 'This certificate exists but is not issued yet.',
+            default => 'Certificate not found.',
+        };
+
+        return response()->json(['status' => $status, 'message' => $message, 'certificate' => $status !== 'verified' ? null : [
             'code' => $certificate->certificate_code,
             'name' => $certificate->certificate_type === 'Independent' ? $certificate->independentLearner?->name : $certificate->student?->name,
             'student_id' => $certificate->certificate_type === 'Independent' ? null : $certificate->student?->student_id,
             'course' => $certificate->course?->course_title ?? 'Program Completion',
+            'certificate_type' => $certificate->certificate_type ?: 'Student',
             'score' => $certificate->final_score ?? $certificate->badge_count,
             'grade' => $certificate->final_grade, 'classification' => $certificate->final_classification,
             'issued_date' => $certificate->issued_date,

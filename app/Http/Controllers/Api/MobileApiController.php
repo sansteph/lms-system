@@ -2853,27 +2853,117 @@ class MobileApiController extends Controller
         $class = $request->filled('class_id')
             ? SchoolClass::where('institute', $teacher->institute)->findOrFail($request->integer('class_id')) : null;
         $today = now()->toDateString();
+        $pendingPageNumber = max(1, $request->integer('page', 1));
+        $pendingPerPage = 30;
 
-        $completedPlanItems = ClassContentSession::where('stem_engineer_id', $teacher->id)
-            ->where('status', 'completed')
-            ->whereNotNull('teaching_plan_item_id')
-            ->select('teaching_plan_item_id');
-
-        $latestPendingSessionIds = ClassContentSession::query()
-            ->selectRaw('MAX(id)')
+        $pendingSessions = ClassContentSession::query()
+            ->with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
             ->where('institute', $teacher->institute)->where('stem_engineer_id', $teacher->id)
             ->whereIn('status', ['in_progress', 'partially_completed', 'cancelled'])
             ->when($class, fn ($q) => $q->where('class', $class->class_name)->where('section', $class->section))
-            ->where(function ($q) use ($completedPlanItems) {
-                $q->whereNull('teaching_plan_item_id')
-                    ->orWhereNotIn('teaching_plan_item_id', $completedPlanItems);
-            })
-            ->groupBy('teaching_plan_item_id', 'class', 'section', 'content_id');
-
-        $pendingPage = ClassContentSession::query()
-            ->whereIn('id', $latestPendingSessionIds)
             ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 ELSE 1 END")
-            ->latest('session_date')->orderByDesc('id')->paginate(30);
+            ->latest('session_date')->orderByDesc('id')
+            ->get()
+            ->reject(function (ClassContentSession $session) {
+                if ($session->teachingPlanItem && $session->teachingPlanItem->status === 'completed') {
+                    return true;
+                }
+
+                if (!$session->teaching_plan_item_id) {
+                    return false;
+                }
+
+                return ClassContentSession::query()
+                    ->where('teaching_plan_item_id', $session->teaching_plan_item_id)
+                    ->where('status', 'completed')
+                    ->exists();
+            })
+            ->unique(fn (ClassContentSession $session) => $this->mobileSessionCurrentStateKey($session))
+            ->values();
+
+        $pendingItemIds = $pendingSessions
+            ->pluck('teaching_plan_item_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $catchUpItems = TeachingPlanItem::query()
+            ->with(['content.aiSummary', 'content.courseContent.sourceTemplateContent.aiSummary', 'plan', 'week', 'course'])
+            ->where('status', 'released')
+            ->whereHas('content', fn ($q) => $q->where('status', 1))
+            ->when($pendingItemIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $pendingItemIds))
+            ->whereHas('plan', function ($q) use ($teacher, $class) {
+                $q->where('institute', $teacher->institute)->where('is_template', false)->whereIn('status', ['active', 'completed'])
+                    ->when($class, fn ($q) => $q->where('class', $class->class_name)->where('section', $class->section));
+            })
+            ->whereHas('week', function ($q) use ($today) {
+                $q->where('status', 'released')
+                    ->where(function ($weekQuery) use ($today) {
+                        $weekQuery->where('release_reason', 'lagged_content')
+                            ->orWhereDate('week_end_date', '<', $today)
+                            ->orWhere(function ($fallback) {
+                                $fallback->whereNull('week_end_date')
+                                    ->whereDate('release_date', '<', now()->copy()->startOfWeek()->toDateString());
+                            });
+                    });
+            })
+            ->whereDoesntHave('sessions', fn ($q) => $q->where('status', 'completed'))
+            ->whereNotExists(function ($query) {
+                $query->selectRaw('1')
+                    ->from('class_content_sessions')
+                    ->whereNull('class_content_sessions.teaching_plan_item_id')
+                    ->where('class_content_sessions.status', 'completed')
+                    ->whereColumn('class_content_sessions.teaching_plan_id', 'teaching_plan_items.teaching_plan_id')
+                    ->whereColumn('class_content_sessions.teaching_plan_week_id', 'teaching_plan_items.teaching_plan_week_id')
+                    ->whereColumn('class_content_sessions.content_id', 'teaching_plan_items.content_id');
+            })
+            ->orderBy('teaching_plan_week_id')->orderBy('sort_order')->orderBy('id')
+            ->get();
+
+        $pendingRows = $pendingSessions
+            ->map(function (ClassContentSession $session) {
+                return [
+                    'id' => $session->id,
+                    'session_id' => $session->id,
+                    'item_id' => $session->teaching_plan_item_id,
+                    'content_id' => $session->content_id,
+                    'title' => $session->planned_topic ?: ($session->content?->content_title ?: 'Session'),
+                    'subtitle' => trim(($session->class ?? 'Class n/a') . ($session->section ? ' · ' . $session->section : '') . ($session->status ? ' · ' . $session->status : '')),
+                    'status' => $session->status,
+                    'can_end' => in_array($session->status, ['in_progress', 'started'], true),
+                ];
+            })
+            ->merge($catchUpItems->map(function (TeachingPlanItem $item) use ($teacher) {
+                $requiresAiPrep = $this->teachingPlanItemRequiresAiTraining($item)
+                    && !$this->teachingPlanItemBypassesAiPrepForTeacher($item, $teacher);
+                $hasReadyAiPrep = !$requiresAiPrep || (
+                    $this->generatedAiSummaryForContentRecord($item->content)
+                    && !$this->teacherNeedsAiPrep(
+                        $item->content,
+                        $teacher->id,
+                        $this->gradeLevelFromClass($item->plan?->class)
+                    )
+                );
+
+                return [
+                    'id' => 'item-' . $item->id,
+                    'session_id' => null,
+                    'item_id' => $item->id,
+                    'content_id' => $item->content_id,
+                    'title' => $item->content?->content_title ?: 'Catch-up content',
+                    'subtitle' => trim(($item->plan?->class ?? 'Class n/a') . ($item->plan?->section ? ' · ' . $item->plan->section : '') . ' · catch up'),
+                    'status' => 'catch_up',
+                    'can_end' => false,
+                    'can_start' => $hasReadyAiPrep,
+                ];
+            }))
+            ->values();
+
+        $pendingRowsPage = $pendingRows
+            ->slice(($pendingPageNumber - 1) * $pendingPerPage, $pendingPerPage)
+            ->values();
+        $pendingLastPage = max(1, (int) ceil($pendingRows->count() / $pendingPerPage));
+
         $todayPage = ClassContentSession::query()
             ->where('institute', $teacher->institute)
             ->where('stem_engineer_id', $teacher->id)
@@ -2882,7 +2972,9 @@ class MobileApiController extends Controller
             ->with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
             ->latest('session_date')
             ->orderByDesc('id')
-            ->paginate(30);
+            ->get()
+            ->unique(fn (ClassContentSession $session) => $this->mobileSessionCurrentStateKey($session))
+            ->values();
         $contentPage = TeachingPlanItem::query()
             ->whereHas('plan', function ($q) use ($teacher, $class) {
                 $q->where('institute', $teacher->institute)->where('is_template', false)->whereIn('status', ['active', 'completed'])
@@ -2895,8 +2987,8 @@ class MobileApiController extends Controller
 
         return response()->json([
             'pagination' => [
-                'pending_sessions' => $this->pageMetadata($pendingPage),
-                'today_sessions' => $this->pageMetadata($todayPage),
+                'pending_sessions' => ['page' => $pendingPageNumber, 'last_page' => $pendingLastPage, 'total' => $pendingRows->count()],
+                'today_sessions' => ['page' => 1, 'last_page' => 1, 'total' => $todayPage->count()],
                 'learning_content' => $this->pageMetadata($contentPage),
             ],
             'my_classes' => SchoolClass::query()
@@ -2914,21 +3006,8 @@ class MobileApiController extends Controller
                     ];
                 })
                 ->values(),
-            'pending_sessions' => $pendingPage->getCollection()
-                ->map(function (ClassContentSession $session) {
-                    return [
-                        'id' => $session->id,
-                        'session_id' => $session->id,
-                        'item_id' => $session->teaching_plan_item_id,
-                        'content_id' => $session->content_id,
-                        'title' => $session->planned_topic ?: 'Session',
-                        'subtitle' => trim(($session->class ?? 'Class n/a') . ($session->section ? ' · ' . $session->section : '') . ($session->status ? ' · ' . $session->status : '')),
-                        'status' => $session->status,
-                        'can_end' => in_array($session->status, ['in_progress', 'started'], true),
-                    ];
-                })
-                ->values(),
-            'today_sessions' => $todayPage->getCollection()
+            'pending_sessions' => $pendingRowsPage,
+            'today_sessions' => $todayPage
                 ->map(function (ClassContentSession $session) {
                     return [
                         'id' => $session->id,
@@ -3085,6 +3164,15 @@ class MobileApiController extends Controller
         ]);
     }
 
+    private function mobileSessionCurrentStateKey(ClassContentSession $session): string
+    {
+        if ($session->teaching_plan_item_id) {
+            return 'plan-item:' . $session->teaching_plan_item_id;
+        }
+
+        return 'session:' . $session->id;
+    }
+
     public function engineerAiPrep(Request $request, int $contentId)
     {
         $teacher = $request->user();
@@ -3095,6 +3183,13 @@ class MobileApiController extends Controller
             ->where('institute', $teacher->institute)
             ->where('status', 1)
             ->firstOrFail();
+        app(\App\Services\MobileContentAccess::class)->authorize($teacher, $content);
+        abort_unless(
+            $this->teacherContentRequiresAiTraining($teacher, $content),
+            409,
+            'AI prep is not required for this content.'
+        );
+
         $summary = $this->generatedAiSummaryForContentRecord($content);
         abort_unless($summary, 409, 'AI prep is not available for this content yet.');
 
@@ -3136,19 +3231,52 @@ class MobileApiController extends Controller
         abort_unless($teacher instanceof User && in_array($teacher->role, ['Teacher', 'STEM Engineer'], true), 403, 'STEM Engineer access is required.');
         $content = Content::with(['aiSummary', 'courseContent.sourceTemplateContent.aiSummary'])
             ->where('id', $contentId)->where('institute', $teacher->institute)->where('status', 1)->firstOrFail();
+        app(\App\Services\MobileContentAccess::class)->authorize($teacher, $content);
+        abort_unless(
+            $this->teacherContentRequiresAiTraining($teacher, $content),
+            409,
+            'AI prep is not required for this content.'
+        );
+
         $summary = $this->generatedAiSummaryForContentRecord($content);
         abort_unless($summary, 409, 'AI prep is not available for this content yet.');
         $gradeLevel = $this->engineerPrepGrade($request, $teacher, $content);
         $quiz = $this->aiQuizForContent($content, $summary, 'teacher', $gradeLevel);
-        $validated = $request->validate(['answers' => ['required', 'array'], 'answers.*' => ['nullable', 'string', 'max:500']]);
-        $answers = collect($validated['answers'])->map(fn ($answer) => trim((string) $answer));
-        abort_if($answers->filter()->isEmpty(), 422, 'Please answer at least one question before submitting the prep quiz.');
         abort_if(AiQuizAttempt::where('ai_quiz_id', $quiz->id)->where('teacher_id', $teacher->id)->where('attempt_type', 'teacher_prep')->where('status', 'passed')->exists(), 409, 'Prep quiz already cleared.');
         $questions = $quiz->questions()->orderBy('question_order')->get();
+        $autoSubmitted = $request->boolean('auto_submitted');
+        $validated = $request->validate([
+            'answers' => [$autoSubmitted ? 'nullable' : 'required', 'array'],
+            'answers.*' => ['nullable', 'string', 'max:500'],
+            'auto_submitted' => ['nullable', 'boolean'],
+        ]);
+        $answers = collect($validated['answers'] ?? [])->map(fn ($answer) => trim((string) $answer));
+        abort_if(!$autoSubmitted && $this->unansweredAiQuizQuestionIds($questions, $answers)->isNotEmpty(), 422, 'Please answer all questions before submitting the prep quiz.');
+
         $attempt = AiQuizAttempt::create(['ai_quiz_id' => $quiz->id, 'content_id' => $this->aiQuizOwnerContent($content)->id, 'attempt_type' => 'teacher_prep', 'grade_level' => $gradeLevel, 'teacher_id' => $teacher->id, 'status' => 'submitted', 'started_at' => now(), 'submitted_at' => now()]);
         foreach ($questions as $question) {
             AiQuizAnswer::create(['ai_quiz_attempt_id' => $attempt->id, 'ai_quiz_question_id' => $question->id, 'answer_text' => $answers->get($question->id)]);
         }
+        if ($autoSubmitted) {
+            $attempt->update([
+                'score' => 0,
+                'percentage' => 0,
+                'status' => 'failed',
+                'feedback' => 'Prep quiz was automatically submitted after repeated restricted actions.',
+                'evaluated_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'status' => 'failed',
+                'percentage' => 0,
+                'score' => 0,
+                'total_marks' => (int) $questions->sum('marks'),
+                'message' => 'Prep quiz was automatically submitted after three restricted actions. Please review the content and try again.',
+                'auto_submitted' => true,
+            ]);
+        }
+
         $evaluation = $this->evaluateMcqQuizAttempt($questions, $answers);
         $percentage = (float) ($evaluation['percentage'] ?? 0);
         $status = $percentage >= $this->teacherAiPassingPercentage() ? 'passed' : 'failed';
@@ -3570,34 +3698,12 @@ class MobileApiController extends Controller
         ]);
     }
 
-    public function studentComponentMastery(Request $request)
+    public function studentComponentMastery(Request $request, GeminiAiService $ai)
     {
         $student = $request->user();
         abort_unless($student instanceof Student, 403, 'Student access is required.');
 
-        $passedContentIds = AiQuizAttempt::query()
-            ->where('student_id', $student->id)
-            ->where('attempt_type', self::AI_STUDENT_ATTEMPT_TYPE)
-            ->where('status', 'passed')
-            ->whereNotNull('content_id')
-            ->pluck('content_id')
-            ->unique();
-
-        $offers = AiComponentContentProfile::query()
-            ->where('is_practical', true)
-            ->whereIn('content_id', $passedContentIds)
-            ->get()
-            ->groupBy('component_key')
-            ->map(function (Collection $profiles, string $componentKey) {
-                return [
-                    'component_key' => $componentKey,
-                    'component_label' => $profiles->first()->component_label,
-                    'completed_practical_topics' => $profiles->pluck('content_id')->unique()->count(),
-                    'content_ids' => $profiles->pluck('content_id')->unique()->values()->all(),
-                ];
-            })
-            ->filter(fn (array $offer) => $offer['completed_practical_topics'] >= 5)
-            ->values();
+        $offers = $this->studentComponentAssessmentOffers($student, $ai);
 
         $keys = $offers->pluck('component_key');
         $assessments = Assessment::query()
@@ -3611,30 +3717,42 @@ class MobileApiController extends Controller
             ->unique('component_key')
             ->keyBy('component_key');
 
-        $results = AssessmentResult::query()
+        $results = AssessmentResult::with('assessment')
             ->where('student_id', $student->id)
-            ->whereIn('assessment_id', $assessments->pluck('id'))
+            ->whereHas('assessment', function ($query) use ($keys) {
+                $query->where('assessment_category', 'Component Mastery')
+                    ->whereIn('component_key', $keys);
+            })
             ->latest()
             ->get()
-            ->keyBy('assessment_id');
+            ->unique(fn ($result) => $result->assessment?->component_key)
+            ->keyBy(fn ($result) => $result->assessment?->component_key);
 
         return response()->json([
             'assessments' => $offers->map(function (array $offer) use ($assessments, $results) {
                 $assessment = $assessments->get($offer['component_key']);
-                $result = $assessment ? $results->get($assessment->id) : null;
+                $result = $results->get($offer['component_key']);
 
                 return [
                     'component_key' => $offer['component_key'],
                     'component_label' => $offer['component_label'],
-                    'completed_practical_topics' => $offer['completed_practical_topics'],
+                    'completed_practical_topics' => $offer['completed_count'],
+                    'content_ids' => $offer['content_ids'],
+                    'content_titles' => $offer['content_titles'],
                     'assessment_id' => $assessment?->id,
                     'assessment_title' => $assessment?->assessment_title,
+                    'result_id' => $result?->id,
+                    'result_status' => $result?->status,
+                    'percentage' => $result?->percentage !== null ? (float) $result->percentage : null,
+                    'passed' => $result?->passed !== null ? (bool) $result->passed : null,
                     'status' => $result
                         ? ($result->status === 'Completed'
                             ? ($result->passed ? 'Certificate pending approval' : 'Completed - score below certification grade')
                             : 'Pending AI evaluation')
                         : ($assessment ? 'Ready to take' : 'Eligible - assessment not prepared'),
                     'can_take' => (bool) $assessment && !$result,
+                    'can_prepare' => !$assessment && !$result,
+                    'can_view_result' => (bool) $result,
                 ];
             })->values(),
         ]);
@@ -3666,6 +3784,8 @@ class MobileApiController extends Controller
         return response()->json([
             'success' => (bool) $assessment,
             'assessment_id' => $assessment?->id,
+            'assessment_title' => $assessment?->assessment_title,
+            'can_take' => (bool) $assessment,
             'message' => $assessment ? 'Component mastery assessment is ready.' : 'The assessment could not be prepared right now.',
         ], $assessment ? 200 : 503);
     }
@@ -3851,16 +3971,18 @@ class MobileApiController extends Controller
             ]);
         }
 
+        $autoSubmitted = $request->boolean('auto_submitted');
         $validated = $request->validate([
-            'answers' => ['required', 'array'],
+            'answers' => [$autoSubmitted ? 'nullable' : 'required', 'array'],
             'answers.*' => ['nullable', 'string', 'max:500'],
+            'auto_submitted' => ['nullable', 'boolean'],
         ]);
 
-        $answers = collect($validated['answers'])
+        $answers = collect($validated['answers'] ?? [])
             ->map(fn ($answer) => trim((string) $answer));
 
-        if ($answers->filter()->isEmpty()) {
-            abort(422, 'Please answer at least one question before submitting the AI quiz.');
+        if (!$autoSubmitted && $this->unansweredAiQuizQuestionIds($questions, $answers)->isNotEmpty()) {
+            abort(422, 'Please answer all questions before submitting the AI quiz.');
         }
 
         $attempt = AiQuizAttempt::create([
@@ -3879,6 +4001,27 @@ class MobileApiController extends Controller
                 'ai_quiz_attempt_id' => $attempt->id,
                 'ai_quiz_question_id' => $question->id,
                 'answer_text' => $answers->get($question->id),
+            ]);
+        }
+
+        if ($autoSubmitted) {
+            $attempt->update([
+                'score' => 0,
+                'percentage' => 0,
+                'status' => 'failed',
+                'feedback' => 'Training assessment was automatically submitted after repeated restricted actions.',
+                'evaluated_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Training assessment was automatically submitted after three restricted actions. Please review the content and try again.',
+                'status' => 'failed',
+                'percentage' => 0,
+                'score' => 0,
+                'total_marks' => (int) $questions->sum('marks'),
+                'attempt_id' => $attempt->id,
+                'auto_submitted' => true,
             ]);
         }
 
@@ -4281,6 +4424,184 @@ class MobileApiController extends Controller
     {
         return $this->studentAiReviewRequiredContentIds($student, collect([$content->id]))
             ->contains((int) $content->id);
+    }
+
+    private function teacherContentRequiresAiTraining(User $teacher, Content $content): bool
+    {
+        return TeachingPlanItem::with(['week', 'plan'])
+            ->where('content_id', $content->id)
+            ->whereHas('week', function ($query) {
+                $query->whereNotNull('release_date');
+            })
+            ->whereHas('plan', function ($query) use ($teacher) {
+                $query->where('is_template', false)
+                    ->where('institute', $teacher->institute)
+                    ->whereNotNull('ai_training_start_date')
+                    ->whereIn('status', ['active', 'completed']);
+            })
+            ->whereIn('status', ['released', 'completed'])
+            ->get()
+            ->contains(fn ($item) => $this->teachingPlanItemRequiresAiTraining($item));
+    }
+
+    private function studentComponentAssessmentOffers(Student $student, ?GeminiAiService $ai = null): Collection
+    {
+        $contentIds = $this->studentAvailableContentIds($student);
+        $contents = Content::with(['aiSummary', 'courseContent.sourceTemplateContent.aiSummary'])
+            ->whereIn('id', $contentIds)
+            ->where('status', 1)
+            ->get();
+
+        $completedContentIds = $this->studentPassedAiReviewContentIds($student, $contents);
+        $completedContents = $contents
+            ->whereIn('id', $completedContentIds)
+            ->values();
+
+        if ($completedContents->count() < 5) {
+            return collect();
+        }
+
+        $this->ensureComponentProfilesForContents($completedContents, $ai);
+
+        $profiles = AiComponentContentProfile::whereIn('content_id', $completedContents->pluck('id'))
+            ->where('is_practical', true)
+            ->where('confidence', '>=', 45)
+            ->get()
+            ->keyBy('content_id');
+
+        return $completedContents
+            ->filter(fn (Content $content) => $profiles->has($content->id))
+            ->groupBy(fn (Content $content) => $profiles->get($content->id)->component_key)
+            ->map(function ($componentContents, $componentKey) use ($profiles) {
+                $profile = $profiles->get($componentContents->first()->id);
+
+                return [
+                    'component_key' => $componentKey,
+                    'component_label' => $profile->component_label,
+                    'completed_count' => $componentContents->count(),
+                    'content_ids' => $componentContents->pluck('id')->values()->all(),
+                    'content_titles' => $componentContents->pluck('content_title')->values()->all(),
+                ];
+            })
+            ->filter(fn ($offer) => $offer['completed_count'] >= 5)
+            ->sortBy('component_label')
+            ->values();
+    }
+
+    private function ensureComponentProfilesForContents($contents, ?GeminiAiService $ai = null): void
+    {
+        $contents = collect($contents)->values();
+        $existingIds = AiComponentContentProfile::whereIn('content_id', $contents->pluck('id'))
+            ->pluck('content_id')
+            ->map(fn ($id) => (int) $id);
+
+        $missing = $contents
+            ->reject(fn (Content $content) => $existingIds->contains((int) $content->id))
+            ->values();
+
+        if ($missing->isEmpty()) {
+            return;
+        }
+
+        $items = $missing->map(function (Content $content) {
+            $summary = $this->generatedAiSummaryForContentRecord($content);
+
+            return [
+                'content_id' => $content->id,
+                'title' => $content->content_title,
+                'summary' => mb_substr((string) ($summary?->summary ?? $content->description ?? ''), 0, 1200),
+                'key_points' => $summary?->key_points ?? [],
+                'text_snippet' => mb_substr((string) ($summary?->extracted_text ?? ''), 0, 1600),
+            ];
+        })->all();
+
+        $classifiedItems = [];
+
+        if ($ai) {
+            try {
+                $classifiedItems = $ai->classifyComponentContent($items)['items'] ?? [];
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        $classifiedById = collect($classifiedItems)->keyBy(fn ($item) => (int) ($item['content_id'] ?? 0));
+
+        foreach ($missing as $content) {
+            $classification = $classifiedById->get((int) $content->id) ?: $this->fallbackComponentClassification($content);
+            $componentLabel = trim((string) ($classification['component_label'] ?? 'General STEM')) ?: 'General STEM';
+            $componentKey = trim((string) ($classification['component_key'] ?? Str::slug($componentLabel)));
+
+            AiComponentContentProfile::updateOrCreate(
+                ['content_id' => $content->id],
+                [
+                    'component_key' => $componentKey ?: 'general-stem',
+                    'component_label' => $componentLabel,
+                    'is_practical' => (bool) ($classification['is_practical'] ?? false),
+                    'confidence' => min(100, max(0, (int) ($classification['confidence'] ?? 50))),
+                    'evidence' => $classification['evidence'] ?? [],
+                    'provider' => config('ai.provider', 'gemini'),
+                    'model' => config('ai.gemini.model'),
+                    'analyzed_at' => now(),
+                ]
+            );
+        }
+    }
+
+    private function fallbackComponentClassification(Content $content): array
+    {
+        $summary = $this->generatedAiSummaryForContentRecord($content);
+        $text = mb_strtolower(implode(' ', array_filter([
+            $content->content_title,
+            $content->description,
+            $summary?->summary,
+            implode(' ', $summary?->key_points ?? []),
+        ])));
+
+        $components = [
+            'arduino' => 'Arduino',
+            'sensor' => 'Sensors',
+            'sensors' => 'Sensors',
+            'microcontroller' => 'Microcontrollers',
+            'microprocessor' => 'Microprocessors',
+            'motor' => 'Motors',
+            'servo' => 'Motors',
+            'robot' => 'Robotics',
+            'iot' => 'IoT',
+            'circuit' => 'Electronics',
+            'electronics' => 'Electronics',
+            'coding' => 'Coding',
+            'programming' => 'Coding',
+        ];
+
+        foreach ($components as $needle => $label) {
+            if (str_contains($text, $needle)) {
+                return [
+                    'component_key' => Str::slug($label),
+                    'component_label' => $label,
+                    'is_practical' => true,
+                    'confidence' => 55,
+                    'evidence' => [$content->content_title],
+                ];
+            }
+        }
+
+        return [
+            'component_key' => 'general-stem',
+            'component_label' => 'General STEM',
+            'is_practical' => str_contains($text, 'project') || str_contains($text, 'experiment') || str_contains($text, 'build'),
+            'confidence' => 35,
+            'evidence' => [$content->content_title],
+        ];
+    }
+
+    private function unansweredAiQuizQuestionIds(Collection $questions, Collection $answers): Collection
+    {
+        return $questions
+            ->filter(fn (AiQuizQuestion $question) => trim((string) $answers->get($question->id, '')) === '')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
     }
 
     private function studentAiReviewRequiredContentIds(Student $student, $contentIds)

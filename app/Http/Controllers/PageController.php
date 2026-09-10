@@ -1558,6 +1558,7 @@ class PageController extends Controller
             })
             ->latest()
             ->get();
+        $sessions = $this->uniqueCurrentSessionRows($sessions);
 
         $unfinishedSessions = ClassContentSession::with(['course', 'content', 'teachingPlan', 'teachingPlanWeek', 'teachingPlanItem'])
             ->where('stem_engineer_id', $teacher->id)
@@ -1646,6 +1647,7 @@ class PageController extends Controller
                         ->where('status', 'completed')
                         ->exists();
                 })
+                ->unique(fn ($session) => $this->sessionCurrentStateKey($session))
                 ->values();
 
             $pendingItemIds = $pendingSessions
@@ -1678,7 +1680,26 @@ class PageController extends Controller
                 })
                 ->whereHas('week', function ($query) {
                     $query->where('status', 'released')
-                        ->where('release_reason', 'lagged_content');
+                        ->where(function ($weekQuery) {
+                            $weekQuery->where('release_reason', 'lagged_content')
+                                ->orWhereDate('week_end_date', '<', now()->toDateString())
+                                ->orWhere(function ($fallback) {
+                                    $fallback->whereNull('week_end_date')
+                                        ->whereDate('release_date', '<', now()->copy()->startOfWeek()->toDateString());
+                                });
+                        });
+                })
+                ->whereDoesntHave('sessions', function ($query) {
+                    $query->where('status', 'completed');
+                })
+                ->whereNotExists(function ($query) {
+                    $query->selectRaw('1')
+                        ->from('class_content_sessions')
+                        ->whereNull('class_content_sessions.teaching_plan_item_id')
+                        ->where('class_content_sessions.status', 'completed')
+                        ->whereColumn('class_content_sessions.teaching_plan_id', 'teaching_plan_items.teaching_plan_id')
+                        ->whereColumn('class_content_sessions.teaching_plan_week_id', 'teaching_plan_items.teaching_plan_week_id')
+                        ->whereColumn('class_content_sessions.content_id', 'teaching_plan_items.content_id');
                 })
                 ->orderBy('teaching_plan_week_id')
                 ->orderBy('sort_order')
@@ -1777,6 +1798,22 @@ class PageController extends Controller
                     'remarks' => $remarks,
                 ]);
             });
+    }
+
+    private function uniqueCurrentSessionRows($sessions)
+    {
+        return $sessions
+            ->unique(fn (ClassContentSession $session) => $this->sessionCurrentStateKey($session))
+            ->values();
+    }
+
+    private function sessionCurrentStateKey(ClassContentSession $session): string
+    {
+        if ($session->teaching_plan_item_id) {
+            return 'plan-item:' . $session->teaching_plan_item_id;
+        }
+
+        return 'session:' . $session->id;
     }
 
     public function teacherContent(Request $request)
