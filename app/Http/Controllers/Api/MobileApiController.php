@@ -725,6 +725,19 @@ class MobileApiController extends Controller
         ]);
     }
 
+    public function downloadMobileCertificate(Request $request, Certificate $certificate)
+    {
+        abort_unless(in_array(strtolower((string) $certificate->status), ['approved', 'issued'], true), 404);
+
+        $student = $certificate->student()->firstOrFail();
+
+        return Pdf::loadView('student.student-certificate', [
+            'certificate' => $certificate,
+            'student' => $student,
+        ])->setPaper('a4', 'landscape')
+            ->download('certificate-' . ($certificate->certificate_code ?: $certificate->id) . '.pdf');
+    }
+
     public function studentProfile(Request $request)
     {
         $account = $request->user();
@@ -769,6 +782,9 @@ class MobileApiController extends Controller
                     'final_classification' => $certificate->final_classification ?? '',
                     'issued_date' => optional($certificate->issued_date ? Carbon::parse($certificate->issued_date) : null)->toDateString(),
                     'status' => $certificate->status ?? '',
+                    'download_url' => in_array(strtolower((string) $certificate->status), ['approved', 'issued'], true)
+                        ? URL::temporarySignedRoute('mobile.certificate-download', now()->addMinutes(10), ['certificate' => $certificate->id])
+                        : '',
                 ];
             })
             ->values();

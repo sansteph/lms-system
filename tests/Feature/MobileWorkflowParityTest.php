@@ -136,7 +136,7 @@ class MobileWorkflowParityTest extends TestCase
     public function test_student_achievements_include_approved_certificates(): void
     {
         $student = $this->student();
-        Certificate::create([
+        $certificate = Certificate::create([
             'student_id' => $student->id,
             'certificate_code' => 'CERT-READY',
             'status' => 'approved',
@@ -173,6 +173,9 @@ class MobileWorkflowParityTest extends TestCase
                 'title' => 'Robotics Fair',
                 'achievement_type' => 'Competition',
             ]);
+        $downloadUrl = collect($response->json('achievements'))->firstWhere('id', 'certificate-'.$certificate->id)['download_url'] ?? '';
+        $this->assertNotEmpty($downloadUrl);
+        $this->get($downloadUrl)->assertOk()->assertHeader('content-type', 'application/pdf');
     }
 
     public function test_submission_rejects_wrong_file_types_and_cleans_up_replaced_proof(): void

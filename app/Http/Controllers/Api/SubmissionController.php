@@ -135,6 +135,7 @@ class SubmissionController extends Controller
             'can_edit' => false,
             'can_delete' => false,
             'attachment_url' => null,
+            'download_url' => URL::temporarySignedRoute('mobile.certificate-download', now()->addMinutes(10), ['certificate' => $certificate->id]),
             'document_path' => '/api/workflows/awards/'.$certificate->id.'/document',
             'sort_date' => optional($issuedAt)->toDateTimeString(),
         ];

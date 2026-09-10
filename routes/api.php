@@ -31,6 +31,8 @@ Route::get('/public/community', [\App\Http\Controllers\Api\MobilePublicControlle
 Route::post('/public/verify-certificate', [\App\Http\Controllers\Api\MobilePublicController::class, 'verifyCertificate'])->middleware('throttle:10,1');
 Route::get('/session-completion-video/{fileName}', [\App\Http\Controllers\PageController::class, 'streamSessionCompletionVideo'])
     ->middleware(['signed', 'throttle:30,1'])->name('mobile.session-completion-video');
+Route::get('/mobile-certificates/{certificate}/download', [MobileApiController::class, 'downloadMobileCertificate'])
+    ->middleware(['signed', 'throttle:30,1'])->name('mobile.certificate-download');
 Route::get('/mobile-status', \App\Http\Controllers\Api\MobileStatusController::class);
 Route::get('/workflow-exports/{ticket}', [\App\Http\Controllers\Api\MobileWorkflowController::class, 'downloadExport'])
     ->middleware(['signed', 'throttle:20,1'])->name('mobile.workflow-export');
