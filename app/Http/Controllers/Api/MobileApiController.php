@@ -2019,7 +2019,7 @@ class MobileApiController extends Controller
             'phone' => ['required', 'string', 'max:20'],
             'status' => ['required', 'boolean'],
             'admin_name' => ['nullable', 'string', 'max:100'],
-            'admin_email' => ['nullable', 'email', 'max:255'],
+            'admin_email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
             'admin_password' => ['nullable', 'string', 'min:6'],
         ]);
 
@@ -2078,6 +2078,7 @@ class MobileApiController extends Controller
         $account = $this->requireAdmin($request);
         abort_if($account->role !== 'Admin', 403, 'Only Super Admin can edit institutes.');
         $institute = Institute::findOrFail($id);
+        $adminUser = $this->mobileInstituteAdminFor($institute->institute_name);
 
         $validated = $request->validate([
             'institute_id' => ['required', 'string', 'max:50', 'unique:institutes,institute_id,' . $id],
@@ -2087,14 +2088,91 @@ class MobileApiController extends Controller
             'email' => ['required', 'email'],
             'phone' => ['required', 'string', 'max:20'],
             'status' => ['required', 'boolean'],
+            'admin_name' => ['nullable', 'string', 'max:100'],
+            'admin_email' => [$adminUser ? 'nullable' : 'required_with:admin_password', 'nullable', 'email', 'max:255', 'unique:users,email,' . ($adminUser?->id ?? 'NULL')],
+            'admin_password' => [$adminUser ? 'nullable' : 'required_with:admin_email', 'nullable', 'string', 'min:6'],
         ]);
 
-        $institute->update($validated);
+        DB::transaction(function () use ($validated, $institute, $adminUser) {
+            $oldInstituteName = $institute->institute_name;
+            $institute->update([
+                'institute_id' => $validated['institute_id'],
+                'institute_name' => $validated['institute_name'],
+                'location' => $validated['location'],
+                'contact_person' => $validated['contact_person'],
+                'email' => $validated['email'],
+                'phone' => $validated['phone'],
+                'status' => (bool) $validated['status'],
+            ]);
+
+            $this->mobileUpsertInstituteAdmin($validated, $institute, $oldInstituteName, $adminUser);
+        });
 
         return response()->json([
             'success' => true,
             'message' => 'Institute updated successfully.',
         ]);
+    }
+
+    private function mobileInstituteAdminFor(string $instituteName): ?User
+    {
+        return User::where('role', 'InstituteAdmin')
+            ->where('institute', $instituteName)
+            ->orderBy('id')
+            ->first();
+    }
+
+    private function mobileUpsertInstituteAdmin(array $validated, Institute $institute, string $oldInstituteName, ?User $adminUser = null): void
+    {
+        $adminUser ??= $this->mobileInstituteAdminFor($oldInstituteName);
+        $adminEmail = trim((string) ($validated['admin_email'] ?? ''));
+        $adminPassword = trim((string) ($validated['admin_password'] ?? ''));
+
+        if (!$adminUser && $adminEmail === '' && $adminPassword === '') {
+            return;
+        }
+
+        if (!$adminUser && ($adminEmail === '' || $adminPassword === '')) {
+            return;
+        }
+
+        if (!$adminUser) {
+            do {
+                $adminUserId = 'ADM' . random_int(100000, 999999);
+            } while (User::where('user_id', $adminUserId)->exists());
+
+            User::create([
+                'user_id' => $adminUserId,
+                'name' => $validated['admin_name'] ?: $institute->contact_person,
+                'email' => $adminEmail,
+                'phone' => $institute->phone,
+                'institute' => $institute->institute_name,
+                'role' => 'InstituteAdmin',
+                'password' => Hash::make($adminPassword),
+                'status' => (bool) $institute->status,
+                'password_changed_at' => now(),
+            ]);
+
+            return;
+        }
+
+        $updates = [
+            'name' => $validated['admin_name'] ?: $adminUser->name,
+            'phone' => $institute->phone,
+            'institute' => $institute->institute_name,
+            'status' => (bool) $institute->status,
+        ];
+
+        if ($adminEmail !== '') {
+            $updates['email'] = $adminEmail;
+        }
+
+        if ($adminPassword !== '') {
+            $updates['password'] = Hash::make($adminPassword);
+            $updates['password_changed_at'] = now();
+        }
+
+        $adminUser->update($updates);
     }
 
     public function deleteAdminInstitute(Request $request, int $id)

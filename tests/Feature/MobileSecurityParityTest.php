@@ -20,7 +20,7 @@ class MobileSecurityParityTest extends TestCase
         foreach ([
             'users' => ['user_id','name','email','password','role','institute','status','qualification','designation','joined_on','linkedin_url','profile_image'],
             'students' => ['student_id','name','email','password','institute','class','section','status','contact','guardian_name','is_robotics_club_member','profile_completed','linkedin_url','profile_image'],
-            'institutes' => ['institute_name','status','location','institute_id','email'], 'classes' => ['class_name','section','institute','status','academic_year','class_teacher'],
+            'institutes' => ['institute_name','status','location','institute_id','contact_person','email','phone'], 'classes' => ['class_name','section','institute','status','academic_year','class_teacher'],
             'courses' => ['course_title','institute','status','is_template_source','assigned_class'],
             'contents' => ['content_title','institute','course_id','status','is_released','assigned_class','lesson_order','preview_pdf_path','student_preview_pdf_path','student_file_path','file_path'],
             'course_contents' => ['course_id','content_id','sort_order','status','source_template_content_id'],
@@ -310,6 +310,54 @@ class MobileSecurityParityTest extends TestCase
         $this->assertDatabaseHas('contents', ['id' => $shared->id]);
         Storage::disk('local')->assertExists('shared.pdf');
         Storage::disk('local')->assertMissing('alpha.pdf');
+    }
+
+    public function test_admin_can_update_institute_admin_details_with_institute(): void
+    {
+        $institute = Institute::create([
+            'institute_id' => 'INS001',
+            'institute_name' => 'Alpha',
+            'location' => 'City',
+            'contact_person' => 'Old Contact',
+            'email' => 'alpha@example.com',
+            'phone' => '111',
+            'status' => 1,
+        ]);
+        $admin = User::create([
+            'user_id' => 'ADM001',
+            'name' => 'Old Admin',
+            'email' => 'old-admin@example.com',
+            'password' => Hash::make('OldPass123'),
+            'role' => 'InstituteAdmin',
+            'institute' => 'Alpha',
+            'status' => 1,
+        ]);
+
+        Sanctum::actingAs($this->user('Admin'));
+        $this->putJson('/api/admin/institutes/'.$institute->id, [
+            'institute_id' => 'INS002',
+            'institute_name' => 'Alpha Prime',
+            'location' => 'New City',
+            'contact_person' => 'New Contact',
+            'email' => 'alpha-prime@example.com',
+            'phone' => '222',
+            'status' => false,
+            'admin_name' => 'New Admin',
+            'admin_email' => 'new-admin@example.com',
+            'admin_password' => 'NewPass123',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('institutes', [
+            'id' => $institute->id,
+            'institute_name' => 'Alpha Prime',
+            'phone' => '222',
+        ]);
+        $admin->refresh();
+        $this->assertSame('New Admin', $admin->name);
+        $this->assertSame('new-admin@example.com', $admin->email);
+        $this->assertSame('Alpha Prime', $admin->institute);
+        $this->assertSame('0', (string) $admin->status);
+        $this->assertTrue(Hash::check('NewPass123', $admin->password));
     }
 
     public function test_gap_management_filter_controls_and_queries_match_selected_scope(): void

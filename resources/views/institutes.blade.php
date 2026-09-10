@@ -89,6 +89,7 @@
                                 <th>Location</th>
                                 <th>Contact Person</th>
                                 <th>Email</th>
+                                <th>Institute Admin</th>
                                 <th>Status</th>
                                 <th width="180">Actions</th>
                             </tr>
@@ -96,6 +97,7 @@
 
                         <tbody>
                             @forelse($institutes as $index => $institute)
+                                @php($adminUser = $instituteAdmins->get($institute->institute_name))
                                 <tr>
                                     <td>{{ $institutes->firstItem() + $index }}</td>
                                     <td>{{ $institute->institute_id }}</td>
@@ -103,6 +105,14 @@
                                     <td>{{ $institute->location }}</td>
                                     <td>{{ $institute->contact_person }}</td>
                                     <td>{{ $institute->email }}</td>
+                                    <td>
+                                        @if($adminUser)
+                                            <div class="fw-semibold">{{ $adminUser->name }}</div>
+                                            <div class="small text-muted">{{ $adminUser->email }}</div>
+                                        @else
+                                            <span class="text-muted small">Not configured</span>
+                                        @endif
+                                    </td>
                                     <td>
                                         @if($institute->status == 1)
                                             <span class="badge bg-success">Active</span>
@@ -125,7 +135,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="text-center text-muted">No institutes found</td>
+                                    <td colspan="9" class="text-center text-muted">No institutes found</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -236,6 +246,7 @@
 </div>
 
 @foreach($institutes as $institute)
+@php($adminUser = $instituteAdmins->get($institute->institute_name))
 <div class="modal fade" id="editInstituteModal{{ $institute->id }}" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -287,6 +298,40 @@
                                 <option value="1" {{ $institute->status == 1 ? 'selected' : '' }}>Active</option>
                                 <option value="0" {{ $institute->status == 0 ? 'selected' : '' }}>Inactive</option>
                             </select>
+                        </div>
+
+                        <div class="col-12">
+                            <hr>
+                            <h6 class="mb-1">Institute Admin Login</h6>
+                            <p class="text-muted small mb-0">
+                                Update admin name, login email, active status, or set a new password.
+                            </p>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Admin Name</label>
+                            <input type="text"
+                                   name="admin_name"
+                                   class="form-control"
+                                   value="{{ old('admin_name', $adminUser->name ?? '') }}"
+                                   placeholder="Defaults to existing admin">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Admin Login Email</label>
+                            <input type="email"
+                                   name="admin_email"
+                                   class="form-control"
+                                   value="{{ old('admin_email', $adminUser->email ?? '') }}"
+                                   placeholder="{{ $adminUser ? 'Admin email' : 'Required to create admin' }}">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">New Admin Password</label>
+                            <input type="password"
+                                   name="admin_password"
+                                   class="form-control"
+                                   placeholder="{{ $adminUser ? 'Leave blank to keep current' : 'Required to create admin' }}">
                         </div>
 
                     </div>

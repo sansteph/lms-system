@@ -67,10 +67,17 @@ class InstituteController extends Controller
             ->paginate(30)
             ->withQueryString()
             : collect();
+        $instituteAdmins = $hasFilters
+            ? User::where('role', 'InstituteAdmin')
+                ->whereIn('institute', $institutes->pluck('institute_name'))
+                ->orderBy('id')
+                ->get()
+                ->keyBy('institute')
+            : collect();
 
         $studentCount = Student::count();
 
-        return view('institutes', compact('institutes', 'studentCount', 'totalInstitutes', 'activeInstitutes', 'locationOptions', 'hasFilters'));
+        return view('institutes', compact('institutes', 'instituteAdmins', 'studentCount', 'totalInstitutes', 'activeInstitutes', 'locationOptions', 'hasFilters'));
     }
 
     public function store(Request $request)
@@ -84,7 +91,7 @@ class InstituteController extends Controller
             'phone' => 'required|string|max:20',
             'status' => 'required|boolean',
             'admin_name' => 'nullable|string|max:100',
-            'admin_email' => 'required_with:admin_password|nullable|email|max:255',
+            'admin_email' => 'required_with:admin_password|nullable|email|max:255|unique:users,email',
             'admin_password' => 'nullable|string|min:6',
         ]);
 
@@ -122,6 +129,9 @@ class InstituteController extends Controller
     }
     public function update(Request $request, $id)
     {
+        $institute = Institute::findOrFail($id);
+        $adminUser = $this->instituteAdminFor($institute->institute_name);
+
         $request->validate([
             'institute_id' => 'required|string|max:50|unique:institutes,institute_id,' . $id,
             'institute_name' => 'required|string|max:150|unique:institutes,institute_name,' . $id,
@@ -130,13 +140,88 @@ class InstituteController extends Controller
             'email' => 'required|email',
             'phone' => 'required|string|max:20',
             'status' => 'required|boolean',
+            'admin_name' => 'nullable|string|max:100',
+            'admin_email' => ($adminUser ? 'nullable' : 'required_with:admin_password|nullable') . '|email|max:255|unique:users,email,' . ($adminUser?->id ?? 'NULL'),
+            'admin_password' => ($adminUser ? 'nullable' : 'required_with:admin_email|nullable') . '|string|min:6',
         ]);
 
-        $institute = Institute::findOrFail($id);
+        DB::transaction(function () use ($request, $institute, $adminUser) {
+            $oldInstituteName = $institute->institute_name;
+            $institute->update($request->only([
+                'institute_id',
+                'institute_name',
+                'location',
+                'contact_person',
+                'email',
+                'phone',
+                'status',
+            ]));
 
-        $institute->update($request->all());
+            $this->upsertInstituteAdmin($request, $institute, $oldInstituteName, $adminUser);
+        });
 
         return redirect()->back()->with('success', 'Institute updated successfully');
+    }
+
+    private function instituteAdminFor(string $instituteName): ?User
+    {
+        return User::where('role', 'InstituteAdmin')
+            ->where('institute', $instituteName)
+            ->orderBy('id')
+            ->first();
+    }
+
+    private function upsertInstituteAdmin(Request $request, Institute $institute, string $oldInstituteName, ?User $adminUser = null): void
+    {
+        $adminUser ??= $this->instituteAdminFor($oldInstituteName);
+        $adminEmail = trim((string) $request->input('admin_email', ''));
+        $adminPassword = trim((string) $request->input('admin_password', ''));
+
+        if (!$adminUser && $adminEmail === '' && $adminPassword === '') {
+            return;
+        }
+
+        if (!$adminUser && ($adminEmail === '' || $adminPassword === '')) {
+            return;
+        }
+
+        if (!$adminUser) {
+            do {
+                $adminUserId = 'ADM' . rand(100000, 999999);
+            } while (User::where('user_id', $adminUserId)->exists());
+
+            User::create([
+                'user_id' => $adminUserId,
+                'name' => $request->admin_name ?: $institute->contact_person,
+                'email' => $adminEmail,
+                'phone' => $institute->phone,
+                'institute' => $institute->institute_name,
+                'role' => 'InstituteAdmin',
+                'password' => Hash::make($adminPassword),
+                'status' => $institute->status,
+                'password_changed_at' => now(),
+            ]);
+
+            return;
+        }
+
+        $updates = [
+            'name' => $request->admin_name ?: $adminUser->name,
+            'phone' => $institute->phone,
+            'institute' => $institute->institute_name,
+            'status' => $institute->status,
+        ];
+
+        if ($adminEmail !== '') {
+            $updates['email'] = $adminEmail;
+        }
+
+        if ($adminPassword !== '') {
+            $updates['password'] = Hash::make($adminPassword);
+            $updates['password_changed_at'] = now();
+        }
+
+        $adminUser->update($updates);
     }
     public function delete($id)
     {
