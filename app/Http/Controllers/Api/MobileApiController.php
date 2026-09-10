@@ -5581,13 +5581,40 @@ class MobileApiController extends Controller
         }
 
         if (in_array($role, ['Manager', 'Principal'], true)) {
+            $institute = $role === 'Principal' ? ($account->institute ?: null) : null;
+            $today = today()->toDateString();
+            $sessionScope = ClassContentSession::query()
+                ->when($institute, fn ($query) => $query->where('institute', $institute));
+            $todaySessions = (clone $sessionScope)->whereDate('session_date', $today);
+            $completedToday = (clone $todaySessions)->where('status', 'completed')->count();
+            $totalToday = (clone $todaySessions)->count();
+            $unfinishedSessions = (clone $sessionScope)
+                ->where(function ($query) {
+                    $query->whereIn('status', ['in_progress', 'partially_completed', 'pending'])
+                        ->orWhereNull('ended_at');
+                })
+                ->count();
+            $studentCount = Student::query()
+                ->when($institute, fn ($query) => $query->where('institute', $institute))
+                ->count();
+            $teacherCount = User::whereIn('role', ['Teacher', 'STEM Engineer'])
+                ->when($institute, fn ($query) => $query->where('institute', $institute))
+                ->count();
+            $assessmentAverage = (float) (AssessmentResult::query()
+                ->where('status', 'Completed')
+                ->whereIn('student_id', Student::query()
+                    ->when($institute, fn ($query) => $query->where('institute', $institute))
+                    ->select('id'))
+                ->avg('percentage') ?? 0);
+
             return [
                 'headline' => $role . ' reporting workspace',
                 'description' => $role === 'Principal' ? ($account->institute ?: 'Assigned institute') : 'All institutions',
                 'metrics' => [
-                    ['label' => 'Session reports', 'value' => 'Daily / Weekly / Monthly'],
-                    ['label' => $role === 'Manager' ? 'Engineer performance' : 'Student performance', 'value' => 'Available'],
-                    ['label' => 'AI report PDFs', 'value' => 'Available'],
+                    ['label' => 'Sessions today', 'value' => $completedToday . '/' . $totalToday],
+                    ['label' => $role === 'Manager' ? 'STEM Engineers' : 'Students', 'value' => (string) ($role === 'Manager' ? $teacherCount : $studentCount)],
+                    ['label' => $role === 'Manager' ? 'Open sessions' : 'Assessment average', 'value' => $role === 'Manager' ? (string) $unfinishedSessions : round($assessmentAverage, 1) . '%'],
+                    ['label' => 'Report exports', 'value' => $role === 'Manager' ? '8' : '6'],
                 ],
             ];
         }

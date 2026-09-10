@@ -869,6 +869,36 @@ class MobileSecurityParityTest extends TestCase
         $this->getJson('/api/panel/reports/export-url?report_mode=daily-session')->assertForbidden();
     }
 
+    public function test_panel_dashboard_summary_uses_live_data_and_role_scope(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-09-10 10:00:00'));
+        $alphaStudent = $this->student();
+        $betaStudent = $this->student();
+        $betaStudent->update(['institute' => 'Beta']);
+        $alphaTeacher = $this->user('STEM Engineer');
+        $betaTeacher = $this->user('STEM Engineer');
+        $betaTeacher->update(['institute' => 'Beta']);
+        ClassContentSession::create(['institute' => 'Alpha', 'session_date' => today(), 'status' => 'completed', 'ended_at' => now(), 'duration_seconds' => 1800]);
+        ClassContentSession::create(['institute' => 'Alpha', 'session_date' => today(), 'status' => 'in_progress', 'duration_seconds' => 900]);
+        ClassContentSession::create(['institute' => 'Beta', 'session_date' => today(), 'status' => 'completed', 'ended_at' => now(), 'duration_seconds' => 1200]);
+        AssessmentResult::create(['student_id' => $alphaStudent->id, 'status' => 'Completed', 'percentage' => 75]);
+        AssessmentResult::create(['student_id' => $betaStudent->id, 'status' => 'Completed', 'percentage' => 95]);
+
+        Sanctum::actingAs($this->user('Manager'));
+        $manager = collect($this->getJson('/api/dashboard/summary')->assertOk()->json('metrics'))->pluck('value', 'label');
+        $this->assertSame('2/3', $manager['Sessions today']);
+        $this->assertSame('2', $manager['STEM Engineers']);
+        $this->assertSame('1', $manager['Open sessions']);
+        $this->assertSame('8', $manager['Report exports']);
+
+        Sanctum::actingAs($this->user('Principal'));
+        $principal = collect($this->getJson('/api/dashboard/summary')->assertOk()->json('metrics'))->pluck('value', 'label');
+        $this->assertSame('1/2', $principal['Sessions today']);
+        $this->assertSame('1', $principal['Students']);
+        $this->assertSame('75%', $principal['Assessment average']);
+        $this->assertSame('6', $principal['Report exports']);
+    }
+
     public function test_mobile_reports_select_metrics_and_rows_for_each_report_family(): void
     {
         Sanctum::actingAs($this->user('InstituteAdmin'));
