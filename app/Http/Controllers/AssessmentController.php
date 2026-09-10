@@ -707,7 +707,7 @@ class AssessmentController extends Controller
         $assessment = Assessment::findOrFail($id);
         $this->authorizeAdminQuestionPaper($assessment);
 
-        $assessment->update([
+        \App\Services\ApprovalTransition::apply($assessment, 'question_paper_status', [
             'question_paper_status' => 'Approved',
             'question_paper_reviewed_by' => session('user_id'),
             'question_paper_reviewed_at' => now(),
@@ -723,7 +723,7 @@ class AssessmentController extends Controller
         $assessment = Assessment::findOrFail($id);
         $this->authorizeAdminQuestionPaper($assessment);
 
-        $assessment->update([
+        \App\Services\ApprovalTransition::apply($assessment, 'question_paper_status', [
             'question_paper_status' => 'Rejected',
             'question_paper_reviewed_by' => session('user_id'),
             'question_paper_reviewed_at' => now(),

@@ -1912,7 +1912,7 @@ class MobileApiController extends Controller
         if ($type === 'question-paper') {
             $record = Assessment::findOrFail($id);
             $this->ensureAdminInstituteAccess($account, $record->institute);
-            $record->update([
+            \App\Services\ApprovalTransition::apply($record, 'question_paper_status', [
                 'question_paper_status' => $status,
                 'question_paper_reviewed_by' => $account->id,
                 'question_paper_reviewed_at' => now(),
@@ -1930,7 +1930,7 @@ class MobileApiController extends Controller
         } elseif ($type === 'my-space') {
             $record = MySpace::findOrFail($id);
             $this->ensureAdminInstituteAccess($account, $record->submitter()?->institute);
-            $record->update(['status' => $status]);
+            \App\Services\ApprovalTransition::apply($record, 'status', ['status' => $status]);
         } else {
             abort(404, 'Approval type not found.');
         }

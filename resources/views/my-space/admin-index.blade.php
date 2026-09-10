@@ -172,6 +172,7 @@
                                                 <div class="d-flex flex-wrap gap-2">
                                                     <a href="{{ route('admin.my-space.show', $item->id) }}" class="btn btn-sm btn-primary">View</a>
 
+                                                    @if($item->status === 'Pending')
                                                     <form method="POST" action="{{ route('admin.my-space.approve', $item->id) }}">
                                                         @csrf
                                                         <button type="submit" class="btn btn-sm btn-success">Approve</button>
@@ -181,11 +182,14 @@
                                                         @csrf
                                                         <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
                                                     </form>
+                                                    @endif
 
+                                                    @if(in_array($item->status, ['Pending', 'Approved']))
                                                     <form method="POST" action="{{ route('admin.my-space.feature', $item->id) }}">
                                                         @csrf
                                                         <button type="submit" class="btn btn-sm btn-outline-primary">Feature</button>
                                                     </form>
+                                                    @endif
                                                 </div>
                                             </td>
                                         </tr>

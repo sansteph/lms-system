@@ -302,8 +302,8 @@ class MobileWorkflowController extends Controller
         }
         $classes = $this->scope(SchoolClass::query(), $r)->get()->map(fn ($c) => trim("$c->class_name $c->section"))->filter()->unique()->sort()->values()->all();
         return $this->page($r, 'Question papers', $query->orderBy('institute')->orderBy('assigned_class')->latest()->orderByDesc('id'), function ($a) {
-            $actions = $a->question_paper_status === 'Approved' ? [] : [$this->action('approve', 'Approve', confirm: true)];
-            $actions[] = $this->action('reject', 'Reject', confirm: true);
+            $actions = in_array($a->question_paper_status, ['Pending', 'Pending Approval', 'pending_admin_approval'], true)
+                ? [$this->action('approve', 'Approve', confirm: true), $this->action('reject', 'Reject', confirm: true)] : [];
             return ['id' => $a->id, 'title' => $a->assessment_title, 'subtitle' => "$a->assigned_class | $a->institute", 'status' => $a->question_paper_status,
                 'document' => "/api/workflows/question-papers/$a->id/document",
                 'details' => $a->only(['assessment_category', 'assessment_date', 'total_marks', 'duration', 'question_paper_feedback', 'question_paper_reviewed_at']) + [
@@ -405,7 +405,7 @@ class MobileWorkflowController extends Controller
             if ($admin) {
                 if (in_array($c->status, ['Pending', 'Pending Approval', 'pending_admin_approval'], true)) $actions[] = $this->action('approve', 'Approve', confirm: true);
                 $actions[] = $c->status === 'Revoked' ? $this->action('reissue', 'Reissue', confirm: true) : $this->action('revoke', 'Revoke', confirm: true);
-            } elseif (!$student) {
+            } elseif (!$student && in_array($c->status, ['Pending', 'Pending Approval', 'pending_admin_approval'], true)) {
                 $actions = [$this->action('approve', 'Approve', confirm: true), $this->action('reject', 'Reject', [$this->field('rejection_reason', 'Reason', 'textarea', true)])];
             }
             return ['id' => $c->id, 'title' => $student ? $c->certificate_code : $c->student?->name, 'subtitle' => $c->certificate_type, 'status' => $c->status,

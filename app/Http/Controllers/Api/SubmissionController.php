@@ -301,7 +301,8 @@ class SubmissionController extends Controller
         abort_unless(in_array($decision, $achievement ? ['approve', 'reject'] : ['approve', 'reject', 'feature'], true), 422);
         $status = ['approve' => 'Approved', 'reject' => 'Rejected', 'feature' => 'Featured'][$decision];
         DB::transaction(function () use ($item, $achievement, $status) {
-            $item->update([$achievement ? 'verification_status' : 'status' => $status]);
+            $column = $achievement ? 'verification_status' : 'status';
+            \App\Services\ApprovalTransition::apply($item, $column, [$column => $status], feature: $status === 'Featured');
             if ($item instanceof StudentAchievement) {
                 $this->syncStudentAchievementToCommunity($item);
             } elseif ($item instanceof TeacherAchievement) {

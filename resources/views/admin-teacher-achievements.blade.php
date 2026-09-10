@@ -121,6 +121,7 @@
                                             </td>
                                             <td>
                                                 <div class="d-flex gap-2 flex-wrap">
+                                                    @if($achievement->verification_status === 'Pending')
                                                     <form action="{{ route('admin.teacher-achievements.approve', $achievement->id) }}" method="POST">
                                                         @csrf
                                                         <button class="btn btn-success btn-sm">Approve</button>
@@ -129,6 +130,7 @@
                                                         @csrf
                                                         <button class="btn btn-sm btn-outline-danger">Reject</button>
                                                     </form>
+                                                    @endif
                                                 </div>
                                             </td>
                                         </tr>

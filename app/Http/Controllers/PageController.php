@@ -1252,7 +1252,7 @@ class PageController extends Controller
                 ->with('error', 'Students below 40% are not eligible for certificate approval.');
         }
 
-        $certificate->update([
+        \App\Services\ApprovalTransition::apply($certificate, 'status', [
             'status' => 'approved',
             'issued_date' => now(),
             'approved_by' => session('user_id'),
@@ -1300,7 +1300,7 @@ class PageController extends Controller
             return;
         }
 
-        if (session('user_role') == 'Teacher') {
+        if (in_array(session('user_role'), ['Teacher', 'STEM Engineer'], true)) {
             $teacher = User::find(session('user_id'));
 
             if (
@@ -1327,7 +1327,7 @@ class PageController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        $certificate->update([
+        \App\Services\ApprovalTransition::apply($certificate, 'status', [
             'status' => 'rejected',
             'approved_by' => session('user_id'),
             'approved_at' => now(),
@@ -2725,7 +2725,7 @@ class PageController extends Controller
         $achievement = TeacherAchievement::with('teacher')->findOrFail($id);
         $this->authorizeTeacherAchievementApproval($achievement);
 
-        $achievement->update([
+        \App\Services\ApprovalTransition::apply($achievement, 'verification_status', [
             'verification_status' => 'Approved',
         ]);
 
@@ -2740,7 +2740,7 @@ class PageController extends Controller
         $achievement = TeacherAchievement::with('teacher')->findOrFail($id);
         $this->authorizeTeacherAchievementApproval($achievement);
 
-        $achievement->update([
+        \App\Services\ApprovalTransition::apply($achievement, 'verification_status', [
             'verification_status' => 'Rejected',
         ]);
 

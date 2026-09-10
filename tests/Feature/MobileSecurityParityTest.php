@@ -67,6 +67,43 @@ class MobileSecurityParityTest extends TestCase
         return Student::create(['student_id' => uniqid('S'), 'name' => 'Student', 'password' => 'Correct123', 'institute' => 'Alpha', 'class' => 'Class 10', 'section' => 'A', 'status' => 1]);
     }
 
+    public function test_review_decisions_cannot_be_replayed_or_overwritten(): void
+    {
+        $student = $this->student();
+        $admin = $this->user('Admin');
+        Sanctum::actingAs($admin);
+        $paper = Assessment::create(['institute' => 'Alpha', 'question_paper_status' => 'Pending Approval', 'file_path' => 'paper.pdf']);
+        $url = '/api/workflows/question-papers/approve/'.$paper->id;
+        $this->postJson($url)->assertOk();
+        $reviewedAt = $paper->fresh()->question_paper_reviewed_at;
+        $this->postJson($url)->assertConflict();
+        $this->postJson('/api/workflows/question-papers/reject/'.$paper->id)->assertConflict();
+        $this->assertEquals($reviewedAt, $paper->fresh()->question_paper_reviewed_at);
+        $this->assertSame('Approved', $paper->fresh()->question_paper_status);
+        $record = collect($this->getJson('/api/workflows/question-papers')->assertOk()->json('records'))->firstWhere('id', $paper->id);
+        $this->assertSame([], $record['actions']);
+
+        $certificate = Certificate::create(['student_id' => $student->id, 'status' => 'Pending', 'final_score' => 85]);
+        $this->postJson('/api/workflows/certificates/approve/'.$certificate->id)->assertOk();
+        $this->postJson('/api/workflows/certificates/approve/'.$certificate->id)->assertConflict();
+        $this->postJson('/api/workflows/certificates/reject/'.$certificate->id)->assertConflict();
+
+        foreach (['approve', 'reject', 'feature'] as $decision) {
+            $post = \App\Models\MySpace::create(['title' => 'Project', 'created_by_type' => 'Student', 'created_by_id' => $student->id, 'status' => 'Pending']);
+            // Exercise the shared atomic transition without community publishing side effects.
+            $status = ['approve' => 'Approved', 'reject' => 'Rejected', 'feature' => 'Featured'][$decision];
+            \App\Services\ApprovalTransition::apply($post, 'status', ['status' => $status], feature: $decision === 'feature');
+            try {
+                \App\Services\ApprovalTransition::apply($post, 'status', ['status' => $status], feature: $decision === 'feature');
+                $this->fail('Repeated transition was accepted.');
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpException $error) {
+                $this->assertSame(409, $error->getStatusCode());
+            }
+        }
+        $this->withSession(['user_id' => $admin->id, 'user_role' => 'Admin'])
+            ->post('/admin/question-papers/'.$paper->id.'/approve')->assertConflict();
+    }
+
     public function test_gap_login_notices_share_web_limits_and_institute_scope(): void
     {
         $this->app->forgetInstance(LmsNotificationService::class);
@@ -661,6 +698,35 @@ class MobileSecurityParityTest extends TestCase
         $this->postJson('/api/workflows/certificates/approve/'.$c->id)->assertUnprocessable();
         $s->update(['institute' => 'Beta']); Sanctum::actingAs($this->user());
         $this->postJson('/api/workflows/certificates/approve/'.$c->id)->assertForbidden();
+    }
+
+    public function test_admins_and_engineers_can_approve_certificates_on_web_and_mobile(): void
+    {
+        $student = $this->student();
+        foreach (['Admin', 'InstituteAdmin', 'Teacher', 'STEM Engineer'] as $role) {
+            $actor = $this->user($role);
+            Sanctum::actingAs($actor);
+            $certificate = Certificate::create(['student_id' => $student->id, 'status' => 'Pending', 'final_score' => 85]);
+            $records = $this->getJson('/api/workflows/certificates')->assertOk()->json('records');
+            $record = collect($records)->firstWhere('id', $certificate->id);
+            $this->assertContains('approve', array_column($record['actions'], 'id'));
+            $this->postJson('/api/workflows/certificates/approve/'.$certificate->id)->assertOk();
+            $this->assertSame('approved', $certificate->fresh()->status);
+            $this->assertEquals($actor->id, $certificate->fresh()->approved_by);
+
+            $webRole = $role === 'STEM Engineer' ? 'Teacher' : $role;
+            $prefix = $webRole === 'Teacher' ? 'teacher' : 'admin';
+            $certificate->update(['status' => 'Pending Approval']);
+            $this->withSession(['user_id' => $actor->id, 'user_role' => $webRole, 'user_institute' => 'Alpha'])
+                ->post('/'.$prefix.'/certificates/approve/'.$certificate->id)->assertRedirect();
+            $this->assertSame('approved', $certificate->fresh()->status);
+        }
+        $outsider = $this->user('STEM Engineer');
+        $outsider->update(['institute' => 'Beta']);
+        Sanctum::actingAs($outsider);
+        $this->postJson('/api/workflows/certificates/approve/'.$certificate->id)->assertForbidden();
+        $this->withSession(['user_id' => $outsider->id, 'user_role' => 'Teacher', 'user_institute' => 'Beta'])
+            ->post('/teacher/certificates/approve/'.$certificate->id)->assertForbidden();
     }
 
     public function test_question_paper_workflow_paginates_filters_and_enforces_scope(): void

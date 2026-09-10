@@ -137,6 +137,7 @@
                                             </td>
                                             <td>
                                                 <div class="d-flex flex-column gap-2">
+                                                    @if(in_array($assessment->question_paper_status, ['Pending', 'Pending Approval', 'pending_admin_approval']))
                                                     <form method="POST" action="{{ route('admin.question-papers.approve', $assessment->id) }}">
                                                         @csrf
                                                         <button type="submit" class="btn btn-sm btn-success" {{ $assessment->question_paper_status == 'Approved' ? 'disabled' : '' }}>Approve</button>
@@ -145,6 +146,7 @@
                                                         @csrf
                                                         <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
                                                     </form>
+                                                    @endif
                                                 </div>
                                             </td>
                                         </tr>

@@ -135,14 +135,14 @@
                                             <span class="badge bg-success">Issued</span>
                                         @elseif($certificate->status == 'Revoked')
                                             <span class="badge bg-danger">Revoked</span>
-                                        @elseif(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
+                                        @elseif(in_array($certificate->status, ['Pending', 'Pending Approval', 'pending_admin_approval']))
                                             <span class="badge bg-warning text-dark">Pending Approval</span>
                                         @else
                                             <span class="badge bg-secondary">{{ $certificate->status }}</span>
                                         @endif
                                     </td>
                                     <td>
-                                        @if(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
+                                        @if(in_array($certificate->status, ['Pending', 'Pending Approval', 'pending_admin_approval']))
                                             <form method="POST" action="{{ route('teacher.certificates.approve', $certificate->id) }}">
                                                 @csrf
                                                 <button type="submit" class="btn btn-sm btn-success">

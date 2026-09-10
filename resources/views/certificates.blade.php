@@ -138,7 +138,7 @@
                                             <td>{{ $certificate->final_classification ?? 'N/A' }}</td>
                                             <td>{{ $certificate->issued_date ? \Carbon\Carbon::parse($certificate->issued_date)->format('d M Y') : 'Awaiting approval' }}</td>
                                             <td>
-                                                @if(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
+                                                @if(in_array($certificate->status, ['Pending', 'Pending Approval', 'pending_admin_approval']))
                                                     <span class="badge bg-warning text-dark">Pending Approval</span>
                                                 @elseif($certificate->status == 'Revoked')
                                                     <span class="badge bg-danger">Revoked</span>
@@ -148,7 +148,7 @@
                                             </td>
                                             <td>
                                                 <div class="d-flex flex-wrap gap-2">
-                                                    @if(in_array($certificate->status, ['Pending Approval', 'pending_admin_approval']))
+                                                    @if(in_array($certificate->status, ['Pending', 'Pending Approval', 'pending_admin_approval']))
                                                         <form method="POST" action="{{ route('admin.certificates.approve', $certificate->id) }}">
                                                             @csrf
                                                             <button type="submit" class="btn btn-sm btn-success">Approve</button>

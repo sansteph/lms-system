@@ -243,7 +243,7 @@ class StudentAchievementController extends Controller
     {
         $achievement = StudentAchievement::with('student')->findOrFail($id);
 
-        $achievement->update([
+        \App\Services\ApprovalTransition::apply($achievement, 'verification_status', [
             'verification_status' => 'Approved'
         ]);
 
@@ -256,7 +256,7 @@ class StudentAchievementController extends Controller
     {
         $achievement = StudentAchievement::findOrFail($id);
 
-        $achievement->update([
+        \App\Services\ApprovalTransition::apply($achievement, 'verification_status', [
             'verification_status' => 'Rejected'
         ]);
 

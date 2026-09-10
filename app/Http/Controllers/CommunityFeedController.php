@@ -252,7 +252,7 @@ class CommunityFeedController extends Controller
         $post = CommunityPost::findOrFail($id);
         $this->authorizeModeration($post, $actor);
 
-        $post->update([
+        \App\Services\ApprovalTransition::apply($post, 'status', [
             'status' => 'Approved',
             'published_at' => $post->published_at ?: now(),
             'approved_by' => session('user_id'),
@@ -270,7 +270,7 @@ class CommunityFeedController extends Controller
         $post = CommunityPost::findOrFail($id);
         $this->authorizeModeration($post, $actor);
 
-        $post->update([
+        \App\Services\ApprovalTransition::apply($post, 'status', [
             'status' => 'Rejected',
             'rejected_at' => now(),
         ]);

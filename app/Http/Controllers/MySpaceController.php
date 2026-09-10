@@ -363,7 +363,7 @@ class MySpaceController extends Controller
         $item = MySpace::findOrFail($id);
         $this->authorizeAdminAccess($item);
 
-        $item->update([
+        \App\Services\ApprovalTransition::apply($item, 'status', [
             'status' => 'Approved',
         ]);
 
@@ -378,7 +378,7 @@ class MySpaceController extends Controller
         $item = MySpace::findOrFail($id);
         $this->authorizeAdminAccess($item);
 
-        $item->update([
+        \App\Services\ApprovalTransition::apply($item, 'status', [
             'status' => 'Rejected',
         ]);
 
@@ -393,9 +393,9 @@ class MySpaceController extends Controller
         $item = MySpace::findOrFail($id);
         $this->authorizeAdminAccess($item);
 
-        $item->update([
+        \App\Services\ApprovalTransition::apply($item, 'status', [
             'status' => 'Featured',
-        ]);
+        ], feature: true);
 
         $this->syncMySpaceToCommunity($item->refresh());
 
