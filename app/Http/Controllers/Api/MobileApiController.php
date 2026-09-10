@@ -1274,6 +1274,7 @@ class MobileApiController extends Controller
         $reportMode = $this->mobileReportMode($request);
         abort_unless(in_array($reportMode, [
             'daily-session', 'weekly-session', 'monthly-session',
+            'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance',
             'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance',
         ], true), 422, 'Unsupported manager report type.');
 
@@ -1283,6 +1284,7 @@ class MobileApiController extends Controller
     public function principalReports(Request $request, ReportController $reports)
     {
         $account = $this->requireRole($request, ['Principal']);
+        abort_if(blank($account->institute), 403, 'No institute is assigned to your account.');
         $reportMode = $this->mobileReportMode($request);
         abort_unless(in_array($reportMode, [
             'daily-session', 'weekly-session', 'monthly-session',
@@ -1297,9 +1299,10 @@ class MobileApiController extends Controller
         $account = $this->requireRole($request, ['Manager', 'Principal']);
         $reportMode = $this->mobileReportMode($request);
         $allowed = $account->role === 'Manager'
-            ? ['daily-session', 'weekly-session', 'monthly-session', 'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance']
+            ? ['daily-session', 'weekly-session', 'monthly-session', 'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance', 'weekly-stem-engineer-performance', 'monthly-stem-engineer-performance']
             : ['daily-session', 'weekly-session', 'monthly-session', 'daily-student-performance', 'weekly-student-performance', 'monthly-student-performance'];
         abort_unless(in_array($reportMode, $allowed, true), 422, 'Unsupported report type.');
+        abort_if($account->role === 'Principal' && blank($account->institute), 403, 'No institute is assigned to your account.');
 
         return response()->json([
             'url' => URL::temporarySignedRoute('mobile.admin.report-export', now()->addMinutes(5), array_merge([
@@ -1318,6 +1321,7 @@ class MobileApiController extends Controller
         GeminiAiService $ai
     ) {
         $account = User::findOrFail($accountId);
+        abort_if($account->role === 'Principal' && blank($account->institute), 403, 'No institute is assigned to your account.');
         abort_unless(in_array($account->role, ['Admin', 'InstituteAdmin', 'Manager', 'Principal'], true), 403, 'Report access is required.');
         abort_unless(in_array($reportMode, $this->mobileReportModes(), true), 422, 'Unsupported report type.');
 
@@ -3954,35 +3958,14 @@ class MobileApiController extends Controller
         $student = $request->user();
         abort_unless($student instanceof Student, 403, 'Student access is required.');
 
-        $offers = $this->studentComponentAssessmentOffers($student, $ai);
-
-        $keys = $offers->pluck('component_key');
-        $assessments = Assessment::query()
-            ->where('institute', $student->institute)
-            ->where('assessment_category', 'Component Mastery')
-            ->whereIn('component_key', $keys)
-            ->where('status', 1)
-            ->where('question_paper_status', 'Approved')
-            ->latest()
-            ->get()
-            ->unique('component_key')
-            ->keyBy('component_key');
-
-        $results = AssessmentResult::with('assessment')
-            ->where('student_id', $student->id)
-            ->whereHas('assessment', function ($query) use ($keys) {
-                $query->where('assessment_category', 'Component Mastery')
-                    ->whereIn('component_key', $keys);
-            })
-            ->latest()
-            ->get()
-            ->unique(fn ($result) => $result->assessment?->component_key)
-            ->keyBy(fn ($result) => $result->assessment?->component_key);
+        $web = app(\App\Services\MobileWebContext::class)->run($request,
+            fn () => app(\App\Http\Controllers\PageController::class)->studentComponentMastery($request, $ai))->getData();
 
         return response()->json([
-            'assessments' => $offers->map(function (array $offer) use ($assessments, $results) {
-                $assessment = $assessments->get($offer['component_key']);
-                $result = $results->get($offer['component_key']);
+            'assessments' => $web['masteryAssessments']->map(function (array $item) {
+                $offer = $item['offer'];
+                $assessment = $item['assessment'];
+                $result = $item['result'];
 
                 return [
                     'component_key' => $offer['component_key'],
@@ -3996,11 +3979,7 @@ class MobileApiController extends Controller
                     'result_status' => $result?->status,
                     'percentage' => $result?->percentage !== null ? (float) $result->percentage : null,
                     'passed' => $result?->passed !== null ? (bool) $result->passed : null,
-                    'status' => $result
-                        ? ($result->status === 'Completed'
-                            ? ($result->passed ? 'Certificate pending approval' : 'Completed - score below certification grade')
-                            : 'Pending AI evaluation')
-                        : ($assessment ? 'Ready to take' : 'Eligible - assessment not prepared'),
+                    'status' => $item['status'],
                     'can_take' => (bool) $assessment && !$result,
                     'can_prepare' => !$assessment && !$result,
                     'can_view_result' => (bool) $result,
@@ -4014,15 +3993,9 @@ class MobileApiController extends Controller
         $student = $request->user();
         abort_unless($student instanceof Student, 403, 'Student access is required.');
 
-        $response = app(\App\Http\Controllers\PageController::class)
-            ->generateStudentComponentAssessment($request, $componentKey, $ai, $student);
-
-        if ($response instanceof \Illuminate\Http\RedirectResponse) {
-            $error = $response->getSession()?->get('error');
-            if ($error) {
-                return response()->json(['success' => false, 'message' => $error], 422);
-            }
-        }
+        app(\App\Services\MobileWebContext::class)->run($request,
+            fn () => app(\App\Http\Controllers\PageController::class)
+                ->generateStudentComponentAssessment($request, $componentKey, $ai, $student));
 
         $assessment = Assessment::query()
             ->where('institute', $student->institute)
@@ -5653,7 +5626,7 @@ class MobileApiController extends Controller
         }
 
         $web = app(\App\Services\MobileWebContext::class)->run(request(),
-            fn () => app(\App\Http\Controllers\PageController::class)->studentDashboard())->getData();
+            fn () => app(\App\Http\Controllers\PageController::class)->studentDashboard(app(GeminiAiService::class)))->getData();
         return [
             'headline' => 'Your learning dashboard',
             'description' => 'Current live progress across released content, assessments and achievements.',

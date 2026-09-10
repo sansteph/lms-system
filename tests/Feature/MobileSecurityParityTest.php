@@ -45,7 +45,7 @@ class MobileSecurityParityTest extends TestCase
             'community_posts' => ['title','body','post_type','image_path','attachment_path','attachment_original_name','author_type','author_id','institute','status','published_at','approved_by','approved_at','rejected_at','source_type','source_id'],
             'community_post_comments' => ['community_post_id','commenter_type','commenter_id','body'],
             'community_post_likes' => ['community_post_id','liker_type','liker_id'],
-            'lms_notifications' => ['title','message','target','institute','starts_at','expires_at','status','created_by','notification_type','login_display_limit'],
+            'lms_notifications' => ['title','message','target','institute','starts_at','expires_at','status','created_by','notification_type','login_display_limit','student_id','component_key'],
             'lms_notification_login_views' => ['notification_id','user_id','viewer_role','institute','display_count','last_displayed_at'],
             'certificate_verification_logs' => ['verifier_name','verifier_email','verification_reason','certificate_code','verification_status','certificate_id','ip_address'],
             'my_spaces' => ['title','description','created_by_type','created_by_id','type','status','blueprint_pdf'],
@@ -189,8 +189,19 @@ class MobileSecurityParityTest extends TestCase
         $this->assertSame('1', $metrics['Assessments']);
         $this->assertSame('1', $metrics['Students']);
         $this->assertEquals(1, $data['class_roster'][0]['students']);
+        $upcoming = Assessment::create(['assessment_title' => 'Upcoming robotics', 'institute' => 'Alpha', 'assigned_class' => 'Class 10 A', 'assessment_date' => today()->addDay(), 'status' => 1, 'question_paper_status' => 'Approved', 'file_path' => 'upcoming.pdf']);
         Sanctum::actingAs($student);
-        $this->getJson('/api/dashboard/summary')->assertOk()->assertJsonStructure(['upcoming_assessments', 'metrics']);
+        $summary = $this->getJson('/api/dashboard/summary')->assertOk()
+            ->assertJsonPath('upcoming_assessments.0.id', $upcoming->id)->json();
+        $this->assertSame('1', collect($summary['metrics'])->pluck('value', 'label')['Assessments']);
+    }
+
+    public function test_component_preparation_returns_validation_error_for_ineligible_student(): void
+    {
+        Sanctum::actingAs($this->student());
+        $this->postJson('/api/student/component-mastery/robotics/generate')
+            ->assertUnprocessable();
+        $this->assertSame(0, Assessment::count());
     }
 
     public function test_gap_public_verification_logs_and_hides_unissued_details(): void
@@ -574,6 +585,10 @@ class MobileSecurityParityTest extends TestCase
         });
 
         $assessment = Assessment::create(['assessment_title' => 'Robotics Mastery', 'institute' => 'Alpha', 'assigned_class' => 'Class 10 A', 'assessment_category' => 'Component Mastery', 'component_key' => 'robotics', 'component_label' => 'Robotics', 'status' => 1, 'question_paper_status' => 'Approved', 'file_path' => 'paper.pdf', 'assessment_date' => today()]);
+        $otherClass = $assessment->replicate();
+        $otherClass->assigned_class = 'Class 9 B';
+        $otherClass->created_at = now()->addMinute();
+        $otherClass->save();
         Sanctum::actingAs($student);
         $this->getJson('/api/student/component-mastery')
             ->assertOk()
@@ -779,7 +794,13 @@ class MobileSecurityParityTest extends TestCase
         Sanctum::actingAs($this->user('Manager'));
         $this->getJson('/api/manager/reports?report_mode=daily-session&institute=Beta')
             ->assertOk()->assertJsonPath('scope', 'Beta')->assertJsonPath('metrics.total_sessions', 1);
-        $this->getJson('/api/manager/reports?report_mode=daily-student-performance')->assertUnprocessable();
+        $this->getJson('/api/manager/reports?report_mode=daily-student-performance&institute=Beta')
+            ->assertOk()->assertJsonPath('scope', 'Beta');
+        $principal = $this->user('Principal');
+        $principal->update(['institute' => null]);
+        Sanctum::actingAs($principal);
+        $this->getJson('/api/principal/reports?report_mode=daily-session')->assertForbidden();
+        $this->getJson('/api/panel/reports/export-url?report_mode=daily-session')->assertForbidden();
     }
 
     public function test_mobile_reports_select_metrics_and_rows_for_each_report_family(): void

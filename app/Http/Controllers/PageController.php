@@ -3093,10 +3093,12 @@ class PageController extends Controller
         $componentKeys = $offers->pluck('component_key')->filter()->values();
         $assessments = Assessment::query()
             ->where('institute', $student->institute)
+            ->whereRaw("REPLACE(TRIM(assigned_class), '  ', ' ') = ?", [$this->studentClassName($student)])
             ->where('assessment_category', 'Component Mastery')
             ->whereIn('component_key', $componentKeys)
             ->where('status', 1)
             ->where('question_paper_status', 'Approved')
+            ->whereNotNull('file_path')
             ->latest()
             ->get()
             ->unique('component_key')
