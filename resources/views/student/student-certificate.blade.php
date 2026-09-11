@@ -28,100 +28,139 @@ body {
     width: 297mm;
     height: 210mm;
     overflow: hidden;
-    background: linear-gradient(135deg, #3a0b88 0%, #081329 38%, #021020 58%, #078477 100%);
+    background: #101626;
     color: #f8fbff;
 }
 
 .certificate {
     position: absolute;
-    top: 10mm;
-    left: 11mm;
-    width: 275mm;
-    height: 188mm;
+    top: 11mm;
+    left: 35mm;
+    width: 227mm;
+    height: 178mm;
     overflow: hidden;
-    border: 0.45mm solid #20e7f2;
-    background: linear-gradient(135deg, #2a064f 0%, #070719 44%, #051331 68%, #028276 100%);
-    box-shadow: 0 0 14mm rgba(26, 233, 247, 0.32);
+    border: 0;
+    background: #080819;
+    box-shadow: 4mm 5mm 8mm rgba(0, 0, 0, 0.42);
 }
 
 .outer-frame {
     position: absolute;
-    top: 5mm;
-    left: 5mm;
-    right: 5mm;
-    bottom: 5mm;
-    border: 0.55mm solid rgba(34, 237, 248, 0.92);
-    box-shadow: inset 0 0 8mm rgba(179, 61, 255, 0.26);
+    top: 0;
+    left: 0;
+    width: 63mm;
+    height: 178mm;
+    border: 0;
+    background: #172a3c;
+}
+
+.outer-frame::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -8mm;
+    width: 8mm;
+    height: 178mm;
+    background: #a300ff;
+}
+
+.left-strip {
+    position: absolute;
+    top: 0;
+    left: -8mm;
+    width: 8mm;
+    height: 178mm;
+    background: #a300ff;
 }
 
 .inner-frame {
     position: absolute;
-    top: 10mm;
-    left: 10mm;
-    right: 10mm;
-    bottom: 10mm;
-    border: 0.25mm solid rgba(255, 255, 255, 0.22);
-    background: rgba(255, 255, 255, 0.03);
+    top: 0;
+    left: 63mm;
+    right: 0;
+    bottom: 0;
+    border: 0;
+    background: #110628;
+}
+
+.inner-frame::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 80mm;
+    height: 64mm;
+    background: #007a6f;
+    opacity: 0.7;
 }
 
 .top-rule {
     position: absolute;
-    top: 37mm;
-    left: 83mm;
-    width: 109mm;
-    border-top: 0.35mm solid #22f3ff;
-    box-shadow: 0 0 4mm rgba(34, 243, 255, 0.7);
+    top: 0;
+    right: 0;
+    width: 48mm;
+    height: 34mm;
+    border-top: 1mm solid #16f1ff;
+    border-left: 1mm solid rgba(22, 241, 255, 0.65);
+    background: linear-gradient(135deg, rgba(22, 241, 255, 0.26), rgba(129, 53, 255, 0.38));
 }
 
 .footer-rule {
     position: absolute;
-    top: 143mm;
-    left: 48mm;
-    width: 179mm;
-    border-top: 0.22mm solid rgba(255, 255, 255, 0.28);
+    bottom: 0;
+    left: 63mm;
+    width: 164mm;
+    height: 24mm;
+    border-top: 0;
+    background: linear-gradient(105deg, transparent 0%, transparent 23%, rgba(255, 255, 255, 0.72) 23%, rgba(255, 255, 255, 0.72) 84%, transparent 84%);
 }
 
 .corner {
     position: absolute;
-    width: 25mm;
-    height: 18mm;
+    width: 50mm;
+    height: 32mm;
+    opacity: 0.9;
 }
 
 .corner-tl {
-    top: 10mm;
-    left: 10mm;
-    border-top: 0.55mm solid #bd35ff;
-    border-left: 0.55mm solid #22f3ff;
+    top: -10mm;
+    left: -34mm;
+    border-top: 7mm solid #b51dff;
+    border-right: 7mm solid transparent;
+    transform: rotate(-42deg);
 }
 
 .corner-tr {
-    top: 10mm;
-    right: 10mm;
-    border-top: 0.55mm solid #22f3ff;
-    border-right: 0.55mm solid #bd35ff;
+    top: -16mm;
+    right: -20mm;
+    border-top: 9mm solid #7b35ff;
+    border-left: 9mm solid transparent;
+    transform: rotate(48deg);
 }
 
 .corner-bl {
-    bottom: 10mm;
-    left: 10mm;
-    border-bottom: 0.55mm solid #22f3ff;
-    border-left: 0.55mm solid #bd35ff;
+    bottom: -9mm;
+    left: -20mm;
+    border-bottom: 9mm solid #13d6e8;
+    border-right: 9mm solid transparent;
+    transform: rotate(43deg);
 }
 
 .corner-br {
-    bottom: 10mm;
-    right: 10mm;
-    border-bottom: 0.55mm solid #bd35ff;
-    border-right: 0.55mm solid #22f3ff;
+    bottom: -13mm;
+    right: -18mm;
+    border-bottom: 7mm solid #16f1ff;
+    border-left: 7mm solid transparent;
+    transform: rotate(-44deg);
 }
 
 .brand {
     position: absolute;
-    top: 20mm;
-    left: 45mm;
-    width: 185mm;
-    text-align: center;
-    font-size: 27px;
+    top: 24mm;
+    left: 17mm;
+    width: 36mm;
+    text-align: left;
+    font-size: 18px;
     line-height: 1;
     font-weight: bold;
     color: #ffffff;
@@ -132,7 +171,8 @@ body {
 }
 
 .brand img {
-    background: rgba(255, 255, 255, 0.92);
+    width: 34mm !important;
+    background: #f4f7fb;
     border-radius: 2mm;
     padding: 2mm;
 }
@@ -150,14 +190,14 @@ body {
 
 .title {
     position: absolute;
-    top: 44mm;
-    left: 36mm;
-    width: 203mm;
-    text-align: center;
+    top: 21mm;
+    left: 78mm;
+    width: 136mm;
+    text-align: left;
     font-family: DejaVu Sans, sans-serif;
-    font-size: 38px;
-    line-height: 1;
-    letter-spacing: 4px;
+    font-size: 34px;
+    line-height: 1.02;
+    letter-spacing: 1.5px;
     font-weight: bold;
     color: #ffffff;
     text-shadow: 0 0 3mm rgba(34, 243, 255, 0.55);
@@ -165,13 +205,14 @@ body {
 
 .subtitle {
     position: absolute;
-    top: 61mm;
-    left: 76mm;
-    width: 123mm;
-    text-align: center;
+    top: 36mm;
+    left: 78mm;
+    width: 140mm;
+    text-align: left;
     font-family: DejaVu Sans, sans-serif;
-    font-size: 18px;
-    letter-spacing: 2.5px;
+    font-size: 30px;
+    line-height: 1;
+    letter-spacing: 1px;
     font-weight: bold;
     color: #22f3ff;
 }
@@ -179,9 +220,7 @@ body {
 .subtitle-left,
 .subtitle-right {
     position: absolute;
-    top: 63mm;
-    width: 35mm;
-    border-top: 0.32mm solid #22f3ff;
+    display: none;
 }
 
 .subtitle-left {
@@ -194,9 +233,9 @@ body {
 
 .presented {
     position: absolute;
-    top: 72mm;
-    left: 50mm;
-    width: 175mm;
+    top: 60mm;
+    left: 78mm;
+    width: 134mm;
     text-align: center;
     font-size: 13px;
     letter-spacing: 1px;
@@ -205,20 +244,20 @@ body {
 
 .student-name {
     position: absolute;
-    top: 82mm;
-    left: 48mm;
-    width: 179mm;
-    min-height: 16mm;
+    top: 69mm;
+    left: 78mm;
+    width: 138mm;
+    min-height: 22mm;
     text-align: center;
     font-family: DejaVu Sans, sans-serif;
     font-style: normal;
-    font-size: 35px;
-    line-height: 1.12;
+    font-size: 31px;
+    line-height: 22mm;
     color: #22f3ff;
-    background: rgba(255, 255, 255, 0.12);
-    border: 0.25mm solid rgba(255, 255, 255, 0.35);
+    background: #2b2b3c;
+    border: 0.32mm solid #7d8190;
     border-radius: 3mm;
-    padding: 3mm 5mm;
+    padding: 0 5mm;
     box-shadow: 0 0 8mm rgba(34, 243, 255, 0.24);
     word-wrap: break-word;
 }
@@ -233,81 +272,82 @@ body {
 
 .description {
     position: absolute;
-    top: 102mm;
-    left: 57mm;
-    width: 161mm;
+    top: 98mm;
+    left: 78mm;
+    width: 138mm;
     text-align: center;
-    font-size: 14px;
-    line-height: 1.55;
+    font-size: 11px;
+    line-height: 1.45;
     color: #edf6ff;
 }
 
 .metrics {
     position: absolute;
-    top: 124mm;
-    left: 45mm;
-    width: 185mm;
+    top: 115mm;
+    left: 78mm;
+    width: 138mm;
     border-collapse: collapse;
 }
 
 .metrics td {
     width: 33.33%;
     text-align: center;
-    color: #061123;
+    color: #05111e;
     vertical-align: top;
 }
 
 .metrics .middle {
-    border-left: 4mm solid transparent;
-    border-right: 4mm solid transparent;
+    border-left: 2mm solid transparent;
+    border-right: 2mm solid transparent;
 }
 
 .metric-label {
     display: inline-block;
-    min-width: 40mm;
-    padding: 3mm 4mm 1mm;
-    border-radius: 4mm 4mm 0 0;
-    background: linear-gradient(135deg, #1cf4ff 0%, #14bfdc 100%);
-    font-size: 11px;
+    min-width: 36mm;
+    padding: 2.8mm 2mm 0.8mm;
+    border-radius: 5mm 5mm 0 0;
+    background: #18f2f2;
+    font-size: 9px;
     line-height: 1;
     font-weight: bold;
-    color: #061123;
+    color: #05111e;
 }
 
 .metric-value {
     display: inline-block;
-    min-width: 40mm;
-    padding: 1mm 4mm 3mm;
-    border-radius: 0 0 4mm 4mm;
-    background: linear-gradient(135deg, #1cf4ff 0%, #14bfdc 100%);
-    font-size: 17px;
+    min-width: 36mm;
+    padding: 0.8mm 2mm 2.8mm;
+    border-radius: 0 0 5mm 5mm;
+    background: #18f2f2;
+    font-size: 12px;
     line-height: 1;
     font-weight: bold;
-    color: #061123;
+    color: #05111e;
     box-shadow: 0 0 6mm rgba(34, 243, 255, 0.25);
 }
 
 .metrics td.middle .metric-label,
 .metrics td.middle .metric-value {
-    background: linear-gradient(135deg, #ffe06b 0%, #e0ae22 100%);
+    background: #eac43a;
+    color: #121212;
 }
 
 .metrics td:last-child .metric-label,
 .metrics td:last-child .metric-value {
-    background: linear-gradient(135deg, #c751ff 0%, #8135ff 100%);
+    background: #a743f2;
     color: #ffffff;
 }
 
 .footer {
     position: absolute;
-    top: 150mm;
-    left: 42mm;
-    width: 191mm;
-    height: 27mm;
+    top: 144mm;
+    left: 78mm;
+    width: 120mm;
+    height: 26mm;
 }
 
 .footer-table {
-    width: 191mm;
+    width: 120mm;
     height: 27mm;
     border-collapse: collapse;
     table-layout: fixed;
@@ -320,15 +360,18 @@ body {
 }
 
 .signature-cell {
-    text-align: left;
+    text-align: center;
+    background: #2b2b3c;
+    border: 0.25mm solid #7d8190;
+    border-radius: 4mm;
 }
 
 .signature-box {
-    width: 50mm;
-    height: 12mm;
-    border: 0.22mm solid rgba(255, 255, 255, 0.35);
-    border-radius: 3mm;
-    background: rgba(255, 255, 255, 0.11);
+    width: 38mm;
+    height: 10mm;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     text-align: center;
     font-size: 7px;
     line-height: 12mm;
@@ -337,14 +380,14 @@ body {
 }
 
 .signature-line {
-    width: 50mm;
-    margin-top: 1.6mm;
+    width: 34mm;
+    margin: 1mm auto 0;
     border-top: 0.32mm solid #ffffff;
 }
 
 .director {
     padding-top: 1.4mm;
-    font-size: 15px;
+    font-size: 11px;
     line-height: 1.2;
     font-weight: bold;
     color: #ffffff;
@@ -352,7 +395,7 @@ body {
 
 .company {
     padding-top: 0.6mm;
-    font-size: 12px;
+    font-size: 9px;
     line-height: 1.2;
     color: #22f3ff;
 }
@@ -362,24 +405,51 @@ body {
 }
 
 .stamp {
-    width: 25mm;
-    height: 25mm;
+    width: 20mm;
+    height: 20mm;
     margin: 0 auto;
     border: 0.28mm solid #d7a51e;
     border-radius: 11mm;
     text-align: center;
     line-height: 22mm;
     color: #ffffff;
-    background: rgba(255, 218, 72, 0.12);
+    background: #101626;
     box-shadow: 0 0 6mm rgba(255, 218, 72, 0.28);
 }
 
 .date-cell {
-    text-align: right;
+    display: none;
+}
+
+.side-meta {
+    position: absolute;
+    top: 70mm;
+    left: 18mm;
+    width: 34mm;
+    color: #ffffff;
+    text-align: left;
+}
+
+.side-meta-block {
+    margin-bottom: 9mm;
+}
+
+.side-meta-label {
+    font-size: 11px;
+    line-height: 1.3;
+    color: #f4f7fb;
+}
+
+.side-meta-value {
+    padding-top: 1mm;
+    font-size: 10px;
+    line-height: 1.25;
+    font-weight: bold;
+    color: #ffffff;
 }
 
 .date-title {
-    font-size: 15px;
+    font-size: 10px;
     line-height: 1.4;
     font-weight: bold;
     color: #ffffff;
@@ -387,8 +457,8 @@ body {
 
 .date-value,
 .certificate-code {
-    font-size: 12px;
-    line-height: 1.55;
+    font-size: 9px;
+    line-height: 1.35;
     color: #dce9ff;
 }
 </style>
@@ -439,6 +509,7 @@ body {
 
 <div class="page">
     <div class="certificate">
+        <div class="left-strip"></div>
         <div class="outer-frame"></div>
         <div class="inner-frame"></div>
 
@@ -452,6 +523,17 @@ body {
 
         <div class="brand">
             <img src="{{ public_path('images/InnovatEdgeLogo.png') }}" alt="InnovatEdge Logo" style="top: 20mm; left: 20mm; width: 50mm">
+        </div>
+
+        <div class="side-meta">
+            <div class="side-meta-block">
+                <div class="side-meta-label">Certificate ID:</div>
+                <div class="side-meta-value">{{ $certificateCode }}</div>
+            </div>
+            <div class="side-meta-block">
+                <div class="side-meta-label">Date of Issue:</div>
+                <div class="side-meta-value">{{ strtoupper($issueDate) }}</div>
+            </div>
         </div>
 
         <div class="title">CERTIFICATE</div>
