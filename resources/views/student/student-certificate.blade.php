@@ -15,7 +15,7 @@ body {
     width: 297mm;
     height: 210mm;
     overflow: hidden;
-    background: #070719;
+    background: #08243d;
     font-family: DejaVu Sans, sans-serif;
 }
 
@@ -28,98 +28,100 @@ body {
     width: 297mm;
     height: 210mm;
     overflow: hidden;
-    background: #101626;
+    background: #08243d;
     color: #f8fbff;
 }
 
 .certificate {
     position: absolute;
-    top: 11mm;
-    left: 35mm;
-    width: 227mm;
-    height: 178mm;
+    top: 8mm;
+    left: 8mm;
+    width: 281mm;
+    height: 194mm;
     overflow: hidden;
     border: 0;
-    background: #080819;
-    box-shadow: 4mm 5mm 8mm rgba(0, 0, 0, 0.42);
+    background: #0a2c49;
+    border: 5mm solid #d7a234;
+    box-shadow: inset 0 0 0 1mm #f6d45c, 3mm 4mm 8mm rgba(0, 0, 0, 0.38);
 }
 
 .outer-frame {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 63mm;
-    height: 178mm;
-    border: 0;
-    background: #172a3c;
+    top: 2mm;
+    left: 2mm;
+    right: 2mm;
+    bottom: 2mm;
+    width: auto;
+    height: auto;
+    border: 0.35mm solid rgba(255, 224, 111, 0.72);
+    background: #0b3152;
 }
 
 .outer-frame::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: -8mm;
-    width: 8mm;
-    height: 178mm;
-    background: #a300ff;
+    display: none;
 }
 
 .left-strip {
-    position: absolute;
-    top: 0;
-    left: -8mm;
-    width: 8mm;
-    height: 178mm;
-    background: #a300ff;
+    display: none;
 }
 
 .inner-frame {
     position: absolute;
-    top: 0;
-    left: 63mm;
-    right: 0;
-    bottom: 0;
+    top: 7mm;
+    left: 7mm;
+    right: 7mm;
+    bottom: 7mm;
     border: 0;
-    background: #110628;
+    background: repeating-linear-gradient(
+        -45deg,
+        #0b3152 0,
+        #0b3152 5mm,
+        #082944 5mm,
+        #082944 10mm
+    );
 }
 
 .inner-frame::after {
     content: "";
     position: absolute;
+    left: 0;
     right: 0;
     bottom: 0;
-    width: 80mm;
-    height: 64mm;
-    background: #007a6f;
-    opacity: 0.7;
+    width: auto;
+    height: 36mm;
+    background: #20241f;
+    opacity: 0.92;
 }
 
 .top-rule {
     position: absolute;
-    top: 0;
-    right: 0;
-    width: 48mm;
-    height: 34mm;
-    border-top: 1mm solid #16f1ff;
-    border-left: 1mm solid rgba(22, 241, 255, 0.65);
-    background: linear-gradient(135deg, rgba(22, 241, 255, 0.26), rgba(129, 53, 255, 0.38));
+    top: -7mm;
+    left: 84mm;
+    width: 113mm;
+    height: 49mm;
+    border: 0.9mm solid #d7a234;
+    border-top: 0;
+    border-radius: 0 0 4mm 4mm;
+    background: #092946;
+    box-shadow: 0 2mm 4mm rgba(0, 0, 0, 0.32);
 }
 
 .footer-rule {
     position: absolute;
-    bottom: 0;
-    left: 63mm;
-    width: 164mm;
-    height: 24mm;
-    border-top: 0;
-    background: linear-gradient(105deg, transparent 0%, transparent 23%, rgba(255, 255, 255, 0.72) 23%, rgba(255, 255, 255, 0.72) 84%, transparent 84%);
+    bottom: 37mm;
+    left: 7mm;
+    right: 7mm;
+    width: auto;
+    height: 0;
+    border-top: 0.22mm solid rgba(247, 214, 91, 0.42);
+    background: transparent;
 }
 
 .corner {
     position: absolute;
     width: 50mm;
     height: 32mm;
-    opacity: 0.9;
+    display: none;
 }
 
 .corner-tl {
@@ -156,14 +158,16 @@ body {
 
 .brand {
     position: absolute;
-    top: 24mm;
-    left: 17mm;
-    width: 36mm;
-    text-align: left;
-    font-size: 18px;
+    top: 10mm;
+    left: 84mm;
+    width: 113mm;
+    height: 35mm;
+    text-align: center;
+    font-size: 36px;
     line-height: 1;
     font-weight: bold;
-    color: #ffffff;
+    color: #f6d45c;
+    text-shadow: 0 1mm 1mm rgba(0, 0, 0, 0.55);
 }
 
 .brand span {
@@ -171,10 +175,7 @@ body {
 }
 
 .brand img {
-    width: 34mm !important;
-    background: #f4f7fb;
-    border-radius: 2mm;
-    padding: 2mm;
+    display: none;
 }
 
 .brand-subtitle {
@@ -190,31 +191,31 @@ body {
 
 .title {
     position: absolute;
-    top: 21mm;
-    left: 78mm;
-    width: 136mm;
-    text-align: left;
+    top: 43mm;
+    left: 43mm;
+    width: 195mm;
+    text-align: center;
     font-family: DejaVu Sans, sans-serif;
-    font-size: 34px;
-    line-height: 1.02;
-    letter-spacing: 1.5px;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: 1px;
     font-weight: bold;
     color: #ffffff;
-    text-shadow: 0 0 3mm rgba(34, 243, 255, 0.55);
+    text-shadow: 0 0.7mm 0.8mm rgba(0, 0, 0, 0.65);
 }
 
 .subtitle {
     position: absolute;
-    top: 36mm;
-    left: 78mm;
-    width: 140mm;
-    text-align: left;
+    top: 53mm;
+    left: 48mm;
+    width: 185mm;
+    text-align: center;
     font-family: DejaVu Sans, sans-serif;
-    font-size: 30px;
-    line-height: 1;
-    letter-spacing: 1px;
+    font-size: 13px;
+    line-height: 1.2;
+    letter-spacing: 0;
     font-weight: bold;
-    color: #22f3ff;
+    color: #ffffff;
 }
 
 .subtitle-left,
@@ -233,33 +234,34 @@ body {
 
 .presented {
     position: absolute;
-    top: 60mm;
-    left: 78mm;
-    width: 134mm;
+    top: 61mm;
+    left: 50mm;
+    width: 181mm;
     text-align: center;
-    font-size: 13px;
-    letter-spacing: 1px;
-    color: #dce9ff;
+    font-size: 10px;
+    letter-spacing: 0;
+    color: #f8fbff;
 }
 
 .student-name {
     position: absolute;
-    top: 69mm;
-    left: 78mm;
-    width: 138mm;
-    min-height: 22mm;
+    top: 70mm;
+    left: 72mm;
+    width: 137mm;
+    min-height: 18mm;
     text-align: center;
     font-family: DejaVu Sans, sans-serif;
     font-style: normal;
-    font-size: 31px;
-    line-height: 22mm;
-    color: #22f3ff;
-    background: #2b2b3c;
-    border: 0.32mm solid #7d8190;
-    border-radius: 3mm;
+    font-size: 23px;
+    line-height: 18mm;
+    color: #f6d45c;
+    background: #6a350b;
+    border: 1.1mm solid #d7a234;
+    border-radius: 0;
     padding: 0 5mm;
-    box-shadow: 0 0 8mm rgba(34, 243, 255, 0.24);
+    box-shadow: inset 0 0 7mm rgba(0, 0, 0, 0.42), 0 1mm 2mm rgba(0, 0, 0, 0.35);
     word-wrap: break-word;
+    z-index: 3;
 }
 
 .name-line {
@@ -272,83 +274,94 @@ body {
 
 .description {
     position: absolute;
-    top: 98mm;
-    left: 78mm;
-    width: 138mm;
+    top: 96mm;
+    left: 70mm;
+    width: 140mm;
     text-align: center;
-    font-size: 11px;
-    line-height: 1.45;
-    color: #edf6ff;
+    font-size: 8px;
+    line-height: 1.35;
+    color: #f5f7fb;
+    z-index: 2;
 }
 
 .metrics {
     position: absolute;
-    top: 115mm;
-    left: 78mm;
-    width: 138mm;
+    top: 114mm;
+    left: 65mm;
+    width: 151mm;
     border-collapse: collapse;
 }
 
 .metrics td {
     width: 33.33%;
     text-align: center;
-    color: #05111e;
+    color: #ffffff;
     vertical-align: top;
 }
 
 .metrics .middle {
-    border-left: 2mm solid transparent;
-    border-right: 2mm solid transparent;
+    border-left: 3mm solid transparent;
+    border-right: 3mm solid transparent;
 }
 
 .metric-label {
     display: inline-block;
-    min-width: 36mm;
-    padding: 2.8mm 2mm 0.8mm;
-    border-radius: 5mm 5mm 0 0;
-    background: #18f2f2;
+    min-width: 40mm;
+    padding: 4mm 2mm 1mm;
+    border-radius: 4mm 4mm 0 0;
+    background: #0b3152;
+    border-top: 0.9mm solid #d7a234;
+    border-left: 0.9mm solid #d7a234;
+    border-right: 0.9mm solid #d7a234;
     font-size: 9px;
     line-height: 1;
     font-weight: bold;
-    color: #05111e;
+    color: #ffffff;
 }
 
 .metric-value {
     display: inline-block;
-    min-width: 36mm;
-    padding: 0.8mm 2mm 2.8mm;
-    border-radius: 0 0 5mm 5mm;
-    background: #18f2f2;
-    font-size: 12px;
+    min-width: 40mm;
+    padding: 1mm 2mm 4mm;
+    border-radius: 0 0 4mm 4mm;
+    background: #0b3152;
+    border-bottom: 0.9mm solid #d7a234;
+    border-left: 0.9mm solid #d7a234;
+    border-right: 0.9mm solid #d7a234;
+    font-size: 21px;
     line-height: 1;
     font-weight: bold;
-    color: #05111e;
+    color: #f6d45c;
     box-shadow: 0 0 6mm rgba(34, 243, 255, 0.25);
 }
 
 .metrics td.middle .metric-label,
 .metrics td.middle .metric-value {
-    background: #eac43a;
-    color: #121212;
+    background: #0b3152;
+    color: #f6d45c;
 }
 
 .metrics td:last-child .metric-label,
 .metrics td:last-child .metric-value {
-    background: #a743f2;
-    color: #ffffff;
+    background: #0b3152;
+    color: #f6d45c;
+}
+
+.metrics td:last-child .metric-value {
+    font-size: 14px;
 }
 
 .footer {
     position: absolute;
-    top: 144mm;
-    left: 78mm;
-    width: 120mm;
-    height: 26mm;
+    top: 147mm;
+    left: 49mm;
+    width: 183mm;
+    height: 31mm;
 }
 
 .footer-table {
-    width: 120mm;
-    height: 27mm;
+    width: 183mm;
+    height: 31mm;
     border-collapse: collapse;
     table-layout: fixed;
 }
@@ -361,28 +374,28 @@ body {
 
 .signature-cell {
     text-align: center;
-    background: #2b2b3c;
-    border: 0.25mm solid #7d8190;
-    border-radius: 4mm;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
 }
 
 .signature-box {
-    width: 38mm;
-    height: 10mm;
+    width: 49mm;
+    height: 13mm;
     border: 0;
     border-radius: 0;
     background: transparent;
     text-align: center;
-    font-size: 7px;
-    line-height: 12mm;
-    color: #dce9ff;
-    box-shadow: 0 0 5mm rgba(34, 243, 255, 0.2);
+    font-size: 12px;
+    line-height: 13mm;
+    color: #f6d45c;
+    box-shadow: none;
 }
 
 .signature-line {
-    width: 34mm;
+    width: 56mm;
     margin: 1mm auto 0;
-    border-top: 0.32mm solid #ffffff;
+    border-top: 0.32mm solid #d7a234;
 }
 
 .director {
@@ -397,52 +410,72 @@ body {
     padding-top: 0.6mm;
     font-size: 9px;
     line-height: 1.2;
-    color: #22f3ff;
+    color: #f6d45c;
 }
 
 .stamp-cell {
+    position: absolute;
+    top: -73mm;
+    left: -32mm;
+    width: 35mm !important;
+    height: 35mm;
     text-align: center;
 }
 
 .stamp {
-    width: 20mm;
-    height: 20mm;
+    width: 31mm;
+    height: 31mm;
     margin: 0 auto;
-    border: 0.28mm solid #d7a51e;
-    border-radius: 11mm;
+    border: 0.8mm solid #d7a234;
+    border-radius: 15.5mm;
     text-align: center;
-    line-height: 22mm;
+    line-height: 31mm;
     color: #ffffff;
-    background: #101626;
+    background: #f7f3e8;
     box-shadow: 0 0 6mm rgba(255, 218, 72, 0.28);
 }
 
 .date-cell {
-    display: none;
+    display: table-cell;
+    text-align: center;
 }
 
 .side-meta {
     position: absolute;
     top: 70mm;
-    left: 18mm;
-    width: 34mm;
+    right: 25mm;
+    left: auto;
+    width: 30mm;
     color: #ffffff;
-    text-align: left;
+    text-align: center;
+    border: 0.9mm solid #d7a234;
+    border-radius: 3mm;
+    padding: 3mm;
+    background: #092946;
+}
+
+.qr-image {
+    width: 24mm;
+    height: 24mm;
+    display: block;
+    margin: 0 auto 2mm;
+    background: #ffffff;
+    padding: 1.5mm;
 }
 
 .side-meta-block {
-    margin-bottom: 9mm;
+    margin-bottom: 2.5mm;
 }
 
 .side-meta-label {
-    font-size: 11px;
+    font-size: 7px;
     line-height: 1.3;
     color: #f4f7fb;
 }
 
 .side-meta-value {
     padding-top: 1mm;
-    font-size: 10px;
+    font-size: 7px;
     line-height: 1.25;
     font-weight: bold;
     color: #ffffff;
@@ -457,7 +490,7 @@ body {
 
 .date-value,
 .certificate-code {
-    font-size: 9px;
+    font-size: 8px;
     line-height: 1.35;
     color: #dce9ff;
 }
@@ -505,6 +538,16 @@ body {
         : now()->format('d F Y');
 
     $certificateCode = $certificate->certificate_code ?? 'TE-CERTIFICATE';
+    $verificationUrl = route('certificate.verify');
+    $qrSvg = null;
+    try {
+        $qrSvg = base64_encode(\SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
+            ->size(160)
+            ->margin(1)
+            ->generate($verificationUrl));
+    } catch (\Throwable $error) {
+        $qrSvg = null;
+    }
 @endphp
 
 <div class="page">
@@ -522,10 +565,13 @@ body {
         <div class="footer-rule"></div>
 
         <div class="brand">
-            <img src="{{ public_path('images/InnovatEdgeLogo.png') }}" alt="InnovatEdge Logo" style="top: 20mm; left: 20mm; width: 50mm">
+            TinkEdge
         </div>
 
         <div class="side-meta">
+            @if($qrSvg)
+                <img class="qr-image" src="data:image/svg+xml;base64,{{ $qrSvg }}" alt="Certificate verification QR">
+            @endif
             <div class="side-meta-block">
                 <div class="side-meta-label">Certificate ID:</div>
                 <div class="side-meta-value">{{ $certificateCode }}</div>
