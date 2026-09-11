@@ -15,7 +15,7 @@ body {
     width: 297mm;
     height: 210mm;
     overflow: hidden;
-    background: #ffffff;
+    background: #070719;
     font-family: DejaVu Sans, sans-serif;
 }
 
@@ -28,8 +28,8 @@ body {
     width: 297mm;
     height: 210mm;
     overflow: hidden;
-    background: #ffffff;
-    color: #08295f;
+    background: linear-gradient(135deg, #3a0b88 0%, #081329 38%, #021020 58%, #078477 100%);
+    color: #f8fbff;
 }
 
 .certificate {
@@ -39,8 +39,9 @@ body {
     width: 275mm;
     height: 188mm;
     overflow: hidden;
-    border: 0.45mm solid #c99532;
-    background: #ffffff;
+    border: 0.45mm solid #20e7f2;
+    background: linear-gradient(135deg, #2a064f 0%, #070719 44%, #051331 68%, #028276 100%);
+    box-shadow: 0 0 14mm rgba(26, 233, 247, 0.32);
 }
 
 .outer-frame {
@@ -49,7 +50,8 @@ body {
     left: 5mm;
     right: 5mm;
     bottom: 5mm;
-    border: 0.9mm solid #08295f;
+    border: 0.55mm solid rgba(34, 237, 248, 0.92);
+    box-shadow: inset 0 0 8mm rgba(179, 61, 255, 0.26);
 }
 
 .inner-frame {
@@ -58,7 +60,8 @@ body {
     left: 10mm;
     right: 10mm;
     bottom: 10mm;
-    border: 0.22mm solid #d8b35f;
+    border: 0.25mm solid rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .top-rule {
@@ -66,7 +69,8 @@ body {
     top: 37mm;
     left: 83mm;
     width: 109mm;
-    border-top: 0.18mm solid #d8b35f;
+    border-top: 0.35mm solid #22f3ff;
+    box-shadow: 0 0 4mm rgba(34, 243, 255, 0.7);
 }
 
 .footer-rule {
@@ -74,7 +78,7 @@ body {
     top: 143mm;
     left: 48mm;
     width: 179mm;
-    border-top: 0.22mm solid #d8b35f;
+    border-top: 0.22mm solid rgba(255, 255, 255, 0.28);
 }
 
 .corner {
@@ -86,29 +90,29 @@ body {
 .corner-tl {
     top: 10mm;
     left: 10mm;
-    border-top: 0.35mm solid #d8b35f;
-    border-left: 0.35mm solid #d8b35f;
+    border-top: 0.55mm solid #bd35ff;
+    border-left: 0.55mm solid #22f3ff;
 }
 
 .corner-tr {
     top: 10mm;
     right: 10mm;
-    border-top: 0.35mm solid #d8b35f;
-    border-right: 0.35mm solid #d8b35f;
+    border-top: 0.55mm solid #22f3ff;
+    border-right: 0.55mm solid #bd35ff;
 }
 
 .corner-bl {
     bottom: 10mm;
     left: 10mm;
-    border-bottom: 0.35mm solid #d8b35f;
-    border-left: 0.35mm solid #d8b35f;
+    border-bottom: 0.55mm solid #22f3ff;
+    border-left: 0.55mm solid #bd35ff;
 }
 
 .corner-br {
     bottom: 10mm;
     right: 10mm;
-    border-bottom: 0.35mm solid #d8b35f;
-    border-right: 0.35mm solid #d8b35f;
+    border-bottom: 0.55mm solid #bd35ff;
+    border-right: 0.55mm solid #22f3ff;
 }
 
 .brand {
@@ -120,11 +124,17 @@ body {
     font-size: 27px;
     line-height: 1;
     font-weight: bold;
-    color: #08295f;
+    color: #ffffff;
 }
 
 .brand span {
-    color: #0096d6;
+    color: #22f3ff;
+}
+
+.brand img {
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 2mm;
+    padding: 2mm;
 }
 
 .brand-subtitle {
@@ -135,7 +145,7 @@ body {
     text-align: center;
     font-size: 9px;
     letter-spacing: 1.8px;
-    color: #08295f;
+    color: #bfefff;
 }
 
 .title {
@@ -144,12 +154,13 @@ body {
     left: 36mm;
     width: 203mm;
     text-align: center;
-    font-family: DejaVu Serif, serif;
-    font-size: 34px;
+    font-family: DejaVu Sans, sans-serif;
+    font-size: 38px;
     line-height: 1;
-    letter-spacing: 7px;
+    letter-spacing: 4px;
     font-weight: bold;
-    color: #08295f;
+    color: #ffffff;
+    text-shadow: 0 0 3mm rgba(34, 243, 255, 0.55);
 }
 
 .subtitle {
@@ -158,10 +169,11 @@ body {
     left: 76mm;
     width: 123mm;
     text-align: center;
-    font-family: DejaVu Serif, serif;
-    font-size: 13px;
-    letter-spacing: 4px;
-    color: #b77b1f;
+    font-family: DejaVu Sans, sans-serif;
+    font-size: 18px;
+    letter-spacing: 2.5px;
+    font-weight: bold;
+    color: #22f3ff;
 }
 
 .subtitle-left,
@@ -169,7 +181,7 @@ body {
     position: absolute;
     top: 63mm;
     width: 35mm;
-    border-top: 0.22mm solid #d8b35f;
+    border-top: 0.32mm solid #22f3ff;
 }
 
 .subtitle-left {
@@ -186,8 +198,9 @@ body {
     left: 50mm;
     width: 175mm;
     text-align: center;
-    font-size: 15px;
-    color: #111827;
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: #dce9ff;
 }
 
 .student-name {
@@ -197,11 +210,16 @@ body {
     width: 179mm;
     min-height: 16mm;
     text-align: center;
-    font-family: DejaVu Serif, serif;
-    font-style: italic;
-    font-size: 32px;
+    font-family: DejaVu Sans, sans-serif;
+    font-style: normal;
+    font-size: 35px;
     line-height: 1.12;
-    color: #08295f;
+    color: #22f3ff;
+    background: rgba(255, 255, 255, 0.12);
+    border: 0.25mm solid rgba(255, 255, 255, 0.35);
+    border-radius: 3mm;
+    padding: 3mm 5mm;
+    box-shadow: 0 0 8mm rgba(34, 243, 255, 0.24);
     word-wrap: break-word;
 }
 
@@ -210,7 +228,7 @@ body {
     top: 98mm;
     left: 63mm;
     width: 149mm;
-    border-top: 0.35mm solid #d8b35f;
+    border-top: 0;
 }
 
 .description {
@@ -219,42 +237,65 @@ body {
     left: 57mm;
     width: 161mm;
     text-align: center;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.55;
-    color: #111827;
+    color: #edf6ff;
 }
 
 .metrics {
     position: absolute;
-    top: 125mm;
-    left: 58mm;
-    width: 159mm;
+    top: 124mm;
+    left: 45mm;
+    width: 185mm;
     border-collapse: collapse;
 }
 
 .metrics td {
     width: 33.33%;
     text-align: center;
-    color: #08295f;
+    color: #061123;
     vertical-align: top;
 }
 
 .metrics .middle {
-    border-left: 0.3mm solid #d8b35f;
-    border-right: 0.3mm solid #d8b35f;
+    border-left: 4mm solid transparent;
+    border-right: 4mm solid transparent;
 }
 
 .metric-label {
-    font-size: 12px;
+    display: inline-block;
+    min-width: 40mm;
+    padding: 3mm 4mm 1mm;
+    border-radius: 4mm 4mm 0 0;
+    background: linear-gradient(135deg, #1cf4ff 0%, #14bfdc 100%);
+    font-size: 11px;
     line-height: 1;
     font-weight: bold;
+    color: #061123;
 }
 
 .metric-value {
-    padding-top: 3mm;
-    font-size: 16px;
+    display: inline-block;
+    min-width: 40mm;
+    padding: 1mm 4mm 3mm;
+    border-radius: 0 0 4mm 4mm;
+    background: linear-gradient(135deg, #1cf4ff 0%, #14bfdc 100%);
+    font-size: 17px;
     line-height: 1;
     font-weight: bold;
+    color: #061123;
+    box-shadow: 0 0 6mm rgba(34, 243, 255, 0.25);
+}
+
+.metrics td.middle .metric-label,
+.metrics td.middle .metric-value {
+    background: linear-gradient(135deg, #ffe06b 0%, #e0ae22 100%);
+}
+
+.metrics td:last-child .metric-label,
+.metrics td:last-child .metric-value {
+    background: linear-gradient(135deg, #c751ff 0%, #8135ff 100%);
+    color: #ffffff;
 }
 
 .footer {
@@ -275,7 +316,7 @@ body {
 .footer-table td {
     width: 33.33%;
     vertical-align: bottom;
-    color: #08295f;
+    color: #f8fbff;
 }
 
 .signature-cell {
@@ -285,17 +326,20 @@ body {
 .signature-box {
     width: 50mm;
     height: 12mm;
-    border: 0.22mm dashed #b7c5da;
+    border: 0.22mm solid rgba(255, 255, 255, 0.35);
+    border-radius: 3mm;
+    background: rgba(255, 255, 255, 0.11);
     text-align: center;
     font-size: 7px;
     line-height: 12mm;
-    color: #8797af;
+    color: #dce9ff;
+    box-shadow: 0 0 5mm rgba(34, 243, 255, 0.2);
 }
 
 .signature-line {
     width: 50mm;
     margin-top: 1.6mm;
-    border-top: 0.32mm solid #08295f;
+    border-top: 0.32mm solid #ffffff;
 }
 
 .director {
@@ -303,14 +347,14 @@ body {
     font-size: 15px;
     line-height: 1.2;
     font-weight: bold;
-    color: #08295f;
+    color: #ffffff;
 }
 
 .company {
     padding-top: 0.6mm;
     font-size: 12px;
     line-height: 1.2;
-    color: #111827;
+    color: #22f3ff;
 }
 
 .stamp-cell {
@@ -321,11 +365,13 @@ body {
     width: 25mm;
     height: 25mm;
     margin: 0 auto;
-    border: 0.28mm dashed #b7c5da;
+    border: 0.28mm solid #d7a51e;
     border-radius: 11mm;
     text-align: center;
     line-height: 22mm;
-    color: #8797af;
+    color: #ffffff;
+    background: rgba(255, 218, 72, 0.12);
+    box-shadow: 0 0 6mm rgba(255, 218, 72, 0.28);
 }
 
 .date-cell {
@@ -336,14 +382,14 @@ body {
     font-size: 15px;
     line-height: 1.4;
     font-weight: bold;
-    color: #08295f;
+    color: #ffffff;
 }
 
 .date-value,
 .certificate-code {
     font-size: 12px;
     line-height: 1.55;
-    color: #111827;
+    color: #dce9ff;
 }
 </style>
 </head>
