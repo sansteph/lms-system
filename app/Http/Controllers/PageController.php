@@ -2880,9 +2880,6 @@ class PageController extends Controller
             ->get();
 
         $badgeCount = $results->whereNotNull('badge')->count();
-        $completedResults = $results->where('status', 'Completed');
-        $completedAssessmentCount = $completedResults->count();
-        $averagePercentage = round((float) ($completedResults->avg('percentage') ?? 0), 1);
 
         $attemptedAssessmentIds = AssessmentResult::where('student_id', $studentId)
             ->pluck('assessment_id');
@@ -2891,12 +2888,28 @@ class PageController extends Controller
 
         $componentOffers = $this->studentComponentAssessmentOffers($student, $ai);
         $this->notifyStudentComponentMasteryOffers($student, $componentOffers);
+        $eligibleComponentKeys = $componentOffers
+            ->pluck('component_key')
+            ->filter()
+            ->values();
 
         $assessmentBaseQuery = Assessment::where('status', 1)
             ->where('institute', $student->institute)
             ->where('question_paper_status', 'Approved')
             ->whereNotNull('file_path')
+            ->where(function ($query) use ($eligibleComponentKeys) {
+                $query->whereNull('assessment_category')
+                    ->orWhere('assessment_category', '!=', 'Component Mastery')
+                    ->orWhereIn('component_key', $eligibleComponentKeys);
+            })
             ->where(fn ($query) => $this->whereStudentClassMatches($query, $student));
+
+        $assignedAssessmentIds = (clone $assessmentBaseQuery)->pluck('id');
+        $completedResults = $results
+            ->where('status', 'Completed')
+            ->whereIn('assessment_id', $assignedAssessmentIds);
+        $completedAssessmentCount = $completedResults->count();
+        $averagePercentage = round((float) ($completedResults->avg('percentage') ?? 0), 1);
 
         $pendingAssessmentCount = (clone $assessmentBaseQuery)
             ->whereDate('assessment_date', '<=', today())

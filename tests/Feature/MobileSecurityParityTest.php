@@ -790,6 +790,39 @@ class MobileSecurityParityTest extends TestCase
         $this->assertSame(['Arduino introduction', 'Arduino UNO practical'], $offers->first()['content_titles']);
     }
 
+    public function test_student_dashboard_ignores_replaced_generic_component_mastery_assessments(): void
+    {
+        $student = $this->student();
+        $course = Course::create(['course_title' => 'Embedded Systems', 'institute' => 'Alpha', 'assigned_class' => 'Class 10 A', 'status' => 1]);
+        $generic = Content::create(['course_id' => $course->id, 'content_title' => 'Arduino basics', 'status' => 1]);
+        $specific = Content::create(['course_id' => $course->id, 'content_title' => 'Arduino UNO practical', 'status' => 1]);
+        LessonProgress::create(['student_id' => $student->id, 'content_id' => $generic->id, 'is_completed' => 1]);
+        LessonProgress::create(['student_id' => $student->id, 'content_id' => $specific->id, 'is_completed' => 1]);
+
+        $old = Assessment::create(['assessment_title' => 'Basics of Arduino', 'institute' => 'Alpha',
+            'assigned_class' => 'Class 10 A', 'assessment_category' => 'Component Mastery', 'component_key' => 'arduino',
+            'component_label' => 'Arduino', 'status' => 1, 'question_paper_status' => 'Approved',
+            'file_path' => 'arduino.pdf', 'assessment_date' => today()]);
+        $current = Assessment::create(['assessment_title' => 'Basics in Arduino UNO', 'institute' => 'Alpha',
+            'assigned_class' => 'Class 10 A', 'assessment_category' => 'Component Mastery', 'component_key' => 'arduino-uno',
+            'component_label' => 'Arduino UNO', 'status' => 1, 'question_paper_status' => 'Approved',
+            'file_path' => 'arduino-uno.pdf', 'assessment_date' => today()]);
+        AssessmentResult::create(['assessment_id' => $current->id, 'student_id' => $student->id,
+            'status' => 'Completed', 'score' => 45, 'total_marks' => 50, 'percentage' => 90, 'passed' => 1]);
+
+        $ai = $this->mock(\App\Services\Ai\GeminiAiService::class);
+        $ai->shouldReceive('classifyComponentContent')->once()->andReturn(['items' => []]);
+        $this->mock(\App\Services\FirebasePushService::class)->shouldReceive('sendLmsNotification')->zeroOrMoreTimes();
+
+        $this->withSession(['student_id' => $student->id, 'student_name' => $student->name, 'student_code' => $student->student_id])
+            ->get('/student-dashboard')
+            ->assertOk()
+            ->assertSee('1 of 1')
+            ->assertSee('100% of assigned assessments completed.')
+            ->assertDontSee('1 of 2')
+            ->assertDontSee($old->assessment_title);
+    }
+
     public function test_mastery_automatically_prepares_existing_completed_course_only_once(): void
     {
         Storage::fake('local');
