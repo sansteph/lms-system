@@ -738,12 +738,12 @@ class MobileSecurityParityTest extends TestCase
         $offers = app(\App\Services\ComponentMasteryService::class)->offers($student);
 
         $this->assertSame(['arduino-uno'], $offers->pluck('component_key')->all());
-        $this->assertSame('Arduino Uno', $offers->first()['component_label']);
+        $this->assertSame('Arduino UNO', $offers->first()['component_label']);
         $this->assertDatabaseHas('component_mastery_course_scans', [
             'course_id' => $course->id,
             'components' => json_encode([
-                ['component_key' => 'arduino-uno', 'component_label' => 'Arduino Uno', 'component_type' => 'microcontroller', 'content_id' => $first->id],
-                ['component_key' => 'arduino-uno', 'component_label' => 'Arduino Uno', 'component_type' => 'microcontroller', 'content_id' => $second->id],
+                ['component_key' => 'arduino-uno', 'component_label' => 'Arduino UNO', 'component_type' => 'microcontroller', 'content_id' => $first->id],
+                ['component_key' => 'arduino-uno', 'component_label' => 'Arduino UNO', 'component_type' => 'microcontroller', 'content_id' => $second->id],
             ]),
         ]);
 
@@ -766,6 +766,28 @@ class MobileSecurityParityTest extends TestCase
             ->assertOk()
             ->assertJsonPath('assessments.0.component_key', 'arduino-uno')
             ->assertJsonPath('assessments.0.can_take', true);
+    }
+
+    public function test_mastery_collapses_generic_arduino_when_specific_uno_is_detected(): void
+    {
+        $student = $this->student();
+        $course = Course::create(['course_title' => 'Embedded Systems', 'institute' => 'Alpha', 'assigned_class' => 'Class 10 A', 'status' => 1]);
+        $generic = Content::create(['course_id' => $course->id, 'content_title' => 'Arduino introduction', 'status' => 1]);
+        $specific = Content::create(['course_id' => $course->id, 'content_title' => 'Arduino UNO practical', 'status' => 1]);
+        LessonProgress::create(['student_id' => $student->id, 'content_id' => $generic->id, 'is_completed' => 1]);
+        LessonProgress::create(['student_id' => $student->id, 'content_id' => $specific->id, 'is_completed' => 1]);
+
+        $ai = $this->mock(\App\Services\Ai\GeminiAiService::class);
+        $ai->shouldReceive('classifyComponentContent')->once()->andReturn(['items' => [
+            ['content_id' => $generic->id, 'component_label' => 'Arduino', 'component_type' => 'microcontroller', 'confidence' => 90],
+            ['content_id' => $specific->id, 'component_label' => 'Arduino UNO', 'component_type' => 'microcontroller', 'confidence' => 90],
+        ]]);
+
+        $offers = app(\App\Services\ComponentMasteryService::class)->offers($student, $ai);
+
+        $this->assertSame(['arduino-uno'], $offers->pluck('component_key')->all());
+        $this->assertSame('Arduino UNO', $offers->first()['component_label']);
+        $this->assertSame(['Arduino introduction', 'Arduino UNO practical'], $offers->first()['content_titles']);
     }
 
     public function test_mastery_automatically_prepares_existing_completed_course_only_once(): void

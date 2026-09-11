@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 class ComponentMasteryService
 {
     private const MICROCONTROLLERS = [
-        'Arduino Uno' => ['arduino uno'],
+        'Arduino UNO' => ['arduino uno'],
         'Arduino Nano' => ['arduino nano'],
         'Arduino Mega' => ['arduino mega'],
         'Arduino' => ['arduino'],
@@ -95,12 +95,16 @@ class ComponentMasteryService
                         && (int) ($item['confidence'] ?? 0) >= 45
                         && in_array((int) ($item['content_id'] ?? 0), array_column($items, 'content_id'), true)
                         && filled($item['component_label'] ?? null))
-                        ->map(fn ($item) => ['component_key' => Str::slug($item['component_label']),
-                            'component_label' => trim($item['component_label']),
-                            'component_type' => $item['component_type'], 'content_id' => (int) $item['content_id']])
+                        ->map(function ($item) {
+                            $component = $this->canonicalComponent($item['component_label'], $item['component_type']);
+                            return ['component_key' => $component['component_key'],
+                                'component_label' => $component['component_label'],
+                                'component_type' => $component['component_type'], 'content_id' => (int) $item['content_id']];
+                        })
                         ->values()->all();
                     $components = collect($components)
                         ->merge($this->detectKnownComponents($items))
+                        ->pipe(fn ($components) => $this->collapseGenericComponents($components))
                         ->unique(fn ($item) => $item['component_key'].'|'.$item['content_id'])
                         ->values()->all();
                     DB::table('component_mastery_course_scans')->updateOrInsert(
@@ -111,7 +115,15 @@ class ComponentMasteryService
             } else {
                 $components = json_decode($scan->components, true);
                 $components = collect($components)
+                    ->map(function ($item) {
+                        $component = $this->canonicalComponent($item['component_label'] ?? '', $item['component_type'] ?? 'microcontroller');
+                        return ['component_key' => $component['component_key'],
+                            'component_label' => $component['component_label'],
+                            'component_type' => $component['component_type'],
+                            'content_id' => (int) ($item['content_id'] ?? 0)];
+                    })
                     ->merge($this->detectKnownComponents($items))
+                    ->pipe(fn ($components) => $this->collapseGenericComponents($components))
                     ->unique(fn ($item) => $item['component_key'].'|'.$item['content_id'])
                     ->values()->all();
                 if (json_encode($components) !== $scan->components) {
@@ -232,6 +244,78 @@ class ComponentMasteryService
         }
 
         return $components;
+    }
+
+    private function canonicalComponent(?string $label, ?string $type): array
+    {
+        $label = trim((string) $label);
+        $type = in_array($type, ['microcontroller', 'microprocessor'], true) ? $type : 'microcontroller';
+        $text = mb_strtolower($label);
+
+        foreach (self::MICROCONTROLLERS as $canonicalLabel => $aliases) {
+            if ($this->containsAlias($text, $aliases)) {
+                return [
+                    'component_key' => Str::slug($canonicalLabel),
+                    'component_label' => $canonicalLabel,
+                    'component_type' => 'microcontroller',
+                ];
+            }
+        }
+
+        foreach (self::MICROPROCESSORS as $canonicalLabel => $aliases) {
+            if ($canonicalLabel === 'Raspberry Pi' && str_contains($text, 'raspberry pi pico')) {
+                continue;
+            }
+
+            if ($this->containsAlias($text, $aliases)) {
+                return [
+                    'component_key' => Str::slug($canonicalLabel),
+                    'component_label' => $canonicalLabel,
+                    'component_type' => 'microprocessor',
+                ];
+            }
+        }
+
+        return [
+            'component_key' => Str::slug($label),
+            'component_label' => $label,
+            'component_type' => $type,
+        ];
+    }
+
+    private function collapseGenericComponents($components)
+    {
+        $components = collect($components);
+        $keys = $components->pluck('component_key')->unique();
+
+        $arduinoSpecific = $keys->intersect(['arduino-uno', 'arduino-nano', 'arduino-mega'])->first();
+        if ($arduinoSpecific) {
+            $arduinoLabel = $components->firstWhere('component_key', $arduinoSpecific)['component_label'] ?? 'Arduino UNO';
+            $components = $components->map(function ($item) use ($arduinoSpecific, $arduinoLabel) {
+                if (($item['component_key'] ?? null) !== 'arduino') {
+                    return $item;
+                }
+
+                $item['component_key'] = $arduinoSpecific;
+                $item['component_label'] = $arduinoLabel;
+                return $item;
+            });
+        }
+
+        if ($keys->contains('raspberry-pi-pico')) {
+            $components = $components->map(function ($item) {
+                if (($item['component_key'] ?? null) !== 'raspberry-pi') {
+                    return $item;
+                }
+
+                $item['component_key'] = 'raspberry-pi-pico';
+                $item['component_label'] = 'Raspberry Pi Pico';
+                $item['component_type'] = 'microcontroller';
+                return $item;
+            });
+        }
+
+        return $components->values();
     }
 
     private function containsAlias(string $haystack, array $aliases): bool
