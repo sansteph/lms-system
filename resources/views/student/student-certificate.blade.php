@@ -446,7 +446,7 @@ body {
                         <img src="{{ public_path('images/signature.png') }}" alt="Director's Signature" class="signature-box">
                         <div class="signature-line"></div>
                         <div class="director">Director</div>
-                        <div class="company">InnovatEdge</div>
+                        <div class="company">TinkEdge</div>
                     </td>
                     <td class="stamp-cell">
                         <img src="{{ public_path('images/company-stamp.jpeg') }}" alt="Stamp" class="stamp">
