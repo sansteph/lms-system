@@ -157,6 +157,7 @@
                                     <option value="">All Statuses</option>
                                     <option value="Pending Review" @selected(($statusFilter ?? '') === 'Pending Review')>Pending Review</option>
                                     <option value="AI Evaluated" @selected(($statusFilter ?? '') === 'AI Evaluated')>AI Evaluated</option>
+                                    <option value="Admin Review" @selected(($statusFilter ?? '') === 'Admin Review')>Admin Review</option>
                                     <option value="Completed" @selected(($statusFilter ?? '') === 'Completed')>Completed</option>
                                 </select>
                             </div>
@@ -187,7 +188,23 @@
                                     && empty($result->evaluated_by)
                                     && $assessment
                                     && in_array($assessment->assessment_category, ['Monthly', 'Annual', 'Component Mastery']);
-                                $statusLabel = $isAiEvaluated ? 'AI Evaluated' : ($result->status ?: 'Pending Review');
+                                $certificateApproved = false;
+                                if($assessment && $result->student) {
+                                    $certificateQuery = \App\Models\Certificate::where('student_id', $result->student_id)
+                                        ->whereIn('status', ['approved', 'Issued']);
+                                    if($assessment->assessment_category === 'Component Mastery') {
+                                        $certificateQuery->where('certificate_type', 'Component Mastery')
+                                            ->where('final_classification', 'Basics in '.$assessment->component_label);
+                                    } elseif($assessment->assessment_category === 'Annual') {
+                                        $certificateQuery->where('certificate_type', 'Annual');
+                                    }
+                                    $certificateApproved = $certificateQuery->exists();
+                                }
+                                $canReview = session('user_role') === 'Teacher'
+                                    ? empty($result->evaluated_by)
+                                    : (in_array(session('user_role'), ['Admin', 'InstituteAdmin']) && !empty($result->evaluated_by) && empty($result->admin_reviewed_by) && !$certificateApproved);
+                                $needsAdminReview = !$isAiEvaluated && !empty($result->evaluated_by) && empty($result->admin_reviewed_by) && !$certificateApproved;
+                                $statusLabel = $isAiEvaluated ? 'AI Evaluated' : ($needsAdminReview ? 'Admin Review' : ($result->status ?: 'Pending Review'));
                                 $paperUrl = null;
                                 $paperExtension = $assessment ? strtolower(pathinfo($assessment->file_path ?? '', PATHINFO_EXTENSION)) : null;
                                 $previewExtensions = ['ppt', 'pptx', 'doc', 'docx'];
@@ -292,7 +309,11 @@
                                                         <div class="mb-3">
                                                             <div class="fw-semibold mb-1">Evaluation Status</div>
                                                             <div class="text-muted small">
-                                                                @if($isAiEvaluated)
+                                                                @if(!$canReview)
+                                                                    Reviewed results are locked after submission.
+                                                                @elseif($needsAdminReview)
+                                                                    STEM Engineer review is complete. Admin final review is optional until certificate approval.
+                                                                @elseif($isAiEvaluated)
                                                                     AI has assigned a score. Confirm it or adjust the final marks.
                                                                 @else
                                                                     Enter marks, feedback, and final decision.
@@ -300,29 +321,42 @@
                                                             </div>
                                                         </div>
 
-                                                        <form method="POST" action="{{ route(session('user_role') == 'Teacher' ? 'assessment.review.submit' : 'admin.assessment.review.submit', $result->id) }}">
-                                                            @csrf
+                                                        @if($canReview)
+                                                            <form method="POST" action="{{ route(session('user_role') == 'Teacher' ? 'assessment.review.submit' : 'admin.assessment.review.submit', $result->id) }}">
+                                                                @csrf
 
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Marks Awarded</label>
-                                                                <input type="number" name="marks_awarded" class="form-control" min="0" max="{{ $result->total_marks }}" value="{{ old('marks_awarded', $result->score ?? '') }}" required>
+                                                                <div class="mb-3">
+                                                                    <label class="form-label">Marks Awarded</label>
+                                                                    <input type="number" name="marks_awarded" class="form-control" min="0" max="{{ $result->total_marks }}" value="{{ old('marks_awarded', $result->score ?? '') }}" required>
+                                                                </div>
+
+                                                                <div class="mb-3">
+                                                                    <label class="form-label">Feedback</label>
+                                                                    <textarea name="feedback" rows="4" class="form-control">{{ old('feedback', $result->feedback ?? '') }}</textarea>
+                                                                </div>
+
+                                                                <div class="mb-3">
+                                                                    <label class="form-label">Passed</label>
+                                                                    <select name="passed" class="form-select" required>
+                                                                        <option value="1" @selected(old('passed', $result->passed ?? '') == 1)>Pass</option>
+                                                                        <option value="0" @selected(old('passed', $result->passed ?? '') == 0)>Fail</option>
+                                                                    </select>
+                                                                </div>
+
+                                                                <button type="submit" class="btn btn-primary w-100">Submit Evaluation</button>
+                                                            </form>
+                                                        @else
+                                                            <div class="border rounded bg-white p-3">
+                                                                <div class="small text-muted mb-1">Final marks</div>
+                                                                <div class="fw-semibold mb-3">{{ $result->score ?? 0 }} / {{ $result->total_marks }}</div>
+                                                                <div class="small text-muted mb-1">Outcome</div>
+                                                                <div class="fw-semibold mb-3">{{ $result->passed ? 'Pass' : 'Fail' }}</div>
+                                                                @if($result->feedback)
+                                                                    <div class="small text-muted mb-1">Feedback</div>
+                                                                    <div>{{ $result->feedback }}</div>
+                                                                @endif
                                                             </div>
-
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Feedback</label>
-                                                                <textarea name="feedback" rows="4" class="form-control">{{ old('feedback', $result->feedback ?? '') }}</textarea>
-                                                            </div>
-
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Passed</label>
-                                                                <select name="passed" class="form-select" required>
-                                                                    <option value="1" @selected(old('passed', $result->passed ?? '') == 1)>Pass</option>
-                                                                    <option value="0" @selected(old('passed', $result->passed ?? '') == 0)>Fail</option>
-                                                                </select>
-                                                            </div>
-
-                                                            <button type="submit" class="btn btn-primary w-100">Submit Evaluation</button>
-                                                        </form>
+                                                        @endif
                                                     </div>
                                                 </div>
                                             </div>

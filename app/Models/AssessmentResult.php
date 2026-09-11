@@ -13,6 +13,7 @@ class AssessmentResult extends Model
 {
     protected $casts = [
         'evaluated_at' => 'datetime',
+        'admin_reviewed_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -29,6 +30,8 @@ class AssessmentResult extends Model
         'passed',
         'evaluated_by',
         'evaluated_at',
+        'admin_reviewed_by',
+        'admin_reviewed_at',
     ];
 
     protected static function booted()
@@ -74,6 +77,11 @@ class AssessmentResult extends Model
     public function evaluator()
     {
         return $this->belongsTo(User::class, 'evaluated_by');
+    }
+
+    public function adminReviewer()
+    {
+        return $this->belongsTo(User::class, 'admin_reviewed_by');
     }
 
     public function answers()

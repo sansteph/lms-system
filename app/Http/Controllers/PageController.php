@@ -3696,7 +3696,7 @@ class PageController extends Controller
 
         $certificates = Certificate::with('course')
             ->where('student_id', $studentId)
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'Approved', 'Issued', 'issued'])
             ->latest()
             ->get();
 
@@ -3870,7 +3870,7 @@ class PageController extends Controller
             if ($certificate->status == 'Revoked') {
                 $revoked = true;
                 $verificationStatus = 'revoked';
-            } elseif ($certificate->status == 'Issued') {
+            } elseif (in_array(strtolower((string) $certificate->status), ['approved', 'issued'], true)) {
                 $verificationStatus = 'verified';
             } else {
                 $inactive = true;
@@ -5916,12 +5916,15 @@ class PageController extends Controller
         );
     }
 
-    public function downloadStudentCertificate()
+    public function downloadStudentCertificate(Request $request)
     {
         $student = Student::findOrFail(session('student_id'));
 
         $certificate = Certificate::where('student_id', $student->id)
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'Approved', 'Issued', 'issued'])
+            ->when($request->filled('certificate_id'), function ($query) use ($request) {
+                $query->whereKey($request->integer('certificate_id'));
+            })
             ->latest()
             ->firstOrFail();
 

@@ -154,18 +154,24 @@
                         <div>
                             <h5 class="mb-1">Program Certificates</h5>
                             <p class="text-muted mb-0">
-                                Certificates are prepared after your Annual Assessment is evaluated and approved by Admin.
+                                Certificates appear here after approval by a STEM Engineer or Admin.
                             </p>
                         </div>
                     </div>
 
                     @forelse(($certificates ?? collect()) as $certificate)
+                        @php
+                            $released = in_array(strtolower((string) $certificate->status), ['approved', 'issued']);
+                            $certificateTitle = $certificate->certificate_type === 'Component Mastery'
+                                ? ($certificate->final_classification ?: 'Component Mastery')
+                                : ($certificate->course->course_title ?? 'Program Completion');
+                        @endphp
 
-                        <div class="alert {{ $certificate->status == 'Issued' ? 'alert-success' : 'alert-warning' }} mb-3">
+                        <div class="alert {{ $released ? 'alert-success' : 'alert-warning' }} mb-3">
                             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                                 <div>
                                     <strong>
-                                        {{ $certificate->course->course_title ?? 'Program Completion' }}
+                                        {{ $certificateTitle }}
                                     </strong>
 
                                     <br>
@@ -195,12 +201,12 @@
                                     <br>
 
                                     <small>
-                                        Status: {{ $certificate->status }}
+                                        Status: {{ $released ? 'Approved' : $certificate->status }}
                                     </small>
                                 </div>
 
-                                @if($certificate->status == 'Issued')
-                                    <a href="{{ route('student.certificate.download') }}"
+                                @if($released)
+                                    <a href="{{ route('student.certificate.download', ['certificate_id' => $certificate->id]) }}"
                                     class="btn btn-success">
                                         <i class="fa fa-download me-2"></i>
                                         View Certificate
@@ -216,7 +222,7 @@
                     @empty
 
                         <div class="alert alert-warning mb-0">
-                            Complete the Annual Assessment and wait for final evaluation to prepare your certificate request.
+                            Complete an eligible assessment and wait for certificate approval.
                         </div>
 
                     @endforelse

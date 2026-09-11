@@ -15,6 +15,7 @@ use App\Models\Assessment;
 use App\Models\Student;
 use App\Models\SchoolClass;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Support\BuildsInstituteSectionPager;
 use App\Services\AssessmentAutoEvaluationService;
@@ -175,15 +176,20 @@ class AssessmentResultController extends Controller
                 ->orderBy('class_name')
                 ->pluck('class_name')
                 ->map(fn ($className) => trim((string) $className))
+                ->merge(Student::where('institute', $selectedInstitute)
+                    ->select('class', 'section')
+                    ->get()
+                    ->map(fn ($student) => $this->studentClassLabel($student)))
                 ->filter()
                 ->unique(fn ($className) => mb_strtolower($className))
+                ->sort()
                 ->values();
 
             $selectedStudentClass = $request->input('student_class');
 
             if ($selectedStudentClass) {
                 $reviewSectionOptions = Student::where('institute', $selectedInstitute)
-                    ->where('class', $selectedStudentClass)
+                    ->where(fn ($query) => $this->whereStudentClassFilterMatches($query, $selectedStudentClass))
                     ->whereNotNull('section')
                     ->orderBy('section')
                     ->pluck('section')
@@ -211,6 +217,7 @@ class AssessmentResultController extends Controller
                 'assessment',
                 'assessment.teacher',
                 'evaluator',
+                'adminReviewer',
                 'answers.question',
             ])
             ->where(function ($query) use ($statusFilter) {
@@ -227,6 +234,11 @@ class AssessmentResultController extends Controller
                     return;
                 }
 
+                if ($statusFilter === 'Admin Review') {
+                    $this->whereAdminFinalReviewEligible($query);
+                    return;
+                }
+
                 if ($statusFilter === 'Completed') {
                     $query->where('status', 'Completed');
                     return;
@@ -238,6 +250,13 @@ class AssessmentResultController extends Controller
                             ->whereNull('evaluated_by')
                             ->whereHas('assessment', fn ($assessmentQuery) => $assessmentQuery
                                 ->whereIn('assessment_category', ['Monthly', 'Annual', 'Component Mastery']));
+                    })
+                    ->orWhere(function ($adminQuery) {
+                        if (in_array(session('user_role'), ['Admin', 'InstituteAdmin'], true)) {
+                            $this->whereAdminFinalReviewEligible($adminQuery);
+                        } else {
+                            $adminQuery->whereRaw('1 = 0');
+                        }
                     });
             })
             ->when(session('user_role') == 'Teacher', function ($query) {
@@ -255,7 +274,7 @@ class AssessmentResultController extends Controller
             ->when($selectedInstitute, function ($query) use ($selectedInstitute, $selectedStudentClass, $selectedStudentSection, $searchFilter) {
                 $query->whereHas('student', function ($q) use ($selectedInstitute, $selectedStudentClass, $selectedStudentSection, $searchFilter) {
                     $q->where('institute', $selectedInstitute)
-                        ->when($selectedStudentClass, fn ($innerQuery) => $innerQuery->where('class', $selectedStudentClass))
+                        ->when($selectedStudentClass, fn ($innerQuery) => $this->whereStudentClassFilterMatches($innerQuery, $selectedStudentClass))
                         ->when($selectedStudentSection, fn ($innerQuery) => $innerQuery->where('section', $selectedStudentSection))
                         ->when($searchFilter, function ($innerQuery) use ($searchFilter) {
                             $innerQuery->where(function ($searchQuery) use ($searchFilter) {
@@ -270,6 +289,9 @@ class AssessmentResultController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        $showFilterPlaceholder = ! $hasFilters
+            || (in_array(session('user_role'), ['InstituteAdmin', 'Teacher'], true) && ! $selectedInstitute);
+
         return view('review-assessment-answers', compact(
             'pendingResults',
             'instituteOptions',
@@ -281,7 +303,101 @@ class AssessmentResultController extends Controller
             'reviewSectionOptions',
             'statusFilter',
             'searchFilter'
-        ) + ['showFilterPlaceholder' => ! $hasFilters || ! $selectedInstitute]);
+        ) + ['showFilterPlaceholder' => $showFilterPlaceholder]);
+    }
+
+    private function studentClassLabel(Student $student): string
+    {
+        return preg_replace('/\s+/', ' ', trim((string) $student->class.' '.(string) $student->section));
+    }
+
+    private function whereStudentClassFilterMatches($query, string $classFilter): void
+    {
+        $classFilter = preg_replace('/\s+/', ' ', trim($classFilter));
+
+        $query->where('class', $classFilter)
+            ->orWhereRaw("REPLACE(TRIM(CONCAT(COALESCE(class, ''), ' ', COALESCE(section, ''))), '  ', ' ') = ?", [$classFilter]);
+    }
+
+    private function reviewStageForResult(AssessmentResult $result): ?string
+    {
+        if (!$result->assessment || !$result->student) {
+            return null;
+        }
+
+        $role = session('user_role');
+
+        if ($role === 'Teacher') {
+            return $result->evaluated_by ? null : 'stem';
+        }
+
+        if (!in_array($role, ['Admin', 'InstituteAdmin'], true)) {
+            return null;
+        }
+
+        if (!$result->evaluated_by || $result->admin_reviewed_by) {
+            return null;
+        }
+
+        if ($this->certificateAlreadyApprovedForResult($result)) {
+            return null;
+        }
+
+        return 'admin';
+    }
+
+    private function certificateAlreadyApprovedForResult(AssessmentResult $result): bool
+    {
+        $query = Certificate::where('student_id', $result->student_id)
+            ->whereIn('status', ['approved', 'Issued']);
+
+        if ($result->assessment?->assessment_category === 'Component Mastery') {
+            $query->where('certificate_type', 'Component Mastery')
+                ->where('final_classification', 'Basics in '.$result->assessment->component_label);
+        } elseif ($result->assessment?->assessment_category === 'Annual') {
+            $query->where('certificate_type', 'Annual');
+        }
+
+        return $query->exists();
+    }
+
+    private function whereAdminFinalReviewEligible($query): void
+    {
+        $concat = DB::getDriverName() === 'sqlite'
+            ? "'Basics in ' || assessments.component_label"
+            : "CONCAT('Basics in ', assessments.component_label)";
+
+        $query->where('status', 'Completed')
+            ->whereNotNull('evaluated_by')
+            ->whereNull('admin_reviewed_by')
+            ->whereHas('assessment', fn ($assessmentQuery) => $assessmentQuery
+                ->whereIn('assessment_category', ['Monthly', 'Annual', 'Component Mastery']))
+            ->whereNotExists(function ($certificateQuery) use ($concat) {
+                $certificateQuery->selectRaw('1')
+                    ->from('certificates')
+                    ->whereColumn('certificates.student_id', 'assessment_results.student_id')
+                    ->whereIn('certificates.status', ['approved', 'Issued'])
+                    ->where(function ($typeQuery) use ($concat) {
+                        $typeQuery->where(function ($annualQuery) {
+                            $annualQuery->where('certificates.certificate_type', 'Annual')
+                                ->whereExists(function ($assessmentQuery) {
+                                    $assessmentQuery->selectRaw('1')
+                                        ->from('assessments')
+                                        ->whereColumn('assessments.id', 'assessment_results.assessment_id')
+                                        ->where('assessments.assessment_category', 'Annual');
+                                });
+                        })->orWhere(function ($masteryQuery) use ($concat) {
+                            $masteryQuery->where('certificates.certificate_type', 'Component Mastery')
+                                ->whereExists(function ($assessmentQuery) use ($concat) {
+                                    $assessmentQuery->selectRaw('1')
+                                        ->from('assessments')
+                                        ->whereColumn('assessments.id', 'assessment_results.assessment_id')
+                                        ->where('assessments.assessment_category', 'Component Mastery')
+                                        ->whereRaw("certificates.final_classification = $concat");
+                                });
+                        });
+                    });
+            });
     }
 
     private function buildStudentClassPager(Request $request, ?string $institute, string $routeName): array
@@ -463,6 +579,12 @@ class AssessmentResultController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        $reviewStage = $this->reviewStageForResult($result);
+        if (!$reviewStage) {
+            return redirect()->back()
+                ->with('error', 'This assessment cannot be reviewed again.');
+        }
+
         if ($request->marks_awarded > $result->total_marks) {
             return redirect()->back()
                 ->with('error', 'Awarded marks cannot exceed maximum marks.');
@@ -474,16 +596,24 @@ class AssessmentResultController extends Controller
 
         $passed = (bool) $request->passed;
 
-        $result->update([
+        $update = [
             'score' => $request->marks_awarded,
             'percentage' => $percentage,
             'badge' => $passed ? $this->calculateBadge($percentage) : null,
             'status' => 'Completed',
             'feedback' => $request->feedback,
             'passed' => $passed,
-            'evaluated_by' => session('user_id'),
-            'evaluated_at' => now(),
-        ]);
+        ];
+
+        if ($reviewStage === 'stem') {
+            $update['evaluated_by'] = session('user_id');
+            $update['evaluated_at'] = now();
+        } else {
+            $update['admin_reviewed_by'] = session('user_id');
+            $update['admin_reviewed_at'] = now();
+        }
+
+        $result->update($update);
 
         if ($result->assessment) {
             $this->syncCertificateRequestAfterReview($result);

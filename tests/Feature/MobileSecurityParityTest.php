@@ -36,7 +36,7 @@ class MobileSecurityParityTest extends TestCase
             'component_mastery_course_scans' => ['course_id','fingerprint','components'],
             'assessments' => ['assessment_title','assessment_type','institute','assigned_class','assessment_category','assessment_date','start_time','end_time','duration','total_marks','teacher_id','status','question_paper_status','file_path','question_paper_preview_path','question_paper_reviewed_by','question_paper_reviewed_at','question_paper_feedback','question_paper_type','ai_generated','ai_source_content_ids','ai_generation_payload','content_id','component_key','component_label','certificate_eligible'],
             'assessment_sessions' => ['assessment_id','user_id','user_type','started_at','submitted_at','status','violation_count','last_violation_at'],
-            'assessment_results' => ['assessment_id','student_id','score','total_marks','status','percentage','answer_text','answer_file_path','badge','feedback','passed','evaluated_by','evaluated_at'],
+            'assessment_results' => ['assessment_id','student_id','score','total_marks','status','percentage','answer_text','answer_file_path','badge','feedback','passed','evaluated_by','evaluated_at','admin_reviewed_by','admin_reviewed_at'],
             'certificates' => ['student_id','certificate_code','badge_count','final_score','final_grade','final_classification','issued_date','status','approved_by','approved_at','rejection_reason','certificate_type','course_id'],
             'class_content_sessions' => ['teaching_plan_item_id','teaching_plan_id','teaching_plan_week_id','course_id','stem_engineer_id','institute','content_id','started_at','ended_at','end_time','status','planned_topic','delivered_topic','delivered_content_id','duration_seconds','remarks','session_date','class','section','class_id'],
             'class_timetables' => ['class_id','content_id'],
@@ -836,17 +836,104 @@ class MobileSecurityParityTest extends TestCase
     {
         $student = $this->student(); $teacher = $this->user();
         $paper = Assessment::create(['assessment_title' => 'Basics in ESP32', 'assessment_category' => 'Component Mastery',
-            'component_key' => 'esp32', 'component_label' => 'ESP32', 'certificate_eligible' => 1, 'institute' => 'Alpha']);
+            'component_key' => 'esp32', 'component_label' => 'ESP32', 'certificate_eligible' => 1,
+            'institute' => 'Alpha', 'assigned_class' => 'Class 10 A']);
         $result = AssessmentResult::create(['assessment_id' => $paper->id, 'student_id' => $student->id,
             'status' => 'Completed', 'score' => 40, 'total_marks' => 50, 'percentage' => 80, 'passed' => 1]);
         $this->withSession(['user_id' => $teacher->id, 'user_role' => 'Teacher', 'user_institute' => 'Alpha'])
-            ->get('/assessment-review?status=AI+Evaluated')->assertOk()->assertSee('Basics in ESP32');
+            ->get('/assessment-review?status=AI+Evaluated&student_class=Class+10+A&search=Student')
+            ->assertOk()
+            ->assertSee('Basics in ESP32');
         $this->post('/assessment-review/'.$result->id, ['marks_awarded' => 40, 'passed' => 1])->assertRedirect();
+        $this->post('/assessment-review/'.$result->id, ['marks_awarded' => 10, 'passed' => 0])
+            ->assertRedirect()
+            ->assertSessionHas('error', 'This assessment cannot be reviewed again.');
         $certificate = Certificate::firstOrFail();
         $this->post('/teacher/certificates/approve/'.$certificate->id)->assertRedirect();
         $this->assertSame('Basics in ESP32', $certificate->fresh()->final_classification);
         Sanctum::actingAs($student);
         $this->getJson('/api/student/achievements')->assertOk()->assertSee('Basics in ESP32');
+    }
+
+    public function test_student_web_badges_show_engineer_approved_certificates(): void
+    {
+        $student = $this->student();
+        Certificate::create([
+            'student_id' => $student->id,
+            'certificate_code' => 'CM-READY',
+            'certificate_type' => 'Component Mastery',
+            'final_classification' => 'Basics in ESP32',
+            'final_score' => 84,
+            'final_grade' => 'A',
+            'status' => 'approved',
+            'approved_by' => 10,
+            'approved_at' => now(),
+        ]);
+
+        $this->withSession(['student_id' => $student->id])
+            ->get('/student/badges')
+            ->assertOk()
+            ->assertSee('Basics in ESP32')
+            ->assertSee('Certificates appear here after approval by a STEM Engineer or Admin.')
+            ->assertSee('View Certificate')
+            ->assertDontSee('Complete the Annual Assessment');
+    }
+
+    public function test_admin_final_review_is_optional_once_until_certificate_is_approved(): void
+    {
+        $student = $this->student();
+        $teacher = $this->user();
+        $admin = $this->user('InstituteAdmin');
+        $assessment = Assessment::create(['assessment_title' => 'Basics in ESP32', 'assessment_category' => 'Component Mastery',
+            'component_key' => 'esp32', 'component_label' => 'ESP32', 'certificate_eligible' => 1,
+            'institute' => 'Alpha', 'assigned_class' => 'Class 10 A']);
+        $result = AssessmentResult::create(['assessment_id' => $assessment->id, 'student_id' => $student->id,
+            'status' => 'Completed', 'score' => 40, 'total_marks' => 50, 'percentage' => 80, 'passed' => 1,
+            'evaluated_by' => $teacher->id, 'evaluated_at' => now()]);
+        Certificate::create(['student_id' => $student->id, 'certificate_type' => 'Component Mastery',
+            'final_classification' => 'Basics in ESP32', 'status' => 'pending_admin_approval', 'final_score' => 80]);
+
+        $this->withSession(['user_id' => $admin->id, 'user_role' => 'InstituteAdmin', 'user_institute' => 'Alpha'])
+            ->get('/admin/assessment-review?status=Admin+Review&student_class=Class+10+A')
+            ->assertOk()
+            ->assertSee('Basics in ESP32')
+            ->assertSee('Submit Evaluation');
+
+        $this->post('/admin/assessment-review/'.$result->id, ['marks_awarded' => 35, 'passed' => 1])->assertRedirect();
+        $this->assertEquals($admin->id, $result->fresh()->admin_reviewed_by);
+        $this->assertEquals(70, Certificate::first()->fresh()->final_score);
+
+        $otherAdmin = $this->user('Admin');
+        $this->withSession(['user_id' => $otherAdmin->id, 'user_role' => 'Admin', 'user_institute' => null])
+            ->post('/admin/assessment-review/'.$result->id, ['marks_awarded' => 10, 'passed' => 0])
+            ->assertRedirect()
+            ->assertSessionHas('error', 'This assessment cannot be reviewed again.');
+        $this->assertEquals(70, Certificate::first()->fresh()->final_score);
+    }
+
+    public function test_admin_final_review_is_blocked_after_certificate_approval(): void
+    {
+        $student = $this->student();
+        $teacher = $this->user();
+        $admin = $this->user('Admin');
+        $assessment = Assessment::create(['assessment_title' => 'Basics in ESP32', 'assessment_category' => 'Component Mastery',
+            'component_key' => 'esp32', 'component_label' => 'ESP32', 'certificate_eligible' => 1,
+            'institute' => 'Alpha', 'assigned_class' => 'Class 10 A']);
+        $result = AssessmentResult::create(['assessment_id' => $assessment->id, 'student_id' => $student->id,
+            'status' => 'Completed', 'score' => 40, 'total_marks' => 50, 'percentage' => 80, 'passed' => 1,
+            'evaluated_by' => $teacher->id, 'evaluated_at' => now()]);
+        Certificate::create(['student_id' => $student->id, 'certificate_type' => 'Component Mastery',
+            'final_classification' => 'Basics in ESP32', 'status' => 'approved', 'final_score' => 80]);
+
+        $this->withSession(['user_id' => $admin->id, 'user_role' => 'Admin'])
+            ->get('/admin/assessment-review?status=Admin+Review')
+            ->assertOk()
+            ->assertDontSee('Basics in ESP32');
+
+        $this->post('/admin/assessment-review/'.$result->id, ['marks_awarded' => 35, 'passed' => 1])
+            ->assertRedirect()
+            ->assertSessionHas('error', 'This assessment cannot be reviewed again.');
+        $this->assertNull($result->fresh()->admin_reviewed_by);
     }
 
     public function test_engineer_can_review_mobile_mastery_ai_score_and_correct_pending_certificate(): void
@@ -867,8 +954,21 @@ class MobileSecurityParityTest extends TestCase
             ->assertJsonPath('records.0.actions.0.label', 'Review AI score');
         $this->postJson('/api/workflows/results/review/'.$result->id, ['marks_awarded' => 30, 'passed' => 1])->assertOk();
         $this->assertEquals(60, Certificate::first()->final_score);
-        $this->postJson('/api/workflows/results/review/'.$result->id, ['marks_awarded' => 10, 'passed' => 0])->assertOk();
-        $this->assertDatabaseCount('certificates', 0);
+        $this->getJson('/api/workflows/results?status=Completed')->assertOk()
+            ->assertJsonPath('records.0.id', $result->id)
+            ->assertJsonMissing(['id' => 'review']);
+        $this->postJson('/api/workflows/results/review/'.$result->id, ['marks_awarded' => 10, 'passed' => 0])->assertUnprocessable();
+        $this->assertEquals(60, Certificate::first()->fresh()->final_score);
+
+        $admin = $this->user('InstituteAdmin'); Sanctum::actingAs($admin);
+        $this->getJson('/api/workflows/results?status=Admin+Review')->assertOk()
+            ->assertJsonPath('records.0.id', $result->id)
+            ->assertJsonPath('records.0.actions.0.label', 'Final review');
+        $this->postJson('/api/workflows/results/review/'.$result->id, ['marks_awarded' => 25, 'passed' => 1])->assertOk();
+        $this->assertEquals(50, Certificate::first()->fresh()->final_score);
+        $this->postJson('/api/workflows/results/review/'.$result->id, ['marks_awarded' => 10, 'passed' => 0])->assertUnprocessable();
+        $this->assertEquals(50, Certificate::first()->fresh()->final_score);
+
         $teacher->update(['institute' => 'Beta']); Sanctum::actingAs($teacher->fresh());
         $this->postJson('/api/workflows/results/review/'.$result->id, ['marks_awarded' => 40, 'passed' => 1])->assertForbidden();
     }

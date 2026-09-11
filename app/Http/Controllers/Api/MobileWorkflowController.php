@@ -7,6 +7,7 @@ use App\Models\{User, Student, Institute, SchoolClass, Course, CourseContent, Co
 use App\Services\{MobileWebContext, TeachingPlanReleaseService, TeachingPlanTemplateDeploymentService};
 use App\Services\Ai\{GeminiAiService, PdfTextExtractionService};
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -179,7 +180,7 @@ class MobileWorkflowController extends Controller
         if ($area === 'awards') {
             abort_unless($request->user() instanceof Student, 403);
             $certificate = Certificate::with('student')->where('student_id', $request->user()->id)
-                ->whereIn('status', ['approved', 'Approved', 'Issued'])->findOrFail($id);
+                ->whereIn('status', ['approved', 'Approved', 'Issued', 'issued'])->findOrFail($id);
             return \Barryvdh\DomPDF\Facade\Pdf::loadView('student.student-certificate', ['certificate' => $certificate, 'student' => $request->user()])
                 ->setPaper('a4', 'landscape')->stream('certificate.pdf');
         }
@@ -347,9 +348,24 @@ class MobileWorkflowController extends Controller
                     ->whereNull('evaluated_by')
                     ->whereHas('assessment', fn ($assessmentQuery) => $assessmentQuery
                         ->whereIn('assessment_category', ['Monthly', 'Annual', 'Component Mastery']));
+            } elseif ($r->input('status') === 'Admin Review') {
+                $this->whereAdminFinalReviewEligible($query);
             } else {
                 $query->where('status', $r->input('status'));
             }
+        } elseif (in_array($a->role, ['Admin', 'InstituteAdmin'], true)) {
+            $query->where(function ($q) {
+                $q->where('status', 'Pending Review')
+                    ->orWhere(function ($aiQuery) {
+                        $aiQuery->where('status', 'Completed')
+                            ->whereNull('evaluated_by')
+                            ->whereHas('assessment', fn ($assessmentQuery) => $assessmentQuery
+                                ->whereIn('assessment_category', ['Monthly', 'Annual', 'Component Mastery']));
+                    })
+                    ->orWhere(function ($adminQuery) {
+                        $this->whereAdminFinalReviewEligible($adminQuery);
+                    });
+            });
         }
         if ($r->filled('badge')) $query->where('badge', $r->input('badge'));
         foreach (['student_class' => 'class', 'student_section' => 'section'] as $filter => $column) {
@@ -369,24 +385,87 @@ class MobileWorkflowController extends Controller
                 && empty($result->evaluated_by)
                 && $result->assessment
                 && in_array($result->assessment->assessment_category, ['Monthly', 'Annual', 'Component Mastery'], true);
+            $needsAdminReview = !$isAiEvaluated
+                && !empty($result->evaluated_by)
+                && empty($result->admin_reviewed_by)
+                && !$this->certificateAlreadyApprovedForResult($result);
+            $canReview = in_array(request()->user()->role, ['Teacher', 'STEM Engineer'], true)
+                ? empty($result->evaluated_by)
+                : (in_array(request()->user()->role, ['Admin', 'InstituteAdmin'], true) && $needsAdminReview);
 
             return ['id' => $result->id, 'title' => $result->student?->name, 'subtitle' => $result->assessment?->assessment_title,
-                'status' => $isAiEvaluated ? 'AI Evaluated' : $result->status,
+                'status' => $isAiEvaluated ? 'AI Evaluated' : ($needsAdminReview ? 'Admin Review' : $result->status),
                 'submission' => $result->originalSubmission(),
                 'question_paper' => $result->assessment?->file_path ? "/api/workflows/results/$result->id/paper" : null,
                 'details' => $result->only(['answer_text', 'score', 'total_marks', 'feedback', 'percentage', 'badge']) + [
-                    'evaluation_source' => $isAiEvaluated ? 'AI automated evaluation' : ($result->evaluated_by ? 'Reviewed by STEM Engineer/Admin' : 'Manual review pending'),
+                    'evaluation_source' => $isAiEvaluated ? 'AI automated evaluation' : ($needsAdminReview ? 'Reviewed by STEM Engineer; awaiting optional admin final review' : ($result->admin_reviewed_by ? 'Final reviewed by Admin/Institute Admin' : ($result->evaluated_by ? 'Reviewed by STEM Engineer/Admin' : 'Manual review pending'))),
                 ],
                 'document' => $result->answer_file_path ? "/api/workflows/results/$result->id/document" : null,
-                'actions' => [$this->action('review', $isAiEvaluated ? 'Review AI score' : 'Evaluate answer', [$this->field('marks_awarded', 'Marks awarded', 'number', true), $this->field('feedback', 'Feedback', 'textarea'), $this->field('passed', 'Outcome', 'select', true, $this->choices([1 => 'Pass', 0 => 'Fail']))], ['marks_awarded' => $result->score, 'feedback' => $result->feedback, 'passed' => (int) $result->passed]),
-                    $this->action('disqualify', 'Disqualify', [$this->field('reason', 'Reason', 'textarea', true)], confirm: true)]];
+                'actions' => [
+                    ...($canReview ? [$this->action('review', $needsAdminReview ? 'Final review' : ($isAiEvaluated ? 'Review AI score' : 'Evaluate answer'), [$this->field('marks_awarded', 'Marks awarded', 'number', true), $this->field('feedback', 'Feedback', 'textarea'), $this->field('passed', 'Outcome', 'select', true, $this->choices([1 => 'Pass', 0 => 'Fail']))], ['marks_awarded' => $result->score, 'feedback' => $result->feedback, 'passed' => (int) $result->passed])] : []),
+                    $this->action('disqualify', 'Disqualify', [$this->field('reason', 'Reason', 'textarea', true)], confirm: true),
+                ]];
         }, filters: [
             $this->field('student_class', 'Class', 'select', options: $this->enums($classOptions)),
             $this->field('student_section', 'Section', 'select', options: $this->enums($sectionOptions)) + ['depends_on' => 'student_class'],
             $this->field('badge', 'Badge', 'select', options: $this->enums(['Gold', 'Silver', 'Bronze'])),
-            $this->field('status', 'Status', 'select', options: $this->enums(['Pending Review', 'AI Evaluated', 'Completed'])),
+            $this->field('status', 'Status', 'select', options: $this->enums(['Pending Review', 'AI Evaluated', 'Admin Review', 'Completed'])),
             $this->field('sort', 'Sort', 'select', options: $this->choices(['highest' => 'Highest', 'lowest' => 'Lowest', 'latest' => 'Latest', 'oldest' => 'Oldest'])),
         ]);
+    }
+
+    private function certificateAlreadyApprovedForResult(AssessmentResult $result): bool
+    {
+        $query = Certificate::where('student_id', $result->student_id)
+            ->whereIn('status', ['approved', 'Approved', 'Issued', 'issued']);
+
+        if ($result->assessment?->assessment_category === 'Component Mastery') {
+            $query->where('certificate_type', 'Component Mastery')
+                ->where('final_classification', 'Basics in '.$result->assessment->component_label);
+        } elseif ($result->assessment?->assessment_category === 'Annual') {
+            $query->where('certificate_type', 'Annual');
+        }
+
+        return $query->exists();
+    }
+
+    private function whereAdminFinalReviewEligible(Builder $query): void
+    {
+        $concat = \Illuminate\Support\Facades\DB::getDriverName() === 'sqlite'
+            ? "'Basics in ' || assessments.component_label"
+            : "CONCAT('Basics in ', assessments.component_label)";
+
+        $query->where('status', 'Completed')
+            ->whereNotNull('evaluated_by')
+            ->whereNull('admin_reviewed_by')
+            ->whereHas('assessment', fn ($assessmentQuery) => $assessmentQuery
+                ->whereIn('assessment_category', ['Monthly', 'Annual', 'Component Mastery']))
+            ->whereNotExists(function ($certificateQuery) use ($concat) {
+                $certificateQuery->selectRaw('1')
+                    ->from('certificates')
+                    ->whereColumn('certificates.student_id', 'assessment_results.student_id')
+                    ->whereIn('certificates.status', ['approved', 'Approved', 'Issued', 'issued'])
+                    ->where(function ($typeQuery) use ($concat) {
+                        $typeQuery->where(function ($annualQuery) {
+                            $annualQuery->where('certificates.certificate_type', 'Annual')
+                                ->whereExists(function ($assessmentQuery) {
+                                    $assessmentQuery->selectRaw('1')
+                                        ->from('assessments')
+                                        ->whereColumn('assessments.id', 'assessment_results.assessment_id')
+                                        ->where('assessments.assessment_category', 'Annual');
+                                });
+                        })->orWhere(function ($masteryQuery) use ($concat) {
+                            $masteryQuery->where('certificates.certificate_type', 'Component Mastery')
+                                ->whereExists(function ($assessmentQuery) use ($concat) {
+                                    $assessmentQuery->selectRaw('1')
+                                        ->from('assessments')
+                                        ->whereColumn('assessments.id', 'assessment_results.assessment_id')
+                                        ->where('assessments.assessment_category', 'Component Mastery')
+                                        ->whereRaw("certificates.final_classification = $concat");
+                                });
+                        });
+                    });
+            });
     }
 
     private function certificates(Request $r, string $area)
