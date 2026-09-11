@@ -3932,7 +3932,6 @@ class MobileApiController extends Controller
     {
         $student = $request->user();
         $componentKeys = $this->studentComponentAssessmentOffers($student)->pluck('component_key');
-        $assignedClass = $this->studentClassName($student);
         $attemptedIds = AssessmentResult::where('student_id', $student->id)
             ->pluck('assessment_id');
 
@@ -3946,7 +3945,7 @@ class MobileApiController extends Controller
                 ->where('question_paper_status', 'Approved')
                 ->whereNotNull('file_path')
                 ->whereDate('assessment_date', '<=', today())
-                ->whereRaw("REPLACE(TRIM(assigned_class), '  ', ' ') = ?", [$assignedClass])
+                ->where(fn ($query) => $this->whereStudentClassMatches($query, $student))
                 ->whereNotIn('id', $attemptedIds)
                 ->where(function ($q) {
                     $q->whereDate('assessment_date', today())->orWhere(function ($q) {
@@ -4024,7 +4023,7 @@ class MobileApiController extends Controller
             ->where('institute', $student->institute)
             ->where('assessment_category', 'Component Mastery')
             ->where('component_key', $componentKey)
-            ->where('assigned_class', $this->studentClassName($student))
+            ->where(fn ($query) => $this->whereStudentClassMatches($query, $student))
             ->latest()
             ->first();
 
@@ -4551,6 +4550,31 @@ class MobileApiController extends Controller
     private function studentClassName(Student $student): string
     {
         return preg_replace('/\s+/', ' ', trim($student->class . ' ' . $student->section));
+    }
+
+    private function studentClassOptions(Student $student)
+    {
+        return collect([
+            $student->class,
+            $this->studentClassName($student),
+        ])
+            ->map(fn ($value) => preg_replace('/\s+/', ' ', trim((string) $value)))
+            ->filter()
+            ->unique()
+            ->values();
+    }
+
+    private function whereStudentClassMatches($query, Student $student): void
+    {
+        $options = $this->studentClassOptions($student);
+        if ($options->isEmpty()) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        $options->each(function ($className) use ($query) {
+            $query->orWhereRaw("REPLACE(TRIM(assigned_class), '  ', ' ') = ?", [$className]);
+        });
     }
 
     private function studentContentIsSequenceLocked(Student $student, Content $content): bool
@@ -5240,7 +5264,7 @@ class MobileApiController extends Controller
             ->where('question_paper_status', 'Approved')
             ->whereNotNull('file_path')
             ->whereDate('assessment_date', '<=', today())
-            ->whereRaw("REPLACE(TRIM(assigned_class), '  ', ' ') = ?", [$this->studentClassName($student)])
+            ->where(fn ($query) => $this->whereStudentClassMatches($query, $student))
             ->exists();
     }
 

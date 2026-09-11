@@ -31,7 +31,7 @@ class GenerateComponentMastery extends Command
                             if ($submitted) continue;
                             $page->generateStudentComponentAssessment(new Request(), $offer['component_key'], $ai, $student);
                             $ready = Assessment::where('institute', $student->institute)
-                                ->where('assigned_class', preg_replace('/\s+/', ' ', trim($student->class.' '.$student->section)))
+                                ->whereIn('assigned_class', $this->studentClassOptions($student))
                                 ->where('assessment_category', 'Component Mastery')->where('component_key', $offer['component_key'])
                                 ->where('status', 1)->where('question_paper_status', 'Approved')->whereNotNull('file_path')->exists();
                             if (!$ready) throw new \RuntimeException('Assessment generation is not ready; see the application log.');
@@ -46,5 +46,18 @@ class GenerateComponentMastery extends Command
             });
         $this->info('Component mastery processing finished. Failures: '.$failed);
         return $failed ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function studentClassOptions(Student $student): array
+    {
+        return collect([
+            $student->class,
+            trim((string) $student->class.' '.(string) $student->section),
+        ])
+            ->map(fn ($value) => preg_replace('/\s+/', ' ', trim((string) $value)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }

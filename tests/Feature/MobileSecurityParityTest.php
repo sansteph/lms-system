@@ -711,6 +711,63 @@ class MobileSecurityParityTest extends TestCase
         $this->assertCount(0, $service->offers($other));
     }
 
+    public function test_mastery_detects_known_microcontroller_from_completed_course_even_when_cached_ai_scan_was_empty(): void
+    {
+        $student = $this->student();
+        $course = Course::create(['course_title' => 'Embedded Systems', 'institute' => 'Alpha', 'assigned_class' => 'Class 10', 'status' => 1]);
+        $first = Content::create(['course_id' => $course->id, 'content_title' => 'Arduino Uno digital output', 'status' => 'active']);
+        $second = Content::create(['course_id' => $course->id, 'content_title' => 'Arduino Uno sensor interface', 'status' => 'active']);
+        LessonProgress::create(['student_id' => $student->id, 'content_id' => $first->id, 'is_completed' => 1]);
+        LessonProgress::create(['student_id' => $student->id, 'content_id' => $second->id, 'is_completed' => 1]);
+
+        $items = collect([$first, $second])->map(fn (Content $content) => [
+            'content_id' => $content->id,
+            'title' => $content->content_title,
+            'summary' => ' ',
+            'key_points' => [],
+            'text_snippet' => '',
+        ])->all();
+        DB::table('component_mastery_course_scans')->insert([
+            'course_id' => $course->id,
+            'fingerprint' => hash('sha256', json_encode($items)),
+            'components' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $offers = app(\App\Services\ComponentMasteryService::class)->offers($student);
+
+        $this->assertSame(['arduino-uno'], $offers->pluck('component_key')->all());
+        $this->assertSame('Arduino Uno', $offers->first()['component_label']);
+        $this->assertDatabaseHas('component_mastery_course_scans', [
+            'course_id' => $course->id,
+            'components' => json_encode([
+                ['component_key' => 'arduino-uno', 'component_label' => 'Arduino Uno', 'component_type' => 'microcontroller', 'content_id' => $first->id],
+                ['component_key' => 'arduino-uno', 'component_label' => 'Arduino Uno', 'component_type' => 'microcontroller', 'content_id' => $second->id],
+            ]),
+        ]);
+
+        $this->mock(\App\Services\FirebasePushService::class)->shouldReceive('sendLmsNotification')->once();
+        app(\App\Http\Controllers\PageController::class)->notifyStudentComponentMasteryOffers($student, $offers);
+        $this->assertDatabaseHas('lms_notifications', [
+            'student_id' => $student->id,
+            'component_key' => 'arduino-uno',
+            'notification_type' => 'component_mastery_eligible',
+            'status' => 'active',
+        ]);
+
+        Assessment::create(['assessment_title' => 'Basics in Arduino Uno', 'institute' => 'Alpha',
+            'assigned_class' => 'Class 10', 'assessment_category' => 'Component Mastery', 'component_key' => 'arduino-uno',
+            'component_label' => 'Arduino Uno', 'status' => 1, 'question_paper_status' => 'Approved',
+            'file_path' => 'paper.pdf', 'assessment_date' => today()]);
+
+        Sanctum::actingAs($student);
+        $this->getJson('/api/student/component-mastery')
+            ->assertOk()
+            ->assertJsonPath('assessments.0.component_key', 'arduino-uno')
+            ->assertJsonPath('assessments.0.can_take', true);
+    }
+
     public function test_mastery_automatically_prepares_existing_completed_course_only_once(): void
     {
         Storage::fake('local');

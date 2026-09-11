@@ -2896,10 +2896,7 @@ class PageController extends Controller
             ->where('institute', $student->institute)
             ->where('question_paper_status', 'Approved')
             ->whereNotNull('file_path')
-            ->whereRaw(
-                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                [$assignedClass]
-            );
+            ->where(fn ($query) => $this->whereStudentClassMatches($query, $student));
 
         $pendingAssessmentCount = (clone $assessmentBaseQuery)
             ->whereDate('assessment_date', '<=', today())
@@ -3094,7 +3091,7 @@ class PageController extends Controller
         $componentKeys = $offers->pluck('component_key')->filter()->values();
         $assessments = Assessment::query()
             ->where('institute', $student->institute)
-            ->whereRaw("REPLACE(TRIM(assigned_class), '  ', ' ') = ?", [$this->studentClassName($student)])
+            ->where(fn ($query) => $this->whereStudentClassMatches($query, $student))
             ->where('assessment_category', 'Component Mastery')
             ->whereIn('component_key', $componentKeys)
             ->where('status', 1)
@@ -3162,10 +3159,7 @@ class PageController extends Controller
                 $query->where('assessment_category', '!=', 'Component Mastery')
                     ->orWhereIn('component_key', $eligibleComponentKeys);
             })
-            ->whereRaw(
-                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                [$assignedClass]
-            )
+            ->where(fn ($query) => $this->whereStudentClassMatches($query, $student))
             ->get()
             ->filter(fn ($assessment) => $this->assessmentWindowIsOpen($assessment))
             ->pluck('id');
@@ -3281,7 +3275,7 @@ class PageController extends Controller
             ->where('assessment_category', 'Component Mastery')
             ->where('component_key', $componentKey)
             ->where('question_paper_status', 'Approved')
-            ->whereRaw("REPLACE(TRIM(assigned_class), '  ', ' ') = ?", [$assignedClass])
+            ->where(fn ($query) => $this->whereStudentClassMatches($query, $student))
             ->whereNotNull('file_path')
             ->whereNotIn('id', $attemptedAssessmentIds)
             ->latest()
@@ -5077,13 +5071,8 @@ class PageController extends Controller
 
     private function studentAssignedCourse(Student $student)
     {
-        $assignedClass = trim($student->class . ' ' . $student->section);
-
         return Course::where('institute', $student->institute)
-            ->whereRaw(
-                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                [$assignedClass]
-            )
+            ->where(fn ($query) => $this->whereStudentClassMatches($query, $student))
             ->first();
     }
 
@@ -5117,10 +5106,7 @@ class PageController extends Controller
             ->values();
 
         $legacyCourseIds = Course::where('institute', $student->institute)
-            ->whereRaw(
-                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                [$assignedClass]
-            )
+            ->where(fn ($query) => $this->whereStudentClassMatches($query, $student))
             ->pluck('id');
 
         $legacyReleasedContentIds = Content::whereIn('course_id', $legacyCourseIds)
@@ -5137,6 +5123,31 @@ class PageController extends Controller
     private function studentClassName(Student $student)
     {
         return preg_replace('/\s+/', ' ', trim($student->class . ' ' . $student->section));
+    }
+
+    private function studentClassOptions(Student $student)
+    {
+        return collect([
+            $student->class,
+            $this->studentClassName($student),
+        ])
+            ->map(fn ($value) => preg_replace('/\s+/', ' ', trim((string) $value)))
+            ->filter()
+            ->unique()
+            ->values();
+    }
+
+    private function whereStudentClassMatches($query, Student $student): void
+    {
+        $options = $this->studentClassOptions($student);
+        if ($options->isEmpty()) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        $options->each(function ($className) use ($query) {
+            $query->orWhereRaw("REPLACE(TRIM(assigned_class), '  ', ' ') = ?", [$className]);
+        });
     }
 
     private function studentGradeName(Student $student): ?string
@@ -5200,8 +5211,8 @@ class PageController extends Controller
             return false;
         }
 
-        $classMatches = $this->studentClassName($student) ==
-            preg_replace('/\s+/', ' ', trim((string) $assessment->assigned_class));
+        $classMatches = $this->studentClassOptions($student)
+            ->contains(preg_replace('/\s+/', ' ', trim((string) $assessment->assigned_class)));
 
         if (!$classMatches) {
             return false;
