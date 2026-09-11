@@ -824,7 +824,7 @@ class AssessmentController extends Controller
             $teacher = User::find(session('user_id'));
 
             return $teacher &&
-                $assessment->teacher_id == $teacher->id &&
+                ($assessment->teacher_id == $teacher->id || $assessment->assessment_category === 'Component Mastery') &&
                 $assessment->institute == $teacher->institute;
         }
 

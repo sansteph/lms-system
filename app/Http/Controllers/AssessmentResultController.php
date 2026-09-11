@@ -109,7 +109,7 @@ class AssessmentResultController extends Controller
             ->with('success', 'Assessment submitted successfully. It is waiting for manual evaluation.');
     }
 
-    private function evaluateComponentMasteryResult(AssessmentResult $result, Assessment $assessment, GeminiAiService $ai)
+    public function evaluateComponentMasteryResult(AssessmentResult $result, Assessment $assessment, GeminiAiService $ai)
     {
         try {
             $paper = json_decode((string) $assessment->ai_generation_payload, true) ?: [];
@@ -121,7 +121,7 @@ class AssessmentResultController extends Controller
                 'student_answer' => $result->answer_text,
             ]);
 
-            $totalMarks = max(1, (float) ($evaluation['total_marks'] ?? $assessment->total_marks));
+            $totalMarks = max(1, (float) $assessment->total_marks);
             $score = max(0, min($totalMarks, (float) ($evaluation['score'] ?? 0)));
             $percentage = round(($score / $totalMarks) * 100, 2);
             $passed = $percentage >= 40 && (bool) ($evaluation['passed'] ?? true);
@@ -211,6 +211,7 @@ class AssessmentResultController extends Controller
                 'assessment',
                 'assessment.teacher',
                 'evaluator',
+                'answers.question',
             ])
             ->where(function ($query) use ($statusFilter) {
                 if ($statusFilter === 'Pending Review') {
@@ -222,8 +223,7 @@ class AssessmentResultController extends Controller
                     $query->where('status', 'Completed')
                         ->whereNull('evaluated_by')
                         ->whereHas('assessment', fn ($assessmentQuery) => $assessmentQuery
-                            ->whereIn('assessment_category', ['Monthly', 'Annual'])
-                            ->whereNotNull('teacher_id'));
+                            ->whereIn('assessment_category', ['Monthly', 'Annual', 'Component Mastery']));
                     return;
                 }
 
@@ -237,8 +237,7 @@ class AssessmentResultController extends Controller
                         $aiQuery->where('status', 'Completed')
                             ->whereNull('evaluated_by')
                             ->whereHas('assessment', fn ($assessmentQuery) => $assessmentQuery
-                                ->whereIn('assessment_category', ['Monthly', 'Annual'])
-                                ->whereNotNull('teacher_id'));
+                                ->whereIn('assessment_category', ['Monthly', 'Annual', 'Component Mastery']));
                     });
             })
             ->when(session('user_role') == 'Teacher', function ($query) {
@@ -248,7 +247,9 @@ class AssessmentResultController extends Controller
                         $q->where('institute', $teacher->institute);
                     })
                     ->whereHas('assessment', function ($q) use ($teacher) {
-                        $q->where('teacher_id', $teacher->id);
+                        $q->where('institute', $teacher->institute)
+                            ->where(fn ($q) => $q->where('teacher_id', $teacher->id)
+                                ->orWhere('assessment_category', 'Component Mastery'));
                     });
             })
             ->when($selectedInstitute, function ($query) use ($selectedInstitute, $selectedStudentClass, $selectedStudentSection, $searchFilter) {
@@ -264,6 +265,7 @@ class AssessmentResultController extends Controller
                         });
                 });
             })
+            ->when($request->filled('result_id'), fn ($q) => $q->whereKey($request->input('result_id')))
             ->latest()
             ->paginate(20)
             ->withQueryString();
@@ -445,7 +447,8 @@ class AssessmentResultController extends Controller
 
             if (
                 !$result->assessment ||
-                $result->assessment->teacher_id != $teacher->id ||
+                ($result->assessment->teacher_id != $teacher->id && $result->assessment->assessment_category !== 'Component Mastery') ||
+                $result->assessment->institute != $teacher->institute ||
                 !$result->student ||
                 $result->student->institute != $teacher->institute
             ) {
@@ -513,7 +516,7 @@ class AssessmentResultController extends Controller
         ]);
     }
 
-    private function canViewAnswerFile(AssessmentResult $result)
+    public function canViewAnswerFile(AssessmentResult $result)
     {
         $result->loadMissing(['student', 'assessment']);
 
@@ -530,7 +533,8 @@ class AssessmentResultController extends Controller
 
             return $teacher &&
                 $result->assessment &&
-                $result->assessment->teacher_id == $teacher->id &&
+                ($result->assessment->teacher_id == $teacher->id || $result->assessment->assessment_category === 'Component Mastery') &&
+                $result->assessment->institute == $teacher->institute &&
                 $result->student &&
                 $result->student->institute == $teacher->institute;
         }
@@ -598,61 +602,8 @@ class AssessmentResultController extends Controller
 
     private function studentHasComponentMasteryEligibility(Student $student, ?string $componentKey): bool
     {
-        if (!$componentKey) {
-            return false;
-        }
-
-        $contentIds = Content::query()
-            ->where('status', 1)
-            ->where('institute', $student->institute)
-            ->where(function ($query) use ($student) {
-                $assignedClass = $this->studentClassName($student);
-
-                $query->whereRaw(
-                    "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                    [$assignedClass]
-                )
-                ->orWhere(function ($courseQuery) use ($assignedClass, $student) {
-                    $courseQuery->whereHas('course', function ($q) use ($assignedClass, $student) {
-                        $q->where('institute', $student->institute)
-                            ->whereRaw(
-                                "REPLACE(TRIM(assigned_class), '  ', ' ') = ?",
-                                [$assignedClass]
-                            );
-                    });
-                });
-            })
-            ->pluck('id');
-
-        $eligibleContentIds = AiComponentContentProfile::whereIn('content_id', $contentIds)
-            ->where('component_key', $componentKey)
-            ->where('is_practical', true)
-            ->where('confidence', '>=', 45)
-            ->pluck('content_id');
-
-        if ($eligibleContentIds->count() < 5) {
-            return false;
-        }
-
-        $aiQuizOwnerIds = Content::with('courseContent.sourceTemplateContent.aiSummary')
-            ->whereIn('id', $eligibleContentIds)
-            ->get()
-            ->map(function (Content $content) {
-                $sourceContent = $content->courseContent?->sourceTemplateContent;
-
-                return $sourceContent && ($sourceContent->aiSummary || $sourceContent->hasAiPdfMaterial())
-                    ? $sourceContent->id
-                    : $content->id;
-            })
-            ->unique()
-            ->values();
-
-        return AiQuizAttempt::where('student_id', $student->id)
-            ->where('attempt_type', 'student')
-            ->where('status', 'passed')
-            ->whereIn('content_id', $aiQuizOwnerIds)
-            ->distinct('content_id')
-            ->count('content_id') >= 5;
+        return $componentKey && app(\App\Services\ComponentMasteryService::class)
+            ->offers($student)->contains('component_key', $componentKey);
     }
 
     private function assessmentWindowIsOpen(Assessment $assessment): bool
@@ -790,6 +741,20 @@ class AssessmentResultController extends Controller
             $this->removePendingAnnualCertificateIfNoLongerEligible($result->student_id, $assessment);
         }
 
+        if ($assessment->assessment_category === 'Component Mastery') {
+            $pending = Certificate::where('student_id', $result->student_id)
+                ->where('certificate_type', 'Component Mastery')
+                ->where('final_classification', 'Basics in '.$assessment->component_label)
+                ->whereIn('status', ['Pending', 'Pending Approval', 'pending_admin_approval']);
+            if (!$result->passed || (float) $result->percentage < 40) {
+                $pending->delete();
+                return;
+            }
+            $pending->update(['final_score' => $result->percentage,
+                'badge_count' => round($result->percentage),
+                'final_grade' => $this->calculateFinalGrade($result->percentage)]);
+        }
+
         $this->prepareCertificateRequestIfEligible($result->student_id, $assessment);
     }
 
@@ -867,7 +832,7 @@ class AssessmentResultController extends Controller
         $existingCertificate = Certificate::where('student_id', $studentId)
             ->where('certificate_type', 'Component Mastery')
             ->where('course_id', null)
-            ->where('final_classification', 'like', '%' . $assessment->component_label . '%')
+            ->whereIn('final_classification', ['Basics in '.$assessment->component_label, 'Component Mastery - '.$assessment->component_label])
             ->first();
 
         if ($existingCertificate) {
@@ -883,7 +848,7 @@ class AssessmentResultController extends Controller
             'badge_count' => round($finalScore),
             'final_score' => $finalScore,
             'final_grade' => $this->calculateFinalGrade($finalScore),
-            'final_classification' => trim('Component Mastery - ' . $assessment->component_label),
+            'final_classification' => 'Basics in ' . $assessment->component_label,
             'issued_date' => null,
             'status' => 'pending_admin_approval',
             'certificate_type' => 'Component Mastery',

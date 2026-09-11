@@ -350,7 +350,9 @@ body {
 <body>
 @php
     $studentName = $student->name ?? 'Student Name';
-    $programName = $certificate->course->course_title ?? 'STEM Robotics & AI Program';
+    $programName = $certificate->certificate_type === 'Component Mastery'
+        ? $certificate->final_classification
+        : ($certificate->course->course_title ?? 'STEM Robotics & AI Program');
     $percentage = round(
         $certificate->final_score
         ?? $certificate->final_percentage

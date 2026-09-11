@@ -75,4 +75,31 @@ class AssessmentResult extends Model
     {
         return $this->belongsTo(User::class, 'evaluated_by');
     }
+
+    public function answers()
+    {
+        return $this->hasMany(AssessmentAnswer::class, 'assessment_result_id');
+    }
+
+    public function originalSubmission(): array
+    {
+        $this->loadMissing('answers.question');
+
+        return [
+            'text' => (string) $this->answer_text,
+            'answers' => $this->answers->map(function ($answer) {
+                $question = $answer->question;
+                if ($question && (int) $question->assessment_id !== (int) $this->assessment_id) {
+                    $question = null;
+                }
+                return [
+                    'question_id' => $answer->question_id,
+                    'question' => $question?->question,
+                    'answer' => (string) $answer->submitted_answer,
+                    'maximum_marks' => $question?->marks,
+                    'marks_awarded' => $answer->marks_awarded,
+                ];
+            })->values()->all(),
+        ];
+    }
 }

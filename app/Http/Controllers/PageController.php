@@ -1260,7 +1260,8 @@ class PageController extends Controller
             'rejection_reason' => null,
             'final_score' => $finalScore,
             'final_grade' => $this->calculateCertificateGrade($finalScore),
-            'final_classification' => $this->calculateCertificateClassification($finalScore),
+            'final_classification' => $certificate->certificate_type === 'Component Mastery'
+                ? $certificate->final_classification : $this->calculateCertificateClassification($finalScore),
         ]);
 
         return redirect()->back()
@@ -3247,6 +3248,14 @@ class PageController extends Controller
     public function generateStudentComponentAssessment(Request $request, string $componentKey, GeminiAiService $ai, ?Student $apiStudent = null)
     {
         $student = $apiStudent ?: Student::findOrFail(session('student_id'));
+        $lock = 'mastery-paper-'.hash('sha256', $student->institute.'|'.$this->studentClassName($student).'|'.$componentKey);
+        return \Illuminate\Support\Facades\Cache::lock($lock, 300)->block(5,
+            fn () => $this->prepareStudentComponentAssessment($request, $componentKey, $ai, $student));
+    }
+
+    private function prepareStudentComponentAssessment(Request $request, string $componentKey, GeminiAiService $ai, Student $apiStudent)
+    {
+        $student = $apiStudent ?: Student::findOrFail(session('student_id'));
         $assignedClass = $this->studentClassName($student);
         $offers = $this->studentComponentAssessmentOffers($student, $ai);
         $offer = $offers->firstWhere('component_key', $componentKey);
@@ -3254,11 +3263,18 @@ class PageController extends Controller
         if (!$offer) {
             return redirect()
                 ->route('student.assessment')
-                ->with('error', 'You need to complete at least 5 practical topics for this component before taking the mastery assessment.');
+                ->with('error', 'Complete the entire assigned course before taking a microcontroller or microprocessor assessment.');
         }
 
         $attemptedAssessmentIds = AssessmentResult::where('student_id', $student->id)
             ->pluck('assessment_id');
+
+        $previousResult = AssessmentResult::where('student_id', $student->id)
+            ->whereHas('assessment', fn ($q) => $q->where('assessment_category', 'Component Mastery')
+                ->where('component_key', $componentKey))->exists();
+        if ($previousResult) {
+            return redirect()->route('student.history')->with('error', 'This component assessment has already been submitted.');
+        }
 
         $existingAssessment = Assessment::where('status', 1)
             ->where('institute', $student->institute)
@@ -3266,6 +3282,7 @@ class PageController extends Controller
             ->where('component_key', $componentKey)
             ->where('question_paper_status', 'Approved')
             ->whereRaw("REPLACE(TRIM(assigned_class), '  ', ' ') = ?", [$assignedClass])
+            ->whereNotNull('file_path')
             ->whereNotIn('id', $attemptedAssessmentIds)
             ->latest()
             ->first();
@@ -3291,7 +3308,7 @@ class PageController extends Controller
 
         try {
             $paper = $ai->generateComponentMasteryQuestionPaper([
-                'assessment_title' => 'Basics of ' . $offer['component_label'],
+                'assessment_title' => 'Basics in ' . $offer['component_label'],
                 'assessment_category' => 'Component Mastery',
                 'component' => $offer['component_label'],
                 'assigned_class' => $assignedClass,
@@ -3302,8 +3319,9 @@ class PageController extends Controller
                 'content_text' => $contentContext,
             ]);
 
+            $paper['title'] = 'Basics in ' . $offer['component_label'];
             [$filePath, $previewPath] = $this->storeComponentMasteryQuestionPaperPdf($paper, [
-                'assessment_title' => $paper['title'] ?? ('Basics of ' . $offer['component_label']),
+                'assessment_title' => $paper['title'],
                 'assessment_category' => 'Component Mastery',
                 'assigned_class' => $assignedClass,
                 'assessment_date' => today()->toDateString(),
@@ -3323,7 +3341,7 @@ class PageController extends Controller
 
         $assessment = Assessment::create([
             'institute' => $student->institute,
-            'assessment_title' => $paper['title'] ?? ('Basics of ' . $offer['component_label']),
+            'assessment_title' => $paper['title'],
             'assessment_type' => 'Student',
             'assigned_class' => $assignedClass,
             'assessment_category' => 'Component Mastery',
@@ -3357,52 +3375,13 @@ class PageController extends Controller
 
     private function studentComponentAssessmentOffers(Student $student, ?GeminiAiService $ai = null)
     {
-        $contentIds = $this->studentAvailableContentIds($student);
-        $contents = Content::with(['aiSummary', 'courseContent.sourceTemplateContent.aiSummary'])
-            ->whereIn('id', $contentIds)
-            ->where('status', 1)
-            ->get();
-
-        $completedContentIds = $this->studentPassedAiReviewContentIds($student, $contents);
-        $completedContents = $contents
-            ->whereIn('id', $completedContentIds)
-            ->values();
-
-        if ($completedContents->count() < 5) {
-            return collect();
-        }
-
-        $this->ensureComponentProfilesForContents($completedContents, $ai);
-
-        $profiles = AiComponentContentProfile::whereIn('content_id', $completedContents->pluck('id'))
-            ->where('is_practical', true)
-            ->where('confidence', '>=', 45)
-            ->get()
-            ->keyBy('content_id');
-
-        return $completedContents
-            ->filter(fn (Content $content) => $profiles->has($content->id))
-            ->groupBy(fn (Content $content) => $profiles->get($content->id)->component_key)
-            ->map(function ($componentContents, $componentKey) use ($profiles) {
-                $profile = $profiles->get($componentContents->first()->id);
-
-                return [
-                    'component_key' => $componentKey,
-                    'component_label' => $profile->component_label,
-                    'completed_count' => $componentContents->count(),
-                    'content_ids' => $componentContents->pluck('id')->values()->all(),
-                    'content_titles' => $componentContents->pluck('content_title')->values()->all(),
-                ];
-            })
-            ->filter(fn ($offer) => $offer['completed_count'] >= 5)
-            ->sortBy('component_label')
-            ->values();
+        return app(\App\Services\ComponentMasteryService::class)->offers($student, $ai);
     }
 
-    private function notifyStudentComponentMasteryOffers(Student $student, $offers): void
+    public function notifyStudentComponentMasteryOffers(Student $student, $offers): void
     {
         foreach ($offers as $offer) {
-            $notification = LmsNotification::firstOrCreate(
+            $notification = LmsNotification::updateOrCreate(
                 [
                     'student_id' => $student->id,
                     'component_key' => $offer['component_key'],
@@ -3410,7 +3389,7 @@ class PageController extends Controller
                 ],
                 [
                     'title' => 'New Component Mastery assessment available',
-                    'message' => 'You are eligible for the ' . $offer['component_label'] . ' Component Mastery assessment after completing ' . $offer['completed_count'] . ' practical topics. Open Component Mastery to begin.',
+                    'message' => 'Basics in ' . $offer['component_label'] . ' is available after completing your course. Open Component Mastery to begin.',
                     'target' => 'students',
                     'institute' => $student->institute,
                     'starts_at' => today()->toDateString(),

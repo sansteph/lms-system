@@ -302,3 +302,7 @@ Schedule::command('teaching-plans:release-weekly')
 Schedule::command('ai-content:generate-upcoming')
     ->everyFiveMinutes()
     ->withoutOverlapping();
+
+Schedule::command('component-mastery:generate')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();

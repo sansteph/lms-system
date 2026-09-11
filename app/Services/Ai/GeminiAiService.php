@@ -484,7 +484,7 @@ PROMPT;
         $payload = json_encode($items, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
         return <<<PROMPT
-You are classifying InnovatEdge STEM lesson content by the dominant practical component or technology family.
+Scan all supplied completed-course lessons for named microcontrollers and microprocessors.
 
 Content items:
 {$payload}
@@ -496,6 +496,7 @@ Return only valid JSON with this exact structure:
       "content_id": 1,
       "component_key": "arduino",
       "component_label": "Arduino",
+      "component_type": "microcontroller",
       "is_practical": true,
       "confidence": 90,
       "evidence": ["short phrase from title/summary proving the classification"]
@@ -504,13 +505,15 @@ Return only valid JSON with this exact structure:
 }
 
 Rules:
-- Classify each item into one dominant component family such as Arduino, Sensors, Microcontrollers, Microprocessors, Motors, Robotics, IoT, Electronics, Coding, AI, or Design Thinking.
-- component_key must be lowercase slug text, for example arduino, sensors, microcontrollers.
+- Return one item for EACH named microcontroller or microprocessor taught in a lesson. Repeat content_id when a lesson covers multiple devices.
+- Include named controller boards/platforms such as Arduino Uno, ESP32, Raspberry Pi Pico, and Raspberry Pi. Use the most specific name supported by the lesson, consistently across lessons.
+- component_type must be microcontroller or microprocessor. Exclude sensors, motors, robotics, generic electronics, programming, and unnamed generic processors/controllers.
+- component_key must be a lowercase slug of the device name.
 - is_practical should be true only for hands-on projects, experiments, builds, lab activities, circuits, coding tasks, or hardware work.
 - confidence must be 0 to 100.
 - Use only supplied titles, summaries, key points, and extracted text snippets.
 - Do not invent components that are not supported by the supplied item.
-- If unsure, use "general-stem" / "General STEM" with lower confidence.
+- If no supported device is taught, return no item for that lesson. Include conceptual lessons as well as practical projects.
 PROMPT;
     }
 
@@ -561,7 +564,8 @@ Rules:
 - Do not create MCQs.
 - Total marks across all questions must equal requested total_marks.
 - Include conceptual understanding, wiring/build logic, code reasoning, debugging/troubleshooting, safety, and mini project design questions where supported by the source content.
-- Questions must test mastery across at least 5 completed practical experiments for the component.
+- Cover the named microcontroller or microprocessor across the supplied completed-course material. There is no minimum number of projects.
+- The title must exactly match assessment_title (Basics in followed by the device name).
 - Keep questions clear for the student's class level.
 - expected_points are for evaluator reference only.
 PROMPT;

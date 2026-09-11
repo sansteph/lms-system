@@ -46,6 +46,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\MobileRoleAccess::class]
     Route::get('/workflows/{area}/export', [\App\Http\Controllers\Api\MobileWorkflowController::class, 'export']);
     Route::post('/workflows/{area}/{action}/{id?}', [\App\Http\Controllers\Api\MobileWorkflowController::class, 'act'])->whereNumber('id');
     Route::get('/workflows/{area}/{id}/document', [\App\Http\Controllers\Api\MobileWorkflowController::class, 'document'])->whereNumber('id');
+    Route::get('/workflows/results/{id}/paper', [\App\Http\Controllers\Api\MobileWorkflowController::class, 'resultQuestionPaper'])->whereNumber('id');
     Route::get('/students/import-template', [StudentImportController::class, 'template']);
     Route::post('/students/import', [StudentImportController::class, 'store']);
     Route::get('/profile', [MobileApiController::class, 'profile']);

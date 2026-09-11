@@ -711,7 +711,8 @@ class MobileApiController extends Controller
             ->map(function (Certificate $certificate) {
                 return [
                     'id' => $certificate->id,
-                    'title' => $certificate->course?->course_title ?? 'Certificate',
+                    'title' => $certificate->certificate_type === 'Component Mastery'
+                        ? $certificate->final_classification : ($certificate->course?->course_title ?? 'Certificate'),
                     'subtitle' => trim(($certificate->certificate_code ?? '') . ' · ' . ($certificate->issued_date ?? '')),
                     'status' => $certificate->status ?? 'Issued',
                 ];
@@ -772,9 +773,9 @@ class MobileApiController extends Controller
             ->map(function (Certificate $certificate) {
                 return [
                     'id' => $certificate->id,
-                    'title' => $certificate->certificate_type
-                        ? $certificate->certificate_type . ' Certificate'
-                        : 'Certificate',
+                    'title' => $certificate->certificate_type === 'Component Mastery'
+                        ? $certificate->final_classification
+                        : ($certificate->certificate_type ? $certificate->certificate_type . ' Certificate' : 'Certificate'),
                     'certificate_code' => $certificate->certificate_code ?? '',
                     'badge_count' => $certificate->badge_count,
                     'final_score' => $certificate->final_score,
@@ -3930,12 +3931,16 @@ class MobileApiController extends Controller
     public function studentAssessments(Request $request)
     {
         $student = $request->user();
+        $componentKeys = $this->studentComponentAssessmentOffers($student)->pluck('component_key');
         $assignedClass = $this->studentClassName($student);
         $attemptedIds = AssessmentResult::where('student_id', $student->id)
             ->pluck('assessment_id');
 
         $now = now()->format('H:i:s');
         $page = Assessment::query()
+                ->where(fn ($q) => $q->whereNull('assessment_category')
+                    ->orWhere('assessment_category', '!=', 'Component Mastery')
+                    ->orWhereIn('component_key', $componentKeys))
                 ->where('institute', $student->institute)
                 ->where('status', 1)
                 ->where('question_paper_status', 'Approved')
@@ -3989,8 +3994,10 @@ class MobileApiController extends Controller
                     'completed_practical_topics' => $offer['completed_count'],
                     'content_ids' => $offer['content_ids'],
                     'content_titles' => $offer['content_titles'],
+                    'course_titles' => $offer['course_titles'],
+                    'component_type' => $offer['component_type'],
                     'assessment_id' => $assessment?->id,
-                    'assessment_title' => $assessment?->assessment_title,
+                    'assessment_title' => $assessment?->assessment_title ?? ('Basics in '.$offer['component_label']),
                     'result_id' => $result?->id,
                     'result_status' => $result?->status,
                     'percentage' => $result?->percentage !== null ? (float) $result->percentage : null,
@@ -4686,46 +4693,7 @@ class MobileApiController extends Controller
 
     private function studentComponentAssessmentOffers(Student $student, ?GeminiAiService $ai = null): Collection
     {
-        $contentIds = $this->studentAvailableContentIds($student);
-        $contents = Content::with(['aiSummary', 'courseContent.sourceTemplateContent.aiSummary'])
-            ->whereIn('id', $contentIds)
-            ->where('status', 1)
-            ->get();
-
-        $completedContentIds = $this->studentPassedAiReviewContentIds($student, $contents);
-        $completedContents = $contents
-            ->whereIn('id', $completedContentIds)
-            ->values();
-
-        if ($completedContents->count() < 5) {
-            return collect();
-        }
-
-        $this->ensureComponentProfilesForContents($completedContents, $ai);
-
-        $profiles = AiComponentContentProfile::whereIn('content_id', $completedContents->pluck('id'))
-            ->where('is_practical', true)
-            ->where('confidence', '>=', 45)
-            ->get()
-            ->keyBy('content_id');
-
-        return $completedContents
-            ->filter(fn (Content $content) => $profiles->has($content->id))
-            ->groupBy(fn (Content $content) => $profiles->get($content->id)->component_key)
-            ->map(function ($componentContents, $componentKey) use ($profiles) {
-                $profile = $profiles->get($componentContents->first()->id);
-
-                return [
-                    'component_key' => $componentKey,
-                    'component_label' => $profile->component_label,
-                    'completed_count' => $componentContents->count(),
-                    'content_ids' => $componentContents->pluck('id')->values()->all(),
-                    'content_titles' => $componentContents->pluck('content_title')->values()->all(),
-                ];
-            })
-            ->filter(fn ($offer) => $offer['completed_count'] >= 5)
-            ->sortBy('component_label')
-            ->values();
+        return app(\App\Services\ComponentMasteryService::class)->offers($student, $ai);
     }
 
     private function ensureComponentProfilesForContents($contents, ?GeminiAiService $ai = null): void
@@ -5261,6 +5229,10 @@ class MobileApiController extends Controller
 
     private function studentCanAccessAssessment(Student $student, Assessment $assessment): bool
     {
+        if ($assessment->assessment_category === 'Component Mastery'
+            && !$this->studentComponentAssessmentOffers($student)->contains('component_key', $assessment->component_key)) {
+            return false;
+        }
         return Assessment::query()
             ->where('id', $assessment->id)
             ->where('institute', $student->institute)

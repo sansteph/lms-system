@@ -25,6 +25,12 @@ class AssessmentAutoEvaluationService
         $result->loadMissing(['assessment', 'student']);
 
         $assessment = $result->assessment;
+        if ($assessment?->assessment_category === 'Component Mastery') {
+            if ($result->status !== 'Pending Review') return false;
+            app(\App\Http\Controllers\AssessmentResultController::class)
+                ->evaluateComponentMasteryResult($result, $assessment, $this->ai);
+            return $result->fresh()->status === 'Completed';
+        }
         if (!$assessment || !$this->supportsAutoEvaluation($assessment)) {
             return false;
         }

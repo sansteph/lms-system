@@ -182,10 +182,11 @@
                         @foreach($classResults as $result)
                             @php
                                 $assessment = $result->assessment;
+                                $submission = $result->originalSubmission();
                                 $isAiEvaluated = $result->status === 'Completed'
                                     && empty($result->evaluated_by)
                                     && $assessment
-                                    && in_array($assessment->assessment_category, ['Monthly', 'Annual']);
+                                    && in_array($assessment->assessment_category, ['Monthly', 'Annual', 'Component Mastery']);
                                 $statusLabel = $isAiEvaluated ? 'AI Evaluated' : ($result->status ?: 'Pending Review');
                                 $paperUrl = null;
                                 $paperExtension = $assessment ? strtolower(pathinfo($assessment->file_path ?? '', PATHINFO_EXTENSION)) : null;
@@ -254,19 +255,31 @@
                                                     <div class="border rounded bg-white answer-sheet">
                                                         <div class="d-flex justify-content-between align-items-center mb-3">
                                                             <div>
-                                                                <strong>Student Submission</strong>
-                                                                <div class="small text-muted">Typed answer submitted by the student.</div>
+                                                                <strong>Student Answers</strong>
                                                             </div>
                                                             <span class="badge bg-light text-dark border">Submission</span>
                                                         </div>
 
-                                                        <div class="answer-text border rounded">
-                                                            @if(!empty($result->answer_text))
-                                                                {{ $result->answer_text }}
-                                                            @else
-                                                                <span class="answer-empty">No typed answer submitted.</span>
-                                                            @endif
-                                                        </div>
+                                                        @if($submission['text'] !== '')
+                                                            <div class="answer-text border rounded">{{ $submission['text'] }}</div>
+                                                        @endif
+                                                        @foreach($submission['answers'] as $answer)
+                                                            <div class="mt-3">
+                                                                <strong>{{ $answer['question'] ?? ('Question ' . $answer['question_id']) }}</strong>
+                                                                @if($answer['maximum_marks'] !== null)
+                                                                    <div class="small text-muted">Maximum marks: {{ $answer['maximum_marks'] }}</div>
+                                                                @endif
+                                                                <div class="answer-text border rounded">{{ $answer['answer'] !== '' ? $answer['answer'] : 'No answer submitted.' }}</div>
+                                                                @if($answer['marks_awarded'] !== null)
+                                                                    <div class="small text-muted">Recorded marks: {{ $answer['marks_awarded'] }}</div>
+                                                                @endif
+                                                            </div>
+                                                        @endforeach
+                                                        @if($result->answer_file_path)
+                                                            <a href="{{ route('assessment.answer.file', $result->id) }}" target="_blank" rel="noopener" class="btn btn-outline-primary mt-3">View Student Answer File</a>
+                                                        @elseif($submission['text'] === '' && !$submission['answers'])
+                                                            <div class="answer-empty">No original answer was stored for this result.</div>
+                                                        @endif
                                                     </div>
                                                 </div>
                                             </div>

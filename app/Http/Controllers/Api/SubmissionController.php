@@ -125,7 +125,8 @@ class SubmissionController extends Controller
         return [
             'id' => 'certificate-'.$certificate->id,
             'source' => 'certificate',
-            'title' => ($certificate->certificate_type ?: 'Student').' Certificate',
+            'title' => $certificate->certificate_type === 'Component Mastery'
+                ? $certificate->final_classification : ($certificate->certificate_type ?: 'Student').' Certificate',
             'achievement_type' => 'Certificate',
             'organizer' => 'InnovatEdge',
             'description' => $meta,

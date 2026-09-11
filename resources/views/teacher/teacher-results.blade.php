@@ -563,6 +563,7 @@
                                                 Disqualify
                                             </button>
                                         </form>
+                                        <a class="btn btn-sm btn-outline-primary mt-2" href="{{ route('assessment.review', ['result_id' => $result->id, 'status' => $result->status]) }}">Review Student Answers</a>
                                     </td>
 
                                 </tr>

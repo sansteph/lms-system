@@ -189,6 +189,19 @@ class MobileWorkflowController extends Controller
             : app(AssessmentResultController::class)->showAnswerFile(AssessmentResult::findOrFail($id)));
     }
 
+    public function resultQuestionPaper(Request $request, int $id)
+    {
+        $this->authorizeArea($request, 'results');
+        $result = AssessmentResult::with('assessment', 'student')->findOrFail($id);
+        return app(MobileWebContext::class)->run($request, function () use ($result) {
+            abort_unless(app(AssessmentResultController::class)->canViewAnswerFile($result), 403);
+            $assessment = $result->assessment;
+            abort_unless($assessment, 404);
+            $variant = $assessment->question_paper_preview_path ? 'preview' : 'file';
+            return app(AssessmentController::class)->showQuestionPaper($assessment, $variant);
+        });
+    }
+
     private function field(string $name, string $label, string $type = 'text', bool $required = false, array $options = []): array
     {
         return compact('name', 'label', 'type', 'required', 'options');
@@ -319,9 +332,10 @@ class MobileWorkflowController extends Controller
     private function results(Request $r)
     {
         $a = $r->user();
-        $query = AssessmentResult::with('student', 'assessment')->whereHas('assessment', function ($q) use ($r, $a) {
+        $query = AssessmentResult::with('student', 'assessment', 'answers.question')->whereHas('assessment', function ($q) use ($r, $a) {
             $this->scope($q, $r);
-            if (in_array($a->role, ['Teacher', 'STEM Engineer'], true)) $q->where('teacher_id', $a->id);
+            if (in_array($a->role, ['Teacher', 'STEM Engineer'], true)) $q->where(fn ($q) => $q
+                ->where('teacher_id', $a->id)->orWhere('assessment_category', 'Component Mastery'));
         })->whereHas('student', fn ($s) => $this->scope($s, $r))->latest();
         $query->when($r->filled('search'), fn ($q) => $q->where(fn ($q) => $q
             ->whereHas('student', fn ($s) => $s->where('name', 'like', '%'.$r->search.'%')->orWhere('student_id', 'like', '%'.$r->search.'%'))
@@ -332,8 +346,7 @@ class MobileWorkflowController extends Controller
                 $query->where('status', 'Completed')
                     ->whereNull('evaluated_by')
                     ->whereHas('assessment', fn ($assessmentQuery) => $assessmentQuery
-                        ->whereIn('assessment_category', ['Monthly', 'Annual'])
-                        ->whereNotNull('teacher_id'));
+                        ->whereIn('assessment_category', ['Monthly', 'Annual', 'Component Mastery']));
             } else {
                 $query->where('status', $r->input('status'));
             }
@@ -355,10 +368,12 @@ class MobileWorkflowController extends Controller
             $isAiEvaluated = $result->status === 'Completed'
                 && empty($result->evaluated_by)
                 && $result->assessment
-                && in_array($result->assessment->assessment_category, ['Monthly', 'Annual'], true);
+                && in_array($result->assessment->assessment_category, ['Monthly', 'Annual', 'Component Mastery'], true);
 
             return ['id' => $result->id, 'title' => $result->student?->name, 'subtitle' => $result->assessment?->assessment_title,
                 'status' => $isAiEvaluated ? 'AI Evaluated' : $result->status,
+                'submission' => $result->originalSubmission(),
+                'question_paper' => $result->assessment?->file_path ? "/api/workflows/results/$result->id/paper" : null,
                 'details' => $result->only(['answer_text', 'score', 'total_marks', 'feedback', 'percentage', 'badge']) + [
                     'evaluation_source' => $isAiEvaluated ? 'AI automated evaluation' : ($result->evaluated_by ? 'Reviewed by STEM Engineer/Admin' : 'Manual review pending'),
                 ],
@@ -411,7 +426,7 @@ class MobileWorkflowController extends Controller
             return ['id' => $c->id, 'title' => $student ? $c->certificate_code : $c->student?->name, 'subtitle' => $c->certificate_type, 'status' => $c->status,
                 'document' => $student && in_array(strtolower($c->status), ['approved', 'issued'], true) ? "/api/workflows/awards/$c->id/document" : null,
                 'details' => $c->only(['certificate_code', 'badge_count', 'final_score', 'final_grade', 'final_classification', 'issued_date', 'rejection_reason']) + [
-                    'course' => $c->course?->course_title ?? 'Program Completion', 'institute' => $c->student?->institute, 'class' => $c->student?->class, 'section' => $c->student?->section,
+                    'course' => $c->certificate_type === 'Component Mastery' ? $c->final_classification : ($c->course?->course_title ?? 'Program Completion'), 'institute' => $c->student?->institute, 'class' => $c->student?->class, 'section' => $c->student?->section,
                 ], 'actions' => $actions];
         }, filters: $filters);
     }

@@ -133,7 +133,7 @@
 
                                 <p class="mb-2">
                                     <strong>Course:</strong>
-                                    {{ $certificate->course->course_title ?? 'Program Completion' }}
+                                    {{ $certificate->certificate_type === 'Component Mastery' ? $certificate->final_classification : ($certificate->course->course_title ?? 'Program Completion') }}
                                 </p>
 
                             @else

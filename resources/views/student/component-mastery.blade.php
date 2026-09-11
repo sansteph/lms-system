@@ -38,9 +38,10 @@
                             <div>
                                 <div class="d-flex align-items-center gap-2 mb-2">
                                     <span class="badge rounded-pill bg-primary">Component</span>
-                                    <span class="badge rounded-pill bg-light text-dark border">{{ $offer['completed_count'] }} practical topics</span>
+                                    <span class="badge rounded-pill bg-light text-dark border">Course completed</span>
                                 </div>
-                                <h4 class="mb-2">{{ $offer['component_label'] }} Mastery</h4>
+                                <h4 class="mb-2">Basics in {{ $offer['component_label'] }}</h4>
+                                <p class="text-muted mb-2">{{ implode(', ', $offer['course_titles']) }}</p>
                                 <p class="text-muted mb-2">{{ collect($offer['content_titles'])->take(5)->implode(', ') }}</p>
                                 <div class="small fw-semibold {{ $result?->passed ? 'text-success' : 'text-secondary' }}">
                                     Status: {{ $item['status'] }}
@@ -73,7 +74,7 @@
                     <div class="card-body p-5 text-center">
                         <i class="fa-solid fa-microchip fa-2x text-primary mb-3"></i>
                         <h4>No Component Mastery assessments yet</h4>
-                        <p class="text-muted mb-0">Complete and pass the AI quiz for at least five practical topics around the same component. Eligible assessments will appear here automatically.</p>
+                        <p class="text-muted mb-0">No completed-course microcontroller or microprocessor assessments are available yet.</p>
                     </div>
                 </div>
             @endforelse

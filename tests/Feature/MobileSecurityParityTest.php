@@ -33,6 +33,7 @@ class MobileSecurityParityTest extends TestCase
             'ai_quiz_attempts' => ['ai_quiz_id','content_id','attempt_type','grade_level','teacher_id','student_id','status','started_at','submitted_at','score','percentage','feedback','evaluated_at'],
             'ai_quiz_answers' => ['ai_quiz_attempt_id','ai_quiz_question_id','answer_text','score','feedback'],
             'ai_component_content_profiles' => ['content_id','component_key','component_label','is_practical','confidence','evidence','provider','model','analyzed_at'],
+            'component_mastery_course_scans' => ['course_id','fingerprint','components'],
             'assessments' => ['assessment_title','assessment_type','institute','assigned_class','assessment_category','assessment_date','start_time','end_time','duration','total_marks','teacher_id','status','question_paper_status','file_path','question_paper_preview_path','question_paper_reviewed_by','question_paper_reviewed_at','question_paper_feedback','question_paper_type','ai_generated','ai_source_content_ids','ai_generation_payload','content_id','component_key','component_label','certificate_eligible'],
             'assessment_sessions' => ['assessment_id','user_id','user_type','started_at','submitted_at','status','violation_count','last_violation_at'],
             'assessment_results' => ['assessment_id','student_id','score','total_marks','status','percentage','answer_text','answer_file_path','badge','feedback','passed','evaluated_by','evaluated_at'],
@@ -51,8 +52,8 @@ class MobileSecurityParityTest extends TestCase
             'my_spaces' => ['title','description','created_by_type','created_by_id','type','status','blueprint_pdf'],
             'student_achievements' => ['student_id','title','achievement_type','position','description','achievement_date','organizer','verification_status','certificate_file'],
             'teacher_achievements' => ['user_id','title','description','verification_status','certificate_file'],
-            'assessment_answers' => ['assessment_result_id','assessment_id','student_id'],
-            'assessment_questions' => ['assessment_id'],
+            'assessment_answers' => ['assessment_result_id','assessment_id','student_id','question_id','submitted_answer','marks_awarded'],
+            'assessment_questions' => ['assessment_id','question','marks'],
             'pending_password_changes' => ['user_id'],
         ] as $name => $columns) {
             Schema::create($name, function (Blueprint $t) use ($columns) {
@@ -65,6 +66,39 @@ class MobileSecurityParityTest extends TestCase
     private function student(): Student
     {
         return Student::create(['student_id' => uniqid('S'), 'name' => 'Student', 'password' => 'Correct123', 'institute' => 'Alpha', 'class' => 'Class 10', 'section' => 'A', 'status' => 1]);
+    }
+
+    public function test_review_exposes_original_answers_separately_from_feedback_and_protects_files(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('paper.pdf', '%PDF-1.4 paper');
+        Storage::disk('local')->put('answer.pdf', '%PDF-1.4 answer');
+        $student = $this->student(); $teacher = $this->user();
+        $assessment = Assessment::create(['assessment_title' => 'Monthly exam', 'assessment_category' => 'Monthly',
+            'teacher_id' => $teacher->id, 'institute' => 'Alpha', 'file_path' => 'paper.pdf']);
+        $result = AssessmentResult::create(['assessment_id' => $assessment->id, 'student_id' => $student->id,
+            'status' => 'Completed', 'answer_text' => "Original answer line 1\nOriginal answer line 2",
+            'feedback' => 'AI feedback only', 'answer_file_path' => 'answer.pdf']);
+        $question = \App\Models\AssessmentQuestion::create(['assessment_id' => $assessment->id, 'question' => 'Explain GPIO', 'marks' => 10]);
+        \App\Models\AssessmentAnswer::create(['assessment_result_id' => $result->id, 'assessment_id' => $assessment->id,
+            'student_id' => $student->id, 'question_id' => $question->id, 'submitted_answer' => 'My GPIO answer', 'marks_awarded' => 7]);
+        Sanctum::actingAs($teacher);
+        $this->getJson('/api/workflows/results')->assertOk()
+            ->assertJsonPath('records.0.submission.text', $result->answer_text)
+            ->assertJsonPath('records.0.submission.answers.0.answer', 'My GPIO answer')
+            ->assertJsonPath('records.0.submission.answers.0.maximum_marks', '10')
+            ->assertJsonPath('records.0.details.feedback', 'AI feedback only');
+        $this->get('/api/workflows/results/'.$result->id.'/paper')->assertOk();
+        $this->get('/api/workflows/results/'.$result->id.'/document')->assertOk();
+        $this->withSession(['user_id' => $teacher->id, 'user_role' => 'Teacher', 'user_institute' => 'Alpha'])
+            ->get('/assessment-review?status=Completed&result_id='.$result->id)->assertOk()
+            ->assertSee('Original answer line 2')->assertSee('My GPIO answer')->assertSee('View Student Answer File');
+        $outsider = $this->user(); Sanctum::actingAs($outsider);
+        $this->getJson('/api/workflows/results')->assertOk()->assertJsonCount(0, 'records');
+        $this->get('/api/workflows/results/'.$result->id.'/paper')->assertForbidden();
+        $this->get('/api/workflows/results/'.$result->id.'/document')->assertForbidden();
+        Sanctum::actingAs($student);
+        $this->get('/api/workflows/results/'.$result->id.'/paper')->assertForbidden();
     }
 
     public function test_review_decisions_cannot_be_replayed_or_overwritten(): void
@@ -610,10 +644,11 @@ class MobileSecurityParityTest extends TestCase
     public function test_mobile_component_mastery_matches_web_card_states(): void
     {
         $student = $this->student();
+        $course = Course::create(['course_title' => 'Robotics', 'institute' => 'Alpha', 'assigned_class' => 'Class 10 A', 'status' => 1]);
         $plan = TeachingPlan::create(['institute' => 'Alpha', 'class' => 'Class 10', 'section' => 'A', 'status' => 'active', 'is_template' => false]);
         $week = TeachingPlanWeek::create(['teaching_plan_id' => $plan->id, 'status' => 'released', 'release_date' => today()]);
-        $contents = collect(range(1, 5))->map(function ($i) use ($student, $plan, $week) {
-            $content = Content::create(['content_title' => "Robot build $i", 'assigned_class' => 'Class 10', 'institute' => 'Alpha', 'status' => 1]);
+        $contents = collect(range(1, 5))->map(function ($i) use ($student, $plan, $week, $course) {
+            $content = Content::create(['content_title' => "Arduino build $i", 'course_id' => $course->id, 'assigned_class' => 'Class 10', 'institute' => 'Alpha', 'status' => 1]);
             TeachingPlanItem::create(['teaching_plan_id' => $plan->id, 'teaching_plan_week_id' => $week->id, 'content_id' => $content->id, 'status' => 'completed']);
             \App\Models\AiContentSummary::create(['content_id' => $content->id, 'status' => 'generated', 'summary' => 'Robot project with motor sensors and control.']);
             \App\Models\AiComponentContentProfile::create(['content_id' => $content->id, 'component_key' => 'robotics', 'component_label' => 'Robotics', 'is_practical' => 1, 'confidence' => 90]);
@@ -621,7 +656,9 @@ class MobileSecurityParityTest extends TestCase
             return $content;
         });
 
-        $assessment = Assessment::create(['assessment_title' => 'Robotics Mastery', 'institute' => 'Alpha', 'assigned_class' => 'Class 10 A', 'assessment_category' => 'Component Mastery', 'component_key' => 'robotics', 'component_label' => 'Robotics', 'status' => 1, 'question_paper_status' => 'Approved', 'file_path' => 'paper.pdf', 'assessment_date' => today()]);
+        $this->mock(\App\Services\Ai\GeminiAiService::class)->shouldReceive('classifyComponentContent')->once()
+            ->andReturn(['items' => $contents->map(fn ($c) => ['content_id' => $c->id, 'component_label' => 'Arduino', 'component_type' => 'microcontroller', 'confidence' => 90])->all()]);
+        $assessment = Assessment::create(['assessment_title' => 'Basics in Arduino', 'institute' => 'Alpha', 'assigned_class' => 'Class 10 A', 'assessment_category' => 'Component Mastery', 'component_key' => 'arduino', 'component_label' => 'Arduino', 'status' => 1, 'question_paper_status' => 'Approved', 'file_path' => 'paper.pdf', 'assessment_date' => today()]);
         $otherClass = $assessment->replicate();
         $otherClass->assigned_class = 'Class 9 B';
         $otherClass->created_at = now()->addMinute();
@@ -629,7 +666,7 @@ class MobileSecurityParityTest extends TestCase
         Sanctum::actingAs($student);
         $this->getJson('/api/student/component-mastery')
             ->assertOk()
-            ->assertJsonPath('assessments.0.component_label', 'Robotics')
+            ->assertJsonPath('assessments.0.component_label', 'Arduino')
             ->assertJsonPath('assessments.0.completed_practical_topics', 5)
             ->assertJsonPath('assessments.0.content_titles.0', $contents->first()->content_title)
             ->assertJsonPath('assessments.0.assessment_id', $assessment->id)
@@ -642,6 +679,119 @@ class MobileSecurityParityTest extends TestCase
             ->assertJsonPath('assessments.0.can_take', false)
             ->assertJsonPath('assessments.0.can_view_result', true)
             ->assertJsonPath('assessments.0.percentage', 88);
+    }
+
+    public function test_mastery_requires_entire_course_and_scans_once_for_multiple_devices(): void
+    {
+        $student = $this->student();
+        $course = Course::create(['course_title' => 'Hardware', 'institute' => 'Alpha', 'assigned_class' => 'Class 10 A', 'status' => 1]);
+        $first = Content::create(['course_id' => $course->id, 'content_title' => 'ESP32 and Raspberry Pi', 'status' => 1, 'is_released' => 1]);
+        $last = Content::create(['course_id' => $course->id, 'content_title' => 'Final lesson', 'status' => 1, 'is_released' => 0]);
+        LessonProgress::create(['student_id' => $student->id, 'content_id' => $first->id, 'is_completed' => 1]);
+        $ai = $this->mock(\App\Services\Ai\GeminiAiService::class);
+        $ai->shouldReceive('classifyComponentContent')->once()->andReturn(['items' => [
+            ['content_id' => $first->id, 'component_label' => 'ESP32', 'component_type' => 'microcontroller', 'confidence' => 90],
+            ['content_id' => $first->id, 'component_label' => 'Raspberry Pi', 'component_type' => 'microprocessor', 'confidence' => 90],
+            ['content_id' => $first->id, 'component_label' => 'Sensors', 'component_type' => 'sensor', 'confidence' => 90],
+        ]]);
+        $service = app(\App\Services\ComponentMasteryService::class);
+        $this->assertCount(0, $service->offers($student));
+        $this->assertDatabaseCount('component_mastery_course_scans', 0);
+        $paper = Assessment::create(['assessment_title' => 'Basics in ESP32', 'institute' => 'Alpha',
+            'assigned_class' => 'Class 10 A', 'assessment_category' => 'Component Mastery', 'component_key' => 'esp32',
+            'status' => 1, 'question_paper_status' => 'Approved', 'file_path' => 'paper.pdf', 'assessment_date' => today()]);
+        Sanctum::actingAs($student);
+        $this->getJson('/api/student/assessments')->assertOk()->assertJsonCount(0, 'assessments');
+        $this->postJson('/api/student/assessments/'.$paper->id.'/start')->assertForbidden();
+        LessonProgress::create(['student_id' => $student->id, 'content_id' => $last->id, 'is_completed' => 1]);
+        $this->assertSame(['esp32', 'raspberry-pi'], $service->offers($student)->pluck('component_key')->all());
+        $this->assertCount(2, $service->offers($student));
+        $this->assertDatabaseCount('component_mastery_course_scans', 1);
+        $other = $this->student();
+        $this->assertCount(0, $service->offers($other));
+    }
+
+    public function test_mastery_automatically_prepares_existing_completed_course_only_once(): void
+    {
+        Storage::fake('local');
+        $student = $this->student();
+        $course = Course::create(['course_title' => 'Hardware', 'institute' => 'Alpha', 'assigned_class' => 'Class 10 A']);
+        $content = Content::create(['course_id' => $course->id, 'content_title' => 'ESP32', 'status' => 1]);
+        \App\Models\AiContentSummary::create(['content_id' => $content->id, 'status' => 'generated',
+            'summary' => str_repeat('ESP32 GPIO inputs and outputs, safe wiring and code. ', 5)]);
+        LessonProgress::create(['student_id' => $student->id, 'content_id' => $content->id, 'is_completed' => 1]);
+        $ai = $this->mock(\App\Services\Ai\GeminiAiService::class);
+        $ai->shouldReceive('classifyComponentContent')->once()->andReturn(['items' => [
+            ['content_id' => $content->id, 'component_label' => 'ESP32', 'component_type' => 'microcontroller', 'confidence' => 90],
+        ]]);
+        $ai->shouldReceive('generateComponentMasteryQuestionPaper')->once()->andReturn(['title' => 'AI changed the title',
+            'instructions' => [], 'sections' => [['heading' => 'Questions', 'questions' => [['number' => 1, 'question' => 'Explain GPIO.', 'marks' => 50]]]]]);
+        $this->mock(\App\Services\FirebasePushService::class)->shouldReceive('sendLmsNotification')->once();
+        $this->artisan('component-mastery:generate')->assertSuccessful();
+        $this->artisan('component-mastery:generate')->assertSuccessful();
+        $this->assertDatabaseCount('assessments', 1);
+        $this->assertSame('Basics in ESP32', Assessment::first()->assessment_title);
+        $this->assertSame('Basics in ESP32', json_decode(Assessment::first()->ai_generation_payload, true)['title']);
+        Storage::disk('local')->assertExists(Assessment::first()->file_path);
+    }
+
+    public function test_mastery_migration_preserves_history_and_archives_old_papers(): void
+    {
+        Schema::drop('component_mastery_course_scans');
+        $student = $this->student();
+        $paper = Assessment::create(['assessment_title' => 'Basics of Arduino', 'assessment_category' => 'Component Mastery',
+            'component_label' => 'Arduino', 'component_key' => 'arduino', 'status' => 1]);
+        AssessmentResult::create(['assessment_id' => $paper->id, 'student_id' => $student->id, 'status' => 'Completed']);
+        $certificate = Certificate::create(['student_id' => $student->id, 'certificate_type' => 'Component Mastery',
+            'final_classification' => 'Distinction', 'status' => 'approved']);
+        $migration = require database_path('migrations/2026_09_11_000001_rewire_component_mastery.php');
+        $migration->up();
+        $this->assertEquals(0, $paper->fresh()->status);
+        $this->assertSame('Basics in Arduino', $paper->fresh()->assessment_title);
+        $this->assertSame('Basics in Arduino', $certificate->fresh()->final_classification);
+        $this->assertSame('approved', $certificate->fresh()->status);
+        $this->assertDatabaseCount('assessment_results', 1);
+    }
+
+    public function test_mastery_certificate_title_survives_engineer_approval_and_web_review(): void
+    {
+        $student = $this->student(); $teacher = $this->user();
+        $paper = Assessment::create(['assessment_title' => 'Basics in ESP32', 'assessment_category' => 'Component Mastery',
+            'component_key' => 'esp32', 'component_label' => 'ESP32', 'certificate_eligible' => 1, 'institute' => 'Alpha']);
+        $result = AssessmentResult::create(['assessment_id' => $paper->id, 'student_id' => $student->id,
+            'status' => 'Completed', 'score' => 40, 'total_marks' => 50, 'percentage' => 80, 'passed' => 1]);
+        $this->withSession(['user_id' => $teacher->id, 'user_role' => 'Teacher', 'user_institute' => 'Alpha'])
+            ->get('/assessment-review?status=AI+Evaluated')->assertOk()->assertSee('Basics in ESP32');
+        $this->post('/assessment-review/'.$result->id, ['marks_awarded' => 40, 'passed' => 1])->assertRedirect();
+        $certificate = Certificate::firstOrFail();
+        $this->post('/teacher/certificates/approve/'.$certificate->id)->assertRedirect();
+        $this->assertSame('Basics in ESP32', $certificate->fresh()->final_classification);
+        Sanctum::actingAs($student);
+        $this->getJson('/api/student/achievements')->assertOk()->assertSee('Basics in ESP32');
+    }
+
+    public function test_engineer_can_review_mobile_mastery_ai_score_and_correct_pending_certificate(): void
+    {
+        $student = $this->student();
+        $assessment = Assessment::create(['assessment_title' => 'Basics in ESP32', 'assessment_category' => 'Component Mastery',
+            'component_key' => 'esp32', 'component_label' => 'ESP32', 'certificate_eligible' => 1, 'institute' => 'Alpha',
+            'assigned_class' => 'Class 10 A', 'total_marks' => 50, 'question_paper_status' => 'Approved', 'ai_generation_payload' => '{"sections":[]}']);
+        $result = AssessmentResult::create(['student_id' => $student->id, 'assessment_id' => $assessment->id,
+            'status' => 'Pending Review', 'total_marks' => 50, 'answer_text' => 'My answer']);
+        $this->mock(\App\Services\Ai\GeminiAiService::class)->shouldReceive('evaluateComponentMasteryAssessment')->once()
+            ->andReturn(['score' => 40, 'total_marks' => 50, 'passed' => true, 'feedback' => 'Good']);
+        $this->assertTrue(app(\App\Services\AssessmentAutoEvaluationService::class)->evaluateIfEligible($result));
+        $this->assertFalse(app(\App\Services\AssessmentAutoEvaluationService::class)->evaluateIfEligible($result->fresh()));
+        $this->assertDatabaseHas('certificates', ['student_id' => $student->id, 'final_classification' => 'Basics in ESP32']);
+        $teacher = $this->user(); Sanctum::actingAs($teacher);
+        $this->getJson('/api/workflows/results?status=AI+Evaluated')->assertOk()->assertJsonPath('records.0.id', $result->id)
+            ->assertJsonPath('records.0.actions.0.label', 'Review AI score');
+        $this->postJson('/api/workflows/results/review/'.$result->id, ['marks_awarded' => 30, 'passed' => 1])->assertOk();
+        $this->assertEquals(60, Certificate::first()->final_score);
+        $this->postJson('/api/workflows/results/review/'.$result->id, ['marks_awarded' => 10, 'passed' => 0])->assertOk();
+        $this->assertDatabaseCount('certificates', 0);
+        $teacher->update(['institute' => 'Beta']); Sanctum::actingAs($teacher->fresh());
+        $this->postJson('/api/workflows/results/review/'.$result->id, ['marks_awarded' => 40, 'passed' => 1])->assertForbidden();
     }
 
     public function test_gap_session_completion_returns_celebration_only_for_manual_completion(): void
